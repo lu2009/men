@@ -7,6 +7,10 @@ pub struct Config {
     pub database_url: String,
     /// 允许的跨域来源（逗号分隔）。开发期前端 Vite 与 Tauri 来源。
     pub cors_origins: Vec<String>,
+    /// 首次启动播种的默认管理员。
+    pub admin_username: String,
+    pub admin_password: String,
+    pub admin_tenant_name: String,
 }
 
 impl Config {
@@ -28,10 +32,19 @@ impl Config {
             .filter(|s| !s.is_empty())
             .collect();
 
+        let admin_username = std::env::var("ADMIN_USERNAME").unwrap_or_else(|_| "admin".into());
+        let admin_password =
+            std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "Admin@12345".into());
+        let admin_tenant_name =
+            std::env::var("ADMIN_TENANT_NAME").unwrap_or_else(|_| "默认门窗厂".into());
+
         Ok(Self {
             port,
             database_url,
             cors_origins,
+            admin_username,
+            admin_password,
+            admin_tenant_name,
         })
     }
 }

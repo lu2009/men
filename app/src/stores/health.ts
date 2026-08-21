@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import { fetchHealth, type HealthResponse } from '../api/client'
+import { api } from '../api/client'
+import type { HealthResponse } from '../api/types'
 
 // 示例 Pinia store：演示状态管理骨架，后续按业务拆分。
 export const useHealthStore = defineStore('health', {
@@ -13,7 +14,7 @@ export const useHealthStore = defineStore('health', {
       this.loading = true
       this.error = null
       try {
-        this.data = await fetchHealth()
+        this.data = await api.health()
       } catch (e) {
         this.error = e instanceof Error ? e.message : String(e)
       } finally {
