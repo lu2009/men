@@ -1,0 +1,34 @@
+# macOS
+.DS_Store
+
+# Python (legacy tooling)
+__pycache__/
+*.pyc
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# Rust
+target/
+**/*.rs.bk
+*.pdb
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code 本地个人设置
+.claude/settings.local.json
