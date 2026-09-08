@@ -3,3 +3,4 @@ pub mod auth;
 pub mod clients;
 pub mod formula;
 pub mod health;
+pub mod orders;

@@ -1,0 +1,229 @@
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+/// `parts`/`markup` 缺省为空数组而非 null，与 JSONB 列默认值保持一致。
+fn empty_json_array() -> Value {
+    json!([])
+}
+
+/// 订单行请求体。算料结果 `parts` 与加价项 `markup` 由前端 formulaEngine 计算后整体传入。
+#[derive(Debug, Deserialize)]
+pub struct OrderLineInput {
+    #[serde(default)]
+    pub line_type: String,
+    #[serde(default)]
+    pub profile: String,
+    #[serde(default)]
+    pub color: String,
+    #[serde(default)]
+    pub direction: String,
+    #[serde(default)]
+    pub fans: String,
+    #[serde(default)]
+    pub track: String,
+    #[serde(default)]
+    pub casing: String,
+    #[serde(default)]
+    pub edge_binding: String,
+    #[serde(default)]
+    pub hardware: String,
+    #[serde(default)]
+    pub bottom_glass: String,
+    #[serde(default)]
+    pub face_glass: String,
+    #[serde(default)]
+    pub glass_thickness: String,
+    #[serde(default)]
+    pub door_width: f64,
+    #[serde(default)]
+    pub door_height: f64,
+    #[serde(default)]
+    pub light_window_height: f64,
+    #[serde(default)]
+    pub wall_thickness: f64,
+    #[serde(default)]
+    pub jiao: f64,
+    #[serde(default)]
+    pub mother_door_width: f64,
+    #[serde(default)]
+    pub quantity: i32,
+    #[serde(default)]
+    pub unit_price: f64,
+    #[serde(default)]
+    pub price_type: String,
+    #[serde(default)]
+    pub discount: f64,
+    #[serde(default)]
+    pub square: f64,
+    #[serde(default)]
+    pub custom_square: f64,
+    #[serde(default)]
+    pub other_fee: f64,
+    #[serde(default)]
+    pub casing_price: f64,
+    #[serde(default)]
+    pub casing_amount: f64,
+    #[serde(default)]
+    pub amount: f64,
+    #[serde(default = "empty_json_array")]
+    pub parts: Value,
+    #[serde(default = "empty_json_array")]
+    pub markup: Value,
+    #[serde(default)]
+    pub formula_id: Option<i64>,
+    #[serde(default)]
+    pub remark: String,
+    #[serde(default)]
+    pub install_address: String,
+    #[serde(default)]
+    pub open_img: String,
+    #[serde(default)]
+    pub edge_seal_count: Option<f64>,
+    #[serde(default)]
+    pub seal_board_height: f64,
+    #[serde(default)]
+    pub track_length: f64,
+    #[serde(default)]
+    pub front_casing_add: Option<f64>,
+    #[serde(default)]
+    pub back_casing_add: Option<f64>,
+    #[serde(default)]
+    pub link_no: Option<String>,
+    #[serde(default)]
+    pub double_ding: Option<String>,
+    #[serde(default)]
+    pub light_window_count: i32,
+    #[serde(default)]
+    pub image_id: Option<String>,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    #[serde(default)]
+    pub progress: String,
+    #[serde(default)]
+    pub hole_size: String,
+    #[serde(default)]
+    pub markup_raw: String,
+}
+
+/// 新建/更新订单请求体：订单头 + 行列表。
+#[derive(Debug, Deserialize)]
+pub struct OrderRequest {
+    #[serde(default)]
+    pub receipt_no: String,
+    #[serde(default)]
+    pub client_code: String,
+    #[serde(default)]
+    pub client_name: String,
+    #[serde(default)]
+    pub phone: String,
+    #[serde(default)]
+    pub brand: String,
+    #[serde(default)]
+    pub order_date: String,
+    #[serde(default)]
+    pub production_days: i32,
+    #[serde(default)]
+    pub deposit: f64,
+    #[serde(default)]
+    pub remark: String,
+    #[serde(default)]
+    pub salesperson: String,
+    #[serde(default)]
+    pub lines: Vec<OrderLineInput>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OrderLineDto {
+    pub id: i64,
+    pub line_type: String,
+    pub row_index: i32,
+    pub profile: String,
+    pub color: String,
+    pub direction: String,
+    pub fans: String,
+    pub track: String,
+    pub casing: String,
+    pub edge_binding: String,
+    pub hardware: String,
+    pub bottom_glass: String,
+    pub face_glass: String,
+    pub glass_thickness: String,
+    pub door_width: f64,
+    pub door_height: f64,
+    pub light_window_height: f64,
+    pub wall_thickness: f64,
+    pub jiao: f64,
+    pub mother_door_width: f64,
+    pub quantity: i32,
+    pub unit_price: f64,
+    pub price_type: String,
+    pub discount: f64,
+    pub square: f64,
+    pub custom_square: f64,
+    pub other_fee: f64,
+    pub casing_price: f64,
+    pub casing_amount: f64,
+    pub amount: f64,
+    pub parts: Value,
+    pub markup: Value,
+    pub formula_id: Option<i64>,
+    pub remark: String,
+    pub install_address: String,
+    pub open_img: String,
+    pub edge_seal_count: Option<f64>,
+    pub seal_board_height: f64,
+    pub track_length: f64,
+    pub front_casing_add: Option<f64>,
+    pub back_casing_add: Option<f64>,
+    pub link_no: Option<String>,
+    pub double_ding: Option<String>,
+    pub light_window_count: i32,
+    pub image_id: Option<String>,
+    pub image_url: Option<String>,
+    pub progress: String,
+    pub hole_size: String,
+    pub markup_raw: String,
+}
+
+/// 列表用订单头（不含行）。
+#[derive(Debug, Serialize)]
+pub struct OrderSummaryDto {
+    pub id: i64,
+    pub receipt_no: String,
+    pub client_code: String,
+    pub client_name: String,
+    pub phone: String,
+    pub brand: String,
+    pub order_date: String,
+    pub production_days: i32,
+    pub due_date: String,
+    pub total_price: f64,
+    pub deposit: f64,
+    pub remark: String,
+    pub salesperson: String,
+    pub door_count: i32,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// 订单详情（头 + 行）。
+#[derive(Debug, Serialize)]
+pub struct OrderDto {
+    pub id: i64,
+    pub receipt_no: String,
+    pub client_code: String,
+    pub client_name: String,
+    pub phone: String,
+    pub brand: String,
+    pub order_date: String,
+    pub production_days: i32,
+    pub due_date: String,
+    pub total_price: f64,
+    pub deposit: f64,
+    pub remark: String,
+    pub salesperson: String,
+    pub door_count: i32,
+    pub created_at: String,
+    pub updated_at: String,
+    pub lines: Vec<OrderLineDto>,
+}
