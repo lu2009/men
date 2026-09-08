@@ -1,4 +1,18 @@
-import type { AuthResponse, HealthResponse, MeResponse } from './types'
+import type {
+  AuthResponse,
+  ClientDto,
+  ClientInput,
+  FormulaDto,
+  FormulaImageDto,
+  FormulaImageInput,
+  FormulaInput,
+  HealthResponse,
+  MeResponse,
+  OrderDto,
+  OrderInput,
+  OrderSummaryDto,
+  PrintTemplateDto,
+} from './types'
 
 // 统一 API 封装。Web 端经 Vite 代理走相对路径 /api；
 // Tauri 桌面端通过 VITE_API_BASE_URL 指向后端绝对地址。
@@ -61,4 +75,66 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   health: () => request<HealthResponse>('/v1/health'),
+  listFormulas: (search?: string) =>
+    request<FormulaDto[]>(
+      `/v1/formulas${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    ),
+  getFormula: (id: number) => request<FormulaDto>(`/v1/formulas/${id}`),
+  createFormula: (payload: FormulaInput) =>
+    request<FormulaDto>('/v1/formulas', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateFormula: (id: number, payload: FormulaInput) =>
+    request<FormulaDto>(`/v1/formulas/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteFormula: (id: number) =>
+    request<{ deleted: boolean }>(`/v1/formulas/${id}`, { method: 'DELETE' }),
+  listFormulaImages: (id: number) => request<FormulaImageDto[]>(`/v1/formulas/${id}/images`),
+  addFormulaImage: (id: number, payload: FormulaImageInput) =>
+    request<FormulaImageDto>(`/v1/formulas/${id}/images`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deleteFormulaImage: (id: number, imageId: number) =>
+    request<{ deleted: boolean }>(`/v1/formulas/${id}/images/${imageId}`, {
+      method: 'DELETE',
+    }),
+  listClients: (search?: string) =>
+    request<ClientDto[]>(
+      `/v1/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    ),
+  getClient: (id: number) => request<ClientDto>(`/v1/clients/${id}`),
+  createClient: (payload: ClientInput) =>
+    request<ClientDto>('/v1/clients', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateClient: (id: number, payload: ClientInput) =>
+    request<ClientDto>(`/v1/clients/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteClient: (id: number) =>
+    request<{ deleted: boolean }>(`/v1/clients/${id}`, { method: 'DELETE' }),
+  listOrders: () => request<OrderSummaryDto[]>('/v1/orders'),
+  getOrder: (id: number) => request<OrderDto>(`/v1/orders/${id}`),
+  createOrder: (payload: OrderInput) =>
+    request<OrderDto>('/v1/orders', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  updateOrder: (id: number, payload: OrderInput) =>
+    request<OrderDto>(`/v1/orders/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteOrder: (id: number) =>
+    request<{ deleted: boolean }>(`/v1/orders/${id}`, { method: 'DELETE' }),
+  // 打印模板（汇算字典）：按 mode 或全量拉取。
+  listPrintTemplates: () => request<PrintTemplateDto[]>('/v1/print-templates'),
+  getPrintTemplatesByMode: (mode: string) =>
+    request<PrintTemplateDto[]>(`/v1/print-templates/${encodeURIComponent(mode)}`),
 }
