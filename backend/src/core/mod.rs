@@ -1,5 +1,6 @@
 // 横切关注点：被所有业务模块依赖，但不依赖任何业务模块。
 pub mod auth;
+pub mod base64;
 pub mod config;
 pub mod db;
 pub mod error;
