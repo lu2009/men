@@ -27,6 +27,7 @@ pub fn app(state: AppState) -> Router {
 
     Router::<AppState>::new()
         .merge(modules::auth::router())
+        .merge(modules::formula::router())
         .merge(modules::health::router())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
