@@ -75,6 +75,24 @@ pub struct FormulaMatchDto {
     pub updated_at: String,
 }
 
+/// 取价结果：型材 → 单价/计价方式/套线单价/锁定条件。
+#[derive(Debug, Serialize)]
+pub struct PriceResolveDto {
+    pub unit_price: f64,
+    pub price_type: String,
+    pub casing_price: Option<f64>,
+    pub lock_rules: Value,
+    pub matched_profile: String,
+}
+
+/// 公式匹配结果：型材 + 扇数 → formula_id。
+#[derive(Debug, Serialize)]
+pub struct FormulaMatchResolveDto {
+    pub formula_id: i64,
+    pub matched_profile: String,
+    pub matched_fans: String,
+}
+
 // ===== 打印模板 =====
 
 #[derive(Debug, Deserialize)]

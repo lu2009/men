@@ -8,6 +8,15 @@
             <n-tag v-if="auth.user" type="info">
               {{ auth.user.name }}（{{ auth.tenant?.name }}）
             </n-tag>
+            <n-button size="small" type="primary" @click="router.push({ name: 'formulas' })">
+              公式管理
+            </n-button>
+            <n-button size="small" @click="router.push({ name: 'clients' })">
+              客户信息
+            </n-button>
+            <n-button size="small" type="success" @click="router.push({ name: 'hui' })">
+              汇算下单
+            </n-button>
             <n-button size="small" :loading="health.loading" @click="health.refresh()">
               刷新状态
             </n-button>

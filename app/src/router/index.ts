@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import Clients from '../views/Clients.vue'
+import Formulas from '../views/Formulas.vue'
 import Home from '../views/Home.vue'
+import Hui from '../views/Hui.vue'
 import Login from '../views/Login.vue'
 
 const router = createRouter({
@@ -8,6 +11,9 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: Home, meta: { requiresAuth: true } },
     { path: '/login', name: 'login', component: Login },
+    { path: '/formulas', name: 'formulas', component: Formulas, meta: { requiresAuth: true } },
+    { path: '/clients', name: 'clients', component: Clients, meta: { requiresAuth: true } },
+    { path: '/hui', name: 'hui', component: Hui, meta: { requiresAuth: true } },
   ],
 })
 

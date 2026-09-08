@@ -197,6 +197,22 @@ export interface OrderInput {
   lines: OrderLineInput[]
 }
 
+// 取价结果：型材 → 单价/计价方式/套线单价/锁定条件。
+export interface PriceResolveDto {
+  unit_price: number
+  price_type: string
+  casing_price: number | null
+  lock_rules: unknown
+  matched_profile: string
+}
+
+// 公式匹配结果：型材 + 扇数 → formula_id。
+export interface FormulaMatchResolveDto {
+  formula_id: number
+  matched_profile: string
+  matched_fans: string
+}
+
 // 打印模板：hiprint 模板 JSON 存于 template 字段。
 export interface PrintTemplateDto {
   id: number
@@ -207,4 +223,23 @@ export interface PrintTemplateDto {
   remark: string
   created_at: string
   updated_at: string
+}
+
+// 列显隐配置：平开/移门各自「字段名 → 是否显示」。缺省空对象 = 全部显示。
+export interface ColumnConfigInput {
+  ping_columns: Record<string, boolean>
+  diao_columns: Record<string, boolean>
+}
+
+// 加价项目（同步保存 → 后端持久化）。
+export interface AddPriceItemDto {
+  id: number
+  name: string
+  price: number
+  unit: string
+}
+export interface AddPriceItemInput {
+  name: string
+  price: number
+  unit: string
 }

@@ -14,4 +14,8 @@ pub fn router() -> Router<AppState> {
             "/api/v1/orders/{id}",
             get(handler::get).put(handler::update).delete(handler::delete),
         )
+        .route(
+            "/api/v1/orders/{id}/lines/{line_id}",
+            axum::routing::put(handler::update_line).delete(handler::delete_line),
+        )
 }

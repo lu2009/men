@@ -7,7 +7,7 @@ use crate::core::error::ApiResult;
 use crate::core::response;
 use crate::core::AppState;
 
-use super::model::OrderRequest;
+use super::model::{OrderLineInput, OrderRequest};
 use super::service;
 
 pub async fn list(
@@ -52,5 +52,26 @@ pub async fn delete(
     Path(id): Path<i64>,
 ) -> ApiResult<Json<Value>> {
     service::delete(&state.pool, user.tenant_id, id).await?;
+    Ok(response::ok(json!({ "deleted": true })))
+}
+
+/// 更新订单内单行（按 line_id）。
+pub async fn update_line(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path((id, line_id)): Path<(i64, i64)>,
+    Json(line): Json<OrderLineInput>,
+) -> ApiResult<Json<Value>> {
+    service::update_line(&state.pool, user.tenant_id, id, line_id, &line).await?;
+    Ok(response::ok(json!({ "updated": true })))
+}
+
+/// 删除订单内单行（按 line_id）。
+pub async fn delete_line(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path((id, line_id)): Path<(i64, i64)>,
+) -> ApiResult<Json<Value>> {
+    service::delete_line(&state.pool, user.tenant_id, id, line_id).await?;
     Ok(response::ok(json!({ "deleted": true })))
 }

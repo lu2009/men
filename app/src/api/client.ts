@@ -8,9 +8,15 @@ import type {
   FormulaInput,
   HealthResponse,
   MeResponse,
+  AddPriceItemDto,
+  AddPriceItemInput,
+  ColumnConfigInput,
+  FormulaMatchResolveDto,
   OrderDto,
   OrderInput,
+  OrderLineInput,
   OrderSummaryDto,
+  PriceResolveDto,
   PrintTemplateDto,
 } from './types'
 
@@ -57,8 +63,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (res.status === 204) return undefined as T
   const body = await res.json()
-  // 后端成功响应统一为 { data: ... }
-  return (body?.data ?? body) as T
+  // 后端成功响应统一为 { data: ... }；显式 data:null 也须原样返回 null（不可用 ?? 兜底成整包对象）。
+  if (body && typeof body === 'object' && 'data' in body) return body.data as T
+  return body as T
 }
 
 export const api = {
@@ -133,6 +140,45 @@ export const api = {
     }),
   deleteOrder: (id: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${id}`, { method: 'DELETE' }),
+  // 订单行：单行更新/删除（行生命周期）。
+  updateOrderLine: (orderId: number, lineId: number, payload: OrderLineInput) =>
+    request<{ updated: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  deleteOrderLine: (orderId: number, lineId: number) =>
+    request<{ deleted: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
+      method: 'DELETE',
+    }),
+  // 取价 + 公式匹配（汇算字典 resolve）。
+  resolvePrice: (lineType: string, profile: string, clientCode?: string) =>
+    request<PriceResolveDto | null>(
+      `/v1/prices/resolve?line_type=${encodeURIComponent(lineType)}&profile=${encodeURIComponent(profile)}${
+        clientCode ? `&client_code=${encodeURIComponent(clientCode)}` : ''
+      }`,
+    ),
+  resolveFormulaMatch: (lineType: string, profile: string, fans?: string) =>
+    request<FormulaMatchResolveDto | null>(
+      `/v1/formula-matches/resolve?line_type=${encodeURIComponent(lineType)}&profile=${encodeURIComponent(profile)}${
+        fans ? `&fans=${encodeURIComponent(fans)}` : ''
+      }`,
+    ),
+  // 列显隐配置（租户级）。
+  getColumnConfig: () => request<ColumnConfigInput>('/v1/column-configs'),
+  updateColumnConfig: (payload: ColumnConfigInput) =>
+    request<{ saved: boolean }>('/v1/column-configs', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+  // 加价项目（租户级，同步保存持久化）。
+  listAddPriceItems: () => request<AddPriceItemDto[]>('/v1/add-price-items'),
+  createAddPriceItem: (payload: AddPriceItemInput) =>
+    request<AddPriceItemDto>('/v1/add-price-items', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  deleteAddPriceItem: (id: number) =>
+    request<{ deleted: boolean }>(`/v1/add-price-items/${id}`, { method: 'DELETE' }),
   // 打印模板（汇算字典）：按 mode 或全量拉取。
   listPrintTemplates: () => request<PrintTemplateDto[]>('/v1/print-templates'),
   getPrintTemplatesByMode: (mode: string) =>

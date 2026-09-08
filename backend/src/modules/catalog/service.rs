@@ -4,8 +4,8 @@ use sqlx::PgPool;
 use crate::core::error::ApiResult;
 
 use super::model::{
-    FormulaMatchDto, FormulaMatchInput, PrintTemplateDto, PrintTemplateInput, ProfilePriceDto,
-    ProfilePriceInput,
+    FormulaMatchDto, FormulaMatchInput, FormulaMatchResolveDto, PriceResolveDto, PrintTemplateDto,
+    PrintTemplateInput, ProfilePriceDto, ProfilePriceInput,
 };
 
 const PRICE_COLUMNS: &str = "id, line_type, profile, price_type, unit_price, casing_price, \
@@ -151,6 +151,62 @@ pub async fn import_prices(
     Ok(count)
 }
 
+// ===== 取价 resolve（型材关键字 → 单价）=====
+
+/// 按型材关键字匹配一条价格：优先「客户专属价」，其次「通用价」；关键字越精确（越长/完全相等）越先。
+/// 匹配规则复刻旧版 getPingPrice/getDiaoPrice：`型材.includes(关键字)`。
+pub async fn resolve_price(
+    pool: &PgPool,
+    tenant_id: i64,
+    line_type: &str,
+    profile: &str,
+    client_code: &str,
+) -> ApiResult<Option<PriceResolveDto>> {
+    let profile = profile.trim();
+    if profile.is_empty() {
+        return Ok(None);
+    }
+    let sql = format!(
+        "SELECT {PRICE_COLUMNS} FROM profile_prices WHERE tenant_id = $1 AND line_type = $2"
+    );
+    let rows: Vec<PriceRow> = sqlx::query_as(&sql)
+        .bind(tenant_id)
+        .bind(line_type)
+        .fetch_all(pool)
+        .await?;
+
+    // 排序键：(是否客户专属, 精确度)。精确度：完全相等 → 关键字长度（越长越具体）。
+    let mut best: Option<((i32, i32), &PriceRow)> = None;
+    for r in &rows {
+        let kw = r.profile.trim();
+        if kw.is_empty() || !profile.contains(kw) {
+            continue;
+        }
+        let specificity = if kw == profile {
+            i32::MAX
+        } else {
+            kw.chars().count() as i32
+        };
+        let client_specific = if !client_code.is_empty() && r.client_code == client_code {
+            1
+        } else {
+            0
+        };
+        let key = (client_specific, specificity);
+        if best.map_or(true, |(k, _)| key > k) {
+            best = Some((key, r));
+        }
+    }
+
+    Ok(best.map(|(_, r)| PriceResolveDto {
+        unit_price: r.unit_price,
+        price_type: r.price_type.clone(),
+        casing_price: r.casing_price,
+        lock_rules: r.lock_rules.clone(),
+        matched_profile: r.profile.clone(),
+    }))
+}
+
 // ===== 公式匹配 =====
 
 pub async fn list_matches(pool: &PgPool, tenant_id: i64) -> ApiResult<Vec<FormulaMatchDto>> {
@@ -189,6 +245,56 @@ pub async fn import_matches(
     }
     tx.commit().await?;
     Ok(count)
+}
+
+/// 按型材 + 扇数匹配公式：型材关键字越具体（越长/完全相等）越先，扇数完全匹配优先于任意扇数，同档按 priority 降序。
+pub async fn resolve_match(
+    pool: &PgPool,
+    tenant_id: i64,
+    line_type: &str,
+    profile: &str,
+    fans: &str,
+) -> ApiResult<Option<FormulaMatchResolveDto>> {
+    let profile = profile.trim();
+    if profile.is_empty() {
+        return Ok(None);
+    }
+    let sql = format!(
+        "SELECT {MATCH_COLUMNS} FROM formula_matches WHERE tenant_id = $1 AND line_type = $2"
+    );
+    let rows: Vec<MatchRow> = sqlx::query_as(&sql)
+        .bind(tenant_id)
+        .bind(line_type)
+        .fetch_all(pool)
+        .await?;
+
+    // 排序键：(扇数是否完全匹配, 型材精确度, priority)。
+    let mut best: Option<((i32, i32, i32), &MatchRow)> = None;
+    for r in &rows {
+        let kw = r.profile.trim();
+        if kw.is_empty() || !profile.contains(kw) {
+            continue;
+        }
+        if !r.fans.is_empty() && r.fans != fans {
+            continue;
+        }
+        let fans_exact = if r.fans == fans { 1 } else { 0 };
+        let specificity = if kw == profile {
+            i32::MAX
+        } else {
+            kw.chars().count() as i32
+        };
+        let key = (fans_exact, specificity, r.priority);
+        if best.map_or(true, |(k, _)| key > k) {
+            best = Some((key, r));
+        }
+    }
+
+    Ok(best.map(|(_, r)| FormulaMatchResolveDto {
+        formula_id: r.formula_id,
+        matched_profile: r.profile.clone(),
+        matched_fans: r.fans.clone(),
+    }))
 }
 
 // ===== 打印模板 =====

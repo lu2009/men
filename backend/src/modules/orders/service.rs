@@ -353,6 +353,129 @@ pub async fn update(
     get(pool, tenant_id, id).await
 }
 
+/// 更新单行（在订单内，按 line_id）。数量/折扣做与插入一致的防御性归一。
+pub async fn update_line(
+    pool: &PgPool,
+    tenant_id: i64,
+    order_id: i64,
+    line_id: i64,
+    line: &OrderLineInput,
+) -> ApiResult<()> {
+    let quantity = line.quantity.max(1);
+    let discount = if line.discount == 0.0 { 1.0 } else { line.discount };
+
+    let result = sqlx::query(
+        "UPDATE order_lines SET \
+         line_type=$1, profile=$2, color=$3, direction=$4, fans=$5, track=$6, casing=$7, \
+         hardware=$8, bottom_glass=$9, face_glass=$10, glass_thickness=$11, \
+         door_width=$12, door_height=$13, light_window_height=$14, wall_thickness=$15, jiao=$16, \
+         mother_door_width=$17, quantity=$18, unit_price=$19, price_type=$20, discount=$21, \
+         square=$22, custom_square=$23, other_fee=$24, casing_price=$25, casing_amount=$26, amount=$27, \
+         parts=$28, markup=$29, formula_id=$30, remark=$31, install_address=$32, open_img=$33, \
+         edge_seal_count=$34, seal_board_height=$35, track_length=$36, front_casing_add=$37, \
+         back_casing_add=$38, link_no=$39, double_ding=$40, light_window_count=$41, \
+         image_id=$42, image_url=$43, progress=$44, hole_size=$45, markup_raw=$46, edge_binding=$47, \
+         updated_at = now() \
+         WHERE id=$48 AND order_id=$49 AND tenant_id=$50",
+    )
+    .bind(&line.line_type)
+    .bind(&line.profile)
+    .bind(&line.color)
+    .bind(&line.direction)
+    .bind(&line.fans)
+    .bind(&line.track)
+    .bind(&line.casing)
+    .bind(&line.hardware)
+    .bind(&line.bottom_glass)
+    .bind(&line.face_glass)
+    .bind(&line.glass_thickness)
+    .bind(line.door_width)
+    .bind(line.door_height)
+    .bind(line.light_window_height)
+    .bind(line.wall_thickness)
+    .bind(line.jiao)
+    .bind(line.mother_door_width)
+    .bind(quantity)
+    .bind(line.unit_price)
+    .bind(&line.price_type)
+    .bind(discount)
+    .bind(line.square)
+    .bind(line.custom_square)
+    .bind(line.other_fee)
+    .bind(line.casing_price)
+    .bind(line.casing_amount)
+    .bind(line.amount)
+    .bind(&line.parts)
+    .bind(&line.markup)
+    .bind(line.formula_id)
+    .bind(&line.remark)
+    .bind(&line.install_address)
+    .bind(&line.open_img)
+    .bind(line.edge_seal_count)
+    .bind(line.seal_board_height)
+    .bind(line.track_length)
+    .bind(line.front_casing_add)
+    .bind(line.back_casing_add)
+    .bind(&line.link_no)
+    .bind(&line.double_ding)
+    .bind(line.light_window_count)
+    .bind(&line.image_id)
+    .bind(&line.image_url)
+    .bind(&line.progress)
+    .bind(&line.hole_size)
+    .bind(&line.markup_raw)
+    .bind(&line.edge_binding)
+    .bind(line_id)
+    .bind(order_id)
+    .bind(tenant_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found("订单行不存在"));
+    }
+    recompute_header(pool, order_id).await
+}
+
+/// 删除单行（在订单内，按 line_id）。
+pub async fn delete_line(
+    pool: &PgPool,
+    tenant_id: i64,
+    order_id: i64,
+    line_id: i64,
+) -> ApiResult<()> {
+    let result = sqlx::query("DELETE FROM order_lines WHERE id = $1 AND order_id = $2 AND tenant_id = $3")
+        .bind(line_id)
+        .bind(order_id)
+        .bind(tenant_id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found("订单行不存在"));
+    }
+    recompute_header(pool, order_id).await
+}
+
+/// 单行增删改后重算订单头总价/门数，保持列表与详情一致。
+async fn recompute_header(pool: &PgPool, order_id: i64) -> ApiResult<()> {
+    let (total, door_count): (f64, i64) = sqlx::query_as(
+        "SELECT COALESCE(SUM(amount), 0.0)::float8, COALESCE(SUM(quantity), 0)::int8 \
+         FROM order_lines WHERE order_id = $1",
+    )
+    .bind(order_id)
+    .fetch_one(pool)
+    .await?;
+
+    sqlx::query("UPDATE orders SET total_price = $1, door_count = $2, updated_at = now() WHERE id = $3")
+        .bind(round2(total))
+        .bind(door_count as i32)
+        .bind(order_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn delete(pool: &PgPool, tenant_id: i64, id: i64) -> ApiResult<()> {
     let result = sqlx::query("DELETE FROM orders WHERE id = $1 AND tenant_id = $2")
         .bind(id)

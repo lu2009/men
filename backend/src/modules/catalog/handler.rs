@@ -1,5 +1,6 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
@@ -11,6 +12,49 @@ use super::model::{
     ImportFormulaMatchesRequest, ImportPrintTemplatesRequest, ImportPricesRequest,
 };
 use super::service;
+
+#[derive(Debug, Deserialize)]
+pub struct ResolvePriceQuery {
+    pub line_type: String,
+    pub profile: String,
+    #[serde(default)]
+    pub client_code: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResolveMatchQuery {
+    pub line_type: String,
+    pub profile: String,
+    #[serde(default)]
+    pub fans: String,
+}
+
+pub async fn resolve_price(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<ResolvePriceQuery>,
+) -> ApiResult<Json<Value>> {
+    let r = service::resolve_price(
+        &state.pool,
+        user.tenant_id,
+        &q.line_type,
+        &q.profile,
+        &q.client_code,
+    )
+    .await?;
+    Ok(response::ok(serde_json::to_value(r).unwrap()))
+}
+
+pub async fn resolve_match(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<ResolveMatchQuery>,
+) -> ApiResult<Json<Value>> {
+    let r =
+        service::resolve_match(&state.pool, user.tenant_id, &q.line_type, &q.profile, &q.fans)
+            .await?;
+    Ok(response::ok(serde_json::to_value(r).unwrap()))
+}
 
 pub async fn list_prices(
     State(state): State<AppState>,
