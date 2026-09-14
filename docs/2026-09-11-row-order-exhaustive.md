@@ -240,6 +240,9 @@ mode → 载荷：
 
 对照 `app/src/views/Hui.vue`。
 
+> ⚠️ **本表标记写于早期轮次，已滞后；且 `@####` 行号已过期。**
+> **权威状态见文末「附：差异表 triage 结果（2026-09-14）」** —— 13 条中 12 条已修，仅 D11 仍存在。
+
 | # | 我们的实现 | 原版语义 | 判定 |
 |---|---|---|---|
 | D1 | `productionProduces()` @3920：直接 `for (const l of lines.value)` 原序 push | `calculateReceipt`：ping_hui 块（按 `formulaid→颜色` 排）→ diao_hui 块（同）；且丢 `formulaid` 空行、丢查不到公式的行、吊趟丢无扇数行 | ❌ 顺序 + 过滤都缺 |
@@ -267,3 +270,34 @@ mode → 载荷：
 2. Home 里 `Ql`/`Rl` 两张 Map 的键插入序未逐点验证；因此 `Object.keys(wn)`（回执行顺序）在**跨订单**场景下的精确顺序**未确定**——机制确定是「先 ping 表、后 diao 表遍历选中行」，但表本身的顺序取决于表格创建顺序。
 3. `product10` 里 `GlassSize_*` 键的**产生处**（produce 数据构建时的命名规则）未定位到确切写入点。
 4. `Glasslist` 收尾排序用 `e.OrderID` **没有** `||''` 兜底，若某行缺 `OrderID` 会抛异常——这是原版行为还是我等漏了 `try`，**未确定**。
+
+---
+
+## 附：差异表 triage 结果（2026-09-14）
+
+> 本文档的 ❌/⚠️ 标记写于早期轮次，**标记已滞后**。本轮逐条对照当前代码重新判定，
+> **权威状态以本表为准**。引用的 `H####` / `@####` 行号均已过期，判定一律按**符号名**定位代码。
+
+| # | 判定 | 依据（当前代码）|
+|---|---|---|
+| D1 | ✅ 已修 | `productionProduces()` → `orderedLines(true)`（ping 块→diao 块 + formulaid/颜色排序 + `keep()` 过滤）|
+| D2 | ✅ 已修 | `glassProduces()` → `orderedLines(false)`（ping→diao，不排序，与原版一致）|
+| D3 | ✅ 已修 | `glassInfoProduces`：`filter(r => Number(r.thickness) !== 0)` + `sortMethod==='order'` 按单号前缀排 |
+| D4 | ✅ 已修 | `oldSheetProduces()` → `orderedLines(true)` |
+| D5 | ✅ 已修 | `product1Produces()` → `orderedLines(true)` |
+| D6 | ✅ 已修 | `pairRows()` 的输入已是排序后的 `orderedLines` |
+| D7 | ✅ 已修 | `labelRows('lable')` 收尾按 `orderID` 首数字段升序，非数字排最后 |
+| D8 | ✅ 已修 | `product10Copies()` 要求**同时有玻璃宽与玻璃高**，否则 1 张 |
+| D9 | ✅ 已修 | `forPreview ? groupProduct10(rows) : rows`（复刻原版预览/打印自身不一致）|
+| D12 | ✅ 已修 | `sortMethod` + `smartdoor_sort_method` 均已实现 |
+| D14 | ✅ 已修 | 同 D3 的 thickness 过滤 |
+| 216/217 | 非我方缺陷 | 那两行描述的是**原版自身**忽略 sort_method 的行为，不是我们的偏差 |
+| **D11** | ❌ **仍存在** | 回执行**跨订单按客户分组**（同客户多单的 total/deposit/门数求和、receipt 行拼接，空客户归「未知客户」；`FinalReceipt` 金额清零 / `ReceiptList` 不清零）。我们是**单订单** `receiptPrintData()`。**这不是 `Hui.vue` 的 bug，是缺失的整块功能**（需先有「订单列表 → 选多单出回执」入口）|
+
+### 补充说明（2026-09-14 之后的相关改动）
+
+- **`link_no`（行级单号）已删除**：原版「单号」列可逐行编辑并作为「序号优先」的排序键，
+  移植时丢了编辑器导致恒为 NULL。删除后 `orderedLines` 的 `orderPrefix` 退化为**订单级单号**
+  → 「序号优先」当前恒等于原序。若将来恢复行级单号，排序会随之恢复。
+- **`product1Produces()` 的吊趟行**现在产**标准生产单形状**（原版 `data:_0x1239ce`），
+  平开仍为 product1 形状（`_0x4495e3`）。若本文档有基于旧行为的描述，以本条为准。

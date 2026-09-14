@@ -385,6 +385,10 @@ for (i=0;i<len;i+=2){ a=e[i]; b=e[i+1]
 
 ## 9. ❌/⚠️ 差异清单（按严重程度）
 
+> ⚠️ **本表为早期轮次的历史留档，标记已滞后。**
+> **权威状态见 §55「triage 结果（2026-09-14）」** —— 逐条对照当前代码重新判定：
+> 38 条中 **31 条已修**、**2 条经复核作废**（#31、#38）、剩 **4 条仍存在 + 1 条待决策**。
+
 | # | 级别 | 位置 | 原版规则 | 我们的写法 | 建议改法 |
 |---|---|---|---|---|---|
 | 1 | ❌ | **doorsheet 按模板分叉**（product vs glass） | product 与 glass 取**同一个 `me` 数组、同一批行对象**，格式只随"引擎"变：引擎A `{名}:{result}` + `<br>数量:{qty}`，引擎B/C `{名}:{result}*{qty×数量}` | `productionProduces` 固定 B/C 格式；`glassProduces` 固定 A 格式 | 抽成同一个 `doorsheetText(row, engine)`，**不要按模板分叉**；至少两模板共用同一函数 |
@@ -4147,3 +4151,65 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 
 小分队还发现我旧文档里的**过时结论**：§9 第 8 条称「我们给 ReceiptList 逐行填了 date/payment」——
 现已不再提供（与原版一致），该条作废。
+
+---
+
+## 55. §9 差异清单 triage 结果（2026-09-14）
+
+> **背景**：§9 的 38 条清单写于早期轮次，此后历经 §11–§54 的更正与落地，**标记已整体滞后**。
+> 本轮对 38 条**逐条对照当前代码**重新判定，结论如下。
+>
+> **读法**：本文档其余位置的 ❌/⚠️ 是**各轮次的历史记录**（含已被后续轮次推翻的），
+> **权威状态以本表为准**。§9 原表保留不改，作为历史留档。
+
+| # | 判定 | 依据（当前代码）|
+|---|---|---|
+| 1 | ✅ 已修 | `doorsheetText(l, engine)` 已抽为共用函数 |
+| 2 | ✅ 已修 | `oldSheetGlass()` 三态分支完整 |
+| 3 | ✅ 已修 | `basicInfoText()` 用 `<br>` + 引擎 A/B/C 三分支 |
+| 4 | ✅ 已修 | `basicInfoText()` 尾部用 `l.direction`（原始开向）—— 2026-09-14 修 |
+| 5 | ✅ 已修 | 回执 `brand` 首项改 `order.brand` —— 2026-09-14 修 |
+| 6 | ✅ 已修 | 回执 `TotalBalance` 改回 `""`（原版无财务接口时的值）—— 2026-09-14 修 |
+| 7 | ❌ **仍存在** | `payQrcode` 恒 `''`；原版取图片库收款码 `getImage('qrcode')`。**依赖图片库资源，非写错** |
+| 8 | ✅ 已修 | 回执行对象不含 `date`/`payment` |
+| 9 | ✅ 已修 | 回执 remark 前后包 `join(' ')` |
+| 10 | ✅ 已修 | 回执 remark 打折分支 `+0 → 口袋门` |
+| 11 | ✅ 已修 | `pricingDetail()` 显式 `=== '套'` / `=== '方'` 分支 |
+| 12 | ✅ 已修 | `produceRemark()` 墙型用 `<br>` |
+| 13 | ✅ 已修 | 引擎B 平开/吊趟 remark 组装；**吊趟不加墙型** |
+| 14 | ✅ 已修 | `templatePayload` 对 glass 模板走 `glassProduces()`，与 product 分开取数 |
+| 15 | ✅ 已修 | `product1Produces()` 内联自己的 remark |
+| 16 | ✅ 已修 | product1 `lockway` = `l.direction` |
+| 17 | ✅ 已修 | product1 `glassSize` = 玻璃高×玻璃宽 |
+| 18 | ✅ 已修 | product1 前/后框拼接已实现 |
+| 19 | ✅ 已修 | `lableRow` remark `join('<br>')` |
+| 20 | ✅ 已修 | glassHole remark `<br>` + 置空开关 |
+| 21 | ✅ 已修 | glassHole 亮窗行 `doorImg` 恒 `''` |
+| 22 | ✅ 已修 | 子母玻璃分支（`ft === 'parentSubsidiary'`）|
+| 23 | ✅ 已修 | product10 `GlassSize` 按部件配对 |
+| 24 | ❌ **仍存在** | mode 11（product4 料标签）未实现，会被路由到 `productionProduces()`。**缺整块功能** |
+| 25 | ✅ 已修 | `oldSheetSize()` 平开/吊趟分叉 |
+| 26 | ✅ 已修 | `oldSheetProduce` lockway：原始开向 + 哑口套/门套 抑制 |
+| 27 | ✅ 已修 | doorsheet 数量修正（逐 producer 核实零分歧）|
+| 28 | ⚠️ **部分仍存在** | `sheetWidth` 追加封板宽 ✅、晟斐 `kouHeigth=套线种类` ✅；但**晟斐 `kouWidth` 应为行图片**（`getImage(行.图片ID)`，原文 @569254），我们恒 `''` |
+| 29 | ⚠️ **待决策** | 回执 `total` 原版 `Math.round` 取整，我们 `round2` 两位小数 |
+| 30 | ✅ 已修 | 新增 `getOriginalOpenDirection()` 并在 `lineLockImage()` 里归一化 —— 2026-09-14 修 |
+| 31 | ⛔ **本条作废** | 称「回执行应补排序」。实测 `receiptBuilder-76e5b538.js` 全文 `.sort(` **0 处**、`formulaid` **0 次**；`Home-d6b13b9a.js` 的 3 处 `.sort(` 全是仪表盘（业务员列表/最近10单/客户金额Top8），与回执无关。**回执确实不排序**，以 `2026-09-11-row-order-exhaustive.md` 为准 |
+| 32 | ✅ 已修 | `installAddresses` computed：行级回退 + 去重 `_` 连接 |
+| 33 | ❌ **仍存在** | product2/3 只有 `printByMode('product2')`，**缺 mode 9 的 product3 配对入口**。**缺整块功能** |
+| 34 | ✅ 已修 | `wallTypeLabel()` 有 `== null` 早退 |
+| 35 | ✅ 已修 | `oldSheetRemark()` `join('-')` + 空格加配 + `-` 墙型 |
+| 36 | ✅ 已修 | glassHole `filter(r => Number(r.thickness) !== 0)` |
+| 37 | ✅ 已修 | glassHole `sortMethod === 'order'` 时按单号前缀排序 |
+| 38 | ⛔ **本条作废** | 称「亮窗行应为两条独立 if、前缀 `亮窗底玻-`/`亮窗面璃-`」。原文 G平 @431300 为**单行**、前缀恒 `亮窗玻璃-`；G吊 @453381 为单行、按「扇数含活」分叉（非活扇才用 `亮窗面璃-`，错字照抄）。**两处我们均已按原文实现**（平开 `Hui.vue` B3 块 / 移门 D3 块）|
+
+### 55.1 汇总
+
+| 状态 | 条数 |
+|---|---|
+| ✅ 已修 | 31 |
+| ⛔ 文档有误 / 作废 | 2（#31、#38）|
+| ❌ 仍存在（含部分）| 4（#7、#24、#28、#33）|
+| ⚠️ 待决策 | 1（#29）|
+
+其中 #7 / #28 依赖**图片库**，#24 / #33 是**缺整块功能** —— 三类都不是"写错"，是依赖或功能缺失。
