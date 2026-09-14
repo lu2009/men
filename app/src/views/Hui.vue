@@ -730,25 +730,32 @@ const PING_VIS_KEYS = [
   { key: 'wrap', label: '前/后包' },
   { key: 'order_no', label: '单号' },
 ]
+// 移门表可显隐列（列序同原版，见 diaoCols 注释）
 const DIAO_VIS_KEYS = [
   { key: 'profile_color', label: '型材/颜色' },
-  { key: 'fans_dir', label: '扇数/开向' },
-  { key: 'unit_q_casing', label: '单价/数量/套线' },
+  { key: 'unit_qty', label: '单价/数量' },
   { key: 'glass', label: '玻璃' },
-  { key: 'track_line', label: '轨道/套线' },
-  { key: 'track', label: '轨道/套线内·轨道' },
+  { key: 'fans_dir', label: '扇数/开向' },
+  { key: 'track_line', label: '下轨道/套线' },
+  { key: 'track', label: '下轨道/套线内·轨道' },
   { key: 'door_size', label: '门洞尺寸' },
-  { key: 'lightwin', label: '亮窗' },
-  { key: 'jiao_seal', label: '吊脚/边封' },
-  { key: 'up_track_hw', label: '上轨/五金' },
+  { key: 'hole_size', label: '洞尺' },
+  { key: 'lightwin', label: '亮窗信息' },
+  { key: 'hardware', label: '五金' },
   { key: 'remark', label: '备注' },
-  { key: 'progress', label: '生产进度' },
   { key: 'money', label: '金额' },
   { key: 'markup_summary', label: '加价' },
-  { key: 'price', label: '计价/打折' },
+  { key: 'up_track_seal', label: '上轨/边封' },
+  { key: 'front_casing', label: '前包加长' },
+  { key: 'back_casing', label: '后包加长' },
   { key: 'double_ding', label: '单/双丁' },
-  { key: 'wrap', label: '前/后包' },
+  { key: 'price_type', label: '计价方式' },
+  { key: 'discount', label: '打折' },
   { key: 'order_no', label: '单号' },
+  { key: 'image_id', label: '图片ID' },
+  { key: 'client', label: '客户' },
+  { key: 'client_code', label: '客户编号' },
+  { key: 'other_fee', label: '其它费用' },
 ]
 // 是否显示某列（缺省都显示）
 const pingColVis = reactive<Record<string, boolean>>({})
@@ -2762,6 +2769,34 @@ function diaoCols(): DataTableColumn<Line>[] {
       width: 108,
       render: (l) => cCol(profileCell(l, 100), colorCell(l, 100)),
     },
+    // 原版移门表列序与列内容见 `Hui-d088417c` @176837..@207080（表头 label 偏移即列序）：
+    //   门花图 | 型材/颜色 | 单价/数量 | 玻璃 | 扇数/开向 | 下轨道/套线 | 门洞尺寸 | 洞尺 |
+    //   亮窗信息 | 五金 | 备注 | 金额 | 加价项目 | 上轨/边封 | 前包加长 | 后包加长 |
+    //   单双丁 | 计价方式 | 打折 | 单号 | 图片ID | 客户 | 客户编号 | 其它费用
+    // 其中「单价/数量」列内还含 生产进度 与 套线单价；「亮窗信息」列内含 亮窗总高/亮窗数量/封板高。
+    {
+      title: '单价/数量',
+      key: 'unit_qty',
+      width: 104,
+      render: (l) =>
+        cCol(
+          sub('进度', tCell(l, 'progress', 84)),
+          sub('单价', moneyCell(l, 'unit_price', 84)),
+          sub('数量', intCell(l, 'quantity', 84, 1)),
+          sub('套线¥', moneyCell(l, 'casing_price', 84)),
+        ),
+    },
+    {
+      title: '玻璃',
+      key: 'glass',
+      width: 118,
+      render: (l) =>
+        cCol(
+          sub('面', glassSelectCell(l, 'face_glass', 88)),
+          sub('底', glassSelectCell(l, 'bottom_glass', 88)),
+          sub('厚', optCell(l, 'glass_thickness', 88, glassThicknessOptions)),
+        ),
+    },
     {
       title: '扇数/开向',
       key: 'fans_dir',
@@ -2786,29 +2821,7 @@ function diaoCols(): DataTableColumn<Line>[] {
       },
     },
     {
-      title: '单价/数量/套线',
-      key: 'unit_q_casing',
-      width: 104,
-      render: (l) =>
-        cCol(
-          sub('单价', moneyCell(l, 'unit_price', 84)),
-          sub('数量', intCell(l, 'quantity', 84, 1)),
-          sub('套线¥', moneyCell(l, 'casing_price', 84)),
-        ),
-    },
-    {
-      title: '玻璃',
-      key: 'glass',
-      width: 118,
-      render: (l) =>
-        cCol(
-          sub('面', glassSelectCell(l, 'face_glass', 88)),
-          sub('底', glassSelectCell(l, 'bottom_glass', 88)),
-          sub('厚', optCell(l, 'glass_thickness', 88, glassThicknessOptions)),
-        ),
-    },
-    {
-      title: '轨道/套线',
+      title: '下轨道/套线',
       key: 'track_line',
       width: 108,
       render: (l) =>
@@ -2827,28 +2840,29 @@ function diaoCols(): DataTableColumn<Line>[] {
           sub('宽', intCell(l, 'door_width', 60)),
           sub('墙厚', wallThicknessCell(l, 60)),
           ...(needsMotherWidth(l) ? [sub('母门宽', intCell(l, 'mother_door_width', 60))] : []),
-          sub('洞尺', holeCell(l, 60)),
         ),
     },
+    // 原版「洞尺」是独立列（`["洞尺"]` 闸门，单选 洞尺/净尺/单包洞尺/双包洞尺）
     {
-      title: '亮窗',
+      title: '洞尺',
+      key: 'hole_size',
+      width: 60,
+      render: (l) => holeCell(l, 60),
+    },
+    // 原版「亮窗信息」列内含三格：亮窗总高 / 亮窗数量 / 封板高
+    {
+      title: '亮窗信息',
       key: 'lightwin',
-      width: 76,
-      render: (l) => cCol(sub('总高', intCell(l, 'light_window_height', 62)), sub('数量', intCell(l, 'light_window_count', 62))),
+      width: 82,
+      render: (l) =>
+        cCol(
+          sub('总高', intCell(l, 'light_window_height', 62)),
+          sub('数量', intCell(l, 'light_window_count', 62)),
+          sub('封板高', intCell(l, 'seal_board_height', 62)),
+        ),
     },
-    {
-      title: '吊脚/边封',
-      key: 'jiao_seal',
-      width: 76,
-      render: (l) => cCol(sub('吊脚', intCell(l, 'jiao', 62)), sub('边封数', intCell(l, 'edge_seal_count', 62, 2))),
-    },
-    {
-      title: '上轨/五金',
-      key: 'up_track_hw',
-      width: 98,
-      render: (l) => cCol(sub('轨道长', intCell(l, 'track_length', 76)), sub('五金', hardwareCell(l, 76))),
-    },
-    { title: '生产进度', key: 'progress', width: 92, render: (l) => tCell(l, 'progress', 86) },
+    // 原版「五金」是独立列（`["五金"]` 闸门）
+    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l, 76) },
     {
       title: '备注',
       key: 'remark',
@@ -2857,24 +2871,26 @@ function diaoCols(): DataTableColumn<Line>[] {
     },
     { title: '金额', key: 'money', width: 140, render: (l) => moneyCell_2(l) },
     markupCol(),
+    // 以下列序严格照原版：加价项目 → 上轨/边封 → 前包加长 → 后包加长 → 单双丁 →
+    // 计价方式 → 打折 → 单号 → 图片ID → 客户 → 客户编号 → 其它费用
     {
-      title: '计价/打折',
-      key: 'price',
-      width: 100,
-      render: (l) => cRow(optCell(l, 'price_type', 50, priceTypeOptions), moneyCell(l, 'discount', 48)),
+      title: '上轨/边封',
+      key: 'up_track_seal',
+      width: 92,
+      render: (l) => cCol(sub('轨道长', intCell(l, 'track_length', 76)), sub('边封数', intCell(l, 'edge_seal_count', 76, 2))),
     },
+    { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add', 78) },
+    { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add', 78) },
     { title: '单/双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', 74, DOUBLE_DING_OPTS) },
-    {
-      title: '前/后包',
-      key: 'wrap',
-      width: 96,
-      render: (l) =>
-        cCol(
-          sub('前包', intCell(l, 'front_casing_add', 74)),
-          sub('后包', intCell(l, 'back_casing_add', 74)),
-        ),
-    },
+    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', 68, priceTypeOptions) },
+    { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount', 56) },
     { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
+    // 原版「图片ID」列不可编辑（只展示），故用只读 span
+    { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
+    // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
+    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
+    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
+    { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee', 72) },
   ]
 }
 
