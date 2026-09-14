@@ -292,7 +292,7 @@ mode → 载荷：
 | D12 | ✅ 已修 | `sortMethod` + `smartdoor_sort_method` 均已实现 |
 | D14 | ✅ 已修 | 同 D3 的 thickness 过滤 |
 | 216/217 | 非我方缺陷 | 那两行描述的是**原版自身**忽略 sort_method 的行为，不是我们的偏差 |
-| **D11** | ❌ **仍存在** | 回执行**跨订单按客户分组**（同客户多单的 total/deposit/门数求和、receipt 行拼接，空客户归「未知客户」；`FinalReceipt` 金额清零 / `ReceiptList` 不清零）。我们是**单订单** `receiptPrintData()`。**这不是 `Hui.vue` 的 bug，是缺失的整块功能**（需先有「订单列表 → 选多单出回执」入口）|
+| **D11** | ⚠️ **仍存在，但描述未获证实** | （2026-09-14 复核）回执构造器 `receiptBuilder-76e5b538.js` 的引用者**只有 `ReceiptView-2e239d4a.js`（按单查看回执）与 `TerminalOrders-43b60190.js`（终端订单）**，**Home 并不 import 它**；Home 里的表格列是「回执单号/优惠/分配」等**财务**列，不是回执打印。故「**Home** 回执行跨订单按客户分组」这一归属**未获证实**。<br>⇒ 要落地需先定清它究竟指哪个入口（`ReceiptView`？`TerminalOrders`？）。原始描述（下方保留）：回执行**跨订单按客户分组**（同客户多单的 total/deposit/门数求和、receipt 行拼接，空客户归「未知客户」；`FinalReceipt` 金额清零 / `ReceiptList` 不清零）。我们是**单订单** `receiptPrintData()`。**这不是 `Hui.vue` 的 bug，是缺失的整块功能**（需先有「订单列表 → 选多单出回执」入口）|
 
 ### 补充说明（2026-09-14 之后的相关改动）
 
