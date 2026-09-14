@@ -105,8 +105,6 @@ pub struct PrintTemplateInput {
     pub paper: String,
     #[serde(default = "empty_object")]
     pub template: Value,
-    #[serde(default)]
-    pub remark: String,
 }
 
 fn default_paper() -> String {
@@ -120,7 +118,6 @@ pub struct PrintTemplateDto {
     pub name: String,
     pub paper: String,
     pub template: Value,
-    pub remark: String,
     pub created_at: String,
     pub updated_at: String,
 }

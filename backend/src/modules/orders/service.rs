@@ -17,12 +17,12 @@ const HEADER_COLUMNS: &str = "id, receipt_no, client_code, client_name, phone, b
 
 /// 订单行 SELECT 列（与 OrderLineRow 一一对应）。
 const LINE_COLUMNS: &str = "id, line_type, row_index, profile, color, direction, fans, track, \
-     casing, edge_binding, hardware, bottom_glass, face_glass, glass_thickness, \
+     casing, hardware, bottom_glass, face_glass, glass_thickness, \
      door_width, door_height, light_window_height, wall_thickness, jiao, mother_door_width, \
      quantity, unit_price, price_type, discount, square, custom_square, other_fee, \
      casing_price, casing_amount, amount, parts, markup, formula_id, remark, install_address, \
      open_img, edge_seal_count, seal_board_height, track_length, front_casing_add, back_casing_add, \
-     link_no, double_ding, light_window_count, image_id, image_url, progress, hole_size, markup_raw";
+     double_ding, light_window_count, image_id, image_url, progress, hole_size";
 
 #[derive(sqlx::FromRow)]
 struct OrderHeaderRow {
@@ -55,7 +55,6 @@ struct OrderLineRow {
     fans: String,
     track: String,
     casing: String,
-    edge_binding: String,
     hardware: String,
     bottom_glass: String,
     face_glass: String,
@@ -87,14 +86,12 @@ struct OrderLineRow {
     track_length: f64,
     front_casing_add: Option<f64>,
     back_casing_add: Option<f64>,
-    link_no: Option<String>,
     double_ding: Option<String>,
     light_window_count: i32,
     image_id: Option<String>,
     image_url: Option<String>,
     progress: String,
     hole_size: String,
-    markup_raw: String,
 }
 
 fn round2(v: f64) -> f64 {
@@ -133,7 +130,6 @@ fn line_to_dto(row: OrderLineRow) -> OrderLineDto {
         fans: row.fans,
         track: row.track,
         casing: row.casing,
-        edge_binding: row.edge_binding,
         hardware: row.hardware,
         bottom_glass: row.bottom_glass,
         face_glass: row.face_glass,
@@ -165,14 +161,12 @@ fn line_to_dto(row: OrderLineRow) -> OrderLineDto {
         track_length: row.track_length,
         front_casing_add: row.front_casing_add,
         back_casing_add: row.back_casing_add,
-        link_no: row.link_no,
         double_ding: row.double_ding,
         light_window_count: row.light_window_count,
         image_id: row.image_id,
         image_url: row.image_url,
         progress: row.progress,
         hole_size: row.hole_size,
-        markup_raw: row.markup_raw,
     }
 }
 
@@ -373,10 +367,10 @@ pub async fn update_line(
          square=$22, custom_square=$23, other_fee=$24, casing_price=$25, casing_amount=$26, amount=$27, \
          parts=$28, markup=$29, formula_id=$30, remark=$31, install_address=$32, open_img=$33, \
          edge_seal_count=$34, seal_board_height=$35, track_length=$36, front_casing_add=$37, \
-         back_casing_add=$38, link_no=$39, double_ding=$40, light_window_count=$41, \
-         image_id=$42, image_url=$43, progress=$44, hole_size=$45, markup_raw=$46, edge_binding=$47, \
+         back_casing_add=$38, double_ding=$39, light_window_count=$40, \
+         image_id=$41, image_url=$42, progress=$43, hole_size=$44, \
          updated_at = now() \
-         WHERE id=$48 AND order_id=$49 AND tenant_id=$50",
+         WHERE id=$45 AND order_id=$46 AND tenant_id=$47",
     )
     .bind(&line.line_type)
     .bind(&line.profile)
@@ -416,15 +410,12 @@ pub async fn update_line(
     .bind(line.track_length)
     .bind(line.front_casing_add)
     .bind(line.back_casing_add)
-    .bind(&line.link_no)
     .bind(&line.double_ding)
     .bind(line.light_window_count)
     .bind(&line.image_id)
     .bind(&line.image_url)
     .bind(&line.progress)
     .bind(&line.hole_size)
-    .bind(&line.markup_raw)
-    .bind(&line.edge_binding)
     .bind(line_id)
     .bind(order_id)
     .bind(tenant_id)
@@ -508,11 +499,10 @@ async fn insert_line(
          discount, square, custom_square, other_fee, casing_price, casing_amount, amount, \
          parts, markup, formula_id, remark, install_address, \
          open_img, edge_seal_count, seal_board_height, track_length, front_casing_add, back_casing_add, \
-         link_no, double_ding, light_window_count, image_id, image_url, progress, hole_size, markup_raw, \
-         edge_binding) \
+         double_ding, light_window_count, image_id, image_url, progress, hole_size) \
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20, \
          $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35, \
-         $36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50)",
+         $36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47)",
     )
     .bind(order_id)
     .bind(tenant_id)
@@ -555,15 +545,12 @@ async fn insert_line(
     .bind(line.track_length)
     .bind(line.front_casing_add)
     .bind(line.back_casing_add)
-    .bind(&line.link_no)
     .bind(&line.double_ding)
     .bind(line.light_window_count)
     .bind(&line.image_id)
     .bind(&line.image_url)
     .bind(&line.progress)
     .bind(&line.hole_size)
-    .bind(&line.markup_raw)
-    .bind(&line.edge_binding)
     .execute(&mut **tx)
     .await?;
 

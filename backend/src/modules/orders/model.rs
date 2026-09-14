@@ -24,8 +24,6 @@ pub struct OrderLineInput {
     #[serde(default)]
     pub casing: String,
     #[serde(default)]
-    pub edge_binding: String,
-    #[serde(default)]
     pub hardware: String,
     #[serde(default)]
     pub bottom_glass: String,
@@ -88,8 +86,6 @@ pub struct OrderLineInput {
     #[serde(default)]
     pub back_casing_add: Option<f64>,
     #[serde(default)]
-    pub link_no: Option<String>,
-    #[serde(default)]
     pub double_ding: Option<String>,
     #[serde(default)]
     pub light_window_count: i32,
@@ -101,8 +97,6 @@ pub struct OrderLineInput {
     pub progress: String,
     #[serde(default)]
     pub hole_size: String,
-    #[serde(default)]
-    pub markup_raw: String,
 }
 
 /// 新建/更新订单请求体：订单头 + 行列表。
@@ -143,7 +137,6 @@ pub struct OrderLineDto {
     pub fans: String,
     pub track: String,
     pub casing: String,
-    pub edge_binding: String,
     pub hardware: String,
     pub bottom_glass: String,
     pub face_glass: String,
@@ -175,14 +168,12 @@ pub struct OrderLineDto {
     pub track_length: f64,
     pub front_casing_add: Option<f64>,
     pub back_casing_add: Option<f64>,
-    pub link_no: Option<String>,
     pub double_ding: Option<String>,
     pub light_window_count: i32,
     pub image_id: Option<String>,
     pub image_url: Option<String>,
     pub progress: String,
     pub hole_size: String,
-    pub markup_raw: String,
 }
 
 /// 列表用订单头（不含行）。

@@ -17,7 +17,7 @@ const MATCH_COLUMNS: &str = "id, line_type, profile, fans, formula_id, priority,
      to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, \
      to_char(updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at";
 
-const TEMPLATE_COLUMNS: &str = "id, mode, name, paper, template, remark, \
+const TEMPLATE_COLUMNS: &str = "id, mode, name, paper, template, \
      to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, \
      to_char(updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at";
 
@@ -56,7 +56,6 @@ struct TemplateRow {
     name: String,
     paper: String,
     template: Value,
-    remark: String,
     created_at: String,
     updated_at: String,
 }
@@ -98,7 +97,6 @@ fn template_to_dto(r: TemplateRow) -> PrintTemplateDto {
         name: r.name,
         paper: r.paper,
         template: r.template,
-        remark: r.remark,
         created_at: r.created_at,
         updated_at: r.updated_at,
     }
@@ -335,18 +333,17 @@ pub async fn import_templates(
     let mut tx = pool.begin().await?;
     for it in items {
         sqlx::query(
-            "INSERT INTO print_templates (tenant_id, mode, name, paper, template, remark) \
-             VALUES ($1,$2,$3,$4,$5,$6) \
+            "INSERT INTO print_templates (tenant_id, mode, name, paper, template) \
+             VALUES ($1,$2,$3,$4,$5) \
              ON CONFLICT (tenant_id, mode, name) \
              DO UPDATE SET paper = EXCLUDED.paper, template = EXCLUDED.template, \
-             remark = EXCLUDED.remark, updated_at = now()",
+             updated_at = now()",
         )
         .bind(tenant_id)
         .bind(&it.mode)
         .bind(&it.name)
         .bind(&it.paper)
         .bind(&it.template)
-        .bind(&it.remark)
         .execute(&mut *tx)
         .await?;
     }
