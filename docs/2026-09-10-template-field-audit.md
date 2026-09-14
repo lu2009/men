@@ -4196,7 +4196,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 30 | ✅ 已修 | 新增 `getOriginalOpenDirection()` 并在 `lineLockImage()` 里归一化 —— 2026-09-14 修 |
 | 31 | ⛔ **本条作废** | 称「回执行应补排序」。实测 `receiptBuilder-76e5b538.js` 全文 `.sort(` **0 处**、`formulaid` **0 次**；`Home-d6b13b9a.js` 的 3 处 `.sort(` 全是仪表盘（业务员列表/最近10单/客户金额Top8），与回执无关。**回执确实不排序**，以 `2026-09-11-row-order-exhaustive.md` 为准 |
 | 32 | ✅ 已修 | `installAddresses` computed：行级回退 + 去重 `_` 连接 |
-| 33 | ❌ **仍存在** | product2/3 只有 `printByMode('product2')`，**缺 mode 9 的 product3 配对入口**。**缺整块功能** |
+| 33 | ✅ **已修** | 2026-09-14：`printProductionCustom(mode)` 参数化，新增菜单「生产单3打印（双联）」→ `printByMode('product3', oldSheetProduces(true))`。product3 需**配对**（原版 `_0x1ebfe1`：相邻两行合一张、第二行键加 `1` 后缀，模板里的 `oldSheet1` 表正是为此）。<br>实测两行时 `oldSheet` 与 `oldSheet1` 两块**均被填满** |
 | 34 | ✅ 已修 | `wallTypeLabel()` 有 `== null` 早退 |
 | 35 | ✅ 已修 | `oldSheetRemark()` `join('-')` + 空格加配 + `-` 墙型 |
 | 36 | ✅ 已修 | glassHole `filter(r => Number(r.thickness) !== 0)` |
@@ -4209,7 +4209,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 |---|---|
 | ✅ 已修 | 31（另 #28 于 2026-09-14 补齐后半）|
 | ⛔ 文档有误 / 作废 | 4（#31、#38、#29、#24）|
-| ❌ 仍存在（含部分）| 2（#7、#33）|
+| ❌ 仍存在（含部分）| 1（#7）|
 | ⚠️ 待决策 | 0（#29 已作废）|
 
 其中 #7 / #28 依赖**图片库**，#24 / #33 是**缺整块功能** —— 三类都不是"写错"，是依赖或功能缺失。

@@ -697,6 +697,7 @@ const moreMenuOptions = [
   { label: '玻璃合片单', key: 'glass' },
   { label: '玻璃订单', key: 'glassHole' },
   { label: '生产单定制打印', key: 'productionCustom' },
+  { label: '生产单3打印（双联）', key: 'productionCustom3' },
   { label: '终端链接', key: 'terminal' },
   { label: '加价项目管理', key: 'markupMgmt' },
   { label: '自动加价设置', key: 'autoMarkup' },
@@ -865,7 +866,8 @@ function onMoreSelect(key: string) {
     case 'labels': void printLabels(); break
     case 'glass': void printGlass(); break
     case 'glassHole': void printGlassHole(); break
-    case 'productionCustom': void printProductionCustom(); break
+    case 'productionCustom': void printProductionCustom('product2'); break
+    case 'productionCustom3': void printProductionCustom('product3'); break
     case 'terminal': void copyTerminalLink(); break
     case 'markupMgmt': openMarkupMgmt(); break
     case 'autoMarkup': autoMarkupOpen.value = true; break
@@ -4568,14 +4570,17 @@ async function printGlassHole() {
   }
 }
 
-// 生产单定制（product2 模板，table.field=oldSheet）
-async function printProductionCustom() {
+// 生产单定制（product2，mode 8）/ 生产单3（product3，mode 9）—— 均走 `oldSheet` 载荷。
+// **product3 需要配对**：`_0x1ebfe1` 把相邻两行合成一张，第二行的所有键加 `1` 后缀
+// （模板里同时有 `oldSheet` 与 `oldSheet1` 两张表，正是为此）。原版 mode 9 有独立分支，
+// 我们原先只有 product2 一个出口，product3 只能从「模板预览」里打。
+async function printProductionCustom(mode: 'product2' | 'product3' = 'product2') {
   if (!lines.value.length) {
     message.warning('暂无订单行')
     return
   }
   try {
-    await printByMode('product2', oldSheetProduces())
+    await printByMode(mode, oldSheetProduces(mode === 'product3'))
   } catch (e) {
     message.error(e instanceof Error ? e.message : '生产单定制打印失败')
   }
