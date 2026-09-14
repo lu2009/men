@@ -4187,7 +4187,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 21 | ✅ 已修 | glassHole 亮窗行 `doorImg` 恒 `''` |
 | 22 | ✅ 已修 | 子母玻璃分支（`ft === 'parentSubsidiary'`）|
 | 23 | ✅ 已修 | product10 `GlassSize` 按部件配对 |
-| 24 | ❌ **仍存在** | mode 11（product4 料标签）未实现，会被路由到 `productionProduces()`。**缺整块功能** |
+| 24 | ⛔ **本条作废（文档自相矛盾）** | 称「mode 11（product4 料标签）未实现」。但**证据显示不该实现**：<br>① `legacy/templates/print-templates-source-raw.json` 里 `product4Template`–`product9Template` **六份完全相同**（md5 `106a9a986d`，3196B），我们库里也一致；<br>② 其表格字段 = `OrderID/basicInfo/door/doorImg/doorframe/doorsheet/lockImg/produces/remark/windows`，**与 `productTemplate` 完全一致**（生产单表）；`lableTemplate` 才是标签形状；<br>③ 文档 mode 表称「11 = 料标签 = product4 = `lableForMaterial`」，而 `lableForMaterial` 产出的**是标签行**（`t=4` 硬覆盖、`remark="备注:"+备注`、`lockway` 无「开向:」前缀）—— 喂给 product4 会**整张渲染为空白**。<br>⇒ 我们把 product4–9 路由到 `productionProduces()` 与模板形状**匹配**，现状正确。`lableForMaterial` 该配哪张模板**无证据，不猜** |
 | 25 | ✅ 已修 | `oldSheetSize()` 平开/吊趟分叉 |
 | 26 | ✅ 已修 | `oldSheetProduce` lockway：原始开向 + 哑口套/门套 抑制 |
 | 27 | ✅ 已修 | doorsheet 数量修正（逐 producer 核实零分歧）|
@@ -4208,8 +4208,8 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 状态 | 条数 |
 |---|---|
 | ✅ 已修 | 31（另 #28 于 2026-09-14 补齐后半）|
-| ⛔ 文档有误 / 作废 | 3（#31、#38、#29）|
-| ❌ 仍存在（含部分）| 4（#7、#24、#28、#33）|
+| ⛔ 文档有误 / 作废 | 4（#31、#38、#29、#24）|
+| ❌ 仍存在（含部分）| 2（#7、#33）|
 | ⚠️ 待决策 | 0（#29 已作废）|
 
 其中 #7 / #28 依赖**图片库**，#24 / #33 是**缺整块功能** —— 三类都不是"写错"，是依赖或功能缺失。
