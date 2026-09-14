@@ -65,6 +65,22 @@ export function displayDirection(direction: string): string {
   return customDirectionNames.value[direction] || direction
 }
 
+/**
+ * 显示名 → 原始开向（原版 `getOriginalOpenDirection`，openDirectionNaming 模块导出 `g`）。
+ * 逐字复刻其语义：本身是映射的 key（即已是原始开向）→ 原样返回；
+ * 否则按**显示名 trim 后**反查 key；查不到原样返回。
+ * 用途：回执行/生产单的开向图按**原始开向**查图，避免自定义改名后查不到图。
+ */
+export function getOriginalOpenDirection(direction: string): string {
+  if (!direction) return direction
+  const map = customDirectionNames.value
+  if (map[direction]) return direction
+  for (const [k, v] of Object.entries(map || {})) {
+    if (typeof v === 'string' && v.trim() && v.trim() === direction.trim()) return k
+  }
+  return direction
+}
+
 /** 开向选项（按模式过滤 + 显示名替换）。 */
 export const pingDirectionOptions = computed(() =>
   PING_DIRECTIONS.filter((d) => {

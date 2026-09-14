@@ -393,6 +393,7 @@ import {
   customNamesOpen,
   DIRECTION_STORAGE_KEYS,
   displayDirection,
+  getOriginalOpenDirection,
   loadOpenDirectionSettings,
   modeRadio,
   openCustomNames,
@@ -1873,7 +1874,10 @@ function diaoDirImage(fans: string, direction: string): string {
 
 // 方向图（原版 lockImg / openImg）：平开按开向查 PING 图标；移门按 扇数+开向 查 DIRECTION_IMAGES。
 function lineLockImage(l: Line): string {
-  return l.line_type === 'diao' ? diaoDirImage(l.fans, l.direction) : PING_DIRECTION_IMAGES[l.direction] || ''
+  // 开向图按**原始开向**查（原版先过 `getOriginalOpenDirection` 归一化）：
+  // 自定义开向改名后，行上可能是显示名，直接用会查不到图。
+  const dir = getOriginalOpenDirection(l.direction)
+  return l.line_type === 'diao' ? diaoDirImage(l.fans, dir) : PING_DIRECTION_IMAGES[dir] || ''
 }
 
 function colorCell(l: Line, width: number) {
@@ -3409,8 +3413,9 @@ function receiptPrintData(brandSuffix = '回执单') {
   const total = totalPrice.value
   const deposit = order.deposit || 0
   return {
-    // 原版：(客户名||门店名||"客户") + 后缀（后缀逐模板不同，见函数注释）
-    brand: `${order.client_name || tenantName.value || '客户'}${brandSuffix}`,
+    // 原版：(品牌 || 门店名 || "客户") + 后缀（后缀逐模板不同，见函数注释）。
+    // 首项是**品牌** `order.brand`，不是客户名。
+    brand: `${order.brand || tenantName.value || '客户'}${brandSuffix}`,
     date: order.order_date || today(),
     orderNo: order.receipt_no || '',
     tel: order.phone || '',
@@ -3420,7 +3425,9 @@ function receiptPrintData(brandSuffix = '回执单') {
     deposit,
     total,
     balance: total - deposit,
-    TotalBalance: total - deposit, // 原版是服务端「客户账户余额」；无财务模块，暂占位
+    // 原版 `TotalBalance` = 服务端「客户账户余额」（开关开启且有客户编号时拉 `finance_getCustomerBalance`），
+    // **取不到时为 `""`** —— 不要用 `total-deposit` 冒充（那是 `balance` 的语义）。
+    TotalBalance: '',
     declaration: LEGACY_DECLARATION,
     payQrcode: '',
     orderQrcode: terminalLink.value || '',
