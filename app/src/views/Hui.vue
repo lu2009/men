@@ -720,17 +720,25 @@ const PING_VIS_KEYS = [
   { key: 'door_size', label: '门洞尺寸' },
   { key: 'hole_size', label: '洞尺' },
   { key: 'jiao', label: '吊脚' },
-  { key: 'hw_board', label: '五金/封板' },
+  // 「亮窗总高」原版**无显隐闸门**，故不进本表（仍照常显示）
+  { key: 'hardware', label: '五金' },
+  { key: 'seal_board', label: '封板高' },
   { key: 'remark', label: '备注' },
-  { key: 'progress', label: '生产进度' },
   { key: 'money', label: '金额' },
   { key: 'markup_summary', label: '加价' },
-  { key: 'price', label: '计价/打折' },
+  { key: 'price_type', label: '计价方式' },
+  { key: 'discount', label: '打折' },
+  { key: 'front_casing', label: '前包加长' },
+  { key: 'back_casing', label: '后包加长' },
   { key: 'double_ding', label: '单/双丁' },
-  { key: 'wrap', label: '前/后包' },
   { key: 'order_no', label: '单号' },
+  { key: 'image_id', label: '图片ID' },
+  { key: 'client', label: '客户' },
+  { key: 'client_code', label: '客户编号' },
+  { key: 'other_fee', label: '其它费用' },
 ]
 // 移门表可显隐列（列序同原版，见 diaoCols 注释）
+
 const DIAO_VIS_KEYS = [
   { key: 'profile_color', label: '型材/颜色' },
   { key: 'unit_qty', label: '单价/数量' },
@@ -2293,12 +2301,20 @@ function applyPartState(parts: PartsMap, l: Line, engine: EngineId = 'B'): void 
   }
 
   if (diao) {
-    // ③ 活扇块
+    // ③ 活扇块。**两套变体**（原文逐字，整块门控都是 `扇数.includes('活')`）：
+    //   A吊（@468374）：① `含(扇数)&&含'玻璃宽'` ② `含'玻璃高'&&track===行.轨道种类&&含(扇数)` ③ `亮窗总高>0&&含'玻璃'`
+    //   B吊（@500279）/D吊/C吊：① `含'活'&&!含'玻璃高'` ② 同上 ③ `亮窗总高>0&&(含'玻璃'||含'亮窗')`
     if (fans.includes('活')) {
+      const aDiao = engine === 'A' // A吊（G吊 我们未实现）
       for (const k of keys) {
-        if (k.includes('活') && !k.includes('玻璃高')) set(k, true)
+        if (aDiao) {
+          if (k.includes(fans) && k.includes('玻璃宽')) set(k, true)
+          if (lwH > 0 && k.includes('玻璃')) set(k, true)
+        } else {
+          if (k.includes('活') && !k.includes('玻璃高')) set(k, true)
+          if (lwH > 0 && (k.includes('玻璃') || k.includes('亮窗'))) set(k, true)
+        }
         if (k.includes('玻璃高') && parts[k].track === track && k.includes(fans)) set(k, true)
-        if (lwH > 0 && (k.includes('玻璃') || k.includes('亮窗'))) set(k, true)
       }
     }
     // ④ 主规则块。**三套变体**（§52.5 / §52.5b）：
@@ -2594,9 +2610,7 @@ async function hydrateRowImages(rows: Line[]) {
 }
 
 // —— 组合单元格工具：一格多控件、紧凑（仿旧版）——
-// cRow/cCol：控件可增长（min-width:0）避免文字截断；cRow 的 justify 参数可设为 right/center。
-const cRow = (...vs: (import('vue').VNodeChild | null)[]) =>
-  h('div', { style: 'display:flex;gap:2px;align-items:center;justify-content:flex-start;white-space:nowrap;min-width:0' }, vs)
+// cCol：控件可增长（min-width:0）避免文字截断。
 const cCol = (...vs: (import('vue').VNodeChild | null)[]) =>
   h('div', { style: 'display:flex;flex-direction:column;gap:1px;align-items:stretch;min-width:0' }, vs)
 const sub = (label: string, ctrl: import('vue').VNodeChild | null) =>
@@ -2722,13 +2736,9 @@ function pingCols(): DataTableColumn<Line>[] {
       // （else 分支是 `createCommentVNode`）。无公式时渲染（与原版 `return true` 一致）。
       render: (l) => (isDiamond(l) ? null : intCell(l, 'light_window_height', 62)),
     },
-    {
-      title: '五金/封板',
-      key: 'hw_board',
-      width: 98,
-      render: (l) => cCol(sub('五金', hardwareCell(l, 76)), sub('封板高', intCell(l, 'seal_board_height', 76))),
-    },
-    { title: '生产进度', key: 'progress', width: 92, render: (l) => tCell(l, 'progress', 86) },
+    // 原版「五金」（`["五金"]` 闸门）与「封板高」是两个独立列
+    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l, 76) },
+    { title: '封板高', key: 'seal_board', width: 62, render: (l) => intCell(l, 'seal_board_height', 62) },
     {
       title: '备注',
       key: 'remark',
@@ -2737,24 +2747,18 @@ function pingCols(): DataTableColumn<Line>[] {
     },
     { title: '金额', key: 'money', width: 140, render: (l) => moneyCell_2(l) },
     markupCol(),
-    {
-      title: '计价/打折',
-      key: 'price',
-      width: 100,
-      render: (l) => cRow(optCell(l, 'price_type', 50, priceTypeOptions), moneyCell(l, 'discount', 48)),
-    },
+    // 原版平开表尾部列序：加价项目 → 计价方式 → 打折 → 前包加长 → 后包加长 → 单双丁 → 单号 → …
+    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', 68, priceTypeOptions) },
+    { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount', 56) },
+    { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add', 78) },
+    { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add', 78) },
     { title: '单/双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', 74, DOUBLE_DING_OPTS) },
-    {
-      title: '前/后包',
-      key: 'wrap',
-      width: 96,
-      render: (l) =>
-        cCol(
-          sub('前包', intCell(l, 'front_casing_add', 74)),
-          sub('后包', intCell(l, 'back_casing_add', 74)),
-        ),
-    },
     { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
+    { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
+    // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
+    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
+    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
+    { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee', 72) },
   ]
 }
 
@@ -2773,15 +2777,23 @@ function diaoCols(): DataTableColumn<Line>[] {
     //   门花图 | 型材/颜色 | 单价/数量 | 玻璃 | 扇数/开向 | 下轨道/套线 | 门洞尺寸 | 洞尺 |
     //   亮窗信息 | 五金 | 备注 | 金额 | 加价项目 | 上轨/边封 | 前包加长 | 后包加长 |
     //   单双丁 | 计价方式 | 打折 | 单号 | 图片ID | 客户 | 客户编号 | 其它费用
-    // 其中「单价/数量」列内还含 生产进度 与 套线单价；「亮窗信息」列内含 亮窗总高/亮窗数量/封板高。
+    // 其中「单价/数量」列内还含 套线单价，且**生产进度是「单价」框上的 tooltip**（不是可编辑格子）；
+    // 「亮窗信息」列内含 亮窗总高/亮窗数量/封板高。
     {
       title: '单价/数量',
       key: 'unit_qty',
       width: 104,
       render: (l) =>
         cCol(
-          sub('进度', tCell(l, 'progress', 84)),
-          sub('单价', moneyCell(l, 'unit_price', 84)),
+          // 原版 @181691：`el-tooltip :disabled="!e[…]" :content="e['生产进度']"` 包住单价输入框
+          sub(
+            '单价',
+            h(
+              NTooltip,
+              { disabled: !l.progress, trigger: 'hover' },
+              { trigger: () => moneyCell(l, 'unit_price', 84), default: () => l.progress },
+            ),
+          ),
           sub('数量', intCell(l, 'quantity', 84, 1)),
           sub('套线¥', moneyCell(l, 'casing_price', 84)),
         ),
@@ -4182,7 +4194,9 @@ function basicInfoText(l: Line, engine: 'A' | 'B' | 'C' = 'B'): string {
     }
   }
   const head = items.join('<br>')
-  const dir = displayDirection(l.direction)
+  // 尾部用**原始 `开向`**，不做 displayDirection（原文：B平 @498631 `…+'<br>'+行["开向"]`，
+  // B吊 @519038 `…+行["开向"]+"<br>"+行["扇数"]` —— 两处读的都是行字段原文，不走改名映射）。
+  const dir = l.direction || ''
   let tail: string
   if (diao) {
     const suppress = engine === 'C'
