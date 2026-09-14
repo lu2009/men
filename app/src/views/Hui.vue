@@ -2085,7 +2085,7 @@ function markupSelectCell(l: Line) {
   ])
 }
 const markupCol = (): DataTableColumn<Line> => ({
-  title: '加价',
+  title: '加价项目',
   key: 'markup_summary',
   width: 168,
   render: (l) => markupSelectCell(l),
@@ -2630,7 +2630,7 @@ const orderNoCell = () =>
 const moneyCell_2 = (l: Line) => cCol(amountCell(l), sqCell(l))
 
 const doorImgCol = (): DataTableColumn<Line> => ({
-  title: '门图',
+  title: '门花图',
   key: 'door_img',
   width: 72,
   fixed: 'left',
@@ -2752,7 +2752,7 @@ function pingCols(): DataTableColumn<Line>[] {
     { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount', 56) },
     { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add', 78) },
     { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add', 78) },
-    { title: '单/双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', 74, DOUBLE_DING_OPTS) },
+    { title: '单/双丁墙体', key: 'double_ding', width: 96, render: (l) => optCell(l, 'double_ding', 88, DOUBLE_DING_OPTS) },
     { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
@@ -2893,7 +2893,7 @@ function diaoCols(): DataTableColumn<Line>[] {
     },
     { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add', 78) },
     { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add', 78) },
-    { title: '单/双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', 74, DOUBLE_DING_OPTS) },
+    { title: '单双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', 74, DOUBLE_DING_OPTS) },
     { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', 68, priceTypeOptions) },
     { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount', 56) },
     { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
