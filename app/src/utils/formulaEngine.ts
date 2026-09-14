@@ -23,7 +23,7 @@ export interface Dimensions {
   s: number
 }
 
-export interface PartDef {
+interface PartDef {
   state: boolean
   quantity: number
   materialName: string
@@ -50,7 +50,7 @@ const toNum = (v: unknown): number => {
 const wrap = (n: number): string => (n < 0 ? `(${n})` : String(n))
 
 /** 安全求值：表达式已经过变量替换，仅含数字与四则运算。 */
-export function evalExpr(expr: string): number {
+function evalExpr(expr: string): number {
   try {
     // 与旧版 eval 语义一致；变量替换后不含任意代码。
     // eslint-disable-next-line no-new-func
@@ -159,35 +159,4 @@ export function recalcForward(parts: PartsMap, dims: Dimensions): Record<string,
     computed[name] = r
   }
   return computed
-}
-
-/** 识别部件 key 开头的「轨/扇」前缀（如「2轨2扇」「3轨」「单轨单扇」「折叠2扇」）。 */
-const TRACK_PREFIX_RE = /^(\d+轨\d+扇|单轨单扇|单轨\d+扇|折叠\d+扇|\d+轨|单轨|折叠)/
-
-/**
- * 部件激活判定（推拉门/单轨/折叠/PT 等模板）。
- *
- * 这些模板把多个轨道/扇数变体（2轨2扇、2轨4扇、3轨3扇…）合并进同一 PartsMap，
- * key 以轨/扇前缀区分；算料时只保留与当前行「扇数」匹配的变体。
- *
- * - key 无轨/扇前缀 → 通用件（边封/扣板/F槽…），始终激活；
- * - key 有前缀 → 仅当行的扇数字符串以该前缀开头时激活。
- *   例：fans="3轨3扇" 时「3轨上滑」「3轨3扇玻璃宽」激活，「2轨上滑」「2轨2扇玻璃宽」不激活。
- */
-export function isActivePartKey(key: string, fans: string): boolean {
-  const m = key.match(TRACK_PREFIX_RE)
-  if (!m) return true
-  return fans.startsWith(m[1])
-}
-
-/**
- * 套线包边判定：按显式「包边」字段匹配（复刻旧版 part.track === line[套线种类]）。
- *
- * 移门/单轨/折叠/PT 模板把「单包」「双包」套线合并进同一模板，以 track 字段区分
- * （单包 = 1 宽 + 2 高，双包 = 2 宽 + 4 高）。算料时仅当部件 track 与行的包边类型
- * （双包/单包/外包/内包/平框）一致时激活；其余 track（空/标配/…）不受影响。
- */
-export function isCasingTrackActive(track: string, edgeBinding: string): boolean {
-  if (track === '单包' || track === '双包') return track === edgeBinding
-  return true
 }

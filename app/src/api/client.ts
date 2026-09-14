@@ -14,7 +14,6 @@ import type {
   FormulaMatchResolveDto,
   OrderDto,
   OrderInput,
-  OrderLineInput,
   OrderSummaryDto,
   PriceResolveDto,
   PrintTemplateDto,
@@ -76,11 +75,6 @@ export const api = {
     }),
   logout: () => request<{ logged_out: boolean }>('/v1/auth/logout', { method: 'POST' }),
   me: () => request<MeResponse>('/v1/auth/me'),
-  changePassword: (payload: { old_password: string; new_password: string }) =>
-    request<{ changed: boolean }>('/v1/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
   health: () => request<HealthResponse>('/v1/health'),
   listFormulas: (search?: string) =>
     request<FormulaDto[]>(
@@ -113,7 +107,6 @@ export const api = {
     request<ClientDto[]>(
       `/v1/clients${search ? `?search=${encodeURIComponent(search)}` : ''}`,
     ),
-  getClient: (id: number) => request<ClientDto>(`/v1/clients/${id}`),
   createClient: (payload: ClientInput) =>
     request<ClientDto>('/v1/clients', {
       method: 'POST',
@@ -140,12 +133,7 @@ export const api = {
     }),
   deleteOrder: (id: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${id}`, { method: 'DELETE' }),
-  // 订单行：单行更新/删除（行生命周期）。
-  updateOrderLine: (orderId: number, lineId: number, payload: OrderLineInput) =>
-    request<{ updated: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
-      method: 'PUT',
-      body: JSON.stringify(payload),
-    }),
+  // 订单行：单行删除（行的保存统一走 updateOrder 整单提交）。
   deleteOrderLine: (orderId: number, lineId: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
       method: 'DELETE',

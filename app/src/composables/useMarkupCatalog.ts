@@ -1,14 +1,14 @@
 import { computed, ref } from 'vue'
 import { api } from '../api/client'
 
-export interface CatalogItem {
+interface CatalogItem {
   name: string
   price: number
   unit: string
 }
 
 // 加价项目单位（六种）。
-export const MARKUP_UNITS = ['元/套', '元/支', '元/方', '元/米', '元/公分', '无']
+const MARKUP_UNITS = ['元/套', '元/支', '元/方', '元/米', '元/公分', '无']
 export const markupUnitOptions = MARKUP_UNITS.map((u) => ({ label: u, value: u }))
 
 // 加价项目目录：模块级单例（仿旧版 useAddPriceItems）。

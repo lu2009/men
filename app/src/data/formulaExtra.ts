@@ -11,12 +11,6 @@ export const MIN_SQUARE_TYPES = [
   '折叠2扇', '折叠3扇', '折叠4扇', '折叠5扇', '折叠6扇',
 ] as const
 
-export interface HingeItem {
-  name: string
-  topBottomReduce: number
-  lightDoorReduce: number
-}
-
 /** extra JSONB 的完整结构（所有字段可选，缺省即未设置）。 */
 export interface FormulaExtra {
   resetSize?: { width: number; height: number }

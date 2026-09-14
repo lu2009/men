@@ -12,8 +12,8 @@ export const PING_DIRECTIONS = [
 const PING_OPEN_DIRS = ['内左', '内右', '外左', '外右']
 const PING_LOCK_DIRS = ['左锁内开', '右锁内开', '左锁外开', '右锁外开']
 
-export const OPEN_DIRECTION_MODE_KEY = 'openDirectionMode'
-export const OPEN_DIRECTION_CUSTOM_NAMES_KEY = 'openDirectionCustomNames'
+const OPEN_DIRECTION_MODE_KEY = 'openDirectionMode'
+const OPEN_DIRECTION_CUSTOM_NAMES_KEY = 'openDirectionCustomNames'
 
 // 会话默认（"1"/"2"）→ 文案（原版提示语）。
 const MODE_LABEL: Record<string, string> = { '': '全部模式', '1': '模式1', '2': '模式2' }
@@ -34,8 +34,8 @@ const writeLS = (k: string, v: string) => {
 }
 
 // 双向状态（模块级单例）
-export const openDirectionMode = ref('')
-export const customDirectionNames = ref<Record<string, string>>({})
+const openDirectionMode = ref('')
+const customDirectionNames = ref<Record<string, string>>({})
 
 export function loadOpenDirectionSettings() {
   openDirectionMode.value = readLS(OPEN_DIRECTION_MODE_KEY) || ''

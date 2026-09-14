@@ -116,7 +116,6 @@ export interface OrderLineDto {
   fans: string
   track: string
   casing: string
-  edge_binding: string
   hardware: string
   bottom_glass: string
   face_glass: string
@@ -148,14 +147,12 @@ export interface OrderLineDto {
   track_length: number
   front_casing_add: number | null
   back_casing_add: number | null
-  link_no: string | null
   double_ding: string | null
   light_window_count: number
   image_id: string | null
   image_url: string | null
   progress: string
   hole_size: string
-  markup_raw: string
 }
 
 export type OrderLineInput = Omit<OrderLineDto, 'id' | 'row_index'>
@@ -220,7 +217,6 @@ export interface PrintTemplateDto {
   name: string
   paper: string
   template: unknown
-  remark: string
   created_at: string
   updated_at: string
 }

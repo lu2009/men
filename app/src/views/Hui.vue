@@ -3,7 +3,7 @@
     <!-- 命令行（仿旧版：清空 / 添加门类 / 保存回执单 / 3D画图 · 更多▾ 收高级入口） -->
     <div class="top-bar">
       <div class="toolbar-row">
-        <n-button size="small" @click="newOrder">1.清空</n-button>
+        <n-button size="small" @click="clearOrder">1.清空</n-button>
         <n-button size="small" type="error" @click="addTypeOpen = true">2.添加门类</n-button>
         <n-button size="small" type="warning" :loading="saving" @click="saveOrder">3.保存回执单</n-button>
         <n-tooltip>
@@ -204,6 +204,25 @@
       </div>
     </n-modal>
 
+    <!-- 排序方式（原版 @324476 打开 / @324531 保存；全 legacy 唯一写入 `smartdoor_sort_method` 的地方）-->
+    <n-modal v-model:show="sortMethodOpen" preset="card" title="排序方式" style="width: 420px">
+      <div class="vis-col">
+        <n-radio-group v-model:value="sortMethodDraft">
+          <n-radio value="profile">型材优先（默认）</n-radio>
+          <n-radio value="order">序号优先</n-radio>
+        </n-radio-group>
+        <div style="color:#909399;font-size:12px;margin-top:8px">
+          影响生产单/玻璃合片单/玻璃订单/标签等单据的行顺序；「型材优先」按型材分组顺序，「序号优先」按单号数字前缀。
+        </div>
+      </div>
+      <template #footer>
+        <div class="footer">
+          <n-button @click="sortMethodOpen = false">取消</n-button>
+          <n-button type="primary" @click="saveSortMethod">保存</n-button>
+        </div>
+      </template>
+    </n-modal>
+
     <!-- 开向模式设置 -->
     <n-modal v-model:show="openDirSettingsOpen" preset="card" title="开向模式设置" style="width: 460px">
       <div class="vis-col">
@@ -307,20 +326,17 @@
       </n-drawer-content>
     </n-drawer>
 
-    <!-- 回执单预览 -->
-    <n-drawer v-model:show="receiptOpen" :width="900" placement="right">
-      <n-drawer-content title="回执单预览" closable>
-        <div class="receipt-host" v-html="receiptHtml"></div>
-        <template #footer>
-          <div class="footer">
-            <n-button @click="receiptOpen = false">关闭</n-button>
-            <n-button @click="downloadReceipt">下载回执单</n-button>
-            <n-button @click="shareReceipt">分享</n-button>
-            <n-button type="primary" :loading="printing" @click="printReceipt">打印</n-button>
-          </div>
-        </template>
-      </n-drawer-content>
-    </n-drawer>
+    <!-- 通用模板预览 -->
+    <n-modal v-model:show="templatePreviewOpen" preset="card" title="模板预览" style="width: 1040px" :loading="templatePreviewLoading">
+      <n-select v-model:value="templatePreviewMode" :options="templateList.map(t=>({label:t.name,value:t.mode}))" filterable style="width: 260px;margin-bottom:8px" @update:value="(v:string)=>renderTemplatePreview(v)" />
+      <div class="production-host" v-html="templatePreviewHtml"></div>
+      <template #footer>
+        <div class="footer">
+          <n-button @click="templatePreviewOpen = false">关闭</n-button>
+          <n-button type="primary" :disabled="!templatePreviewMode" @click="printCurrentTemplate">打印</n-button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -335,6 +351,7 @@ import {
   NModal,
   NSelect,
   NSpace,
+  NTooltip,
   useDialog,
   useMessage,
 } from 'naive-ui'
@@ -343,14 +360,14 @@ import { api } from '../api/client'
 import type {
   ClientDto,
   FormulaDto,
+  FormulaImageDto,
   OrderInput,
   OrderLineInput,
   OrderSummaryDto,
 } from '../api/types'
-import { isActivePartKey, isCasingTrackActive, recalcForward, type Dimensions, type PartsMap } from '../utils/formulaEngine'
-import { printByMode } from '../utils/printService'
-import { calculateGlassCount, glassPiecesOf, labelQuantity } from '../utils/printData'
-import type { GlassPiece } from '../utils/printData'
+import { evalForward, type Dimensions, type PartsMap } from '../utils/formulaEngine'
+import { printByMode, renderByMode } from '../utils/printService'
+import { labelQuantity } from '../utils/printData'
 import {
   fileToDataUrl,
   genImageId,
@@ -410,7 +427,6 @@ interface Line {
   fans: string
   track: string
   casing: string
-  edge_binding: string
   hardware: string
   bottom_glass: string
   face_glass: string
@@ -442,14 +458,12 @@ interface Line {
   track_length: number
   front_casing_add: number | null
   back_casing_add: number | null
-  link_no: string | null
   double_ding: string | null
   light_window_count: number
   image_id: string | null
   image_url: string | null
   progress: string
   hole_size: string
-  markup_raw: string
   isSelected?: boolean
 }
 
@@ -476,15 +490,12 @@ const GLASS_OPTIONS = ['白玻', '无', '磨砂', '普通长虹']
 // 玻璃厚（旧版顺序 4,8,5,6,10,12,0）
 const GLASS_THICKNESS_OPTIONS = ['4', '8', '5', '6', '10', '12', '0']
 
-// 包边类型（套线单/双包，匹配部件 track）。旧版套线种类 autocomplete 为 双包/外包/内包/平框，
-// 新版模板同时含「单包」套线部件（1宽2高），故补入「单包」。
-const EDGE_BINDING_OPTIONS = ['双包', '单包', '外包', '内包', '平框']
+// 「套线种类」枚举（原版 `ref(["双包","外包","内包","平框"])`，Hui.formatted.js:758）。
+// 原版平开行的「包边:」标签绑的就是这个字段（同文件 2132：`modelValue: e["套线种类"]`），
+// 它一身三职：单据展示、算料时匹配 `part.track`、套线长度模式（`-N` 后缀 / 一高一宽…）。
+// 新版模板另含「单包」套线部件（1宽2高），故补入「单包」。
+const CASING_OPTIONS = ['双包', '单包', '外包', '内包', '平框']
 
-// 套线种类（旧版 autocomplete 候选项；允许自由输入增量语法如「一高一宽」「两高两宽」「-10」）
-const CASING_OPTIONS = ['一高一宽', '两高两宽', '一高', '一宽', '双包套线', '单包套线']
-
-// 五金（旧版 getOptions("hardware") 候选）
-const HARDWARE_OPTIONS = ['铰链', '锁具1', '锁具2', '拉手', '合页', '执手', '传动器', '天地锁']
 
 // 折叠门开向后缀（旧版 M+P 内折/外折，随折叠N扇选）
 const FOLD_DIRECTION_SUFFIXES = [
@@ -514,36 +525,33 @@ function openAddMarkup(l: Line) {
   addMarkupOpen.value = true
 }
 
-// 单次添加：仅加到当前行 + 内存目录（本次会话可选，不持久化）
-function addMarkupOnce() {
+// 校验表单 → 加到当前行 → 刷新 → 关弹窗。返回该项供调用方决定如何进目录；失败返回 null。
+function pushMarkupItem(): { name: string; price: number; unit: string } | null {
   const name = addMarkupForm.name.trim()
   if (!name) {
     message.warning('请输入加价项目名')
-    return
+    return null
   }
   const l = addMarkupTarget.value
-  if (!l) return
+  if (!l) return null
+  const item = { name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套' }
   l.markup = l.markup ?? []
-  l.markup.push({ name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套', amount: 0 })
+  l.markup.push({ ...item, amount: 0 })
   lineRefresh(l)
-  sessionAddCatalogItem({ name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套' })
   addMarkupOpen.value = false
+  return item
+}
+
+// 单次添加：仅加到当前行 + 内存目录（本次会话可选，不持久化）
+function addMarkupOnce() {
+  const item = pushMarkupItem()
+  if (item) sessionAddCatalogItem(item)
 }
 
 // 同步保存：加到当前行 + 后端持久化目录（永久，其它行/之后可选）
 async function addMarkupSync() {
-  const name = addMarkupForm.name.trim()
-  if (!name) {
-    message.warning('请输入加价项目名')
-    return
-  }
-  const l = addMarkupTarget.value
-  if (!l) return
-  l.markup = l.markup ?? []
-  l.markup.push({ name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套', amount: 0 })
-  lineRefresh(l)
-  await syncAddCatalogItem({ name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套' })
-  addMarkupOpen.value = false
+  const item = pushMarkupItem()
+  if (item) await syncAddCatalogItem(item)
 }
 
 // 开向模式/自定义命名已抽到 ../composables/useOpenDirection（仿原版 _0x5a7707）
@@ -553,7 +561,7 @@ const directionSuffixOptions = computed(() =>
 const fansOptions = FANS.map((f) => ({ label: f, value: f }))
 const glassOptions = GLASS_OPTIONS.map((g) => ({ label: g, value: g }))
 const glassThicknessOptions = GLASS_THICKNESS_OPTIONS.map((g) => ({ label: g, value: g }))
-const edgeBindingOptions = EDGE_BINDING_OPTIONS.map((e) => ({ label: e, value: e }))
+const casingKindOptions = CASING_OPTIONS.map((e) => ({ label: e, value: e }))
 const priceTypeOptions = [
   { label: '套', value: '套' },
   { label: '方', value: '方' },
@@ -631,9 +639,9 @@ function lineInputOf(l: Line): OrderLineInput {
   } as unknown as OrderLineInput
 }
 
-// 回执单底部「温馨提示」默认文案（后续接入租户配置表后按租户读取）。
-const DEFAULT_DECLARATION =
-  '1、下单尺寸为包框尺寸（洞口尺寸减去安装空位），如需见光尺寸、包边尺寸请明确说明。\n2、确认后预付订金，出货前付清余款。\n3、订单确认后请在约定时间内修改，超过时间需另付工料费。'
+// 回执单底部「温馨提示」：原版 = `租户.declaration || "含安装费"`（token 1114）。
+// 后端 tenants 表暂无 declaration 列，故直接取原版回退值。
+const LEGACY_DECLARATION = '含安装费'
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -682,14 +690,16 @@ function ensureShown(kind: 'ping' | 'diao') {
 
 // 更多功能（次级菜单）—— 高级入口收进这里，主按钮行贴近旧版
 const moreMenuOptions = [
-  { label: '新建订单', key: 'new' },
   { label: '订单列表', key: 'orders' },
-  { label: '回执单预览', key: 'receipt' },
+  { label: '模板预览', key: 'templates' },
   { label: '标签打印', key: 'labels' },
   { label: '玻璃合片单', key: 'glass' },
+  { label: '玻璃订单', key: 'glassHole' },
+  { label: '生产单定制打印', key: 'productionCustom' },
   { label: '终端链接', key: 'terminal' },
   { label: '加价项目管理', key: 'markupMgmt' },
   { label: '自动加价设置', key: 'autoMarkup' },
+  { label: '排序方式', key: 'sortMethod' },
   { label: '开向模式设置', key: 'openDir' },
   { label: '列显隐设置', key: 'columns' },
 ]
@@ -706,9 +716,10 @@ const PING_VIS_KEYS = [
   { key: 'glass', label: '玻璃' },
   { key: 'open_dir', label: '开向' },
   { key: 'track', label: '开向内·锁具(轨道)' },
-  { key: 'edge_binding', label: '开向内·包边(套线)' },
+  { key: 'casing', label: '开向内·包边(套线)' },
   { key: 'door_size', label: '门洞尺寸' },
-  { key: 'jiao_lw', label: '吊脚/亮窗' },
+  { key: 'hole_size', label: '洞尺' },
+  { key: 'jiao', label: '吊脚' },
   { key: 'hw_board', label: '五金/封板' },
   { key: 'remark', label: '备注' },
   { key: 'progress', label: '生产进度' },
@@ -726,7 +737,6 @@ const DIAO_VIS_KEYS = [
   { key: 'glass', label: '玻璃' },
   { key: 'track_line', label: '轨道/套线' },
   { key: 'track', label: '轨道/套线内·轨道' },
-  { key: 'edge_binding', label: '轨道/套线内·包边' },
   { key: 'door_size', label: '门洞尺寸' },
   { key: 'lightwin', label: '亮窗' },
   { key: 'jiao_seal', label: '吊脚/边封' },
@@ -834,14 +844,16 @@ function onReverseOpenDirNames() {
 
 function onMoreSelect(key: string) {
   switch (key) {
-    case 'new': newOrder(); break
     case 'orders': void openOrderList(); break
-    case 'receipt': openReceipt(); break
+    case 'templates': void openTemplatePreview(); break
     case 'labels': void printLabels(); break
     case 'glass': void printGlass(); break
+    case 'glassHole': void printGlassHole(); break
+    case 'productionCustom': void printProductionCustom(); break
     case 'terminal': void copyTerminalLink(); break
     case 'markupMgmt': openMarkupMgmt(); break
     case 'autoMarkup': autoMarkupOpen.value = true; break
+    case 'sortMethod': openSortMethod(); break
     case 'openDir': openOpenDirSettings(); break
     case 'columns': openVisDialog(); break
   }
@@ -930,13 +942,24 @@ function onClientChange(code: string | null) {
 const formulas = ref<FormulaDto[]>([])
 
 // 型材候选（常见型材预设 + 公式名 + 已录入型材历史；旧版来自 material 接口）
-// 型材候选按门型分类（仿旧版 initializPing→pingMaterial / initializDiao→diaoMaterial）：
-// 平开表只看平开类，移门表只看移门类，避免串型。来源 = 对应门型预设 + 对应 formula_type 公式名 + 对应门型的历史型材。
-const PING_PROFILE_PRESETS = ['科蓝108', '108断桥', '平开系统窗', '极简窄边框']
-const DIAO_PROFILE_PRESETS = ['90型推拉', '重型推拉门', '108推拉', '中窄边框移门']
+// 平开族的 formula_type 取值。**不能只认 'ping'**：原版没有 formula_type 这层过滤 ——
+// 行.formulaid 是「型材名 → formulaID」直接查服务端 material 字典得到的
+// （Hui.formatted.js:1459-1475 `const _=O.value[x]; _?a.formulaid=String(_):…`），
+// 下拉候选就是该字典的 key 集合（同文件 1898 `Object.keys(O.value)`）。
+// 所以钻石型(diamond)/子母(parentsubsidiary)/双开(double) 这些平开族公式同样在平开表里。
+// 若按 `ft === type` 字面判等，它们会被两张表同时排除 —— 这正是「钻石型公式选不到」的根因。
+const PING_FAMILY_TYPES = ['ping', 'double', 'parentsubsidiary', 'diamond']
 
+/** 公式是否属于某张表：移门只收 diao，平开收平开族；无型别的两边都放（避免隐藏已有数据）。 */
+function belongsToTable(formulaType: string | undefined, type: 'ping' | 'diao'): boolean {
+  const ft = (formulaType || '').trim()
+  if (ft === '') return true
+  return type === 'diao' ? ft === 'diao' : PING_FAMILY_TYPES.includes(ft)
+}
+
+// 型材候选按门型分类（仿旧版 initializPing→pingMaterial / initializDiao→diaoMaterial）：
+// 平开表只看平开族，移门表只看移门类，避免串型。来源 = 对应门型的历史型材 + 对应族的公式名。
 function profileOptionsFor(type: 'ping' | 'diao'): { label: string; value: string }[] {
-  const presets = type === 'ping' ? PING_PROFILE_PRESETS : DIAO_PROFILE_PRESETS
   const seen = new Set<string>()
   const out: { label: string; value: string }[] = []
   const push = (p: string) => {
@@ -946,12 +969,10 @@ function profileOptionsFor(type: 'ping' | 'diao'): { label: string; value: strin
       out.push({ label: v, value: v })
     }
   }
-  for (const p of presets) push(p)
+  for (const h of readFieldHistory(`profile_${type}`)) push(h)
   for (const l of lines.value) if (l.line_type === type) push(l.profile)
   for (const f of formulas.value) {
-    const ft = (f.formula_type || '').trim()
-    // 型别匹配优先；无型别的公式两边都放（避免隐藏已有数据）
-    if (ft === type || ft === '') push(f.name)
+    if (belongsToTable(f.formula_type, type)) push(f.name)
   }
   return out
 }
@@ -959,8 +980,36 @@ function profileOptionsFor(type: 'ping' | 'diao'): { label: string; value: strin
 const pingProfileOptions = computed(() => profileOptionsFor('ping'))
 const diaoProfileOptions = computed(() => profileOptionsFor('diao'))
 
-// 颜色候选（常用色 + 已录入颜色历史）
-const COLOR_PRESETS = ['肌肤白', '肌肤黑', '香槟', '砂灰', '深空灰', '象牙白', '星空灰', '哑黑']
+// 通用候选历史持久化（仿旧版 saveOptions(选项库)）：录入/载入的候选写入 localStorage，刷新仍保留。
+// 每个字段一个 key，如 color/casing/track/hardware/profile。
+function readFieldHistory(key: string): string[] {
+  try {
+    const raw = LS.get(`smartdoor_field_history_${key}`)
+    if (!raw) return []
+    const arr = JSON.parse(raw)
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string' && x.trim()) : []
+  } catch {
+    return []
+  }
+}
+function writeFieldHistory(key: string, list: string[]) {
+  try {
+    LS.set(`smartdoor_field_history_${key}`, JSON.stringify(list))
+  } catch {
+    // 忽略
+  }
+}
+function rememberField(key: string, value: string) {
+  const v = (value || '').trim()
+  if (!v) return
+  const list = readFieldHistory(key)
+  if (!list.includes(v)) {
+    list.unshift(v)
+    writeFieldHistory(key, list.slice(0, 50))
+  }
+}
+
+// 颜色候选（本地持久化历史 + 当前已录入颜色；与旧版 autocomplete 一致，无内置色卡）
 const colorOptions = computed<{ label: string; value: string }[]>(() => {
   const seen = new Set<string>()
   const out: { label: string; value: string }[] = []
@@ -971,13 +1020,19 @@ const colorOptions = computed<{ label: string; value: string }[]>(() => {
       out.push({ label: v, value: v })
     }
   }
+  for (const c of readFieldHistory('color')) push(c)
   for (const l of lines.value) push(l.color)
-  for (const c of COLOR_PRESETS) push(c)
   return out
 })
 
 // 候选源构建通用函数：预设 + 已录入历史
-function buildOptions(presets: string[], field: (l: Line) => string): { label: string; value: string }[] {
+
+// 从当前行公式 parts 提取轨道/套线候选（原版部件 track 语义，按型材联动）。
+//   track：部件 track 非空且非单包/双包（如"标配"）；套线：track==单包/双包 → 单包/双包（无"套线"后缀）。
+function partsTrackOptions(l: Line, kind: 'track' | 'casing'): { label: string; value: string }[] {
+  const f = formulaOf(l)
+  const parts = (f?.parts ?? {}) as Record<string, { track?: string; materialName?: string }>
+  const history = readFieldHistory(kind)
   const seen = new Set<string>()
   const out: { label: string; value: string }[] = []
   const push = (v: string) => {
@@ -987,27 +1042,78 @@ function buildOptions(presets: string[], field: (l: Line) => string): { label: s
       out.push({ label: s, value: s })
     }
   }
-  for (const p of presets) push(p)
-  for (const l of lines.value) push(field(l))
+  for (const h of history) push(h)
+  for (const p of Object.values(parts)) {
+    if (!p || typeof p !== 'object') continue
+    const t = (p.track || '').trim()
+    if (!t) continue
+    if (kind === 'track') {
+      if (t !== '单包' && t !== '双包') push(t)
+    } else {
+      // 套线候选 = 原版单包/双包(无"套线"后缀)，来自部件 track
+      if (t === '单包' || t === '双包') push(t)
+    }
+  }
   return out
 }
 
-const casingOptions = computed(() => buildOptions(CASING_OPTIONS, (l) => l.casing))
-const trackOptions = computed(() => buildOptions(['标配', '重型', '轻轨', '隐形轨道'], (l) => l.track))
-const hardwareOptions = computed(() => buildOptions(HARDWARE_OPTIONS, (l) => l.hardware))
+// 锁具候选（原版 getOptions("lock") + 取价接口 lock 数组）
+const lockOptions = ref<string[]>([])
+function rememberLocks(vals: unknown) {
+  if (!Array.isArray(vals)) return
+  for (const v of vals) {
+    const s = String(v ?? '').trim()
+    if (!s) continue
+    if (!lockOptions.value.includes(s)) lockOptions.value.push(s)
+    rememberField('lock', s)
+  }
+}
+
+// 五金候选（原版）：公式 hinge 的键（合页名）+ 历史录入（getOptions("hardware")）+ 锁具（getOptions("lock") + 取价 lock 数组）。
+// 无内置预设、不读 extra.hardware。
+function hardwareOptionsFor(l: Line): { label: string; value: string }[] {
+  const seen = new Set<string>()
+  const out: { label: string; value: string }[] = []
+  const push = (v: unknown) => {
+    const s = String(v ?? '').trim()
+    if (s && !seen.has(s)) {
+      seen.add(s)
+      out.push({ label: s, value: s })
+    }
+  }
+  // ① 本行公式 hinge 的键（合页名）优先
+  const hinge = (formulaOf(l)?.extra as { hinge?: Record<string, unknown> } | undefined)?.hinge
+  if (hinge && typeof hinge === 'object') for (const k of Object.keys(hinge)) push(k)
+  // ② 原版（@89220）：五金格候选主体来自服务端 `initializPing.hingeNames` —— 一个**全局合页名列表**，
+  //    与本行公式无关（渲染时 `hingeNames.filter(e => !已选.includes(e))`）。
+  //    本系统无该字段，用「**所有公式 `extra.hinge` 键的并集**」等价近似（同一语义：租户的合页名清单）。
+  for (const f of formulas.value) {
+    const h = (f.extra as { hinge?: Record<string, unknown> } | undefined)?.hinge
+    if (h && typeof h === 'object') for (const k of Object.keys(h)) push(k)
+  }
+  for (const h of readFieldHistory('hardware')) push(h)
+  for (const k of readFieldHistory('lock')) push(k)
+  for (const k of lockOptions.value) push(k)
+  return out
+}
 
 function newLine(type: 'ping' | 'diao'): Line {
   // 计价默认：平开门读 PriceType（默认套），吊趟门旧版硬编码「方」。
   const defPriceType = type === 'diao' ? '方' : LS.get('PriceType') || '套'
-  let defGlassThickness = LS.get('GlassThickness') || ''
   const defBottomGlass = LS.get('BottomGlass') || ''
-  // 底玻=无（单玻）时玻璃厚不得 <8（旧版 ce() 联动）
-  if (defBottomGlass === '无' && !(Number(defGlassThickness) >= 8)) defGlassThickness = '8'
+  const defFaceGlass = LS.get('FaceGlass') || '白玻'
+  // 新行玻璃厚按 底玻/面玻 初始状态判断（旧版 ce() 联动）：底玻空/无→单玻→8；底玻面玻都非空非无→双玻→4。
+  const defGlassThickness =
+    defBottomGlass === '' || defBottomGlass === '无'
+      ? '8'
+      : defFaceGlass !== '' && defFaceGlass !== '无'
+        ? '4'
+        : ''
   return {
     id: null,
     line_type: type,
-    profile: '', color: '', direction: '', fans: '', track: '', casing: '', edge_binding: '', hardware: '',
-    bottom_glass: defBottomGlass, face_glass: '白玻', glass_thickness: defGlassThickness,
+    profile: '', color: '', direction: '', fans: '', track: '', casing: '', hardware: '',
+    bottom_glass: defBottomGlass, face_glass: defFaceGlass, glass_thickness: defGlassThickness,
     door_width: 0, door_height: 0, light_window_height: 0, wall_thickness: 0, jiao: 0,
     mother_door_width: 0,
     quantity: 1, unit_price: 0, price_type: defPriceType, discount: 1,
@@ -1016,16 +1122,63 @@ function newLine(type: 'ping' | 'diao'): Line {
     markup: [],
     formula_id: null, remark: '', install_address: '',
     open_img: '', edge_seal_count: type === 'diao' ? 2 : null, seal_board_height: 0, track_length: 0,
-    front_casing_add: null, back_casing_add: null, link_no: null, double_ding: null,
+    front_casing_add: null, back_casing_add: null, double_ding: null,
     light_window_count: 0, image_id: null, image_url: null, progress: '', hole_size: '',
-    markup_raw: '',
   }
 }
 
 // 行编辑（已改行内就地编辑 + 每表底部添加行，无弹窗抽屉）
 
+// 取洞尺减法减量（原版 resetSize / TaoDong.SingleDong / TaoDong.DubleDong），来自公式级数据（extra）。
+// 兼容 {width,height} 与 {宽,高} 两种键；无减量返回 null。
+// 洞尺减量（原版）：改算料尺寸 w/h（有亮窗改 h1），不写回行。
+//   洞尺 → 公式 resetSize.{width,height}；单包/双包洞尺 → 公式 TaoDong.SingleDong/DubleDong.{宽减,高减}；净尺/空 → 零调整。
+function holeDeduction(l: Line): { dw: number; dh: number } | null {
+  const extra = (formulaOf(l)?.extra ?? {}) as Record<string, unknown>
+  const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0)
+  const node = (v: unknown): Record<string, unknown> | null =>
+    v && typeof v === 'object' ? (v as Record<string, unknown>) : null
+  // DB 实际键：resetSize.{width,height}；TaoDong.{SingleDong,DubleDong}.{宽减,高减}（大写，兼容小写）
+  const tao = (extra.TaoDong ?? extra.taoDong) as Record<string, unknown> | undefined
+  switch ((l.hole_size || '').trim()) {
+    case '洞尺': {
+      const r = node(extra.resetSize ?? extra.ResetSize)
+      return r ? { dw: num(r.width ?? r['宽']), dh: num(r.height ?? r['高']) } : null
+    }
+    case '单包洞尺': {
+      const r = node(tao?.SingleDong ?? tao?.singleDong)
+      return r ? { dw: num(r['宽减']), dh: num(r['高减']) } : null
+    }
+    case '双包洞尺': {
+      const r = node(tao?.DubleDong ?? tao?.dubleDong)
+      return r ? { dw: num(r['宽减']), dh: num(r['高减']) } : null
+    }
+    default:
+      return null // 净尺 / 空 → 零调整
+  }
+}
+
+// 墙型减量（原版 swingWall，公式级）：按行「单双丁」取减量——宽减 w、高减 h1(有亮窗)/h。
+function swingWallDeduction(l: Line, extra: Record<string, unknown>): { dw: number; dh: number } | null {
+  const sw = extra.swingWall as { UpWall?: unknown; DoubleWall?: unknown; SingleWall?: unknown } | undefined
+  const dd = String(l.double_ding ?? '').trim()
+  if (!sw || !dd || dd === '正常') return null
+  const n = (v: unknown) => Number(v) || 0
+  let dw = 0
+  let dh = 0
+  switch (dd) {
+    case '单丁墙': dw = n(sw.SingleWall); break
+    case '双丁墙': dw = n(sw.DoubleWall); break
+    case '上丁墙': dh = n(sw.UpWall); break
+    case '上丁加单丁': dw = n(sw.SingleWall); dh = n(sw.UpWall); break
+    case '上丁加双丁': dw = n(sw.DoubleWall); dh = n(sw.UpWall); break
+    default: return null
+  }
+  return dw || dh ? { dw, dh } : null
+}
+
 function dimsOf(l: Line): Dimensions {
-  return {
+  const base = {
     w: l.door_width || 0,
     h: l.door_height || 0,
     h1: l.light_window_height || 0,
@@ -1033,6 +1186,21 @@ function dimsOf(l: Line): Dimensions {
     j: l.jiao || 0,
     s: l.mother_door_width || 0,
   }
+  // 洞尺减法（原版）：改 w / h，有亮窗(h1>h)时改 h1 不改 h；不算料不写回行字段。
+  const d = holeDeduction(l)
+  if (d && (d.dw || d.dh)) {
+    base.w -= d.dw
+    if (base.h1 > base.h) base.h1 -= d.dh
+    else base.h -= d.dh
+  }
+  // 墙型减量（原版 swingWall）：按「单双丁」减 w/h（同样 h1>h 时改 h1）。
+  const sw = swingWallDeduction(l, (formulaOf(l)?.extra ?? {}) as Record<string, unknown>)
+  if (sw) {
+    base.w -= sw.dw
+    if (base.h1 > base.h) base.h1 -= sw.dh
+    else base.h -= sw.dh
+  }
+  return base
 }
 
 function formulaOf(l: Line): FormulaDto | undefined {
@@ -1138,14 +1306,14 @@ function casingAmountOf(l: Line): number {
   return round2(casingLength(l) * (l.quantity || 1) * (l.casing_price || 0))
 }
 
-/** 金额 = (单价×计价量 + 其它费用 + 套线金额) × 打折，四舍五入。 */
+/** 金额（旧版 wt+round）：套线金额只在「方」时计入；金额取整元。
+ *   套 = 单价×数量 + 其它费用；方 = 单价×平方 + 套线金额 + 其它费用；金额 = Math.round(基准×打折)。 */
 function computeAmount(l: Line): number {
-  const base =
-    l.price_type === '方'
-      ? (l.unit_price || 0) * (l.square || 0)
-      : (l.unit_price || 0) * (l.quantity || 1)
-  const subtotal = base + (l.other_fee || 0) + (l.casing_amount || 0)
-  return round2(subtotal * (l.discount || 0))
+  const isSquare = l.price_type === '方'
+  let base = (l.unit_price || 0) * (isSquare ? l.square || 0 : l.quantity || 1)
+  if (isSquare) base += l.casing_amount || 0 // 套线金额仅在「方」时计入；套不含套线
+  const subtotal = base + (l.other_fee || 0)
+  return Math.round(subtotal * (l.discount || 0))
 }
 
 /** 解析「超宽1500」「超高2200」「超墙厚20」「轨道超长3000」「超平米2」等自动加价项名。 */
@@ -1153,6 +1321,15 @@ function parseAutoMarkup(name: string): { kind: string; threshold: number } | nu
   const m = name.trim().match(/^(超宽|超高|超墙厚|轨道超长|超平米)(\d+(?:\.\d+)?)$/)
   if (!m) return null
   return { kind: m[1], threshold: Number(m[2]) }
+}
+
+// 原版 `Qt`（@59742）的自动加价**只认「超宽/超高/超墙厚 + 元/公分」**：
+//   `re = new RegExp("^"+(超宽|超高|超墙厚)+"\\d+$")`；`re.test(item.name) && item.unit === '元/公分'`
+// 同名但单位不是「元/公分」的项按**普通项**处理。轨道超长/超平米不在该判定内。
+const AUTO_CM_KINDS = ['超宽', '超高', '超墙厚']
+const isAutoCmMarkup = (item: MarkupItem): boolean => {
+  const a = parseAutoMarkup(item.name)
+  return !!a && AUTO_CM_KINDS.includes(a.kind) && item.unit === '元/公分'
 }
 
 /** 单条加价项金额：自动加价按阈值与实际尺寸动态计算，普通项按单位公式。 */
@@ -1164,7 +1341,7 @@ function markupAmount(item: MarkupItem, l: Line): number {
   const t = l.wall_thickness || 0
   const sq = l.square || 0
 
-  const auto = parseAutoMarkup(item.name)
+  const auto = isAutoCmMarkup(item) ? parseAutoMarkup(item.name) : null
   if (auto) {
     const th = auto.threshold
     switch (auto.kind) {
@@ -1185,8 +1362,12 @@ function markupAmount(item: MarkupItem, l: Line): number {
   switch (item.unit) {
     case '元/方':
       return sq * p
-    case '元/米':
+    case '元/米': {
+      // 原版 `wt`（@50868）：**只有名字含「门套」的元/米项才计算**，其余 r 保持 0；
+      //   长度（米）= (2 × max(门洞高, 亮窗总高) + 门洞宽) / 1000
+      if (!item.name.includes('门套')) return 0
       return ((2 * h + w) / 1000) * p * q
+    }
     case '元/公分':
       // 无「超*」前缀时按门洞高为基准、阈值 0
       return (h / 10) * p * q
@@ -1220,8 +1401,8 @@ function recalcMarkup(l: Line): number {
   const winners = new Set<MarkupItem>()
   const groups = new Map<string, MarkupItem[]>()
   for (const item of l.markup) {
-    const auto = parseAutoMarkup(item.name)
-    if (!auto) continue
+    if (!isAutoCmMarkup(item)) continue
+    const auto = parseAutoMarkup(item.name)!
     const arr = groups.get(auto.kind) ?? []
     arr.push(item)
     groups.set(auto.kind, arr)
@@ -1233,15 +1414,17 @@ function recalcMarkup(l: Line): number {
     winners.add(valid[0])
   }
 
+  // 原版 `Qt`：字段变化时把「已挂的同类自动项」**从列表里移除**再补入 winners，而不是保留置 0。
+  // 故这里把落选的自动项（超宽/超高/超墙厚 + 元/公分）直接剔除。
   let total = 0
+  const kept: MarkupItem[] = []
   for (const item of l.markup) {
-    if (parseAutoMarkup(item.name) && !winners.has(item)) {
-      item.amount = 0
-    } else {
-      item.amount = round2(markupAmount(item, l))
-    }
+    if (isAutoCmMarkup(item) && !winners.has(item)) continue
+    item.amount = round2(markupAmount(item, l))
     total += item.amount
+    kept.push(item)
   }
+  l.markup = kept
   l.other_fee = round2(total)
   return l.other_fee
 }
@@ -1316,18 +1499,19 @@ function resetOrder() {
   persistDraft()
 }
 
-function newOrder() {
-  if (lines.value.length > 0 || orderId.value != null) {
-    dialog.warning({
-      title: '新建订单',
-      content: '新建订单将清空当前订单（未保存的更改会丢失）。是否继续？',
-      positiveText: '新建',
-      negativeText: '取消',
-      onPositiveClick: () => resetOrder(),
-    })
-  } else {
-    resetOrder()
+// 「1.清空」：清空当前订单内容（不新建的口吻）
+function clearOrder() {
+  if (lines.value.length === 0 && orderId.value == null) {
+    message.info('当前订单已为空')
+    return
   }
+  dialog.warning({
+    title: '清空订单',
+    content: '将清空当前订单的所有内容（未保存的更改会丢失）。是否继续？',
+    positiveText: '清空',
+    negativeText: '取消',
+    onPositiveClick: () => resetOrder(),
+  })
 }
 
 // —— 保存整单校验（旧版 makeReceipt 语义，反混淆核对）——
@@ -1343,8 +1527,6 @@ function missingFieldsOf(l: Line): string[] {
   add(l.door_width > 0, '门洞宽')
   add(l.door_height > 0, '门洞高')
   add(!!l.color.trim(), '颜色')
-  add(!!l.bottom_glass.trim(), '底玻')
-  add(!!l.face_glass.trim(), '面玻')
   add(!!l.glass_thickness.trim(), '玻璃厚')
   add(!!l.direction.trim(), '开向')
   if (l.line_type === 'ping') {
@@ -1415,6 +1597,18 @@ const lineRefresh = (l: Line) => {
 
 const lastProf = new WeakMap<object, string>()
 
+// 型材名 ↔ 公式名 兜底匹配：resolveFormulaMatch(空表) 查不到时，按公式名直接命中 formulas。
+// 表归属用 belongsToTable（平开收平开族，**不是** formula_type 字面判等），否则 diamond 等选不到。
+function matchFormulaByName(l: Line): FormulaDto | undefined {
+  const profile = l.profile.trim()
+  if (!profile) return undefined
+  return formulas.value.find(
+    (f) =>
+      belongsToTable(f.formula_type, l.line_type) &&
+      (f.name.trim() === profile || (f.name && profile.includes(f.name)) || (f.name && f.name.includes(profile))),
+  )
+}
+
 // 行内型材取价 + 自动公式（与抽屉 onProfileBlur 同一套，映射到行）
 async function resolveRow(l: Line) {
   const profile = l.profile.trim()
@@ -1426,18 +1620,120 @@ async function resolveRow(l: Line) {
       l.unit_price = r.unit_price
       l.price_type = r.price_type === '方' ? '方' : '套'
       if (l.line_type === 'diao' && r.casing_price != null) l.casing_price = r.casing_price
+      rememberLocks(r.lock_rules) // 取价返回的锁具可选项 → 并入五金/锁具候选（原版 getPingPrice 的 lock）
     }
     const m = await api.resolveFormulaMatch(l.line_type, profile, l.fans || undefined)
-    if (m) l.formula_id = m.formula_id
+    if (m) {
+      l.formula_id = m.formula_id
+    } else {
+      const fm = matchFormulaByName(l)
+      if (fm) l.formula_id = fm.id
+    }
   } catch {
     // 静默
   }
   lineRefresh(l)
 }
 
-function onBottomGlassRow(l: Line) {
-  if (l.bottom_glass === '无' && !(Number(l.glass_thickness) >= 8)) l.glass_thickness = '8'
+// 玻璃切换→加价项联动（旧版 Y()）：玻璃改选后，移除名=旧玻璃、单位=元/方的加价项，
+// 并自动加入目录中名=新玻璃、单位=元/方的项。newValue 为空时只移除不新增。
+function syncGlassMarkup(l: Line, newValue: string, oldValue: string) {
+  const isSquare = (m: MarkupItem) => m.unit === '元/方'
+  // 先移除旧玻璃对应的「元/方」加价项
+  const old = (oldValue || '').trim()
+  if (old) {
+    l.markup = (l.markup ?? []).filter((m) => !(isSquare(m) && m.name === old))
+  }
+  // 加入新玻璃对应的「元/方」加价项（来自目录，避免重复）
+  const next = (newValue || '').trim()
+  if (next) {
+    const targets = markupCatalog.value.filter((c) => c.name === next && c.unit === '元/方')
+    for (const c of targets) {
+      if (!(l.markup ?? []).some((m) => m.name === c.name && m.unit === '元/方')) {
+        l.markup.push({ ...c, amount: 0 })
+      }
+    }
+  }
   lineRefresh(l)
+}
+
+// 面玻/底玻合并联动：改任一玻璃都同步玻璃厚（按当前两玻状态）与「元/方」玻璃加价项。
+function onGlassSelection(l: Line, newValue: string, oldValue: string) {
+  syncGlassMarkup(l, newValue, oldValue)
+  // 玻璃厚联动按「当前底玻/面玻实况」判断，与本次改的是哪个字段无关（旧版 W() 对两者 blur 都触发）。
+  // 底玻为空(未选) 视同「无」→ 单玻；双玻需 底玻、面玻都显式选了非空非无。
+  const bottom = (l.bottom_glass || '').trim()
+  const face = (l.face_glass || '').trim()
+  const singleBottom = bottom === '' || bottom === '无'
+  if (singleBottom) {
+    l.glass_thickness = '8' // 单玻(底玻=空/无) → 8
+  } else if (face !== '' && face !== '无') {
+    l.glass_thickness = '4' // 双玻(底玻非空非无、面玻也非空非无) → 一律重置为 4
+  }
+  lineRefresh(l)
+}
+
+// 墙厚→「超墙厚」加价项联动（旧版 5077-5126）：墙厚超过某「超墙厚N 元/公分」阈值时加入该项（多项时取最贴近的），
+// 不再超过则移除已有的「超墙厚」项。
+function syncWallThicknessMarkup(l: Line) {
+  const t = l.wall_thickness || 0
+  const catalog = markupCatalog.value.filter(
+    (c) => /^超墙厚\d+$/.test(c.name.trim()) && c.unit === '元/公分',
+  )
+  // 移除行里已有的「超墙厚」项
+  l.markup = (l.markup ?? []).filter((m) => !/^超墙厚\d+$/.test(m.name.trim()))
+  // 取阈值 < 当前墙厚 且最贴近（阈值最大）的一项加入
+  const candidates = catalog
+    .map((c) => ({ c, th: Number(c.name.match(/\d+$/)?.[0] || 0) }))
+    .filter((x) => t > x.th)
+    .sort((a, b) => b.th - a.th)
+  if (candidates.length) {
+    const best = candidates[0].c
+    l.markup.push({ ...best, amount: 0 })
+  }
+  lineRefresh(l)
+}
+
+// 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
+function wallThicknessCell(l: Line, width: number) {
+  return h(
+    NInputNumber,
+    {
+      ...CELL,
+      status: cellError(l, 'wall_thickness') ? 'error' : undefined,
+      value: l.wall_thickness,
+      showButton: false,
+      style: { width: `${width}px` },
+      inputStyle: { textAlign: 'right' },
+      onUpdateValue: (v: number | null) => {
+        l.wall_thickness = sanitizeNum(v, 0)
+        syncWallThicknessMarkup(l)
+      },
+    },
+  )
+}
+
+// 玻璃单元格（面玻/底玻）：onSelect 需拿改前值做「元/方」加价项联动，故此处自行实现。
+function glassSelectCell(l: Line, field: 'face_glass' | 'bottom_glass', width: number) {
+  const oldByField = new WeakMap<object, string>()
+  return h(
+    NSelect,
+    {
+      ...CELL,
+      status: cellError(l, field) ? 'error' : undefined,
+      value: (l as unknown as Record<string, string>)[field],
+      options: glassOptions,
+      filterable: true,
+      clearable: true,
+      style: { width: `${width}px` },
+      onUpdateValue: (v: string | null) => {
+        const old = oldByField.get(l) ?? (l as unknown as Record<string, string>)[field] ?? ''
+        ;(l as unknown as Record<string, string>)[field] = (v as string) ?? ''
+        oldByField.set(l, (v as string) ?? '')
+        onGlassSelection(l, (v as string) ?? '', old)
+      },
+    },
+  )
 }
 
 // 就地控件 helpers（h() 渲染）
@@ -1451,8 +1747,6 @@ function cellError(l: Line, field: string): boolean {
     case 'door_width': return !(l.door_width > 0)
     case 'door_height': return !(l.door_height > 0)
     case 'color': return !l.color.trim()
-    case 'bottom_glass': return !l.bottom_glass.trim()
-    case 'face_glass': return !l.face_glass.trim()
     case 'glass_thickness': return !l.glass_thickness.trim()
     case 'direction': return !l.direction.trim()
     case 'quantity': return t === 'ping' && !(l.quantity >= 1)
@@ -1525,6 +1819,7 @@ function optCell(
   options: { label: string; value: string }[],
   onChange?: (l: Line) => void,
   allowCreate = false,
+  historyKey?: string,
 ) {
   return h(
     NSelect,
@@ -1538,7 +1833,9 @@ function optCell(
       ...(allowCreate ? { tag: true } : {}),
       style: { width: `${width}px` },
       onUpdateValue: (v: string | null) => {
-        ;(l as unknown as Record<string, string>)[field] = (v as string) ?? ''
+        const next = (v as string) ?? ''
+        ;(l as unknown as Record<string, string>)[field] = next
+        if (historyKey) rememberField(historyKey, next)
         ;(onChange ?? lineRefresh)(l)
       },
     },
@@ -1549,7 +1846,7 @@ function optCell(
 // 型材候选按行门型过滤（平开不显示移门公式）
 function profileCell(l: Line, width: number) {
   const opts = l.line_type === 'diao' ? diaoProfileOptions.value : pingProfileOptions.value
-  return optCell(l, 'profile', width, opts, (x) => void resolveRow(x), true)
+  return optCell(l, 'profile', width, opts, (x) => void resolveRow(x), true, `profile_${l.line_type}`)
 }
 // 移门/吊趟开向图：优先用从旧版提取的完整 DIRECTION_IMAGES 表（「扇数+开向」→ 图）。
 function diaoDirImage(fans: string, direction: string): string {
@@ -1559,17 +1856,57 @@ function diaoDirImage(fans: string, direction: string): string {
   return DIRECTION_IMAGES[`${f}${d}`] || ''
 }
 
+// 方向图（原版 lockImg / openImg）：平开按开向查 PING 图标；移门按 扇数+开向 查 DIRECTION_IMAGES。
+function lineLockImage(l: Line): string {
+  return l.line_type === 'diao' ? diaoDirImage(l.fans, l.direction) : PING_DIRECTION_IMAGES[l.direction] || ''
+}
+
 function colorCell(l: Line, width: number) {
-  return optCell(l, 'color', width, colorOptions.value, undefined, true)
+  return h(
+    NSelect,
+    {
+      ...CELL,
+      status: cellError(l, 'color') ? 'error' : undefined,
+      value: l.color,
+      options: colorOptions.value,
+      filterable: true,
+      clearable: true,
+      tag: true,
+      style: { width: `${width}px` },
+      onUpdateValue: (v: string | null) => {
+        const next = (v as string) ?? ''
+        l.color = next
+        rememberField('color', next)
+        lineRefresh(l)
+      },
+    },
+  )
 }
 function trackCell(l: Line, width: number) {
-  return optCell(l, 'track', width, trackOptions.value, undefined, true)
+  // 轨道候选按当前行公式 parts 的 track 提取（随型材联动），合并历史
+  const opts = partsTrackOptions(l, 'track') // 轨道候选仅来自公式 parts + 历史，无内置兜底
+  return optCell(l, 'track', width, opts, undefined, true, 'track')
 }
 function casingCell(l: Line, width: number) {
-  return optCell(l, 'casing', width, casingOptions.value, undefined, true)
+  // 套线候选仅来自当前行公式 parts 的单包/双包 + 历史，无内置候选（原版）
+  const opts = partsTrackOptions(l, 'casing')
+  return optCell(l, 'casing', width, opts, undefined, true, 'casing')
+}
+// 平开「包边」＝原版「套线种类」（Hui.formatted.js:2132 的「包边:」标签即绑 `e["套线种类"]`）。
+// 平开公式常无 包宽/包高 件，纯靠 parts 提候选会空，故候选 = 原版枚举 + 公式套线件 track + 历史。
+function pingCasingOptions(l: Line): { label: string; value: string }[] {
+  const seen = new Set<string>()
+  const out: { label: string; value: string }[] = []
+  for (const o of [...casingKindOptions, ...partsTrackOptions(l, 'casing')]) {
+    if (o.value && !seen.has(o.value)) {
+      seen.add(o.value)
+      out.push(o)
+    }
+  }
+  return out
 }
 function hardwareCell(l: Line, width: number) {
-  return optCell(l, 'hardware', width, hardwareOptions.value, undefined, true)
+  return optCell(l, 'hardware', width, hardwareOptionsFor(l), undefined, true, 'hardware')
 }
 // 洞尺/净尺
 const HOLE_SIZE_OPTS = ['洞尺', '净尺', '单包洞尺', '双包洞尺'].map((v) => ({ label: v, value: v }))
@@ -1629,6 +1966,15 @@ function batchDeleteRows() {
 }
 
 // 列构造：操作列 = 一排小链接（仿旧版 保存单行/删除/复制/删图/添加图片/算料/文字传图）
+// 算料部件明细 tooltip 内容
+function partsTooltip(l: Line) {
+  const parts = (l.parts ?? []).filter((p) => p && p.materialName)
+  if (!parts.length) return '点「算料」后在此显示部件数量与下料长度'
+  return parts
+    .map((p) => `${p.materialName} ×${p.quantity} → ${p.result.toFixed(2)}`)
+    .join('\n')
+}
+
 const opsCol = (): DataTableColumn<Line> => ({
   title: '操作',
   key: 'actions',
@@ -1644,7 +1990,15 @@ const opsCol = (): DataTableColumn<Line> => ({
       [
         h(NButton, { size: 'tiny', text: true, type: 'error', onClick: () => removeLine(l) }, { default: () => '删除' }),
         h(NButton, { size: 'tiny', text: true, onClick: () => copyRow(l) }, { default: () => '复制' }),
-        h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void calcSingleRow(l) }, { default: () => '算料' }),
+        h(
+          NTooltip,
+          { trigger: 'hover', placement: 'left', rawContent: false },
+          {
+            trigger: () =>
+              h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void calcSingleRow(l) }, { default: () => '算料' }),
+            default: () => h('pre', { style: 'margin:0;font-size:12px;white-space:pre-wrap;max-width:340px' }, partsTooltip(l)),
+          },
+        ),
       ],
     ),
 })
@@ -1702,7 +2056,7 @@ function markupSelectCell(l: Line) {
           const c = markupCatalog.value[idx]
           return c ? { ...c, amount: 0 } : { name: n, price: 0, unit: '元/套', amount: 0 }
         })
-        recalcMarkup(l)
+        lineRefresh(l)
       },
     }),
     ...detail.map((m) =>
@@ -1786,11 +2140,391 @@ function confirmTextImg() {
   void applyDoorImg(l, textToImageDataUrl(name)).then(() => message.success('已生成文字门图'))
 }
 
+// 边封数增量（原版 widthIncrement，公式级）：边封数≠2 时，
+//   玻璃宽增量 = SheetIncrement×(2-边封数)，轨道增量 = TrackIncrement×(2-边封数)。
+//   应用：玻璃宽增量/扇数N → 加「扇数…上下方」的 v；轨道增量 → 减 轨道件(上滑/上轨/下滑/盖板)的 v。
+function applyWidthIncrement(parts: PartsMap, l: Line, f: FormulaDto) {
+  // 原版 @389229（增量计算） + @390860/@391900（施加）：
+  //   dw = 边封数!==2 && SheetIncrement!==0 ? SheetIncrement*(2-边封数) : 0
+  //   dt = 边封数!==2 && TrackIncrement!==0 ? TrackIncrement*(2-边封数) : 0
+  //   若 (dw||dt) 且 边封数!==2：从 扇数 里 match(/(\d+)扇/) 取 q →
+  //       x = dw / q       （**只有 Sheet 增量除以扇数**）
+  //       dt 原样
+  const wi = (f.extra as { widthIncrement?: { SheetIncrement?: unknown; TrackIncrement?: unknown } } | undefined)?.widthIncrement
+  const sheetInc = Number(wi?.SheetIncrement) || 0
+  const trackInc = Number(wi?.TrackIncrement) || 0
+  const n = Number(l.edge_seal_count) || 0
+  const dw = n !== 2 && sheetInc !== 0 ? sheetInc * (2 - n) : 0
+  const dt = n !== 2 && trackInc !== 0 ? trackInc * (2 - n) : 0
+  const fans = l.fans || ''
+  let x = 0
+  let dtv = 0
+  if ((dw !== 0 || dt !== 0) && Number(l.edge_seal_count) !== 2) {
+    const m = fans.match(/(\d+)扇/)
+    if (m) {
+      const q = Number(m[1])
+      if (dw !== 0) x = dw / q
+      if (dt !== 0) dtv = dt
+    }
+  }
+  // `a` 是状态位：**只有「上下方」被加过 x 之后**，封板宽与轨道件的减量才生效
+  let a = 0
+  const sbh = Number(l.seal_board_height) || 0
+  const prefix = fans.substring(0, 2)
+  for (const [key, p] of Object.entries(parts)) {
+    if (key.includes(fans) && key.includes('上下方')) {
+      p.v = (Number(p.v) || 0) + x
+      a = 1
+    }
+    if (key.includes(fans) && key.includes('封板') && sbh > 0) {
+      // ⚠️ 「封板高 → v = 封板高 - v」与「玻璃高 → v = 封板高 + v」两处 v 变换**只在 applyPartState 里做**，
+      //    此处不重复（否则 `sbh - (sbh - v)` 会抵消、`sbh + sbh + v` 会翻倍）。
+      if (key.includes('封板宽') && a === 1) p.v = (Number(p.v) || 0) - x
+    }
+    if (prefix.length === 2 && key.includes(prefix) && !key.includes('扇') && !key.includes('扣板') && a === 1 && dtv > 0 &&
+        /上滑|上轨|下滑|左右盖板|上下盖板|轨道盖板/.test(key)) {
+      p.v = (Number(p.v) || 0) - dtv
+    }
+    // 原版另有一处独立判断：门洞高 < 亮窗总高 的「上横」同样减 dt
+    if (key.includes('上横') && l.door_height < l.light_window_height && a === 1 && dtv > 0) {
+      p.v = (Number(p.v) || 0) - dtv
+    }
+  }
+}
+
+// 铰链减尺（原版 hinge，公式级）：行「五金」各项直接匹配 hinge 键（取第一个命中的）→
+//   hinge[项].{上下方减尺, 光企减尺寸} 取负后加到「上下方」/「光企(非亮窗)」部件的 v。
+function applyHinge(parts: PartsMap, l: Line, f: FormulaDto) {
+  // 原版（@484816 等四处）：`行.五金` 若含 `_` 先按 `_` 拆分，trim 后**筛出含「合页」的项**，
+  // **只取第一个**（多个时原版弹确认框），拿它去 `公式.hinge` 查配置：
+  //   上下方减尺 / 光企减尺寸 均**取负**后加到对应部件的 v。
+  // 命中不到配置时原版弹「合页匹配失败」确认框（不阻断）。找不到含「合页」的项 → 整体跳过。
+  const hinge = (f.extra as { hinge?: Record<string, Record<string, unknown>> } | undefined)?.hinge
+  if (!hinge || typeof hinge !== 'object') return
+  const hw = String(l.hardware || '')
+  const items = (hw.includes('_') ? hw.split('_') : hw ? [hw] : []).map((x) => x.trim())
+  const hit = items.find((it) => it.includes('合页'))
+  if (!hit) return
+  const cfg = hinge[hit]
+  if (!cfg) return
+  const dw = -(Number(cfg['上下方减尺']) || 0)
+  const dh = -(Number(cfg['光企减尺寸']) || 0)
+  for (const [key, p] of Object.entries(parts)) {
+    if (key.includes('上下方') && dw) p.v = (Number(p.v) || 0) + dw
+    // 原版匹配的是「光企高」而非任意含「光企」的件
+    if (key.includes('光企高') && !key.includes('亮窗') && dh) p.v = (Number(p.v) || 0) + dh
+  }
+}
+
+
+// —— 部件激活（原版模型：`state` 服务端起手为 **false**，按固定顺序逐条规则置 true/false，
+//    组装时只收 `state===true`）——
+// 规则顺序 = 源码顺序，**后面的覆盖前面的**。清单见 docs/2026-09-10-template-field-audit.md §30。
+//   平开（B平 @485198–489281）：① 单玻替换 ② 双玻 ③ v调整+兜底块 ④ eval(<0) ⑤ 二次 eval ⑥ 扣板厚联动
+//   吊趟（B吊 @500279–507590）：① 单玻替换 ② 活扇块 ③ 39 条主规则 ④ eval(<0) ⑤ 二次 eval(<1 && !滑 && !单轨) ⑥ 联动
+// 算料引擎 id（原版每个打印入口各跑一套引擎，规则不同、**结果可能不同**）：
+//   A=玻璃合片单(A平/A吊)  B=生产单(B平/B吊)  D=生产单定制(D平/D吊)  P1=平开门定制(平开)  C=平开门定制(吊趟)
+// 规则族见 docs/2026-09-10-template-field-audit.md §52。
+type EngineId = 'A' | 'B' | 'D' | 'P1' | 'C' | 'L1' | 'L2'
+
+function applyPartState(parts: PartsMap, l: Line, engine: EngineId = 'B'): void {
+  const keys = Object.keys(parts)
+  const diao = l.line_type === 'diao'
+  const fans = (l.fans || '').trim()
+  if (diao && !fans) return // 原版吊趟：无扇数直接 continue
+  const bRaw = l.bottom_glass || '无'
+  const fRaw = l.face_glass || '无'
+  const wuBo = bRaw === '无' || fRaw === '无' // 单玻
+  const shuangBo = bRaw !== '无' && fRaw !== '无' // 双玻
+  const wall = Number(l.wall_thickness) || 0
+  const lwH = Number(l.light_window_height) || 0
+  const doorH = Number(l.door_height) || 0
+  const lwN = Number(l.light_window_count) || 0
+  const sbh = Number(l.seal_board_height) || 0
+  const dir = l.direction || ''
+  const track = l.track || ''
+  const casing = l.casing || ''
+  const set = (k: string, v: boolean) => {
+    const p = parts[k]
+    if (p) p.state = v
+  }
+
+  // ① 单玻替换（原版 B平 @485365 / B吊 @500608）：给「玻璃宽/高」找 `+单玻` 变体件，
+  //    有变体就切过去，没有则本体照常启用。**原版这里没有 `亮窗` 排除** ——
+  //    所以平开的 `上亮窗玻璃宽/高` 同样会被启用（用户实测：平开有亮窗玻璃件，命名 `上亮*`）。
+  // L2（product10 移门）是特例：它有独立的 ① 块，且是**无条件**替换、**带** `亮窗`/`LiangChuang` 排除
+  //   （`LiangChuang` 全文件仅此一处，§13）。先跑它，再走通用逻辑。
+  if (engine === 'L2') {
+    for (const k of keys) {
+      if (!k.includes('亮窗') && !k.includes('LiangChuang') && (k.includes('玻璃宽') || k.includes('玻璃高')) && !k.includes('单玻')) {
+        const alt = `${k}单玻`
+        if (parts[alt]) {
+          set(k, false)
+          set(alt, true)
+        } else set(k, true)
+      }
+    }
+  }
+  // 其余吊趟引擎**没有独立的单玻替换块** —— 等价逻辑在主规则块里（Q3.1/Q3.2，用 `扇数+'玻璃'`）。
+  if (wuBo && !diao) {
+    for (const k of keys) {
+      if ((k.includes('玻璃宽') || k.includes('玻璃高')) && !k.includes('单玻')) {
+        const alt = `${k}单玻`
+        if (parts[alt]) {
+          set(k, false)
+          set(alt, true)
+        } else set(k, true)
+      }
+    }
+  }
+  // ② 双玻（原版 B平 @485542 / B吊）：含「单玻」的禁用；含「玻璃」且非单玻的启用。**同样无 `亮窗` 排除**
+  if (shuangBo && !diao) {
+    for (const k of keys) {
+      if (k.includes('单玻')) set(k, false)
+      if (!k.includes('单玻') && k.includes('玻璃')) set(k, true)
+    }
+  }
+
+  if (diao) {
+    // ③ 活扇块
+    if (fans.includes('活')) {
+      for (const k of keys) {
+        if (k.includes('活') && !k.includes('玻璃高')) set(k, true)
+        if (k.includes('玻璃高') && parts[k].track === track && k.includes(fans)) set(k, true)
+        if (lwH > 0 && (k.includes('玻璃') || k.includes('亮窗'))) set(k, true)
+      }
+    }
+    // ④ 主规则块。**三套变体**（§52.5 / §52.5b）：
+    //   ③-A `{A吊,G吊}` 9 条 · ③-B `{B吊,D吊}` 39 条 · ③-C `{C吊}` 35 条。
+    //   C吊 = B吊 − `固定` / `移动` / `收口+单轨2扇`（另「包高」写法等价）。
+    const richDiao = engine !== 'A'
+    const cDiao = engine === 'C'
+    const r = fans.substring(0, 2)
+    const lwTag = lwN > 0 ? `${lwN}格亮窗` : ''
+    // §30.3 Q3.1/Q3.2：吊趟的单玻变体判定（`e` = 扇数+'玻璃'；`t` = 是否存在含 e 且含「单玻」的件）
+    const eGlass = `${fans}玻璃`
+    const hasSingleVariant = keys.some((k) => k.includes(eGlass) && k.includes('单玻'))
+    const isSingleGlass = bRaw === '无' || fRaw === '无'
+    const noLive = !fans.includes('活')
+    // B/D/C 的 ① 是 `if (活扇) {活扇块} else {主规则块}` —— 活扇行**不跑**主规则块
+    const runMain = !(richDiao && !noLive)
+    // 光企/勾企/合页/锁 的 track 门控（原版 `part.track === 行.轨道种类`）。
+    // 原版是**严格相等**，于是当公式里同一扇数只有一个变体（track 只是个标签）而用户偏巧选了
+    // 另一个轨道种类（常见于下拉里的历史残留值）时，这些件会**整个消失**、什么都算不出来。
+    // 这里放宽为「**该关键词下若有 track 匹配的件，就只取匹配的；一个都没匹配上，则退回该扇数的全部候选**」，
+    // 既保留原版「多轨道变体时按轨道种类选」的语义，又保证**任何轨道种类都能算出结果**。
+    const trackMatched = (kw: string) =>
+      keys.some((k) => k.includes(kw) && k.includes(fans) && parts[k].track === track)
+    const trackOk = (k: string, kw: string) => !trackMatched(kw) || parts[k].track === track
+    for (const k of keys) {
+      const p = parts[k]
+      if (!runMain) continue
+      if (hasSingleVariant && !isSingleGlass && k.includes(eGlass) && k.includes('单玻')) {
+        set(k, false)
+        continue
+      }
+      if (noLive && isSingleGlass && hasSingleVariant && k.includes(eGlass)) {
+        set(k, k.includes('单玻'))
+        continue
+      }
+      if (k.includes(fans) && k.includes('方')) set(k, true)
+      if (richDiao) {
+        if (!cDiao && k.includes(fans) && k.includes('固定')) set(k, true)
+        if (!cDiao && k.includes(fans) && k.includes('移动')) set(k, true)
+        if (k.includes(fans) && k.includes('封板') && sbh > 0) {
+          set(k, true)
+          if (k.includes('封板高')) p.v = sbh - (Number(p.v) || 0)
+        }
+      }
+      if (k.includes(fans) && k.includes('玻璃')) {
+        set(k, true)
+        if (k.includes('玻璃高') && sbh > 0) p.v = sbh + (Number(p.v) || 0)
+      }
+      if (richDiao) {
+        if (k.includes(fans) && k.includes('盖板')) set(k, true)
+        if (r.length === 2 && k.includes(r) && !k.includes('扇') && !k.includes('扣板')) set(k, true)
+      }
+      if (k.includes('光企') && k.includes(fans) && trackOk(k, '光企')) set(k, true)
+      if (k.includes('勾企') && k.includes(fans) && trackOk(k, '勾企')) set(k, true)
+      if (k.includes('合页') && k.includes(fans) && trackOk(k, '合页')) set(k, true)
+      if (k.includes('锁') && k.includes(fans) && trackOk(k, '锁')) set(k, true)
+      // 以下规则族（边封/上横/包边/墙厚两套/收口）**只有 ③-B、③-C 有**：
+      // ③-A（A吊/G吊，§52.5）只有 9 条 —— 方·上下方·玻璃·光企·勾企·合页·锁·亮窗数量。
+      if (richDiao) {
+        if (k.includes('边封') && doorH > lwH && k.includes('无')) set(k, true)
+        if (k.includes('上横') && doorH < lwH) set(k, true)
+        if (k.includes('边封') && doorH < lwH && !k.includes('无')) set(k, true)
+        if (k.includes('包宽') && p.track === casing) set(k, true)
+        // 包高：按**部件自身 formula** 是否含 `h1+` 分两支
+        if (k.includes('包高') && !p.formula.includes('h1+') && p.track === casing && lwH < doorH) set(k, true)
+        if (k.includes('包高') && p.formula.includes('h1+') && p.track === casing && lwH > doorH) set(k, true)
+        if (wall > 0 && lwH === 0) {
+          if (k.includes('F槽宽')) set(k, true)
+          if (k.includes('扣板宽')) set(k, true)
+          if (k.includes('F槽高') && !k.includes('亮窗')) set(k, true)
+          if (k.includes('扣板高') && !k.includes('亮窗')) set(k, true)
+          if (k.includes('扣板厚') && k.includes(r) && p.title === '') set(k, true)
+          if (k.includes('扣板厚') && k.includes(r) && p.title !== '' && p.track === casing) set(k, true)
+        }
+        if (wall > 0 && lwH > 0) {
+          if (k.includes('F槽宽')) set(k, true)
+          if (k.includes('扣板宽')) set(k, true)
+          if (k.includes('亮窗F槽高')) set(k, true)
+          if (k.includes('亮窗扣板高')) set(k, true)
+          if (k.includes('扣板厚') && k.includes(r) && p.title === '') set(k, true)
+          if (k.includes('扣板厚') && k.includes(r) && p.title !== '' && p.track === casing) set(k, true)
+        }
+        if (k.includes('收口')) {
+          if (fans.includes('4扇') && !fans.includes('折叠')) set(k, true)
+          if (/[3456]扇/.test(fans) && fans.includes('折叠') && !dir.includes('0')) set(k, true)
+          if (fans.includes('2轨3扇') || (!cDiao && fans.includes('单轨2扇'))) set(k, true)
+        }
+      }
+      if (lwTag && k.includes(lwTag)) set(k, true)
+    }
+  } else {
+    // ⑤ 平开兜底块。**逐引擎有差异**（§52.7）：
+    //   `扣板|压线 → false`：A平/D平/P1平/G平 是「扣板**或压线**」；**B平/L1 只判「扣板」**
+    //   `封板/封板高` 规则：B平/D平/P1平/L1 有；**A平/G平 无**
+    const pingYaxian = engine === 'A' || engine === 'D' || engine === 'P1'
+    const pingSealBoard = engine !== 'A'
+    for (const k of keys) {
+      const p = parts[k]
+      if (k.includes('玻璃宽') || k.includes('玻璃高')) continue
+      if (wall > 0) p.state = true
+      else if (pingYaxian ? /扣板|压线/.test(k) : k.includes('扣板')) p.state = false
+      else p.state = true
+      if (pingSealBoard) {
+        if (k.includes('封板') && sbh === 0) p.state = false
+        if (k.includes('封板高') && sbh > 0) {
+          p.state = true
+          p.v = sbh - (Number(p.v) || 0)
+        }
+      }
+      // 这条 v 变换各平开引擎都有（§52.7 第三行），且**不带 `includes(扇数)` 门控**
+      if (k.includes('玻璃高') && sbh > 0 && !k.includes('亮窗')) p.v = sbh + (Number(p.v) || 0)
+    }
+  }
+  // 平开上亮门控（用户要求，原版无此门控）：无上亮（亮窗总高 ≤ 门洞高）时禁用全部「上亮/压线」件。
+  // 原版 state 规则里 `上亮窗玻璃宽 = w-v` 是纯宽公式、不随 h1 归零，所以没填亮窗总高也会漏出
+  // `上亮横/上亮窗玻璃宽/压线宽`；`上亮窗玻璃高/压线高 = h1-h-v` 则因负值已被主 eval 关掉。
+  if (!diao && lwH <= doorH) {
+    for (const k of keys) {
+      if (k.includes('上亮') || k.includes('压线')) set(k, false)
+    }
+  }
+}
+
+/** 影响算料结果的行字段（缓存签名用）。任一变化都要重算。 */
+function partsSig(l: Line): string {
+  return [
+    l.formula_id, l.line_type, String(formulaOf(l)?.formula_type ?? ''), l.door_width, l.door_height, l.light_window_height, l.wall_thickness,
+    l.jiao, l.track_length, l.bottom_glass, l.face_glass, l.glass_thickness, l.fans, l.direction,
+    l.track, l.casing, l.edge_seal_count, l.seal_board_height, l.front_casing_add, l.back_casing_add,
+    l.hardware, l.quantity,
+  ].join('|')
+}
+// 算料结果缓存：一张单据页会被 17 个模板各取一次数据，逐次重算会明显卡（尤其行多时）。
+const partsCache = new WeakMap<Line, Map<EngineId, { sig: string; val: PartPreview[] }>>()
+
+/** 按**指定引擎**算料。原版每个打印入口各跑一套引擎（A/B/D/P1/C），**规则不同、结果可能不同**，
+ *  所以同一订单行在不同单据上出现的部件集本来就可能不一样 —— 不能共用一份算料结果。
+ *  同步实现：公式取自已载入的 `formulas`；公式缺失时回退到 `l.parts`（页面最后一次算料结果）。 */
+function computeParts(l: Line, engine: EngineId = 'B'): PartPreview[] {
+  const sig = partsSig(l)
+  const hit = partsCache.get(l)?.get(engine)
+  if (hit && hit.sig === sig) return hit.val
+  const val = computePartsUncached(l, engine)
+  let m = partsCache.get(l)
+  if (!m) {
+    m = new Map()
+    partsCache.set(l, m)
+  }
+  m.set(engine, { sig, val })
+  return val
+}
+
+function computePartsUncached(l: Line, engine: EngineId): PartPreview[] {
+  const f = formulaOf(l)
+  if (!f) return (l.parts ?? []) as PartPreview[]
+  const src = f.parts as PartsMap
+  if (!src || typeof src !== 'object' || Array.isArray(src)) return []
+  const parts = JSON.parse(JSON.stringify(src)) as PartsMap
+  // ⚠️ 两条公式级减量**各有适用引擎**（§52/§53 引擎普查证实）：
+  //   `widthIncrement`：只有 **A吊/B吊/D吊**（平开没有；C吊、G吊 也没有）
+  //   `hinge`：只有 **平开**（A平/B平/D平/P1平）；**6 个吊趟引擎一律不读**
+  const diaoLine = l.line_type === 'diao'
+  if (diaoLine && engine !== 'C') applyWidthIncrement(parts, l, f)
+  if (!diaoLine) applyHinge(parts, l, f)
+  applyPartState(parts, l, engine) // 按规则定 state（默认 false 起手）
+  const dims = dimsOf(l)
+  const computed: Record<string, number> = {}
+  let kbThickNeg = false
+  const diao = l.line_type === 'diao'
+  // ⚠️ **必须分两遍**（原版 `needsSecondPass`）：第一遍只算**不含跨部件引用**的部件
+  // （`formula` 里没有 `.result`），第二遍才算引用型的。否则像「玻璃高 = 光企高.result - v」
+  // 这种在「光企高」之前被求值就会得 0 —— 而且 `jsonb` 不保留键顺序，顺序本来就不可控。
+  const secondPass: string[] = []
+  // 阈值（原文）：**主 eval**（第一遍，不含 `.result` 的部件）—— 只有 **B吊(@506843)/L2(@396683)**
+  //   用 `<1 && !滑 && !单轨`，其余引擎用 `<0`；**第二遍 eval**（含 `.result` 的部件）一律 `<0`。
+  const mainLt1 = diao && (engine === 'B' || engine === 'L2')
+  const evalOne = (name: string, isSecondPass: boolean): void => {
+    const p = parts[name]
+    if (!p || !p.formula || !p.state) return
+    const r = evalForward(
+      p.formula,
+      dims,
+      (ref: string) => (computed[ref] !== undefined ? String(computed[ref]) : '0'),
+      Number(p.v) || 0,
+      Number(p.result) || 0,
+    )
+    computed[name] = r
+    // 主 eval 的阈值：B吊/L2 用 `<1 && !滑 && !单轨`；其余用 `<0`。第二遍一律 `<0`。
+    const bad = !isSecondPass && mainLt1
+      ? r < 1 && !name.includes('滑') && !name.includes('单轨')
+      : r < 0
+    if (bad) {
+      p.state = false
+      computed[name] = 0
+      if (name.includes('扣板厚')) kbThickNeg = true
+    }
+  }
+  // 第一遍：不含 `.result` 的
+  for (const [name, p] of Object.entries(parts)) {
+    if (!p.formula || !p.state) continue
+    if (p.formula.includes('.result')) {
+      secondPass.push(name)
+      continue
+    }
+    evalOne(name, false)
+  }
+  // 第二遍：引用型的
+  for (const name of secondPass) evalOne(name, true)
+  // 扣板厚负值联动（§52.7 / 原文 @487868 平开 vs @507050 吊趟）：**两族杀的部件名不同** ——
+  //   平开：`名含'扣板' || 名含'压条'`；吊趟：`名含'扣板高' || 名含'扣板宽'`
+  const kbKill = diaoLine ? /扣板高|扣板宽/ : /扣板|压条/
+  return Object.entries(parts)
+    .filter(([key, p]) => !!p.formula && p.state && !(kbThickNeg && kbKill.test(key)))
+    .map(([key, p]) => ({ key, materialName: p.materialName || key, quantity: p.quantity || 0, result: round2(computed[key] ?? 0) }))
+}
+
 // 单行算料：有 formula_id 才计算（仿旧版门图列「算料」）
 async function calcSingleRow(l: Line) {
-  if (l.formula_id == null) {
-    message.warning('该行没有型材数据，无法计算')
+  if (!l.profile.trim()) {
+    message.warning('请先填写型材')
     return
+  }
+  if (l.formula_id == null) {
+    // 填了型材但未选/未匹配到公式 → 尝试按型材自动匹配公式（resolveFormulaMatch 或公式名兜底）
+    await resolveRow(l)
+    if (l.formula_id == null) {
+      const fm = matchFormulaByName(l)
+      if (fm) l.formula_id = fm.id
+    }
+    if (l.formula_id == null) {
+      message.warning('未找到对应公式，请检查型材名称是否正确')
+      return
+    }
   }
   try {
     const f = await api.getFormula(l.formula_id)
@@ -1799,21 +2533,12 @@ async function calcSingleRow(l: Line) {
       l.parts = []
       return
     }
-    const computed = recalcForward(parts, dimsOf(l))
-    l.parts = Object.entries(parts)
-      .filter(
-        ([key, p]) =>
-          !!p.formula &&
-          isActivePartKey(key, l.fans) &&
-          isCasingTrackActive(p.track, l.edge_binding),
-      )
-      .map(([key, p]) => ({
-        key,
-        materialName: p.materialName || key,
-        quantity: p.quantity || 0,
-        result: round2(computed[key] ?? 0),
-      }))
+    await loadFormulaImages(l.formula_id) // 拉公式挖孔图（glassHole doorImg 用）
+    // 页面上的算料明细按**生产单引擎（B）**算
+    l.parts = computeParts(l, 'B')
     lineRefresh(l)
+    message.success(`算料完成：${l.parts.length} 个部件`)
+    void openTemplatePreview('product')
   } catch (e) {
     message.error(e instanceof Error ? e.message : '算料失败')
   }
@@ -1914,8 +2639,13 @@ function pingCols(): DataTableColumn<Line>[] {
       width: 118,
       render: (l) =>
         cCol(
-          sub('面', optCell(l, 'face_glass', 88, glassOptions)),
-          sub('底', optCell(l, 'bottom_glass', 88, glassOptions, onBottomGlassRow)),
+          // 面玻标签**随公式类型变**（原版：`L.value[formulaid]==='diamond' ? '门玻：' : '面玻：'`，
+          // 见 Hui-d088417c 偏移 72852 起的 ping 玻璃列；无公式时回退 '面玻：'）。
+          // 我们整列用缩写标签（面/底/厚），故钻石型对应缩成「门」。
+          sub(isDiamond(l) ? '门' : '面', glassSelectCell(l, 'face_glass', 88)),
+          // 底玻标签同样随公式类型变（原版：钻石型 '固玻：'，否则 '底玻：'），缩写为「固/底」。
+          sub(isDiamond(l) ? '固' : '底', glassSelectCell(l, 'bottom_glass', 88)),
+          // 厚度一格**不分支**：原版此处恒为 '厚度：'，钻石型也照旧。
           sub('厚', optCell(l, 'glass_thickness', 88, glassThicknessOptions)),
         ),
     },
@@ -1929,8 +2659,8 @@ function pingCols(): DataTableColumn<Line>[] {
       width: 124,
       render: (l) =>
         cCol(
-          ...(colVis(pingColVis, 'edge_binding')
-            ? [sub('包边', optCell(l, 'edge_binding', 88, edgeBindingOptions))]
+          ...(colVis(pingColVis, 'casing')
+            ? [sub('包边', optCell(l, 'casing', 88, pingCasingOptions(l), undefined, true, 'casing'))]
             : []),
           ...(colVis(pingColVis, 'track') ? [sub('锁具', trackCell(l, 88))] : []),
           optCell(l, 'direction', 108, pingDirectionOptions.value),
@@ -1951,17 +2681,39 @@ function pingCols(): DataTableColumn<Line>[] {
       render: (l) =>
         cCol(
           sub('高', intCell(l, 'door_height', 60)),
-          sub('宽', intCell(l, 'door_width', 60)),
-          sub('墙厚', intCell(l, 'wall_thickness', 60)),
+          // 门洞宽标签随公式类型变（原版：钻石型 '左宽：'，否则 '宽：'）。
+          sub(isDiamond(l) ? '左宽' : '宽', intCell(l, 'door_width', 60)),
+          // 墙厚一格也分支：钻石型显示 '门宽：'（仅 ping 表如此，diao 表无此分支）。
+          sub(isDiamond(l) ? '门宽' : '墙厚', wallThicknessCell(l, 60)),
           ...(needsMotherWidth(l) ? [sub('母门宽', intCell(l, 'mother_door_width', 60))] : []),
-          sub('洞尺', holeCell(l, 60)),
+          // 钻石型时「亮窗总高」这个字段**搬进本列**并改名「右宽」（原版 @85386 的 v-if 块，
+          // 标签 token `t(251)='右宽：'`）。非钻石时它在下面独立的「亮窗总高」列里 —— 两处互斥。
+          ...(isDiamond(l) ? [sub('右宽', intCell(l, 'light_window_height', 60))] : []),
         ),
     },
+    // 原版 ping 表「洞尺」是**独立列**（@86403 起），槽内是「洞尺/净尺」单选组、无内嵌小标签；
+    // 由 `列显隐表['洞尺']` 闸门。（我们沿用 optCell 下拉表达同一字段，取值集见 HOLE_SIZE_OPTS。）
     {
-      title: '吊脚/亮窗',
-      key: 'jiao_lw',
-      width: 76,
-      render: (l) => cCol(sub('吊脚', intCell(l, 'jiao', 62)), sub('亮窗高', intCell(l, 'light_window_height', 62))),
+      title: '洞尺',
+      key: 'hole_size',
+      width: 60,
+      render: (l) => holeCell(l, 60),
+    },
+    // 原版 ping 表里「吊脚」与「亮窗总高」是**两个独立列**（`Hui-d088417c` @86619 / @86995），
+    // 槽内直接渲染输入框、无内嵌小标签。吊脚列由 `列显隐表['吊脚']` 闸门；亮窗总高列**无闸门**（原版如此）。
+    {
+      title: '吊脚',
+      key: 'jiao',
+      width: 62,
+      render: (l) => intCell(l, 'jiao', 62),
+    },
+    {
+      title: '亮窗总高',
+      key: 'lightwin',
+      width: 62,
+      // 原版该列自带互斥条件：`L.value[formulaid] !== 'diamond'` 才渲染输入框，钻石型整格为空
+      // （else 分支是 `createCommentVNode`）。无公式时渲染（与原版 `return true` 一致）。
+      render: (l) => (isDiamond(l) ? null : intCell(l, 'light_window_height', 62)),
     },
     {
       title: '五金/封板',
@@ -2050,8 +2802,8 @@ function diaoCols(): DataTableColumn<Line>[] {
       width: 118,
       render: (l) =>
         cCol(
-          sub('面', optCell(l, 'face_glass', 88, glassOptions)),
-          sub('底', optCell(l, 'bottom_glass', 88, glassOptions, onBottomGlassRow)),
+          sub('面', glassSelectCell(l, 'face_glass', 88)),
+          sub('底', glassSelectCell(l, 'bottom_glass', 88)),
           sub('厚', optCell(l, 'glass_thickness', 88, glassThicknessOptions)),
         ),
     },
@@ -2063,7 +2815,6 @@ function diaoCols(): DataTableColumn<Line>[] {
         cCol(
           ...(colVis(diaoColVis, 'track') ? [sub('轨道', trackCell(l, 88))] : []),
           sub('套线', casingCell(l, 88)),
-          ...(colVis(diaoColVis, 'edge_binding') ? [sub('包边', optCell(l, 'edge_binding', 88, edgeBindingOptions))] : []),
         ),
     },
     {
@@ -2074,7 +2825,7 @@ function diaoCols(): DataTableColumn<Line>[] {
         cCol(
           sub('高', intCell(l, 'door_height', 60)),
           sub('宽', intCell(l, 'door_width', 60)),
-          sub('墙厚', intCell(l, 'wall_thickness', 60)),
+          sub('墙厚', wallThicknessCell(l, 60)),
           ...(needsMotherWidth(l) ? [sub('母门宽', intCell(l, 'mother_door_width', 60))] : []),
           sub('洞尺', holeCell(l, 60)),
         ),
@@ -2138,12 +2889,11 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
   diaoCols().filter((c) => colVis(diaoColVis, (c as KeyedCol).key ?? '')),
 )
 
-// 复制行（仿旧版：清生产进度/单号/图片）
+// 复制行（仿旧版：清生产进度/图片）
 function copyRow(l: Line) {
   const copy: Line = JSON.parse(JSON.stringify(l))
   copy.id = null
   copy.progress = ''
-  copy.link_no = null
   copy.image_id = null
   copy.image_url = null
   lines.value.push(copy)
@@ -2300,7 +3050,7 @@ async function loadOrder(id: number) {
       id: l.id,
       line_type: l.line_type === 'diao' ? 'diao' : 'ping',
       profile: l.profile, color: l.color, direction: l.direction, fans: l.fans,
-      track: l.track, casing: l.casing, edge_binding: l.edge_binding, hardware: l.hardware,
+      track: l.track, casing: l.casing, hardware: l.hardware,
       bottom_glass: l.bottom_glass, face_glass: l.face_glass, glass_thickness: l.glass_thickness,
       door_width: l.door_width, door_height: l.door_height, light_window_height: l.light_window_height,
       wall_thickness: l.wall_thickness, jiao: l.jiao, mother_door_width: l.mother_door_width,
@@ -2311,9 +3061,8 @@ async function loadOrder(id: number) {
       formula_id: l.formula_id, remark: l.remark, install_address: l.install_address,
       open_img: l.open_img, edge_seal_count: l.edge_seal_count, seal_board_height: l.seal_board_height,
       track_length: l.track_length, front_casing_add: l.front_casing_add, back_casing_add: l.back_casing_add,
-      link_no: l.link_no, double_ding: l.double_ding, light_window_count: l.light_window_count,
+      double_ding: l.double_ding, light_window_count: l.light_window_count,
       image_id: l.image_id, image_url: l.image_url, progress: l.progress, hole_size: l.hole_size,
-      markup_raw: l.markup_raw,
     }))
     void hydrateRowImages(lines.value)
     listOpen.value = false
@@ -2342,159 +3091,298 @@ function removeOrder(o: OrderSummaryDto) {
   })
 }
 
-// 回执单预览 / 打印
-const receiptOpen = ref(false)
+// 原版 `shouldUseNewSizeFormat(ds)`：ds 形如 smartdoor / smartdoor408；无数字后缀或 408 / >414 用新格式。
+// 生产环境 ds = 'smartdoor' → 新格式（带 `高:`/`<br/>宽:` 标签那种）。后端 tenants 暂无 ds 列，先常量占位。
+const TENANT_DS: string = 'smartdoor'
+const NEW_SIZE_FORMAT = (() => {
+  const m = /^smartdoor(\d+)?$/.exec(TENANT_DS)
+  return m ? (!m[1] || Number(m[1]) === 408 || Number(m[1]) > 414) : false
+})()
 
-const esc = (s: unknown) =>
-  String(s ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-
-const num = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : '0.00')
-
-const typeName = (t: string) => (t === 'diao' ? '吊趟门' : '平开门')
-
-function lineOpenLabel(l: Line): string {
-  const dir = displayDirection(l.direction)
-  return l.line_type === 'diao' ? [l.fans, dir].filter(Boolean).join('') : dir
+// 尺寸列（旧版回执）：平开 3 分支（钻石/子母/普通）× 移门 1 套，每套再按 NEW_SIZE_FORMAT 选拼法。
+// 非新格式统一「值直接拼」；新格式带 `高:`/`<br/>宽:` 等标签。洞尺存在时前置。
+function dimSizeLabel(l: Line): string {
+  const h = l.door_height || 0
+  const w = l.door_width || 0
+  if (!h && !w) return ''
+  const lw = l.light_window_height > 0
+  const wall = l.wall_thickness > 0
+  const jiao = l.jiao > 0
+  const track = l.track_length > 0
+  let s: string
+  if (l.line_type === 'diao') {
+    s = NEW_SIZE_FORMAT
+      ? `高:${h}<br/>宽:${w}${lw ? `<br/>亮窗:${l.light_window_height}` : ''}${l.light_window_count > 0 ? `<br/>亮窗数:${l.light_window_count}` : ''}${wall ? `<br/>墙厚:${l.wall_thickness}` : ''}${track ? `<br/>轨道长:${l.track_length}` : ''}`
+      : `高${h}宽${w}${lw ? ` 亮窗${l.light_window_height}` : ''}${l.light_window_count > 0 ? ` 亮窗数:${l.light_window_count}` : ''}${wall ? ` 墙厚:${l.wall_thickness}` : ''}${track ? ` 轨道长:${l.track_length}` : ''}`
+  } else if (/钻石/.test(l.profile || '')) {
+    s = NEW_SIZE_FORMAT
+      ? `高:${h}<br/>左宽:${w}${lw ? `<br/>门宽:${l.light_window_height}` : ''}${wall ? `<br/>右宽:${l.wall_thickness}` : ''}`
+      : `高${h}左宽${w}${lw ? `门宽${l.light_window_height}` : ''}${wall ? `右宽${l.wall_thickness}` : ''}`
+  } else if (/子母/.test(l.profile || '')) {
+    s = NEW_SIZE_FORMAT
+      ? `高:${h}<br/>宽:${w}<br/>母门:${l.track_length}${lw ? `<br/>亮高:${l.light_window_height}` : ''}${wall ? `<br/>墙厚:${l.wall_thickness}` : ''}${jiao ? `<br/>吊脚:${l.jiao}` : ''}`
+      : `高${h}宽${w}母门${l.track_length}${lw ? `*亮高${l.light_window_height}` : ''}${wall ? `*${l.wall_thickness}` : ''}${jiao ? `*${l.jiao}` : ''}`
+  } else {
+    s = NEW_SIZE_FORMAT
+      ? `高:${h}<br/>宽:${w}${lw ? `<br/>亮高:${l.light_window_height}` : ''}${wall ? `<br/>墙厚:${l.wall_thickness}` : ''}${jiao ? `<br/>吊脚:${l.jiao}` : ''}`
+      : `高${h}宽${w}${lw ? `*亮高${l.light_window_height}` : ''}${wall ? `*${l.wall_thickness}` : ''}${jiao ? `吊脚${l.jiao}` : ''}`
+  }
+  // 原版：`e["洞尺"] && (_.size = e["洞尺"] + "<br>" + _.size)`
+  return l.hole_size ? `${l.hole_size}<br>${s}` : s
 }
 
+// 玻璃列（旧版回执）：单玻/双玻/无，镜片 + 玻璃厚。
+// 回执玻璃列（原版，ping 判定顺序）：单玻 / 无 / 固玻(钻石) / 背板(厚0) / 底玻:面玻:。
+function glassSpecPrintable(l: Line): string {
+  const bottom = l.bottom_glass || '无'
+  const face = l.face_glass || '无'
+  const thick = l.glass_thickness || ''
+  // 原版（@351196 平开 / @442766 吊趟）：`家家发门业` / `星之铝门窗` 两家**不加** `*{厚}mm`
+  const mm = STORE_GLASS_NO_MM.includes(tenantName.value) ? '' : `*${thick}mm`
+  if (bottom === '无' && face === '无') return '无'
+  if (bottom === '无') return `单玻:${face}${mm}`
+  // 钻石支**只在平开**：吊趟那条表达式没有 `型材含钻石` 判断，直接落到 `0==玻璃厚` / else
+  if (isDiamond(l) && l.line_type !== 'diao') return `固玻:${bottom}<br>门玻:${face}${mm}`
+  if (Number(thick) === 0) return `背板:${bottom}<br>面板:${face}`
+  return `底玻:${bottom}<br>面玻:${face}${mm}`
+}
+
+// 计价明细（旧版回执）：●单价×数量=金额元（套）/ ●单价×平方=金额元（方）。
+// 计价明细（原版）：套 = `•单价元/套*数量=金额元`；方 = `•单价元/方*平方(3位)=金额元`。
+function pricingDetail(l: Line): string {
+  let s = ''
+  // 原版是两个**显式**分支：`计价方式==='套' && 单价>0` / `==='方' && 单价>0`；
+  // 计价方式为其它值（含空）时两个分支都不走，只可能剩套线金额与加价项目。
+  if (l.unit_price > 0 && l.price_type === '套') {
+    s = `•${l.unit_price}元/套*${l.quantity}=${l.quantity * l.unit_price}元`
+  } else if (l.unit_price > 0 && l.price_type === '方') {
+    const sq = l.square || 0
+    s = `•${l.unit_price}元/方*${sq.toFixed(3)}=${Number((Math.round(100 * sq * l.unit_price) / 100).toFixed(3))}元`
+  }
+  // 套线金额：套线种类形如 `一高一宽-30`，`-` 后为「丁」的个数。
+  // 长度**必须**复用 `casingLength`（= 上方 `casingAmountOf` 算出 `casing_amount` 用的同一个函数），
+  // 否则显示米数与实际计费米数会来自两套代码而悄悄对不上。
+  if (l.casing_amount > 0) {
+    const name = (l.casing || '').split('-')[0] || ''
+    const len = casingLength(l)
+    s += l.quantity === 1
+      ? `•${name}${l.casing_price}元/米*${len} =${l.casing_amount}元`
+      : `•${name}${l.casing_price}元/米*${len}*${l.quantity}=${l.casing_amount}元`
+  }
+  return s
+}
+
+// 边封数 → 墙型文本（原版：0双丁墙/1单丁墙/3上丁墙/4上丁加单丁/5上丁加双丁）。
+function wallTypeLabel(l: Line): string | null {
+  // 原版门控是 `null != 边封数`：未填 → 不产生墙型（`Number(null)===0` 会误判成「双丁墙」）
+  if (l.edge_seal_count == null) return null
+  switch (Number(l.edge_seal_count)) {
+    case 0: return '双丁墙'
+    case 1: return '单丁墙'
+    case 3: return '上丁墙'
+    case 4: return '上丁加单丁'
+    case 5: return '上丁加双丁'
+    default: return null
+  }
+}
+
+// 回执备注列（原版）：打折 + [平开: 轨道种类/五金/墙型 | 移门: 扇数:/轨道种类:/五金/单双丁] + 安装地址 + 前后包 + 备注。
+function receiptRemark(l: Line): string {
+  const items: (string | null)[] = []
+  const discounted = (l.discount ?? 1) < 1
+  if (discounted) items.push(`打折:${(100 * (l.discount ?? 1)).toString().replace(/0$/, '')}折`)
+  if (l.line_type === 'diao') {
+    const x = /哑口|垭口/.test(l.profile) || l.direction === '无' || (l.unit_price === 0 && (l.casing_price || 0) > 0)
+    if (!x) items.push(`扇数:${l.profile.includes('+0') ? ' 口袋门' : l.fans || ''}`)
+    // 原版只有「打折」分支对轨道种类做 `+0 → 口袋门` 替换，非打折分支不替换
+    if (!x) items.push(`轨道种类:${discounted && l.profile.includes('+0') ? ' 口袋门' : l.track || ''}`)
+    items.push(l.hardware || null)
+    items.push(l.double_ding || null)
+  } else {
+    items.push(l.track || null)
+    items.push(l.hardware || null)
+    items.push(wallTypeLabel(l))
+  }
+  if (!order.install_address.trim()) items.push(l.install_address || null)
+  if (l.line_type === 'ping') {
+    // 原版 `前后包加长` 返回**数组**，作为列表单项被 String() 化 → 多项时以逗号相连
+    const pack = [l.front_casing_add ? `前包加长${l.front_casing_add}` : '', l.back_casing_add ? `后包加长${l.back_casing_add}` : ''].filter(Boolean).join(' ')
+    if (pack) items.push(pack)
+  }
+  items.push(l.remark || null)
+  return items.filter(Boolean).join('<br>')
+}
+
+// 加价项目 → `加配：{名}-{名}`（原版：原始数据里 name 非数字的项，`-` 连接）。
+// 原始数据可能是被 JSON 套了多层 string，最多剥 4 层。
+function markupNames(l: Line): string {
+  try {
+    let v: unknown = l.markup
+    for (let n = 0; typeof v === 'string' && n < 4; n++) v = JSON.parse(v)
+    if (typeof v === 'string' || !v) return ''
+    const arr = Array.isArray(v) ? v : [v]
+    return arr
+      .filter((e) => e && isNaN(Number((e as { name?: unknown }).name)))
+      .map((e) => String((e as { name?: unknown }).name))
+      .join('-')
+  } catch {
+    return ''
+  }
+}
+
+// 原版 `_0xc8b731(行, 公式)`：把**公式级** `hardware` 作为 `配件:{值}` 追加到 remark 末尾
+// （`\r\n`/`\r`/`\n` 一律先转 `<br>`；公式没有该字段则追加空串）。8 个 produce 构造器每个都调用它。
+// 注意：这只用于打印的 remark，与「五金下拉候选不读 extra.hardware」是两回事。
+function appendAccessory(remark: string, l: Line): string {
+  const hw = (formulaOf(l)?.extra as { hardware?: unknown } | undefined)?.hardware
+  if (typeof hw !== 'string' || hw === '') return remark
+  const a = `配件:${hw.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '<br>')}`
+  return remark ? `${remark}<br>${a}` : a
+}
+
+// 生产单/玻璃合片 remark（原版 produces 行，两条引擎分别对应平开/吊趟）：
+//   平开 `_0x551a25` = [轨道种类, 五金, 安装地址, 备注] + 加配(`<br>`) + 墙型(`<br>`)
+//   吊趟 `_0x500ef9` = [五金, 单双丁(≠正常), 备注, 安装地址] + 加配(`<br>`)  —— **无墙型**
+function produceRemark(l: Line): string {
+  const items = l.line_type === 'diao'
+    ? [l.hardware || null, l.double_ding && l.double_ding !== '正常' ? l.double_ding : null, l.remark || null, l.install_address || null]
+    : [l.track || null, l.hardware || null, l.install_address || null, l.remark || null]
+  let s = items.filter(Boolean).join('<br>')
+  const add = markupNames(l)
+  if (add) s = s ? `${s}<br>加配：${add}` : `加配：${add}`
+  if (l.line_type !== 'diao') {
+    const wall = wallTypeLabel(l)
+    if (wall) s = s ? `${s}<br>${wall}` : wall
+  }
+  return appendAccessory(s, l)
+}
+
+// 玻璃合片单 remark（原版**引擎A** `_0xcfde65` 平开 / `_0x4d28ce` 吊趟）：
+//   [五金, 单双丁(≠正常), 备注, 安装地址] + 加配(`<br>`) —— **既无轨道种类、也无墙型**。
+//   注意：玻璃合片单的行由 `calculateGlass` 独占产生，与生产单（`calculateReceipt`→引擎B）**不是同一族**。
+function glassRemark(l: Line): string {
+  const ding = l.double_ding && l.double_ding !== '正常' ? l.double_ding : null
+  let s = [l.hardware || null, ding, l.remark || null, l.install_address || null].filter(Boolean).join('<br>')
+  const add = markupNames(l)
+  if (add) s = s ? `${s}<br>加配：${add}` : `加配：${add}`
+  return appendAccessory(s, l)
+}
+
+// product2/3（oldSheet 行）remark（原版 `_0x192067`/`_0x34f4ac`）：
+//   [五金, 单双丁(≠正常), 备注].join("-") + 加配（**空格**追加）+ 墙型（**`-`**追加）
+function oldSheetRemark(l: Line): string {
+  const ding = l.double_ding && l.double_ding !== '正常' ? l.double_ding : null
+  let s = [l.hardware || null, ding, l.remark || null].filter(Boolean).join('-')
+  const add = markupNames(l)
+  if (add) {
+    const t = `加配：${add}`
+    s = s ? `${s} ${t}` : t
+  }
+  const wall = wallTypeLabel(l)
+  if (wall) s = s ? `${s}-${wall}` : wall
+  return appendAccessory(s, l)
+}
+
+// 原版：逐个订单行取「行安装地址」，为空则回填订单级安装地址；去重后以 **`_`** 连接（不是「、」）。
 const installAddresses = computed(() => {
   const set = new Set<string>()
-  for (const l of lines.value) if (l.install_address) set.add(l.install_address)
-  return [...set].join('、')
+  for (const l of lines.value) {
+    const a = l.install_address || order.install_address
+    if (a) set.add(a)
+  }
+  return [...set].join('_')
 })
 
-// 展示用安装地址：表头默认优先，否则取行聚合。
-const orderInstallAddress = computed(() => order.install_address || installAddresses.value)
+// 原版 `address = 订单安装地址 ? E(行地址去重) : 客户地址`；客户地址取自客户资料。
+const clientAddress = computed(() => clients.value.find((c) => c.code === order.client_code)?.address || '')
+const orderInstallAddress = computed(() => (order.install_address ? installAddresses.value : clientAddress.value))
 
-const receiptHtml = computed(() => {
-  const rows = lines.value
-    .map((l, i) => {
-      const size = l.door_width || l.door_height ? `${l.door_width}×${l.door_height}` : '—'
-      const glass = [l.bottom_glass, l.face_glass].filter(Boolean).join('/')
-      return `<tr>
-        <td class="c">${i + 1}</td>
-        <td>${esc(typeName(l.line_type))}</td>
-        <td>${esc(l.profile)}</td>
-        <td>${esc(l.color)}</td>
-        <td>${esc(lineOpenLabel(l))}</td>
-        <td class="c">${esc(size)}</td>
-        <td>${esc(glass)}</td>
-        <td class="r">${num(l.square)}</td>
-        <td class="c">${l.quantity}</td>
-        <td class="r">${num(l.unit_price)}</td>
-        <td class="r">${num(l.amount)}</td>
-        <td>${esc(l.remark)}</td>
-      </tr>`
+// —— 生产类单据的行顺序（原版各 produces 构造器统一，见 docs/2026-09-11-row-order-exhaustive.md）——
+//   ① 平开块在前、吊趟块在后（`_0x4d19f5` 里 ping<i>/diao<i> 两段）
+//   ② 块内按 `formulaid → 颜色` 排序（**玻璃合片单入口不排**，故用参数区分）
+//   ③ 过滤：丢弃无公式/查不到公式的行；吊趟另丢弃无扇数的行
+//   ④ 收尾：`smartdoor_sort_method === 'order'` 时把 ping+diao 合起来按单号数字前缀升序，
+//      否则保持 ② 的顺序（原版按 `produce.timestamp` 升序，而 timestamp 就是 ② 迭代时写入的，等价）
+const sortMethod = ref(localStorage.getItem('smartdoor_sort_method') || 'profile')
+// 「排序方式」对话框（原版 `_0xff1972` 打开 / `_0x2a0b61` 保存）
+const sortMethodOpen = ref(false)
+const sortMethodDraft = ref(sortMethod.value)
+function openSortMethod() {
+  sortMethodDraft.value = sortMethod.value
+  sortMethodOpen.value = true
+}
+function saveSortMethod() {
+  sortMethod.value = sortMethodDraft.value === 'order' ? 'order' : 'profile'
+  localStorage.setItem('smartdoor_sort_method', sortMethod.value)
+  sortMethodOpen.value = false
+  message.success('排序方式已保存')
+}
+// 原版按**每行自己的「单号」**的数字前缀排（`parseInt(OrderID.split('-')[0]) || 0`）。
+// 行级单号（原版 `单号` 列，可逐行编辑）本次做减法时已删除，故退回**订单级**单号；
+// 同一张订单内所有行取到同一个前缀，"序号优先" 等价于保持原序。
+const orderPrefix = () => parseInt(String(order.receipt_no || '').split('-')[0] || '0', 10) || 0
+
+function orderedLines(sortByFormula = true): Line[] {
+  const keep = (l: Line) => {
+    if (l.formula_id == null || !formulaOf(l)) return false
+    if (l.line_type === 'diao' && !String(l.fans || '').trim()) return false
+    return true
+  }
+  const block = (t: 'ping' | 'diao') => {
+    const arr = lines.value.filter((l) => l.line_type === t && keep(l))
+    if (!sortByFormula) return arr
+    return arr.slice().sort((a, b) => {
+      const fa = String(a.formula_id)
+      const fb = String(b.formula_id)
+      return fa !== fb ? fa.localeCompare(fb) : (a.color || '').localeCompare(b.color || '')
     })
-    .join('')
-
-  const empty = rows ? '' : '<tr><td colspan="12" class="empty">暂无订单行</td></tr>'
-
-  return `<style>
-    .rcp{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;color:#1f2329;font-size:13px;line-height:1.5}
-    .rcp-title{font-size:20px;font-weight:700;text-align:center;letter-spacing:2px}
-    .rcp-sub{text-align:center;color:#999;font-size:12px;margin:2px 0 12px}
-    .rcp-meta{display:flex;flex-wrap:wrap;gap:6px 18px;margin-bottom:12px}
-    .rcp-meta b{color:#1f2329}
-    .rcp-table{width:100%;border-collapse:collapse;table-layout:fixed}
-    .rcp-table th,.rcp-table td{border:1px solid #d9d9d9;padding:4px 6px;word-break:break-all;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .rcp-table th{background:#f5f7fa;font-weight:600;text-align:center;font-size:12px}
-    .rcp-table td{font-size:12px}
-    .rcp-table .c{text-align:center}
-    .rcp-table .r{text-align:right}
-    .rcp-table .empty{text-align:center;color:#999;padding:16px}
-    .rcp-summary{display:flex;justify-content:flex-end;gap:24px;margin-top:12px;font-size:14px;align-items:center}
-    .rcp-balance{color:#d03050;font-weight:700;font-size:18px}
-    .rcp-foot{margin-top:12px;padding-top:10px;border-top:1px dashed #d9d9d9;color:#555}
-    .rcp-foot div{white-space:pre-wrap}
-    @media print{@page{size:A4;margin:12mm}body{margin:0}}
-  </style>
-  <div class="rcp">
-    <div class="rcp-title">智能门窗 · 回执单</div>
-    <div class="rcp-sub">订单确认单</div>
-    <div class="rcp-meta">
-      <span>回执单号：<b>${esc(order.receipt_no || '（未生成）')}</b></span>
-      <span>客户：<b>${esc(order.client_name || '—')}${order.client_code ? `（${esc(order.client_code)}）` : ''}</b></span>
-      <span>电话：${esc(order.phone || '—')}</span>
-      <span>品牌：${esc(order.brand || '—')}</span>
-      <span>下单日期：${esc(order.order_date || '—')}</span>
-      <span>截止日期：${esc(dueDate.value || '—')}</span>
-      <span>业务员：${esc(order.salesperson || '—')}</span>
-      <span>生产周期：${order.production_days || 0} 天</span>
-    </div>
-    <table class="rcp-table">
-      <thead>
-        <tr>
-          <th style="width:32px">#</th>
-          <th style="width:56px">类型</th>
-          <th>型材</th>
-          <th style="width:60px">颜色</th>
-          <th style="width:96px">开向/扇数</th>
-          <th style="width:84px">尺寸(mm)</th>
-          <th style="width:60px">玻璃</th>
-          <th style="width:56px">平方</th>
-          <th style="width:40px">数量</th>
-          <th style="width:60px">单价</th>
-          <th style="width:72px">金额</th>
-          <th>备注</th>
-        </tr>
-      </thead>
-      <tbody>${rows}${empty}</tbody>
-    </table>
-    <div class="rcp-summary">
-      <span>门数：<b>${doorCount.value}</b></span>
-      <span>总价：<b>¥ ${num(totalPrice.value)}</b></span>
-      <span>定金：¥ ${num(order.deposit || 0)}</span>
-      <span class="rcp-balance">余款：¥ ${num(totalPrice.value - (order.deposit || 0))}</span>
-    </div>
-    <div class="rcp-foot">
-      <div>订单备注：${esc(order.remark || '—')}</div>
-      <div>安装地址：${esc(orderInstallAddress.value || '—')}</div>
-    </div>
-  </div>`
-})
-
-function openReceipt() {
-  receiptOpen.value = true
+  }
+  const all = [...block('ping'), ...block('diao')]
+  if (sortMethod.value !== 'order') return all
+  // 「序号优先」：前缀退化为订单级单号（同单内恒定）→ 当前恒为原序，保留分支以维持设置项语义。
+  const p = orderPrefix()
+  return all.slice().sort(() => p - p)
 }
 
-function buildReceiptDoc(): string {
-  return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<title>回执单 ${esc(order.receipt_no || '')}</title>
-<style>*{box-sizing:border-box}body{background:#fff}</style>
-</head>
-<body>${receiptHtml.value}</body>
-</html>`
+// 回执行顺序（原版 @348915 / @353436）：**先全部平开行、再全部吊趟行**，各自**保持表格原序**
+// （回执构造器里 `.sort(` 出现 0 次，不排序）；且**只在对应表「显示」时才纳入**
+// （`if (showPingkai && pingTable)` / `if (showDiao && diaoTable)`）。
+// 缺 `formulaid` 的行**不会被剔除** —— 原版是先用「型材→formulaId」表回填。
+function receiptOrderedLines(): Line[] {
+  return [
+    ...(showPing.value ? lines.value.filter((l) => l.line_type === 'ping') : []),
+    ...(showDiao.value ? lines.value.filter((l) => l.line_type === 'diao') : []),
+  ]
 }
 
-// —— 回执单打印：优先走 hiprint 真实模板（print_templates.receipt），失败兜底 HTML ——
-const printing = ref(false)
-
-function receiptPrintData() {
-  const rows = lines.value.map((l) => ({
-    profile2: l.profile,
-    direction: lineOpenLabel(l),
-    openImg: l.open_img || '',
+// 回执模板（receipt / FinalReceipt / ReceiptList）的载荷：一份表头对象 + `receipt` 行数组。
+// 原版回执族由**同一个载荷构造器**服务，但 **brand 后缀逐模板不同**（Home chunk 实证）：
+//   `receipt`(客户回执单) 保持「回执单」；`FinalReceipt`(收据单) → 「收据单」；`ReceiptList`(出货清单) → 「订货清单」。
+function receiptPrintData(brandSuffix = '回执单') {
+  const rows = receiptOrderedLines().map((l) => ({
+    profile: l.profile,
+    profile2: [l.profile, l.color].filter(Boolean).join('<br>'),
+    color: l.color, // 原版回执行字段 `color`（FinalReceipt / ReceiptList 模板有该列）
+    maker: currentUserName.value || '',
+    // 原版方向列：平开 = 套线种类+开向；移门 = 开向（无扇数前缀）
+    direction: l.line_type === 'diao' ? displayDirection(l.direction) : `${l.casing || ''}${displayDirection(l.direction)}`,
+    openImg: lineLockImage(l),
     doorImg: l.image_url || '',
-    glass: [l.bottom_glass, l.face_glass].filter(Boolean).join('/'),
-    size: l.door_width || l.door_height ? `${l.door_width}×${l.door_height}` : '',
+    glass: glassSpecPrintable(l),
+    size: dimSizeLabel(l),
     quantity: l.quantity,
-    price: l.unit_price,
-    amount: l.amount,
-    pricing: l.price_type,
-    remark: l.remark,
+    price: l.unit_price > 0 ? l.unit_price : '/', // 原版：无价 → "/"
+    amount: Math.round(100 * (l.amount || 0)) / 100,
+    pricing: pricingDetail(l),
+    remark: receiptRemark(l),
+    // 原版回执行字面量只有 {profile,profile2,direction,openImg,price,color,glass,size,
+    // quantity,amount,pricing,remark,maker,doorImg} —— **没有 `date`/`payment`**。
   }))
   const total = totalPrice.value
   const deposit = order.deposit || 0
   return {
-    brand: tenantName.value || '智能门窗',
+    // 原版：(客户名||门店名||"客户") + 后缀（后缀逐模板不同，见函数注释）
+    brand: `${order.client_name || tenantName.value || '客户'}${brandSuffix}`,
     date: order.order_date || today(),
     orderNo: order.receipt_no || '',
     tel: order.phone || '',
@@ -2504,70 +3392,156 @@ function receiptPrintData() {
     deposit,
     total,
     balance: total - deposit,
-    TotalBalance: total - deposit,
-    declaration: DEFAULT_DECLARATION,
+    TotalBalance: total - deposit, // 原版是服务端「客户账户余额」；无财务模块，暂占位
+    declaration: LEGACY_DECLARATION,
     payQrcode: '',
     orderQrcode: terminalLink.value || '',
     receipt: rows,
   }
 }
 
-async function printReceipt() {
-  if (printing.value) return
-  printing.value = true
-  try {
-    await printByMode('receipt', receiptPrintData())
-  } catch (e) {
-    // 模板缺失 / hiprint 初始化失败 → 回退 HTML 打印
-    printReceiptHtml()
-  } finally {
-    printing.value = false
-  }
-}
 
-function printReceiptHtml() {
-  const doc = buildReceiptDoc()
-  const iframe = document.createElement('iframe')
-  iframe.setAttribute('aria-hidden', 'true')
-  iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden'
-  document.body.appendChild(iframe)
-  const win = iframe.contentWindow
-  if (!win) {
-    message.error('无法打开打印窗口')
-    return
-  }
-  win.document.open()
-  win.document.write(doc)
-  win.document.close()
-  // 等样式/字体就绪后再打印
-  setTimeout(() => {
-    win.focus()
-    win.print()
-    setTimeout(() => document.body.removeChild(iframe), 1000)
-  }, 250)
-}
+
+
 
 // —— 标签打印（lable 模板）：每行按 labelQuantity 生成对应张数 ——
-function labelRow(l: Line) {
+// 标签行（原版 lable 模板）：带前缀字面量。
+function lableRow(l: Line) {
+  const h = l.door_height || 0
+  const w = l.door_width || 0
+  // 原版：`尺寸:{门洞高}*{门洞宽}` 后追加（>0 才加）——
+  // 平开 吊脚→墙厚→亮窗总高（456475）；移门 墙厚→吊脚→亮窗总高（458517），**顺序不同**
+  let size = `尺寸:${h}*${w}`
+  const dims = l.line_type === 'diao' ? [l.wall_thickness, l.jiao, l.light_window_height] : [l.jiao, l.wall_thickness, l.light_window_height]
+  for (const v of dims) if (v > 0) size += `*${v}`
+  const dir = l.direction || ''
+  // 原版：平开 套线种类非空 → `开向:{套线种类}{开向}`，否则 `开向:{开向}`（456475）；
+  //       移门 → `开向:{扇数}{开向}`，但型材含「哑口套/门套」时退回 `开向:{开向}`（458517）
+  const lockway = l.line_type === 'diao'
+    ? (/哑口套|门套/.test(l.profile || '') ? `开向:${dir}` : `开向:${l.fans || ''}${dir}`)
+    : l.casing ? `开向:${l.casing}${dir}` : `开向:${dir}`
   return {
     orderID: order.receipt_no || '',
-    qrcode: terminalLink.value || '',
+    qrcode: String(order.receipt_no || ''),
     client: order.client_name || '',
-    door: typeName(l.line_type),
-    size: l.door_width || l.door_height ? `${l.door_width}×${l.door_height}` : '',
-    lockway: lineOpenLabel(l),
-    color: l.color,
-    glass: [l.bottom_glass, l.face_glass].filter(Boolean).join('/'),
-    address: l.install_address || '',
-    remark: l.remark,
+    door: `型材:${l.profile}`,
+    size,
+    lockway,
+    color: `颜色:${l.color}`,
+    glass: `玻璃:${l.bottom_glass || ''}-${l.face_glass || ''}`,
+    address: `地址:${l.install_address || ''}`,
+    remark: [l.hardware || null, l.remark ? `备注:${l.remark}` : null].filter(Boolean).join('<br>'),
     package: '',
   }
 }
 
-function labelRows(): Record<string, unknown>[] {
+// 生产标签行（原版 product10 模板）：无前缀，玻璃为 单玻:/底:-面:。
+function product10Row(l: Line) {
+  const h = l.door_height || 0
+  const w = l.door_width || 0
+  // 原版 product10 有**两个构造器**（一门型一个），size 规则不同：
+  //   平开 `_0x159bea`：`门洞高*门洞宽` + 吊脚>0 `*吊脚` + 墙厚>0 `*墙厚` + 亮窗总高>0 `*亮窗总高`
+  //   吊趟 `_0x336291`：`门洞高*门洞宽` + 亮窗总高>0 `*亮窗总高`（**无吊脚、无墙厚**）
+  let size = `${h}*${w}`
+  if (l.line_type === 'ping') {
+    if (l.jiao > 0) size += `*${l.jiao}`
+    if (l.wall_thickness > 0) size += `*${l.wall_thickness}`
+  }
+  if (l.light_window_height > 0) size += `*${l.light_window_height}`
+  const dir = l.direction || ''
+  // 原版 remark = [备注].filter(Boolean).join("<br>") + 加配(`<br>`)，全无前缀
+  let remark = l.remark || ''
+  const add = markupNames(l)
+  if (add) remark = remark ? `${remark}<br>加配：${add}` : `加配：${add}`
+  // 原版 GlassSize（@400471）：部件值形如 `{result}*{quantity}`；
+  //   `GlassSize = 玻璃高.result + "*" + 玻璃宽.result + "*" + (玻璃宽.quantity || 1)`
+  // 部件集走 **L1/L2 专用映射**（自带数量修正 + ×行数量），不是引擎B 的原始结果。
+  const parts = product10Parts(l).filter((p) => p && p.materialName)
+  const gH = parts.filter((p) => p.materialName.includes('玻璃高')).pop()
+  const gW = parts.filter((p) => p.materialName.includes('玻璃宽')).pop()
+  const glassSize = gH && gW ? `${gH.result}*${gW.result}*${gW.quantity || 1}` : ''
+  return {
+    orderID: order.receipt_no || '',
+    client: order.client_name || '',
+    size,
+    lockway: l.casing ? `${l.casing}${dir}` : dir,
+    color: l.color,
+    glass: (l.bottom_glass || '无') === '无' ? `单玻:${l.face_glass || ''}` : `底:${l.bottom_glass || ''}-面:${l.face_glass || ''}`,
+    address: l.install_address || '',
+    remark,
+    GlassSize: glassSize,
+    package: '',
+  }
+}
+
+// 标签行集合：kind = 'lable'（标签）| 'product10'（生产标签），按 labelQuantity 复制 N 张。
+// —— product10（生产标签）专用部件映射（引擎 L1/L2，原版 @399457）——
+// 与其它 10 个引擎最大的结构差异：**结果映射自带数量修正，且最后 `× 行数量`**。
+//   · 名含「边封」且 行.边封数 有值 → quantity = 行.边封数
+//   · 行.轨道长 > 0 且 名含 滑 / 左右盖板 / 轨道盖板 → result = 行.轨道长
+//   · 名含「玻璃」且不含「亮窗」：单玻且名不含「单玻」→ q/2；扇数=一固一活→1；扇数=双活→2
+//   · 名含「玻璃」且含「亮窗」：单玻且名不含「单玻」→ q/2
+//   · 最后一律 `q ×= 行.数量`
+// L1 ∈ B平 族（§52.1），故平开取引擎 B 的部件集再过这层映射；L2 独立成族（9 块 51 条），暂近似。
+function product10Parts(l: Line): PartPreview[] {
+  const isDiao = l.line_type === 'diao'
+  // 平开走 **L1**、移门走 **L2**（各自独立的 state 规则 + 结果映射，§13）
+  const base = computeParts(l, isDiao ? 'L2' : 'L1')
+  const Q = l.quantity || 1
+  const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+  return base.map((p) => {
+    const n = p.materialName
+    let result = p.result
+    let q = p.quantity
+    if (n.includes('边封') && l.edge_seal_count != null) q = Number(l.edge_seal_count) || 0
+    if (l.track_length > 0 && (n.includes('滑') || n.includes('左右盖板') || n.includes('轨道盖板'))) result = l.track_length
+    if (n.includes('玻璃') && !n.includes('亮窗')) {
+      if (single && !n.includes('单玻')) q /= 2
+      if (l.fans === '一固一活') q = 1
+      if (l.fans === '双活') q = 2
+    }
+    // L2 比 L1 多这一条（§13）：名含「玻璃」且含「亮窗」的件同样折半
+    if (isDiao && n.includes('玻璃') && n.includes('亮窗') && single && !n.includes('单玻')) q /= 2
+    q *= Q
+    return { ...p, result, quantity: q }
+  })
+}
+
+// product10（生产标签）复制张数：公式部件同时含「玻璃宽」「玻璃高」时取玻璃宽部件的 quantity，否则 1。
+function product10Copies(l: Line): number {
+  const parts = product10Parts(l).filter((p) => p && p.materialName)
+  const gW = parts.filter((p) => p.materialName.includes('玻璃宽')).pop()
+  const gH = parts.filter((p) => p.materialName.includes('玻璃高')).pop()
+  if (!gW || !gH) return 1
+  return Math.max(1, Math.floor(Number(gW.quantity) || 1))
+}
+
+// 原版 product10 **预览**用的分组限量（@402331）：
+//   按 `orderID + "_" + GlassSize` 分组，每组只保留 `min(组内行数, glass含「单玻」?1:2)` 行。
+//   注意：原版**打印**走的是**未分组**的那一份 —— 预览/打印本身不一致，此处按原样复刻。
+function groupProduct10(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const map = new Map<string, Record<string, unknown>[]>()
+  for (const r of rows) {
+    const k = `${r.orderID ?? ''}_${r.GlassSize ?? ''}`
+    const arr = map.get(k)
+    if (arr) arr.push(r)
+    else map.set(k, [r])
+  }
+  const out: Record<string, unknown>[] = []
+  for (const arr of map.values()) {
+    const max = String(arr[0]?.glass ?? '').includes('单玻') ? 1 : 2
+    out.push(...arr.slice(0, Math.min(arr.length, max)))
+  }
+  return out
+}
+
+function labelRows(kind: 'lable' | 'product10' = 'lable'): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
   for (const l of lines.value) {
-    const n = labelQuantity({
+    // 原版 product10（mode 10）的**复制张数**不走 lable 那套算法（`_0xff5572`）：
+    // 仅当公式部件同时含「玻璃宽(BoLiKuan)」与「玻璃高(BoLiGao)」时，张数 = 玻璃宽部件的 **quantity**
+    // （部件值格式 `{result}*{quantity}`，取 `split('*')[1]`），否则 1 张。
+    const n = kind === 'product10' ? product10Copies(l) : labelQuantity({
       lineType: l.line_type as 'ping' | 'diao',
       fans: l.fans,
       quantity: l.quantity,
@@ -2577,8 +3551,20 @@ function labelRows(): Record<string, unknown>[] {
       profile: l.profile,
       registrant: tenantName.value,
     })
-    const row = labelRow(l)
-    for (let i = 0; i < n; i++) rows.push(row)
+    for (let i = 0; i < n; i++) {
+      const row = kind === 'product10' ? product10Row(l) : lableRow(l)
+      row.package = `${n}-${i + 1}` // 原版份号：`t-i`（t=总份数，i=第几张）
+      rows.push(row)
+    }
+  }
+  // 原版 lable（@369992）：收尾**无条件**按 `orderID` 的首个「数字-」段升序；
+  //   无 orderID 或首段非数字 → `Infinity`（排到最后）。
+  if (kind === 'lable') {
+    const key = (r: Record<string, unknown>) => {
+      const m = String(r.orderID ?? '').match(/^(\d+)-/)
+      return m ? parseInt(m[1], 10) : Number.POSITIVE_INFINITY
+    }
+    return rows.slice().sort((a, b) => key(a) - key(b))
   }
   return rows
 }
@@ -2588,7 +3574,7 @@ async function printLabels() {
     message.warning('暂无订单行')
     return
   }
-  const rows = labelRows()
+  const rows = labelRows('lable')
   if (!rows.length) {
     message.warning('标签数量为 0，无需打印')
     return
@@ -2600,71 +3586,913 @@ async function printLabels() {
   }
 }
 
-// —— 玻璃合片单打印（glass 模板）——
-// 玻璃部件 → 尺寸映射：从算料部件识别玻璃部件（含「玻」且以宽/高结尾），按前缀配对成一片玻璃，
-// 宽/高沿用算料 result，张数按单/双玻计算。有玻璃部件时每片一行，否则退化为每行一条汇总。
-function glassSpecText(l: Line): string {
-  const bottom = l.bottom_glass || '无'
-  const face = l.face_glass || '无'
-  if (bottom === '无' && face === '无') return '无'
-  if (bottom === '无') return `单玻:${face}`
-  if (face === '无') return `单玻:${bottom}`
-  return `${bottom}/${face}`
+// 公式挖孔图缓存（原版 glassHole doorImg = 按行开向取公式图片）
+const formulaImages = ref<Record<number, FormulaImageDto[]>>({})
+async function loadFormulaImages(fid: number | null) {
+  if (fid == null || formulaImages.value[fid]) return
+  try {
+    formulaImages.value[fid] = await api.listFormulaImages(fid)
+  } catch {
+    formulaImages.value[fid] = []
+  }
+}
+function holeImageOf(l: Line): string {
+  const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
+  if (!imgs) return ''
+  return imgs.find((i) => i.direction === l.direction)?.data_url || ''
 }
 
-function glassCountOf(l: Line): number {
-  const ft = formulaOf(l)?.formula_type ?? ''
-  return calculateGlassCount({
-    partName: '玻璃',
-    partQuantity: 1,
-    bottomGlass: l.bottom_glass || '无',
-    faceGlass: l.face_glass || '无',
-    formulaType: ft,
-    quantity: l.quantity,
-  })
-}
-
-function glassPiecesOfLine(l: Line): GlassPiece[] {
-  return glassPiecesOf(l.parts, {
-    bottomGlass: l.bottom_glass,
-    faceGlass: l.face_glass,
-    glassThickness: l.glass_thickness ? `${l.glass_thickness}mm` : '',
-    quantity: l.quantity,
-  })
+/** 按固定方向键取挖孔图（原版吊趟把图存在 `{formulaID}左` / `{formulaID}右` 下）。 */
+function holeImgByDir(l: Line, dir: '左' | '右'): string {
+  const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
+  if (!imgs) return ''
+  return imgs.find((i) => i.direction === dir)?.data_url || ''
 }
 
 function glassProduces(): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
-  for (const l of lines.value) {
+  // 玻璃合片单：ping→diao 分块但**入口不按 formulaid 排序**
+  for (const l of orderedLines(false)) {
     const base = {
       client: order.client_name || '',
-      door: typeName(l.line_type),
+      // 引擎A：`door` = 型材+颜色（**不含客户**，与生产单引擎B不同）
+      door: [l.profile, l.color].filter(Boolean).join('<br>'),
       OrderID: order.receipt_no || '',
-      basicInfo: l.door_width || l.door_height ? `${l.door_width}×${l.door_height}` : '',
-      lockImg: l.open_img || '',
+      basicInfo: basicInfoText(l, 'A'), // 引擎A：双无玻文案 = 「无」
+      lockImg: lineLockImage(l),
       doorImg: l.image_url || '',
-      remark: l.remark,
+      remark: glassRemark(l),
     }
-    const pieces = glassPiecesOfLine(l)
-    if (pieces.length) {
-      const spec = glassSpecText(l)
-      for (const p of pieces) {
-        const label = p.name !== '玻璃' ? `${p.name} ` : ''
-        const doorsheet = [`${label}${p.width}×${p.height}`, p.thickness, spec, `${p.count}片`]
-          .filter(Boolean)
-          .join(' ')
-        rows.push({ ...base, doorsheet })
+    const parts = computeParts(l, 'A').filter((p) => p && p.materialName) // 引擎A
+    const ft = String(formulaOf(l)?.formula_type || '')
+    const bRaw = l.bottom_glass || '无'
+    const fRaw = l.face_glass || '无'
+    const Q = l.quantity || 1
+    // 原版（引擎A `_0xcfde65`/`_0x4d28ce`）：每组拼 `{名}:{result}`，组末补一个 `<br>数量:N`，
+    // 其中 **N 取「该组最后一个命中件的 quantity」**（不是求和）：
+    //   `(底玻!=='无' || 面玻==='无' || 名含单玻) && (面玻!=='无' || 底玻==='无' || 名含单玻)`
+    //     → 双玻 N = qty×数量；否则 单玻 N = qty/2×数量
+    //   平开另有 parentSubsidiary → 双玻 4×数量 / 单玻 2×数量；diamond → 一律 3×数量
+    //   移门另有一组「亮窗玻璃」（排除压线），其 N 的判据是 `底玻≠无 && 面玻≠无 || 名含单玻`
+    const doubleGlass = (name: string) =>
+      ((bRaw !== '无' || fRaw === '无' || name.includes('单玻')) && (fRaw !== '无' || bRaw === '无' || name.includes('单玻')))
+    const groupText = (list: { materialName: string; result: number; quantity: number }[], lastQty: (p: { materialName: string; quantity: number }) => number) => {
+      if (!list.length) return ''
+      const last = list[list.length - 1]
+      let n = lastQty(last)
+      return `${list.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${n}`
+    }
+    let doorsheet: string
+    if (l.line_type === 'diao') {
+      const g1 = parts.filter((p) => p.materialName.includes('玻璃') && !p.materialName.includes('亮窗'))
+      const g2 = parts.filter((p) => p.materialName.includes('亮窗玻璃') && !p.materialName.includes('压线'))
+      let n1 = g1.length ? (doubleGlass(g1[g1.length - 1].materialName) ? g1[g1.length - 1].quantity * Q : (g1[g1.length - 1].quantity / 2) * Q) : 0
+      const n2 = g2.length ? (bRaw !== '无' && fRaw !== '无' || g2[g2.length - 1].materialName.includes('单玻') ? g2[g2.length - 1].quantity * Q : (g2[g2.length - 1].quantity / 2) * Q) : 0
+      if (l.fans === '一固一活' || l.fans === '双活') n1 = 2 * Q
+      const t1 = g1.map((p) => `${p.materialName}:${p.result}`).join('<br>')
+      if (n2 > 0) {
+        const nn = n2 < 1 ? 1 : n2
+        doorsheet = `${t1}<br>数量:${n1}<br>${g2.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${nn}`
+      } else {
+        doorsheet = `${t1}<br>数量:${n1}`
       }
     } else {
-      // 无玻璃部件（未选公式/无玻璃）→ 一行汇总，无逐片尺寸
-      const spec = glassSpecText(l)
-      const thick = l.glass_thickness ? `${l.glass_thickness}mm` : ''
-      const count = glassCountOf(l)
-      const doorsheet = spec === '无' ? '无' : [thick, spec, `${count}片`].filter(Boolean).join(' ')
-      rows.push({ ...base, doorsheet })
+      const g = parts.filter((p) => p.materialName.includes('玻璃') || p.materialName.includes('门扇'))
+      doorsheet = groupText(g, (p) => {
+        let n = doubleGlass(p.materialName) ? p.quantity * Q : (p.quantity / 2) * Q
+        if (ft === 'parentSubsidiary') n = doubleGlass(p.materialName) ? 4 * Q : 2 * Q
+        if (ft === 'diamond') n = 3 * Q
+        return n
+      })
     }
+    rows.push({ ...base, doorsheet })
   }
   return rows
+}
+
+
+function glassInfoProduces(): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+  for (const l of lines.value) {
+    const parts = (l.parts ?? []).filter((p) => p && p.materialName)
+    const find = (re: RegExp) => parts.find((p) => re.test(p.materialName || ''))
+    const ft = String(formulaOf(l)?.formula_type || '') // 'diamond' | 'parentSubsidiary' | 'double' | 其它
+    const diao = l.line_type === 'diao'
+    const bRaw = l.bottom_glass || '无'
+    const fRaw = l.face_glass || '无'
+    const Q = l.quantity || 1
+    const img = holeImageOf(l) // 原版 `_0x3a3de5`：按 开向(+轨道种类) 取的挖孔图
+    // 原版：吊趟循环 `if (底玻==='无' && 面玻==='无') continue`；**平开循环没有这句**
+    if (diao && bRaw === '无' && fRaw === '无') continue
+    const base = {
+      OrderID: order.receipt_no || '',
+      client: order.client_name || '',
+      date: today(),
+      thickness: l.glass_thickness || '',
+      // 原版 @411200 `_0xa370fc`：这三家门店 remark 整列为空
+      remark: STORE_NO_GLASS_REMARK.includes(tenantName.value) ? '' : [l.remark, l.install_address].filter(Boolean).join('<br>'),
+    }
+    const push = (o: Record<string, unknown>) => rows.push({ ...base, doorImg: '', ...o })
+    // 原始判据是**部件名含「单玻」**，不是底玻/面玻的值
+    const isSingle = (p: { materialName: string }) => p.materialName.includes('单玻')
+    const qv = (p: { materialName: string; quantity: number }, div = 1) =>
+      (isSingle(p) ? (p.quantity / div) * Q : (p.quantity / 2 / div) * Q)
+
+    if (diao) {
+      const fans = l.fans || ''
+      const dir = l.direction || ''
+      const leftImg = holeImgByDir(l, '左')
+      const rightImg = holeImgByDir(l, '右')
+      // 原版：`扇数==='一固一活' && 开向不含该侧` 时该侧图不取（置空）
+      const okL = !(fans === '一固一活' && !dir.includes('左')) && !!leftImg
+      const okR = !(fans === '一固一活' && !dir.includes('右')) && !!rightImg
+      const has = (list: string[]) => list.some((k) => fans.includes(k))
+      // ⚠️ 原版左右两张扇数名单**不同**，且 D1 与 D2 的名单**恰好相反**（各有「6轨6扇」的一侧）
+      const ONE_L_D1 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '6轨6扇', '3轨4扇']
+      const ONE_R_D1 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '3轨4扇']
+      const ONE_L_D2 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '3轨4扇']
+      const ONE_R_D2 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '6轨6扇', '3轨4扇']
+      const qv2 = (p: { materialName: string; quantity: number }, dl: number, dr: number) => qv(p) - dl - dr
+
+      // ── D1：底玻支（扇数为一固一活/双活时整块跳过） ──
+      if (bRaw !== '无' && fans !== '一固一活' && fans !== '双活') {
+        const gW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && !p.materialName.includes('玻璃宽小'))
+        const gS = parts.find((p) => p.materialName.includes('玻璃宽小') && !p.materialName.includes('亮窗'))
+        const gH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗'))
+        const h = gH ? gH.result : 0
+        let dl = 0
+        let dr = 0
+        if (okL && dir.includes('左')) dl = 1
+        if (okL && has(ONE_L_D1)) dl = 1
+        if (okL && fans.includes('2轨4扇')) dl = 2
+        if (okL && fans.includes('3轨6扇')) dl = 2
+        if (okR && dir.includes('右')) dr = 1
+        if (okR && has(ONE_R_D1)) dr = 1
+        if (okR && fans.includes('2轨4扇')) dr = 2
+        if (okL && fans.includes('3轨6扇')) dr = 2 // 原文此处用的是**左图**变量
+        // 主行（玻璃宽 / 玻璃宽小）：原版**不设 doorImg**，保持字面量的空串
+        const mainRow = (p: { materialName: string; result: number; quantity: number } | undefined) => {
+          if (!p) return
+          const o = qv2(p, dl, dr)
+          if (o > 0) push({ glassName: `底玻-${l.bottom_glass}`, width: p.result, height: h, quantity: o })
+        }
+        mainRow(gW)
+        mainRow(gS)
+        if (dl > 0) push({ glassName: `底玻-${l.bottom_glass}`, width: gW ? gW.result : 0, height: h, quantity: dl, doorImg: leftImg })
+        if (dr > 0) push({ glassName: `底玻-${l.bottom_glass}`, width: gW ? gW.result : 0, height: h, quantity: dr, doorImg: rightImg })
+      }
+
+      // ── D2：面玻支（无扇数门控；一固一活另有「固玻-」行） ──
+      if (fRaw !== '无') {
+        const fW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && !p.materialName.includes('固') && !p.materialName.includes('玻璃宽小'))
+        const fS = parts.find((p) => p.materialName.includes('玻璃宽小') && !p.materialName.includes('亮窗') && !p.materialName.includes('固'))
+        const fH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && !p.materialName.includes('固'))
+        const h = fH ? fH.result : 0
+        let dl = 0
+        let dr = 0
+        if (okL && dir.includes('左')) dl = 1
+        if (okL && has(ONE_L_D2)) dl = 1
+        if (okL && fans.includes('2轨4扇')) dl = 2
+        if (okL && fans.includes('3轨6扇')) dl = 2
+        if (okR && dir.includes('右')) dr = 1
+        if (okR && has(ONE_R_D2)) dr = 1
+        if (okR && fans.includes('2轨4扇')) dr = 2
+        if (okL && fans.includes('3轨6扇')) dr = 2
+        // 一固一活专用部件（仅在 扇数==='一固一活' 时参与）
+        const igW = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活固玻璃宽')) : undefined
+        const igH = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活固玻璃高')) : undefined
+        const imW = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活门玻璃宽')) : undefined
+        const imH = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活门玻璃高')) : undefined
+        let mainQ = fW ? qv2(fW, dl, dr) : 0
+        // 一固一活：主行作废，扣减改为按开向取 1，且另推一行「固玻-」
+        let guRow = false
+        if (fans === '一固一活') {
+          if (dir.includes('左')) {
+            mainQ = 0
+            dl = 1
+            dr = 0
+            guRow = true
+          }
+          if (dir.includes('右')) {
+            mainQ = 0
+            dl = 0
+            dr = 1
+            guRow = true
+          }
+        }
+        if (mainQ > 0 && fW) push({ glassName: `面玻-${l.face_glass}`, width: fW.result, height: h, quantity: mainQ })
+        if (fS) {
+          const u = qv2(fS, dl, dr)
+          if (u > 0) push({ glassName: `面玻-${l.face_glass}`, width: fS.result, height: h, quantity: u })
+        }
+        if (guRow) {
+          // 原版是四个独立 if：`if (n===0 && 部件)` / `if (d===0 && 部件)` 各设一次
+          // （一固一活时 dl/dr 必有一个为 0，故等价于「部件存在即取」）
+          const useGu = dl === 0 || dr === 0
+          push({
+            glassName: `固玻-${l.face_glass}`,
+            width: useGu && igW ? igW.result : 0,
+            height: useGu && igH ? igH.result : 0,
+            quantity: useGu && igW ? 1 : 0,
+          })
+        }
+        const dedRow = (n: number, img: string) => {
+          if (n <= 0) return
+          push({
+            glassName: fans.includes('一固一活') ? `门玻-${l.face_glass}` : `面玻-${l.face_glass}`,
+            width: imW ? imW.result : fW ? fW.result : 0,
+            height: imH ? imH.result : h,
+            quantity: imW ? 1 : n,
+            doorImg: img,
+          })
+        }
+        dedRow(dl, leftImg)
+        dedRow(dr, rightImg)
+      }
+
+      // ── D3 亮窗：两个独立 if，可各推一行 ──
+      if (l.light_window_height) {
+        const lwW = parts.find((p) => p.materialName.includes('亮窗玻璃宽'))
+        const lwH = parts.find((p) => p.materialName.includes('亮窗玻璃高'))
+        if (lwW && lwH && bRaw !== '无' && !fans.includes('活')) {
+          push({ glassName: `亮窗底玻-${l.bottom_glass}`, width: lwW.result, height: lwH.result, quantity: (lwW.quantity / 2) * Q })
+        }
+        if (lwW && lwH && fRaw !== '无') {
+          const q = (lwW.quantity / 2) * Q
+          // 原文 token 557 = '亮窗面璃-'（错字照抄）；扇数含「活」时才是 '亮窗玻璃-'
+          push({ glassName: fans.includes('活') ? `亮窗玻璃-${l.face_glass}` : `亮窗面璃-${l.face_glass}`, width: lwW.result, height: lwH.result, quantity: q < 1 ? 1 : q })
+        }
+      }
+      continue
+    }
+
+    // —— 平开：B1 与 B2 是两个**互不排斥**的顶层 if，双玻时各推一行 ——
+    // 原版 B1/B2 各自是 `if (该面 !== '无' && ft !== 'diamond') {…} else {…}` ——
+    // **两条路径都恰好推 1 行**（B1.d/B2.d 是**外层 else**，已读原文 `}else{…push(e)}` 确认）。
+    // ⇒ 普通/单玻/双玻 都 2 行；diamond 行 = B1.d + B2.d + B4×3 = **5 行**。
+    const block = (which: 'bottom' | 'face') => {
+      const on = which === 'bottom' ? bRaw !== '无' : fRaw !== '无'
+      // 原版此处只排除「亮窗」，**不排除「玻璃宽小」**
+      const gW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗'))
+      const gH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗'))
+      const fallbackName = which === 'bottom' ? `底玻-${l.bottom_glass}` : `面玻-${l.face_glass}`
+      if (on && ft !== 'diamond') {
+        if (ft === 'parentSubsidiary') {
+          const w = find(which === 'bottom' ? /子门玻璃宽/ : /母门玻璃宽/)
+          const hh = find(which === 'bottom' ? /子门玻璃高/ : /母门玻璃高/)
+          push({
+            glassName: fallbackName,
+            width: w ? w.result : 0,
+            height: hh ? hh.result : 0,
+            quantity: w ? qv(w) : 0,
+            doorImg: which === 'face' ? img : '',
+          })
+          return
+        }
+        const div = ft === 'double' && img ? 2 : 1
+        // 原版 B2.c（double 且无图）的 glassName 仍是 `底玻-`（原文如此，照抄）
+        const name = which === 'bottom' ? `底玻-${l.bottom_glass}`
+          : ft === 'double' && !img ? `底玻-${l.bottom_glass}` : `面玻-${l.face_glass}`
+        push({
+          glassName: name,
+          width: gW ? gW.result : 0,
+          height: gH ? gH.result : 0,
+          quantity: gW ? qv(gW, div) : 0,
+          doorImg: which === 'bottom' ? img : ft === 'double' && !img ? '' : img,
+        })
+        return
+      }
+      // B1.d / B2.d：外层 else，仍推 1 行
+      push({
+        glassName: fallbackName,
+        width: gW ? gW.result : 0,
+        height: gH ? gH.result : 0,
+        quantity: gW ? qv(gW) : 0,
+        doorImg: img,
+      })
+    }
+    block('bottom')
+    block('face')
+    // B3 亮窗（单块，`ft !== 'diamond'` 且至少一面非「无」）
+    if (l.light_window_height && ft !== 'diamond' && (fRaw !== '无' || bRaw !== '无')) {
+      const lwW = find(/亮窗玻璃宽/)
+      const lwH = find(/亮窗玻璃高/)
+      push({
+        glassName: bRaw !== '无' ? `亮窗玻璃-${l.bottom_glass}` : `亮窗玻璃-${l.face_glass}`,
+        width: lwW ? lwW.result : 0,
+        height: lwH ? lwH.result : 0,
+        quantity: lwW ? lwW.quantity * Q : 0,
+      })
+    }
+    // B4 钻石：三行，部件按**精确名**取
+    if (ft === 'diamond') {
+      const exact = (n: string) => parts.find((p) => p.materialName === n)
+      for (const [kw, kh, name, dimg] of [
+        ['左固玻璃宽', '左固玻璃高', `左固玻璃-${l.bottom_glass}`, img],
+        ['右固玻璃宽', '右固玻璃高', `右固玻璃-${l.bottom_glass}`, img],
+        ['门玻璃宽', '门玻璃高', `门玻璃-${l.face_glass}`, img],
+      ] as [string, string, string, string][]) {
+        const w = exact(kw)
+        const hh = exact(kh)
+        push({ glassName: name, width: w ? w.result : 0, height: hh ? hh.result : 0, quantity: Q, doorImg: dimg })
+      }
+    }
+  }
+  // 原版 @453705：厚度为 0 的行剔除；随后 `order` 模式按单号数字前缀升序
+  const kept = rows.filter((r) => Number(r.thickness) !== 0)
+  if (sortMethod.value === 'order') {
+    kept.sort(
+      (a, b) =>
+        (parseInt(String(a.OrderID ?? '').split('-')[0], 10) || 0) -
+        (parseInt(String(b.OrderID ?? '').split('-')[0], 10) || 0),
+    )
+  }
+  return kept
+}
+
+// —— doorsheet 列（原版四个引擎共用同一套结构，只差关键词/排除词/修正项）——
+// 按**关键词数组顺序**收集：`name.includes(kw) && !name.includes(排除词)`；
+// 「玻璃宽/玻璃高」且单玻（底玻或面玻为「无」）且名字不含「单玻」→ 数量 `round(q/2)`（钻石型不折半）；
+// 吊趟引擎另加 `一固一活→1`、`双活→2`；
+// 文本 = `{部件名}:{result}*{数量×行数量}`，**「玻璃高」项前额外加一个 `<br>`**（原版如此，会多一个空行）。
+// —— 原版门店白名单（`legacy/js/Hui-d088417c.js` @316101 `_0x743794`，44 家）——
+// 命中时 `door` 列**不含客户名**（只 `[型材,颜色]`）；未命中（含本租户「昊艺门窗」）才拼客户名。
+const STORE_DOOR_NO_CLIENT = [
+  '万鑫门业', '德清顾家', '锦致轩门业', '欧盾门业', '吉雅轩门厂', '极简移门', '恒业门窗', '南海移门',
+  '金雅轩门窗', '度勒门窗', '鑫豪轩门业', '广乐名门', '鑫瑞门业', '圣诺派门业', '帝奥名门', '美高移门',
+  '鑫源移门加工厂', '鑫源名门', '皇丞门窗', '宏泰门业', '天润门业', '铂卫邦铝门', '欧莱富移门', '顾轩门窗',
+  '润佳门窗', '宜居门窗厂', '欧铂尊门业', '鑫美龙家居', '皓雅门窗', '富嘉名门', '珊珊极简移门', '華宇推拉',
+  '立泰金属制品有限公司', '皇牌博雅铝门窗厂', '爱德益钛镁合金厂', '宏辉门窗', '华顺门业', '喜迎门移门',
+  '天成门业', '煜宸门业', '粤诗丽门窗', '浩扬移门', '嘉和门业', '美固建材经营部',
+  '鸿程鑫派门窗', // 原版在 `_0x743794` 之外**硬编码**的单家门店（§20.3 / 引擎普查 C12）
+]
+/** 原版 product1 特判门店（@570279）：`kouHeigth` 改用「套线种类」、`kouWidth` 不再赋值。 */
+const STORE_SHENGFEI = '晟斐门窗厂'
+/** 原版回执 glass 列特判门店（@351196）：不加 `*{玻璃厚}mm` 后缀。 */
+const STORE_GLASS_NO_MM = ['家家发门业', '星之铝门窗']
+/** 原版 glassHole 特判门店（@411200 `_0xa370fc`）：`remark` 整列为空。 */
+const STORE_NO_GLASS_REMARK = ['皇帥滑动门', '尚航逸门窗', '嘉博门业']
+/** 原版门店特判：该门店的部件文本用 `{名}:<br>{result}` 而非 `{名}:{result}`（只出现在引擎B 两套）。 */
+const STORE_SHANSHAN = '杉杉铝木极简门'
+const isShanshanStore = () => tenantName.value === STORE_SHANSHAN
+/** 部件文本 `{名}{分隔}{result}*{数量}`；杉杉门店的分隔是 `:<br>`。 */
+const partLine = (name: string, rest: string) => `${name}${isShanshanStore() ? ':<br>' : ':'}${rest}`
+
+const DS_KW = {
+  ping: ['光企', '方', '封板高', '封板宽', '龙骨横', '龙骨竖', '门扇高', '门扇宽', '收口', '封边横', '封边竖', '玻璃高', '玻璃宽'],
+  pingOld: ['光企', '方', '龙骨横', '龙骨竖', '门扇高', '门扇宽', '收口', '封边横', '封边竖', '玻璃高', '玻璃宽'],
+  diao: ['光企', '勾企', '合页', '锁', '收口', '方', '封板高', '封板宽', '纱网', '玻璃高', '玻璃宽'],
+  diaoOld: ['光企', '勾企', '合页', '锁', '收口', '方', '纱网', '玻璃高', '玻璃宽'],
+  diamond: ['左固玻璃', '右固玻璃', '门玻璃'],
+}
+
+// —— doorframe 列（原版四引擎，规则见 docs/2026-09-10-template-field-audit.md §16）——
+// 平开：引擎B = 门框高组→门框宽组→前框组→后框组→门板组；oldSheet(D) = 门框(不分高宽)→前框→后框→门板；
+//       钻石型两侧都改为固定 4 键「左边/右边/斜长/竖框」按 hasOwnProperty 精确取。
+// 吊趟（两套同构）：轨道组（边封数覆盖数量、轨道长覆盖滑/盖板的结果）→「套线名：{套线种类}」→套线组（包宽/包高）。
+function doorframeText(l: Line, engine: EngineId): string {
+  const oldSheetEngine = engine === 'D'
+  const parts = computeParts(l, engine).filter((p) => p && p.materialName)
+  const Q = l.quantity || 1
+  const fmt = (p: PartPreview, result?: number) => partLine(p.materialName, `${result ?? p.result}*${p.quantity * Q}`)
+
+  if (l.line_type === 'diao') {
+    const track = (l.track || '')
+    const src = parts
+      .filter((p) => ['边封', '下轨', '上轨', '滑', '固定', '移动', '上横', '盖板'].some((k) => p.materialName.includes(k)))
+      .filter((p) => !p.materialName.includes('企'))
+      .filter(
+        (p) =>
+          (!p.materialName.includes('边封') || Number(l.edge_seal_count) !== 0) &&
+          !(track.includes('吊轨') && p.materialName.includes('下滑')),
+      )
+    const multi = src.filter((p) => p.materialName.includes('下滑')).length > 1
+    const trackGrp = (multi ? src.filter((p) => !p.materialName.includes('下滑') || p.materialName.includes(track)) : src).map((p) => {
+      const n = p.materialName
+      let result = p.result
+      let qty = p.quantity
+      if (n.includes('边封') && l.edge_seal_count != null) qty = Number(l.edge_seal_count)
+      if ((n.includes('滑') || n.includes('左右盖板') || n.includes('轨道盖板')) && l.track_length > 0) result = l.track_length
+      if (n.includes('下滑')) return partLine(multi && n.includes(track) ? n : `${track}${n}`, `${result}*${qty * Q}`)
+      if (n.includes('下轨')) return `${track}${n}:${result}*${qty * Q}`
+      if ((n.includes('上滑') || n.includes('上轨')) && track.includes('吊轨')) {
+        const kw = n.includes('上滑') ? '上滑' : '上轨'
+        return `${n.includes(kw) ? n.replace(kw, track) : `${track}-${n}`}:${result}*${qty * Q}`
+      }
+      return partLine(n, `${result}*${qty * Q}`)
+    })
+    // 套线组：**按部件 key 匹配**（原版 `Object.entries(parts).filter(([e])=>e.includes("包宽")||e.includes("包高"))`
+    // @Hui.formatted.js:12498），显示名取 `materialName`。二者不同名 —— 如公式 7 的 key
+    // `无亮窗双包宽` 其 materialName 是 `套线宽`，按 materialName 匹配会整个漏掉。
+    const casing = parts
+      .filter((p) => p.key.includes('包宽') || p.key.includes('包高'))
+      .flatMap((p) => {
+        const n = p.materialName
+        if (p.key.includes('包高') && ((l.front_casing_add || 0) > 0 || (l.back_casing_add || 0) > 0)) {
+          const q = (p.quantity * Q) / 2
+          return [`${n}:${p.result + (l.front_casing_add || 0)}*${q}`, `${n}:${p.result + (l.back_casing_add || 0)}*${q}`]
+        }
+        return [`${n}:${p.result}*${p.quantity * Q}`]
+      })
+    return casing.length > 0
+      ? `${trackGrp.join('<br>')}<br>套线名：${l.casing || ''}<br>${casing.join('<br>')}`
+      : trackGrp.join('<br>')
+  }
+
+  let base: string[]
+  if (isDiamond(l)) {
+    base = ['左边', '右边', '斜长', '竖框']
+      .map((k) => parts.find((p) => p.materialName === k))
+      .filter((p): p is PartPreview => !!p)
+      .map((p) => fmt(p))
+  } else if (oldSheetEngine) {
+    base = parts.filter((p) => p.materialName.includes('门框')).map((p) => fmt(p))
+  } else {
+    const g = (kw: string) => parts.filter((p) => p.materialName.includes(kw)).map((p) => fmt(p))
+    base = [...g('门框高'), ...g('门框宽')]
+  }
+  const front = parts.filter((p) => p.materialName.includes('前框')).map((p) => (p.materialName.includes('前框高') ? fmt(p, p.result + (l.front_casing_add || 0)) : fmt(p)))
+  const back = parts.filter((p) => p.materialName.includes('后框')).map((p) => (p.materialName.includes('后框高') ? fmt(p, p.result + (l.back_casing_add || 0)) : fmt(p)))
+  const board = parts.filter((p) => p.materialName.includes('门板')).map((p) => fmt(p))
+  return [...base, ...front, ...back, ...board].join('<br>')
+}
+
+// —— windows 列（原版四引擎，规则见 §16）——
+// 平开：引擎B 关键词 [扣板,上亮横,上亮窗玻璃,压线]；oldSheet(D) 多一个「封板」。玻璃件单玻时 `Math.round(q/2)`（钻石不折半）。
+// 吊趟 引擎B：亮窗类[中柱,亮窗玻璃,槽,压线] + 扣板组（拼扣板厚，`*<br>` 分隔；扣板厚缺失时打 `*0`）。
+// 吊趟 oldSheet：可选亮窗段（仅 亮窗总高>门洞高）+ 主体段（[槽,封板高,封板宽] 按关键词下标排序后拆「非玻璃/玻璃」）
+//                + 扣板组（拼扣板厚，普通 `*` 分隔）。
+function windowsText(l: Line, engine: EngineId): string {
+  const oldSheetEngine = engine === 'D'
+  const parts = computeParts(l, engine).filter((p) => p && p.materialName)
+  const Q = l.quantity || 1
+  const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+  const clamp01 = (v: number) => (v > 0 && v < 1 ? 1 : v)
+  // 玻璃件数量修正（吊趟两套额外有扇数修正）
+  const glassQty = (p: PartPreview, withFans: boolean) => {
+    let q = p.quantity
+    if (p.materialName.includes('玻璃')) {
+      if (single && !p.materialName.includes('单玻')) q = withFans ? q / 2 : Math.round(q / 2)
+      if (withFans && l.fans === '一固一活') q = 1
+      if (withFans && l.fans === '双活') q = 2
+    }
+    return q
+  }
+
+  if (l.line_type === 'diao') {
+    const thick = parts.find((p) => p.materialName.includes('扣板厚'))?.result ?? 0
+    const padGroup = () =>
+      parts
+        .filter((p) => p.materialName.includes('扣板') && !p.materialName.includes('扣板厚'))
+        .map((p) => {
+          const o = clamp01(p.quantity * Q)
+          return oldSheetEngine
+            ? `${p.materialName}:${p.result}*${thick}*${o}`
+            : partLine(p.materialName, `${p.result}${thick > 0 ? `*<br>${thick}` : `*${thick}`}*${o}`)
+        })
+    if (!oldSheetEngine) {
+      const lw = parts
+        .filter((p) => ['中柱', '亮窗玻璃', '槽', '压线'].some((k) => p.materialName.includes(k)))
+        .map((p) => partLine(p.materialName, `${p.result}*${clamp01(glassQty(p, true) * Q)}`))
+      return [...lw, ...padGroup()].join('<br>')
+    }
+    let head = ''
+    if (l.light_window_height > l.door_height) {
+      head = parts
+        .filter((p) => ['中柱', '亮窗玻璃', '压线'].some((k) => p.materialName.includes(k)))
+        .map((p) => {
+          const x = p.materialName.includes('亮窗玻璃') && (l.bottom_glass || '无') === '无' ? Q / 2 : Q
+          return `${p.materialName}:${p.result}*${clamp01(p.quantity * x)}`
+        })
+        .join('<br>')
+    }
+    const KW = ['槽', '封板高', '封板宽']
+    const main = parts
+      .filter((p) => KW.some((k) => p.materialName.includes(k)) && !p.materialName.includes('亮窗玻璃'))
+      .map((p) => ({
+        prio: KW.findIndex((k) => p.materialName.includes(k)),
+        isGlass: p.materialName.includes('玻璃'),
+        text: `${p.materialName}:${p.result}*${clamp01(glassQty(p, true) * Q)}`,
+      }))
+      .sort((a, b) => a.prio - b.prio)
+    const mid = [...main.filter((x) => !x.isGlass), ...padGroup(), ...main.filter((x) => x.isGlass)].map((x) => (typeof x === 'string' ? x : x.text))
+    return [head, mid.join('<br>')].filter(Boolean).join('<br>')
+  }
+
+  const kw = oldSheetEngine ? ['扣板', '上亮横', '压线', '封板', '上亮窗玻璃'] : ['扣板', '上亮横', '上亮窗玻璃', '压线']
+  return parts
+    .filter((p) => kw.some((k) => p.materialName.includes(k)))
+    .map((p) => {
+      let q = glassQty(p, false)
+      if (isDiamond(l) && p.materialName.includes('玻璃') && single && !p.materialName.includes('单玻')) q = p.quantity
+      return `${p.materialName}:${p.result}*${q * Q}`
+    })
+    .join('<br>')
+}
+
+function doorsheetText(l: Line, engine: EngineId): string {
+  const oldSheetEngine = engine === 'D'
+  const parts = computeParts(l, engine).filter((p) => p && p.materialName)
+  const diao = l.line_type === 'diao'
+  const kws = isDiamond(l) ? DS_KW.diamond : diao ? (oldSheetEngine ? DS_KW.diaoOld : DS_KW.diao) : oldSheetEngine ? DS_KW.pingOld : DS_KW.ping
+  // 排除词：吊趟两套都是「亮窗」；平开 引擎B 是「亮窗玻璃」、旧 schema(引擎D) 是「上亮玻璃」
+  const exclude = diao ? '亮窗' : oldSheetEngine ? '上亮玻璃' : '亮窗玻璃'
+  const out: string[] = []
+  for (const kw of kws) {
+    for (const p of parts) {
+      const n = p.materialName
+      if (!n.includes(kw) || n.includes(exclude)) continue
+      let q = p.quantity
+      if (kw === '玻璃宽' || kw === '玻璃高') {
+        const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+        // 平开：`Math.round(q/2)`，且 diamond 不折半；吊趟：`q/2` **不取整**（原版两套写法不同，§15）
+        if (single && !n.includes('单玻')) q = diao ? p.quantity / 2 : isDiamond(l) ? p.quantity : Math.round(p.quantity / 2)
+        if (diao && l.fans === '一固一活') q = 1
+        if (diao && l.fans === '双活') q = 2
+      }
+      const rest = `${p.result}*${q * (l.quantity || 1)}`
+      // 杉杉门店变体只存在于引擎B（生产单）两套；oldSheet 两套恒用 `:`
+      const c = oldSheetEngine ? `${n}:${rest}` : partLine(n, rest)
+      out.push(kw === '玻璃高' ? `<br>${c}` : c)
+    }
+  }
+  return out.join('<br>')
+}
+
+// 亮窗/扣板列文本：扣板厚不独立成行，只作为后缀拼进「扣板宽/高」（`材料:result*扣板厚*数量`）。
+// 订单信息（原版 basicInfo，offset 498404）：洞尺(前置) + 尺寸(门洞高*门洞宽*墙厚) + 亮窗(亮窗高：) + 吊脚(吊脚：) + 玻璃；末行 开向(/扇数)。
+// 订单信息列（basicInfo）。原版共 **5 处不同实现**，我们只用得到两类：
+//   引擎B（生产单 `_0x551a25`/`_0x500ef9`）与 引擎A（玻璃合片单 `_0xcfde65`/`_0x4d28ce`）。
+// 两者差异（原始 chunk 实证）：
+//   玻璃段单玻：B = `{面玻}*单玻`；A = `单玻*{面玻}*{厚}mm`
+//   玻璃段双无：B = 平开`无玻璃`/吊趟`无`；A = **平开`无`/吊趟`无玻璃`**（正好相反）
+//   玻璃段一般：B = `{面玻}+{底玻}*{厚}`；A = 同 + `mm`
+//   吊趟尾部抑制条件：B = 型材含「哑口套/门套」；A = 底玻与面玻都为「无」；**C = 不抑制（尾部恒 开向<br>扇数）**
+//   亮窗数量：**只有吊趟拼 `亮窗{N}格`**（A/B/C 一致）
+function basicInfoText(l: Line, engine: 'A' | 'B' | 'C' = 'B'): string {
+  const engineA = engine === 'A'
+  const items: string[] = []
+  const diao = l.line_type === 'diao'
+  const bRaw = l.bottom_glass || ''
+  const fRaw = l.face_glass || ''
+  const thick = l.glass_thickness || ''
+  const dims = [l.door_height, l.door_width, l.wall_thickness].filter((v) => v && v !== 0)
+  if (dims.length) items.push(dims.join('*'))
+  const lw = l.light_window_height || 0
+  if (lw) {
+    if (diao) {
+      // 吊趟（A/B 同）：`亮窗高：{lw}` + 亮窗数量≠0 时追加 `亮窗{N}格`
+      let e = `亮窗高：${lw}`
+      if ((l.light_window_count || 0) !== 0) e += `亮窗${l.light_window_count}格`
+      items.push(e)
+    } else {
+      // 平开（A/B 同）：钻石型 `*{lw}`，否则 `亮窗高：{lw}`；**不拼亮窗数量**
+      items.push(isDiamond(l) ? `*${lw}` : `亮窗高：${lw}`)
+    }
+  }
+  // 吊脚段：平开 A/B 都有；两套吊趟都没有
+  if (!diao && l.jiao) items.push(`吊脚：${l.jiao}`)
+  const hole = String(l.hole_size ?? '').trim()
+  if (hole) items.unshift(hole)
+  if (bRaw || fRaw || thick) {
+    const bottomNone = bRaw === '' || bRaw === '无'
+    const faceNone = fRaw === '' || fRaw === '无'
+    if (bottomNone && !faceNone) {
+      items.push(engineA ? `单玻*${fRaw}*${thick}mm` : `${fRaw}*单玻`)
+    } else if (bottomNone && faceNone) {
+      items.push(engineA ? (diao ? '无玻璃' : '无') : (diao ? '无' : '无玻璃'))
+    } else {
+      items.push(`${fRaw}+${bRaw}*${thick}${engineA ? 'mm' : ''}`)
+    }
+  }
+  const head = items.join('<br>')
+  const dir = displayDirection(l.direction)
+  let tail: string
+  if (diao) {
+    const suppress = engine === 'C'
+      ? false // 引擎C（C吊）：尾部**恒** `开向<br>扇数`，无抑制（§D10）
+      : engineA
+        ? (bRaw === '' || bRaw === '无') && (fRaw === '' || fRaw === '无')
+        : /哑口套|门套/.test(l.profile || '')
+    tail = suppress ? '' : `${dir}<br>${l.fans || ''}`
+  } else {
+    tail = l.casing ? `${l.casing}${dir}` : dir
+  }
+  return [head, tail].filter(Boolean).join('<br>')
+}
+
+/** 标准生产单形状的一行（引擎可指定）。原版吊趟的常规生产单用 B吊，而 **product1 的吊趟用 C吊**
+ *  （product1 producer 的 diao 分支收尾 `data:_0x1239ce`，即 C吊 producer 的同一对象 @587825）。 */
+function productionRow(l: Line, engine: 'B' | 'C'): Record<string, unknown> {
+  return {
+    // 原版：白名单门店不含客户名
+    door: (STORE_DOOR_NO_CLIENT.includes(tenantName.value) ? [l.profile, l.color] : [order.client_name, l.profile, l.color]).filter(Boolean).join('<br>'),
+    doorImg: l.image_url || '',
+    OrderID: order.receipt_no || '',
+    basicInfo: basicInfoText(l, engine),
+    lockImg: lineLockImage(l),
+    doorsheet: doorsheetText(l, engine),
+    doorframe: doorframeText(l, engine),
+    windows: windowsText(l, engine),
+    remark: produceRemark(l),
+  }
+}
+
+function productionProduces(): Record<string, unknown>[] {
+  return orderedLines(true).map((l) => productionRow(l, 'B'))
+}
+
+// 生产单定制（product2/product3 模板，table.field=oldSheet）。
+// 原版数据形状（11759/11994）：**每个订单行一个数据对象**，外层字段平铺（material/size/color/…），
+// 表格数据嵌在 `oldSheet:[{doorsheet,doorframe,windows,doorImg}]`。整份数据是对象数组（每行一页）。
+// 调用方 `_0x283867` 直接把数组传给 hiprint（不是 `{oldSheet: rows}`）。
+// 原版 size 赋的是**数组**，hiprint 按 `String()` 渲染 → 实际打印为逗号连接（已实测）。
+//   平开 `_0x34f4ac`：[门洞高*门洞宽*墙厚, 亮窗高：{lw}(钻石→`*{lw}`), 吊脚：{jiao}]
+//   吊趟 `_0x192067`：[门洞高*门洞宽*墙厚, 总高{lw}[*{n}格]]（**无吊脚**）
+function oldSheetSize(l: Line): string {
+  const dims = [l.door_height, l.door_width, l.wall_thickness].filter((v) => v && v !== 0)
+  const items: string[] = []
+  if (dims.length) items.push(dims.join('*'))
+  if (l.light_window_height) {
+    if (l.line_type === 'diao') items.push(`总高${l.light_window_height}${l.light_window_count > 0 ? `*${l.light_window_count}格` : ''}`)
+    else items.push(isDiamond(l) ? `*${l.light_window_height}` : `亮窗高：${l.light_window_height}`)
+  }
+  if (l.line_type !== 'diao' && l.jiao) items.push(`吊脚：${l.jiao}`)
+  if (l.hole_size && String(l.hole_size).trim()) items.unshift(String(l.hole_size))
+  return items.join(',')
+}
+
+// oldSheet 行的 glass 列（原版三分支，平开/吊趟第三支不同）：
+//   底无面有 → `{面玻}*单玻`；双无 → `无`；否则 平开 `{面玻}+{底玻}*{厚}` / 吊趟 `面:{面玻}-底:{底玻}`
+function oldSheetGlass(l: Line): string {
+  const bRaw = l.bottom_glass || ''
+  const fRaw = l.face_glass || ''
+  if (!bRaw && !fRaw && !l.glass_thickness) return ''
+  const bottomNone = bRaw === '' || bRaw === '无'
+  const faceNone = fRaw === '' || fRaw === '无'
+  if (bottomNone && !faceNone) return `${fRaw}*单玻`
+  if (bottomNone && faceNone) return '无'
+  return l.line_type === 'diao' ? `面:${fRaw}-底:${bRaw}` : `${fRaw}+${bRaw}*${l.glass_thickness || ''}`
+}
+
+function oldSheetProduce(l: Line): Record<string, unknown> {
+  const dir = l.direction || ''
+  // 原版 lockway：平开 = 套线种类 + 开向；吊趟 = 型材含「哑口套/门套」则空，否则 开向+扇数（无「开向:」前缀、无套线）
+  const lockway = l.line_type === 'diao'
+    ? (/哑口套|门套/.test(l.profile || '') ? '' : `${dir}${l.fans || ''}`)
+    : `${l.casing || ''}${dir}`
+  return {
+    client: order.client_name || '',
+    material: l.profile,
+    qrcode: String(order.receipt_no || ''),
+    orderID: order.receipt_no || '',
+    maker: currentUserName.value || '',
+    lockImg: lineLockImage(l),
+    lockway,
+    color: l.color,
+    glass: oldSheetGlass(l),
+    size: oldSheetSize(l),
+    address: l.install_address || '',
+    remark: oldSheetRemark(l),
+    quantity: l.quantity,
+    doorImg: l.image_url || '',
+    oldSheet: [
+      {
+        doorsheet: doorsheetText(l, 'D'),
+        doorframe: doorframeText(l, 'D'),
+        windows: windowsText(l, 'D'),
+        doorImg: l.image_url || '',
+      },
+    ],
+  }
+}
+
+// 原版 product3 双联（`_0x1ebfe1`）：两行合一张，第二行所有键加 "1" 后缀（含 oldSheet1）；奇数行原样。
+function pairRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
+  for (let i = 0; i < rows.length; i += 2) {
+    const a = rows[i]
+    const b = rows[i + 1]
+    if (!b) {
+      out.push(a)
+      continue
+    }
+    const r: Record<string, unknown> = { ...a }
+    for (const k of Object.keys(b)) r[`${k}1`] = b[k]
+    out.push(r)
+  }
+  return out
+}
+
+function oldSheetProduces(paired = false): Record<string, unknown>[] {
+  const rows = orderedLines(true).map(oldSheetProduce)
+  return paired ? pairRows(rows) : rows
+}
+
+// product1（生产单1）：尺寸列从算料部件按名取值。映射（旧版 12318-12337）：
+//   sheetHeigth=光企高、sheetWidth=上下方、frameHeigth=门框高、kouWidth=扣板宽、kouHeigth=扣板高、kouThickness=扣板厚；
+//   glassSize=玻璃宽x玻璃高；doorSize=门洞高x门洞宽(+吊脚/亮窗总高/数量/洞尺)。部件缺失保持空串。
+function product1Produces(): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = []
+  for (const l of orderedLines(true)) {
+    // 原版 product1（mode 7，`calculateReceiptForCustomed`）：**平开走 product1 形状行、吊趟走标准生产单形状行**。
+    // 证据：ping 块以 `data:_0x4495e3`（product1 键集）收尾 @568278，紧随的 diao 循环以 `data:_0x1239ce` 收尾 @587825，
+    // 而 `_0x1239ce` 正是 C吊 producer 用的同一对象（其 doorsheet 写于 @581334）。故吊趟用引擎 C 产标准形状。
+    if (l.line_type === 'diao') {
+      rows.push(productionRow(l, 'C'))
+      continue
+    }
+    // 引擎P1（平开）
+    const parts = computeParts(l, 'P1').filter((p) => p && p.materialName)
+    // 原版（@569700）走**部件遍历**、命中即赋值（同名多次=后者覆盖）
+    const val = (name: string) => {
+      const p = parts.filter((x) => x.materialName === name || x.materialName?.includes(name)).pop()
+      return p && !isNaN(Number(p.result)) ? Number(p.result) : 0
+    }
+    const s = (v: number) => (v ? String(v) : '')
+    let glassH = 0
+    let glassW = 0
+    let fengBanW = 0
+    for (const p of parts) {
+      const n = p.materialName || ''
+      const v = p.result && !isNaN(Number(p.result)) ? Number(p.result) : 0
+      if (n.includes('玻璃高')) glassH = v
+      if (n.includes('玻璃宽')) glassW = v
+      if (n.includes('封板宽')) fengBanW = v
+    }
+    // 门框（原版）：门框高/宽 先赋，前框高→`前`+(前框高+前包加长)，后框高/宽 以 `<br>后` 追加
+    let frameHeigth = s(val('门框高'))
+    let frameWidth = s(val('门框宽'))
+    const qianH = val('前框高')
+    const qianW = val('前框宽')
+    const houH = val('后框高')
+    const houW = val('后框宽')
+    if (qianH) frameHeigth = `前${qianH + (l.front_casing_add || 0)}`
+    if (qianW) frameWidth = `前${qianW}`
+    if (houW) frameWidth = `${frameWidth}<br>后${houW}`
+    if (houH) frameHeigth = `${frameHeigth}<br>后${houH}`
+    // sheetWidth：上下方 + 封板宽>0 时追加
+    let sheetWidth = s(val('上下方'))
+    if (fengBanW > 0) sheetWidth = `${sheetWidth}<br>封板宽${fengBanW}`
+    // doorSize：门洞高x门洞宽；吊脚>0 追加，**否则**亮窗总高>0 追加；数量>1 追加；洞尺前置
+    let doorSize = `${l.door_height || 0}x${l.door_width || 0}`
+    if (l.jiao > 0) doorSize += `x${l.jiao}`
+    else if (l.light_window_height > 0) doorSize += `x${l.light_window_height}`
+    if (l.quantity > 1) doorSize += `<br>数量:${l.quantity}`
+    if (l.hole_size && String(l.hole_size).trim()) doorSize = `${l.hole_size}<br>${doorSize}`
+    rows.push({
+      client: order.client_name || '',
+      OrderID: order.receipt_no || '',
+      goods: l.profile,
+      color: l.color,
+      lockway: l.direction || '', // 原版：**原始开向**（无扇数、无套线前缀）
+      doorSize,
+      glassSize: `${glassH}x${glassW}`, // 原版顺序是 玻璃高 x 玻璃宽
+      thickness: l.wall_thickness ? String(l.wall_thickness) : '',
+      sheetHeigth: s(val('光企高')),
+      sheetWidth,
+      frameHeigth,
+      frameWidth,
+      // 原版：晟斐门窗厂特判 —— `kouHeigth = 套线种类`，且 `kouWidth` 不再赋值（两个常规赋值都在 else 分支里）
+      kouWidth: STORE_SHENGFEI === tenantName.value ? '' : s(val('扣板宽')),
+      kouHeigth: STORE_SHENGFEI === tenantName.value ? l.casing || '' : s(val('扣板高')),
+      kouThickness: s(val('扣板厚')),
+      // 原版 product1 remark = [五金, 单双丁(≠正常), 备注, 安装地址].join("<br>") + 加配（**无轨道种类、无墙型**）
+      remark: (() => {
+        const ding = l.double_ding && l.double_ding !== '正常' ? l.double_ding : null
+        let r = [l.hardware || null, ding, l.remark || null, l.install_address || null].filter(Boolean).join('<br>')
+        const add = markupNames(l)
+        if (add) r = r ? `${r}<br>加配：${add}` : `加配：${add}`
+        return appendAccessory(r, l)
+      })(),
+    })
+  }
+  return rows
+}
+
+// 通用：从模板提取某字段(field)对应 table 的列定义（field+title），列结构=模板原样。
+interface ProdCol { field: string; title: string }
+function extractTableColumns(tpl: unknown, field: string): ProdCol[] {
+  try {
+    const d = tpl as { config?: { panels?: { printElements?: { printElementType?: { type?: string }; options?: { field?: string; columns?: unknown } }[] }[] } }
+    for (const p of d?.config?.panels ?? []) {
+      for (const e of p.printElements ?? []) {
+        if (e.printElementType?.type === 'table' && e.options?.field === field) {
+          const cols = e.options.columns as unknown
+          const arr = Array.isArray(cols) && cols.length && Array.isArray((cols as unknown[])[0]) ? (cols as unknown[][])[0] : (cols as unknown[])
+          return (arr as ProdCol[]).filter((c) => typeof c === 'object' && c?.field).map((c) => ({ field: c.field, title: c.title }))
+        }
+      }
+    }
+  } catch {
+    // 忽略
+  }
+  return []
+}
+
+// 按模板**实际字段族**（而非 mode 名）分发数据：product2/3 是 oldSheet、
+// product4/10 是标签版式，按 mode 名判断会分错。key=null 表示 payload 即 data 本身。
+function templatePayload(tpl: unknown, _mode?: string, forPreview = false): { key: string | null; data: unknown; imgFields?: string[]; extra?: Record<string, unknown>; wrap?: boolean } {
+  if (extractTableColumns(tpl, 'produces').length) {
+    // `produces` 表被三族模板共用（product / product1 / glass），**按列特征**判别数据源，
+    // 而不是按 mode 名 —— 否则模板改名或新增会静默喂错形状。
+    //   ① 含 product1 专有列（doorSize/glassSize/sheetHeigth/kouWidth…）→ product1 尺寸列数据源
+    //   ② 含 glass 特征（有 door/client 但**无 doorframe/windows**）→ 玻璃合片单数据源（引擎A）
+    //   ③ 其余 → 生产单数据源（引擎B）
+    const cols = new Set(extractTableColumns(tpl, 'produces').map((c) => c.field))
+    const isProduct1 = ['doorSize', 'glassSize', 'sheetHeigth', 'kouWidth'].some((f) => cols.has(f))
+    const isGlass = !cols.has('doorframe') && !cols.has('windows') && cols.has('door') && cols.has('client')
+    if (isProduct1) return { key: 'produces', data: product1Produces() }
+    return { key: 'produces', data: isGlass ? glassProduces() : productionProduces(), imgFields: ['doorImg', 'lockImg'] }
+  }
+  // 原版 glassHole 载荷：`[{ date, glassInfoList }]`（date 在表格外，绑顶层）
+  if (extractTableColumns(tpl, 'glassInfoList').length)
+    return { key: 'glassInfoList', data: glassInfoProduces(), imgFields: ['doorImg'], extra: { date: today() }, wrap: true }
+  // 原版 product2/3 载荷是**对象数组**（每行一页），非 `{oldSheet: rows}`；
+  // product3（双联）：模板同时有 `oldSheet` 与 `oldSheet1` 两张表 —— 按此判别，不依赖 mode 名。
+  if (extractTableColumns(tpl, 'oldSheet').length)
+    return { key: null, data: oldSheetProduces(extractTableColumns(tpl, 'oldSheet1').length > 0), imgFields: ['doorImg'] }
+  if (extractTableColumns(tpl, 'receipt').length) {
+    // 回执族三张模板共用载荷，**brand 后缀**按列特征区分（不按 mode 名）：
+    //   有 `payment` 列 → ReceiptList「订货清单」；有 `profile2` 列 → receipt「回执单」；其余 → FinalReceipt「收据单」
+    const rc = new Set(extractTableColumns(tpl, 'receipt').map((c) => c.field))
+    const suffix = rc.has('payment') ? '订货清单' : rc.has('profile2') ? '回执单' : '收据单'
+    return { key: null, data: receiptPrintData(suffix), wrap: true }
+  }
+  // 无 table 的独立版式（标签）：product10 有 `GlassSize` 字段、lable 有 `qrcode`/`package` —— 按字段判别
+  const hasGlassSize = JSON.stringify(tpl).includes('"GlassSize"')
+  if (hasGlassSize) {
+    const rows = labelRows('product10')
+    // 原版：预览用分组版、打印用未分组版（自身不一致，按原样复刻）
+    return { key: null, data: forPreview ? groupProduct10(rows) : rows }
+  }
+  return { key: null, data: labelRows('lable') }
+}
+
+async function printCurrentTemplate() {
+  const mode = templatePreviewMode.value
+  if (!mode) return
+  try {
+    const tpl = (await api.getPrintTemplatesByMode(mode))[0]?.template
+    if (!tpl) {
+      message.warning('未找到该模板')
+      return
+    }
+    const { key, data, extra, wrap } = templatePayload(tpl, mode)
+    const payload = key ? { ...extra, [key]: data } : data
+    await printByMode(mode, (wrap ? [payload] : payload) as Record<string, unknown>[])
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '打印失败')
+  }
+}
+
+// ===== 通用模板预览（按字段族渲染）=====
+const templatePreviewOpen = ref(false)
+const templatePreviewLoading = ref(false)
+const templatePreviewHtml = ref('')
+const templateList = ref<{ mode: string; name: string }[]>([])
+const templatePreviewMode = ref<string | null>(null)
+
+async function openTemplatePreview(initialMode?: string) {
+  templatePreviewOpen.value = true
+  templatePreviewLoading.value = true
+  try {
+    const all = await api.listPrintTemplates()
+    templateList.value = all.map((t) => ({ mode: t.mode, name: t.name }))
+    const want = initialMode ?? templatePreviewMode.value ?? all[0]?.mode
+    templatePreviewMode.value = want || all[0]?.mode || null
+    await renderTemplatePreview(templatePreviewMode.value!)
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '加载模板失败')
+  } finally {
+    templatePreviewLoading.value = false
+  }
+}
+
+async function renderTemplatePreview(mode: string) {
+  templatePreviewLoading.value = true
+  try {
+    const templates = await api.getPrintTemplatesByMode(mode)
+    const tpl = templates[0]?.template
+    if (!tpl) {
+      templatePreviewHtml.value = ''
+      message.warning('未找到该模板')
+      return
+    }
+    // 预览 = **hiprint 真渲染**（与打印同一套渲染核心）：样式/间距/分页/二维码/图片位置都与实打一致。
+    // 17 张模板已逐一实测可渲染（见 docs/2026-09-10-template-field-audit.md §37），故不再保留自绘表格回退。
+    // `forPreview = true`：product10 预览按原版走**分组限量**版（打印走未分组版，原版本身不一致）。
+    const { key, data, extra, wrap } = templatePayload(tpl, mode, true)
+    const payload = key ? { ...extra, [key]: data } : data
+    const html = await renderByMode(mode, (wrap ? [payload] : payload) as Record<string, unknown>[])
+    templatePreviewHtml.value = html || ''
+    if (!html) message.warning('该模板渲染为空')
+  } catch (e) {
+    templatePreviewHtml.value = ''
+    message.error(e instanceof Error ? e.message : '渲染失败')
+  } finally {
+    templatePreviewLoading.value = false
+  }
 }
 
 async function printGlass() {
@@ -2679,67 +4507,52 @@ async function printGlass() {
   }
 }
 
-// —— 回执单分享 / 下载（无外部依赖：下载独立 HTML、分享文本摘要） ——
-function receiptTextSummary(): string {
-  const head = [
-    `回执单号：${order.receipt_no || '未生成'}`,
-    `客户：${order.client_name || '—'}${order.client_code ? `（${order.client_code}）` : ''}`,
-    `电话：${order.phone || '—'}`,
-    `下单日期：${order.order_date || '—'}`,
-    `截止日期：${dueDate.value || '—'}`,
-  ].join('\n')
-  const rows = lines.value
-    .map((l, i) => {
-      const size = l.door_width || l.door_height ? `${l.door_width}×${l.door_height}` : '—'
-      const glass = [l.bottom_glass, l.face_glass].filter(Boolean).join('/')
-      return `${i + 1}. ${typeName(l.line_type)} ${l.profile} ${l.color} ${lineOpenLabel(l)} ${size} ${glass} ×${l.quantity} ¥${num(l.amount)}`
-    })
-    .join('\n')
-  const foot = `门数：${doorCount.value} | 总价：¥${num(totalPrice.value)} | 定金：¥${num(order.deposit || 0)} | 余款：¥${num(totalPrice.value - (order.deposit || 0))}`
-  return [head, rows, foot].join('\n')
-}
-
-function downloadReceipt() {
-  const blob = new Blob([buildReceiptDoc()], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `回执单_${order.receipt_no || '未生成'}.html`
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-async function shareReceipt() {
-  const text = receiptTextSummary()
-  if (typeof navigator.share === 'function') {
-    try {
-      await navigator.share({ title: '回执单', text })
-      return
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return
-      // 分享被拒/失败 → 回退复制
-    }
+// 玻璃订单（glassHole 模板，table.field=glassInfoList）
+async function printGlassHole() {
+  if (!lines.value.length) {
+    message.warning('暂无订单行')
+    return
   }
   try {
-    await navigator.clipboard.writeText(text)
-    message.success('回执单内容已复制')
-  } catch {
-    message.error('分享失败，请手动复制')
+    await printByMode('glassHole', { glassInfoList: glassInfoProduces() })
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '玻璃订单打印失败')
   }
 }
+
+// 生产单定制（product2 模板，table.field=oldSheet）
+async function printProductionCustom() {
+  if (!lines.value.length) {
+    message.warning('暂无订单行')
+    return
+  }
+  try {
+    await printByMode('product2', oldSheetProduces())
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '生产单定制打印失败')
+  }
+}
+
+// —— 回执单分享 / 下载（无外部依赖：下载独立 HTML、分享文本摘要） ——
+
 
 // —— 终端链接 token ——
 // 兼容旧版算法：a = tenant_id + 1000, x = 7 × 客户编号 + 1987, t = 时间戳 + 888。
 // 终端页（只读订单视图）后续接入后消费 param2 token；当前仅生成并复制链接。
-const tenantId = ref(0)
 const tenantName = ref('')
+// 当前登录用户（原版 maker = userinfo.name，打单人）
+const currentUserName = ref('')
 
 const currentClient = computed(() =>
   clients.value.find((c) => c.code === order.client_code),
 )
 
+// 原版（@448151 邻近）token = `{a}af{x}wy{now+888}`：
+//   `ds === 'smartdoor'` → a = 1000；否则 a = Number(ds.split('smartdoor')[1]) + 1000
+//   x = 7 × 客户编号 + 1987
+// 注意 a **与租户 id 无关**（原版没有用 tenant.id）。
 function buildTerminalToken(clientId: number): string {
-  const a = tenantId.value + 1000
+  const a = TENANT_DS === 'smartdoor' ? 1000 : Number(TENANT_DS.split('smartdoor')[1]) + 1000
   const x = 7 * clientId + 1987
   const t = Date.now() + 888
   return `${a}af${x}wy${t}`
@@ -2826,10 +4639,10 @@ onMounted(async () => {
   })
   try {
     const me = await api.me()
-    tenantId.value = me.tenant.id
+    currentUserName.value = (me.user as unknown as { name?: string })?.name || ''
     tenantName.value = me.tenant.name
   } catch {
-    // 忽略：终端链接回退 tenant_id=0
+    // 忽略：取不到租户信息时沿用空值（门店名回退为空）
   }
   try {
     clients.value = await api.listClients()
@@ -2945,6 +4758,24 @@ onMounted(async () => {
 }
 .receipt-host {
   overflow-x: auto;
+}
+.production-host {
+  overflow: auto;
+  max-height: 70vh;
+}
+.production-host :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+}
+.production-host :deep(td) {
+  border: 1px solid #d9d9d9;
+  padding: 4px 6px;
+  vertical-align: top;
+  white-space: pre-wrap;
+}
+.production-host :deep(img) {
+  max-width: 80px;
+  max-height: 80px;
 }
 .footer {
   display: flex;
