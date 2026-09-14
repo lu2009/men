@@ -4170,7 +4170,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 4 | ✅ 已修 | `basicInfoText()` 尾部用 `l.direction`（原始开向）—— 2026-09-14 修 |
 | 5 | ✅ 已修 | 回执 `brand` 首项改 `order.brand` —— 2026-09-14 修 |
 | 6 | ✅ 已修 | 回执 `TotalBalance` 改回 `""`（原版无财务接口时的值）—— 2026-09-14 修 |
-| 7 | ❌ **仍存在** | `payQrcode` 恒 `''`。原文澄清：`receiptBuilder` 的构造器里 `payQrcode: e` 是**入参**，取值 `getImage('qrcode')` 在**调用方**。我们缺的是「租户级收款码图片」这块资源与上传入口，**属缺功能**，非写错 |
+| 7 | ✅ **已修** | 2026-09-14。原文机制解出：`getImage('qrcode')`（`index-c3b16e3f.js` 的 `L` @3999）对 **`id==='qrcode'` 走本地分支** —— `y.images.get('qrcode')` → 返回 `{imageUrl: await I(n.imageBlob)}`（token 494='qrcode'、462='imageBlob'、497='imageUrl' 均已解码）；写入见 @5345 `y.images.put({id:'qrcode', imageBlob:r})`，即**服务端存图 → 客户端下载缓存到本地**。<br>我们无服务端图片库，但**本地那半与 `imageStore`（IndexedDB 按 id 存）完全同构** ⇒ 用固定键 `'qrcode'` 存/取：新增 `loadPayQrcode()` 预取到 `payQrcodeUrl`（照 `hydrateRowImages` 的模式，不把 `receiptPrintData` 改 async）、菜单新增「收款码设置」弹窗（上传/删除）。<br>验证：播种一张图到 IndexedDB 键 `qrcode` 后预览收据单，**该图 base64 出现在渲染结果中** |
 | 8 | ✅ 已修 | 回执行对象不含 `date`/`payment` |
 | 9 | ✅ 已修 | 回执 remark 前后包 `join(' ')` |
 | 10 | ✅ 已修 | 回执 remark 打折分支 `+0 → 口袋门` |
@@ -4209,7 +4209,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 |---|---|
 | ✅ 已修 | 31（另 #28 于 2026-09-14 补齐后半）|
 | ⛔ 文档有误 / 作废 | 4（#31、#38、#29、#24）|
-| ❌ 仍存在（含部分）| 1（#7）|
+| ❌ 仍存在（含部分）| 0 |
 | ⚠️ 待决策 | 0（#29 已作废）|
 
 其中 #7 / #28 依赖**图片库**，#24 / #33 是**缺整块功能** —— 三类都不是"写错"，是依赖或功能缺失。

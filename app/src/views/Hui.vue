@@ -223,6 +223,32 @@
       </template>
     </n-modal>
 
+    <!-- 收款码设置（对应原版 `getImage('qrcode')`，供回执单/收据单打印） -->
+    <n-modal v-model:show="payQrcodeOpen" preset="card" title="收款码设置" style="width: 420px">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div style="color:#909399;font-size:12px">
+          回执单 / 收据单上的收款二维码。图片仅保存在本机（浏览器 IndexedDB，键 <code>qrcode</code>）。
+        </div>
+        <div style="display:flex;align-items:center;gap:14px">
+          <img
+            v-if="payQrcodeUrl"
+            :src="payQrcodeUrl"
+            style="width:132px;height:132px;object-fit:contain;border:1px solid #ebeef5;border-radius:4px;background:#fafafa"
+          />
+          <span v-else style="width:132px;height:132px;display:flex;align-items:center;justify-content:center;color:#c0c4cc;font-size:12px;border:1px dashed #dcdfe6;border-radius:4px">未上传</span>
+          <n-space vertical>
+            <n-button size="small" @click="pickPayQrcode">{{ payQrcodeUrl ? '重新上传' : '上传图片' }}</n-button>
+            <n-button size="small" :disabled="!payQrcodeUrl" @click="removePayQrcode">删除</n-button>
+          </n-space>
+        </div>
+      </div>
+      <template #footer>
+        <div class="footer">
+          <n-button type="primary" @click="payQrcodeOpen = false">关闭</n-button>
+        </div>
+      </template>
+    </n-modal>
+
     <!-- 开向模式设置 -->
     <n-modal v-model:show="openDirSettingsOpen" preset="card" title="开向模式设置" style="width: 460px">
       <div class="vis-col">
@@ -669,6 +695,46 @@ const order = reactive({
   install_address: '', // 表头全局默认安装地址（仿原版 _0x17ac36）
 })
 
+// 收款码（原版 `getImage('qrcode')`）：
+//   原文 @5345 从服务端拉图后 `y.images.put({ id:'qrcode', imageBlob:r })` —— **缓存到本地 images 表**；
+//   读取见 `index-c3b16e3f.js` 的 `L` @3999：`if (id === 'qrcode') return { imageUrl: await I(n.imageBlob) }`
+//   （token 494='qrcode'、462='imageBlob'、497='imageUrl'，均已解码确认）。
+// 我们无服务端图片库，但那半边的本地缓存与我们的 `imageStore`（IndexedDB 按 id 存）完全同构，
+// 故用**固定键 'qrcode'** 存/取即可。
+const PAY_QRCODE_KEY = 'qrcode'
+const payQrcodeUrl = ref('')
+async function loadPayQrcode() {
+  try {
+    payQrcodeUrl.value = (await idbGetImage(PAY_QRCODE_KEY)) || ''
+  } catch {
+    payQrcodeUrl.value = ''
+  }
+}
+const payQrcodeOpen = ref(false)
+function pickPayQrcode() {
+  const inp = document.createElement('input')
+  inp.type = 'file'
+  inp.accept = 'image/*'
+  inp.onchange = async () => {
+    const f = inp.files?.[0]
+    if (!f) return
+    try {
+      const url = await fileToDataUrl(f)
+      await idbPutImage(PAY_QRCODE_KEY, url)
+      payQrcodeUrl.value = url
+      message.success('已上传收款码')
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '上传收款码失败')
+    }
+  }
+  inp.click()
+}
+async function removePayQrcode() {
+  await idbRemoveImage(PAY_QRCODE_KEY)
+  payQrcodeUrl.value = ''
+  message.success('已删除收款码')
+}
+
 // 行数据
 const lines = ref<Line[]>([])
 const saving = ref(false)
@@ -702,6 +768,7 @@ const moreMenuOptions = [
   { label: '加价项目管理', key: 'markupMgmt' },
   { label: '自动加价设置', key: 'autoMarkup' },
   { label: '排序方式', key: 'sortMethod' },
+  { label: '收款码设置', key: 'payQrcode' },
   { label: '开向模式设置', key: 'openDir' },
   { label: '列显隐设置', key: 'columns' },
 ]
@@ -872,6 +939,7 @@ function onMoreSelect(key: string) {
     case 'markupMgmt': openMarkupMgmt(); break
     case 'autoMarkup': autoMarkupOpen.value = true; break
     case 'sortMethod': openSortMethod(); break
+    case 'payQrcode': payQrcodeOpen.value = true; break
     case 'openDir': openOpenDirSettings(); break
     case 'columns': openVisDialog(); break
   }
@@ -3437,7 +3505,9 @@ function receiptPrintData(brandSuffix = '回执单') {
     // **取不到时为 `""`** —— 不要用 `total-deposit` 冒充（那是 `balance` 的语义）。
     TotalBalance: '',
     declaration: LEGACY_DECLARATION,
-    payQrcode: '',
+    // 原版 `payQrcode: e`（构造器入参），由调用方 `await getImage('qrcode') || ""` 取；
+    // 我们预取到 `payQrcodeUrl`（见 `loadPayQrcode`），取不到时为 `''`。
+    payQrcode: payQrcodeUrl.value || '',
     orderQrcode: terminalLink.value || '',
     receipt: rows,
   }
@@ -4681,6 +4751,7 @@ onBeforeUnmount(() => {
 onMounted(async () => {
   restoreDraft()
   loadOpenDirectionSettings()
+  void loadPayQrcode()
   void loadMarkupCatalog()
   void loadColumnConfig()
   markSaved()
