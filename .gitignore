@@ -32,3 +32,10 @@ target/
 
 # Claude Code 本地个人设置
 .claude/settings.local.json
+
+# 旧版第三方库与压缩副本：仅本地参考，不入库（零引用）
+legacy/vendor/
+*.gz
+
+# 构建产物（历史里曾误入库，已在本次重写中剔除）
+app/dist/
