@@ -4391,7 +4391,10 @@ function product1Produces(): Record<string, unknown>[] {
       frameHeigth,
       frameWidth,
       // 原版：晟斐门窗厂特判 —— `kouHeigth = 套线种类`，且 `kouWidth` 不再赋值（两个常规赋值都在 else 分支里）
-      kouWidth: STORE_SHENGFEI === tenantName.value ? '' : s(val('扣板宽')),
+      // 晟斐门窗厂特判（原版 @569254）：有「图片ID」时 `kouWidth` 取**行图片**
+      //   `if (租户==='晟斐门窗厂' && 行.图片ID) try{ const e=await getImage(行.图片ID); e && (kouWidth=e) }catch{}`
+      // 我们的行图片由 `hydrateRowImages` 预先水合到 `l.image_url`，故同步取它即可（取不到仍为空串）。
+      kouWidth: STORE_SHENGFEI === tenantName.value ? (l.image_id && l.image_url) || '' : s(val('扣板宽')),
       kouHeigth: STORE_SHENGFEI === tenantName.value ? l.casing || '' : s(val('扣板高')),
       kouThickness: s(val('扣板厚')),
       // 原版 product1 remark = [五金, 单双丁(≠正常), 备注, 安装地址].join("<br>") + 加配（**无轨道种类、无墙型**）
