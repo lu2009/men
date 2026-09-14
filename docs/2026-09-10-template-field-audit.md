@@ -4170,7 +4170,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 4 | ✅ 已修 | `basicInfoText()` 尾部用 `l.direction`（原始开向）—— 2026-09-14 修 |
 | 5 | ✅ 已修 | 回执 `brand` 首项改 `order.brand` —— 2026-09-14 修 |
 | 6 | ✅ 已修 | 回执 `TotalBalance` 改回 `""`（原版无财务接口时的值）—— 2026-09-14 修 |
-| 7 | ❌ **仍存在** | `payQrcode` 恒 `''`；原版取图片库收款码 `getImage('qrcode')`。**依赖图片库资源，非写错** |
+| 7 | ❌ **仍存在** | `payQrcode` 恒 `''`。原文澄清：`receiptBuilder` 的构造器里 `payQrcode: e` 是**入参**，取值 `getImage('qrcode')` 在**调用方**。我们缺的是「租户级收款码图片」这块资源与上传入口，**属缺功能**，非写错 |
 | 8 | ✅ 已修 | 回执行对象不含 `date`/`payment` |
 | 9 | ✅ 已修 | 回执 remark 前后包 `join(' ')` |
 | 10 | ✅ 已修 | 回执 remark 打折分支 `+0 → 口袋门` |
@@ -4192,7 +4192,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 26 | ✅ 已修 | `oldSheetProduce` lockway：原始开向 + 哑口套/门套 抑制 |
 | 27 | ✅ 已修 | doorsheet 数量修正（逐 producer 核实零分歧）|
 | 28 | ⚠️ **部分仍存在** | `sheetWidth` 追加封板宽 ✅、晟斐 `kouHeigth=套线种类` ✅；但**晟斐 `kouWidth` 应为行图片**（`getImage(行.图片ID)`，原文 @569254），我们恒 `''` |
-| 29 | ⚠️ **待决策** | 回执 `total` 原版 `Math.round` 取整，我们 `round2` 两位小数 |
+| 29 | ⛔ **本条作废** | 称「原版 `total` 用 `Math.round` 取整」。**原文实为两位小数**：`receiptBuilder` 导出 `gs` 逐字写 `total: Math.round(100*r)/100`（r = ping_hui+diao_hui 的 `金额` 求和）。我们的 `round2` **本就一致**，无需改动。另据同句修正 `balance`：原版是 `Math.round(100*(r-定金))/100`（**先减定金再取整**），我们原先先取整再减，已改为一致 |
 | 30 | ✅ 已修 | 新增 `getOriginalOpenDirection()` 并在 `lineLockImage()` 里归一化 —— 2026-09-14 修 |
 | 31 | ⛔ **本条作废** | 称「回执行应补排序」。实测 `receiptBuilder-76e5b538.js` 全文 `.sort(` **0 处**、`formulaid` **0 次**；`Home-d6b13b9a.js` 的 3 处 `.sort(` 全是仪表盘（业务员列表/最近10单/客户金额Top8），与回执无关。**回执确实不排序**，以 `2026-09-11-row-order-exhaustive.md` 为准 |
 | 32 | ✅ 已修 | `installAddresses` computed：行级回退 + 去重 `_` 连接 |
@@ -4207,9 +4207,9 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 
 | 状态 | 条数 |
 |---|---|
-| ✅ 已修 | 31 |
-| ⛔ 文档有误 / 作废 | 2（#31、#38）|
+| ✅ 已修 | 31（另 #28 于 2026-09-14 补齐后半）|
+| ⛔ 文档有误 / 作废 | 3（#31、#38、#29）|
 | ❌ 仍存在（含部分）| 4（#7、#24、#28、#33）|
-| ⚠️ 待决策 | 1（#29）|
+| ⚠️ 待决策 | 0（#29 已作废）|
 
 其中 #7 / #28 依赖**图片库**，#24 / #33 是**缺整块功能** —— 三类都不是"写错"，是依赖或功能缺失。

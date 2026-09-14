@@ -3410,7 +3410,13 @@ function receiptPrintData(brandSuffix = '回执单') {
     // 原版回执行字面量只有 {profile,profile2,direction,openImg,price,color,glass,size,
     // quantity,amount,pricing,remark,maker,doorImg} —— **没有 `date`/`payment`**。
   }))
-  const total = totalPrice.value
+  // 原版回执构造器（`receiptBuilder` 导出 `gs`）逐字：
+  //   `let r=0,i=0; ping_hui.forEach(a=>{r+=Number(a["金额"]||0); i+=Number(a["数量"]||0)}); diao_hui.forEach(同)`
+  //   `total:   Math.round(100*r)/100`        ← **两位小数**（不是整数）
+  //   `balance: Math.round(100*(r-定金))/100` ← 先减定金**再**取整（我们原先先取整再减，有微差）
+  //   `门数: i`（= Σ数量）、`deposit: a["定金"]||0`、`payQrcode: e`（**调用方入参**）
+  const rawTotal = lines.value.reduce((s, l) => s + (l.amount || 0), 0)
+  const total = round2(rawTotal)
   const deposit = order.deposit || 0
   return {
     // 原版：(品牌 || 门店名 || "客户") + 后缀（后缀逐模板不同，见函数注释）。
@@ -3424,7 +3430,7 @@ function receiptPrintData(brandSuffix = '回执单') {
     client: order.client_name || '',
     deposit,
     total,
-    balance: total - deposit,
+    balance: round2(rawTotal - deposit),
     // 原版 `TotalBalance` = 服务端「客户账户余额」（开关开启且有客户编号时拉 `finance_getCustomerBalance`），
     // **取不到时为 `""`** —— 不要用 `total-deposit` 冒充（那是 `balance` 的语义）。
     TotalBalance: '',
