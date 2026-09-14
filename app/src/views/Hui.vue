@@ -3698,7 +3698,9 @@ function glassProduces(): Record<string, unknown>[] {
         doorsheet = `${t1}<br>数量:${n1}`
       }
     } else {
-      const g = parts.filter((p) => p.materialName.includes('玻璃') || p.materialName.includes('门扇'))
+      // 原版 A平（`_0xcfde65`）：`_0x413ea2 = ["玻璃","门扇"]` 后用 `reduce((acc,kw)=>[...acc, ...命中的件])`
+      // **按关键词数组逐个分组累积** —— 玻璃全在前、门扇全在后。一次 filter 保 parts 原序在两族交错时顺序会不同。
+      const g = ['玻璃', '门扇'].flatMap((kw) => parts.filter((p) => p.materialName.includes(kw)))
       doorsheet = groupText(g, (p) => {
         let n = doubleGlass(p.materialName) ? p.quantity * Q : (p.quantity / 2) * Q
         if (ft === 'parentSubsidiary') n = doubleGlass(p.materialName) ? 4 * Q : 2 * Q
