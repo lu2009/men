@@ -25,15 +25,21 @@ export interface FormulaExtra {
   /**
    * 部件**声明顺序**（`Object.keys(parts)` 的保存时快照）。
    *
-   * 为什么需要它：`parts` 是 JSONB 对象，**PostgreSQL 会按「长度+字节」重排对象键**，
-   * 而 `serde_json::Value::Object` 默认是 `BTreeMap`（再按字节序排一次）—— 顺序被丢两次。
-   * 但原版各打印列（移门外框、全部 windows 列）**直接按 `Object.entries(parts)` 的声明序输出**，
+   * **这是原版自己的机制，不是我们发明的**（字段名亦照抄原版）：
+   * - 写：`Diao.deobfuscated.js` @141718 → `t._keyOrder = 部件列表.map(a => a.name).filter(Boolean)`
+   * - 读：@149913 → `const a = parts._keyOrder || []`，据此**重建编辑器行序**，
+   *   并把 `_keyOrder`/`挖孔图`/`公式类型` 当**元数据**从部件遍历里剔除
+   *   （`Hui-d088417c.js` @320257 亦有 `if ("_keyOrder" === x) return`）
+   *
+   * 为什么必须存：`parts` 是 JSONB **对象**，PostgreSQL 按「长度+字节」重排键、
+   * `serde_json::Value::Object`（BTreeMap）再按字节序排一次 —— 顺序被丢两次。
+   * 而原版各打印列（移门外框、全部 windows 列）**直接按 `Object.entries(parts)` 的声明序输出**，
    * 且 `applyWidthIncrement` 的状态位 `a` 依赖「{扇数}上下方」是否先出现 —— **顺序会改数值**。
    *
-   * 修法：顺序存成**数组**（数组在 JSONB 与 serde_json 里**都保序**），渲染时按它排。
+   * 存成**数组**即可（数组在 JSONB 与 serde_json 里**都保序**）。
    * 详见 `docs/2026-09-15-parts-order-fidelity.md`。
    */
-  partOrder?: string[]
+  _keyOrder?: string[]
 }
 
 /** 移门最低方数设置：square 字段的复杂门型形态。 */

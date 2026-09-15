@@ -2547,6 +2547,12 @@ function computePartsUncached(l: Line, engine: EngineId): PartPreview[] {
   const src = f.parts as PartsMap
   if (!src || typeof src !== 'object' || Array.isArray(src)) return []
   const parts = JSON.parse(JSON.stringify(src)) as PartsMap
+  // `_keyOrder` / `挖孔图` / `公式类型` 是**元数据**、不是部件 —— 原版遍历部件时一律跳过
+  // （`Diao.deobfuscated.js` @125457/@149959 的 `filter(e => e !== "_keyOrder" && e !== "挖孔图" && e !== "公式类型")`；
+  //  `Hui-d088417c.js` @320257 `if ("_keyOrder" === x) return`）。导入原版公式时会带上它们。
+  for (const meta of ['_keyOrder', '挖孔图', '公式类型']) {
+    delete (parts as unknown as Record<string, unknown>)[meta]
+  }
   // ⚠️ 两条公式级减量**各有适用引擎**（§52/§53 引擎普查证实）：
   //   `widthIncrement`：只有 **A吊/B吊/D吊**（平开没有；C吊、G吊 也没有）
   //   `hinge`：只有 **平开**（A平/B平/D平/P1平）；**6 个吊趟引擎一律不读**
@@ -2603,13 +2609,14 @@ function computePartsUncached(l: Line, engine: EngineId): PartPreview[] {
   const out = Object.entries(parts)
     .filter(([key, p]) => !!p.formula && p.state && !(kbThickNeg && kbKill.test(key)))
     .map(([key, p]) => ({ key, materialName: p.materialName || key, quantity: p.quantity || 0, result: round2(computed[key] ?? 0) }))
-  // 按公式的**部件声明序**重排（`extra.partOrder`）。
+  // 按公式的**部件声明序**重排（`extra._keyOrder` —— **原版自己的字段名**，见 `Diao.deobfuscated.js`
+  // @141718 写 / @149913 读）。
   // 必要性：`parts` 落 JSONB 后对象键会被「长度+字节」重排，而原版各打印列（移门外框、全部 windows 列）
   // 直接按 `Object.entries(parts)` 的声明序输出；更要命的是 `applyWidthIncrement` 的状态位 `a`
   // 依赖「{扇数}上下方」是否**先于**轨道件出现 —— 顺序会改变**算出来的数值**（不只显示顺序）。
-  // 顺序存成数组（JSONB 保序）故能穿过来。缺 `partOrder` 的旧数据保持现状，行为不变。
+  // 顺序存成数组（JSONB 保序）故能穿过来。缺 `_keyOrder` 的旧数据保持现状，行为不变。
   // 详见 docs/2026-09-15-parts-order-fidelity.md
-  const order = (f.extra as { partOrder?: unknown } | undefined)?.partOrder
+  const order = (f.extra as { _keyOrder?: unknown } | undefined)?._keyOrder
   if (Array.isArray(order) && order.length) {
     const rank = new Map(order.map((k, i) => [String(k), i]))
     // 不在声明序里的部件排到最后（`sort` 稳定，保持它们原有的相对次序）

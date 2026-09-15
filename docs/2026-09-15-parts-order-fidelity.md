@@ -199,7 +199,7 @@ let a = 0
 
 ---
 
-## 4. 修复方案：**方案 B（`extra.partOrder` 数组）**，非 A
+## 4. 修复方案：**`extra._keyOrder` 数组**（= **原版自己的机制**），非 A
 
 ### 4.1 方案 A（改 `json` 列 + `preserve_order`）—— **实测不可行** ❌
 
@@ -217,7 +217,30 @@ let a = 0
 ⇒ 即使把列改成 `json`，sqlx 仍以 **jsonb** 语义发送/解析参数，顺序照样丢；
 要绕开只能把所有写入点改成「绑 text + 显式 `$1::json`」，**改动面大且脆**。
 
-### 4.2 方案 B（`extra.partOrder: string[]`）—— **推荐** ✅
+### 4.2 方案 B（`extra._keyOrder: string[]`）—— **推荐** ✅
+
+> 🔴 **重大发现：这就是原版自己的做法。** 字段名、机制、连过滤的元数据键都是照抄原文：
+>
+> ```js
+> // 写（Diao.deobfuscated.js @141718，保存公式时）
+> const a = 部件列表.value.map(a => a.name).filter(e => e)
+> const t = { ...extra.value }
+> t._keyOrder = a                                  // ★ 把「部件名数组」写进 _keyOrder
+>
+> // 读（@149913，加载公式时）—— 据此**重建编辑器行序**
+> const a = l["diao"]._keyOrder || []
+> delete l["diao"]._keyOrder                        // 当元数据摘掉
+> c = a.filter(e => e !== "_keyOrder" && e !== "挖孔图" && e !== "公式类型")
+>      .map(e => ({ id:…, materialName: l["diao"][e].materialName, … }))
+> ```
+>
+> 遍历部件时一律跳过这三个元数据键：`Diao.deobfuscated.js` @125457/@149959 的
+> `filter(e => e !== "_keyOrder" && e !== "挖孔图" && e !== "公式类型")`；
+> `Hui-d088417c.js` @320257 的 `if ("_keyOrder" === x) return`。
+>
+> 并且**原版抓取文件里每条公式都带 `_keyOrder`**（`legacy/data/original-formulas.json`
+> 的 `parts._keyOrder`，是**数组**、与其对象键序完全一致）—— 原版同样撞上了 jsonb 丢序，
+> 也用「额外存一个数组」解决。**我们的修复与原版逐字同构。**
 
 **关键实测**：`jsonb` **只重排对象键，数组保持有序**
 
@@ -229,8 +252,8 @@ let a = 0
 ⇒ 把顺序存成**数组**，就同时绕过两道重排，**既不用改列类型、也不用开 `preserve_order`**。
 
 做法：
-1. `formulas.extra` 里加 `partOrder: string[]`（写入时按前端提交的对象键序生成）
-2. 渲染侧（`computeParts` 出口）按 `partOrder` 排一次；缺 `partOrder` 时退回现状
+1. `formulas.extra` 里加 `_keyOrder: string[]`（**原版字段名**；写入时取 `Object.keys(parts)`）
+2. 渲染侧（`computeParts` 出口）按 `_keyOrder` 排一次；缺 `_keyOrder` 时退回现状
 3. 前端 `Formulas.vue` 保存时把 `Object.keys(parts)` 一并提交
 
 ### 4.3 连带检查点
@@ -242,7 +265,7 @@ let a = 0
 
 ### 4.4 数据迁移
 
-存量公式**没有顺序来源**（§3），B 也救不回存量；
+存量公式**没有顺序来源**（§3），B 也救不回存量（我们库里 6 条公式的 `parts` 均无 `_keyOrder`）；
 但 B 的价值在于**导入链路**：从原版抓取时把 `Object.keys(parts)` 的**声明序**一并写进 `partOrder`，
 从此不再丢。
 
@@ -266,7 +289,7 @@ let a = 0
 
 ## 5. 待办
 
-- [ ] `formulas.extra` 增加 `partOrder: string[]`（前端保存时提交 `Object.keys(parts)`）
+- 🌟 **额外收获**：`_keyOrder` 是原版字段名 ⇒ **导入原版公式时其顺序直接可用**，无需另建映射
 - [ ] `computeParts` 出口按 `partOrder` 排序（缺省退回现状，不改变未迁移数据的行为）
 - [ ] 修复后：用一张部件数多、关键词命中多的公式端到端验证列内顺序
       （移门外框应为 `边封 → 上滑 → 下滑 → …`）

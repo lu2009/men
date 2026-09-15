@@ -694,10 +694,11 @@ async function save() {
     mother_door_width: dimS.value,
     square: currentSquare(),
     parts: JSON.parse(JSON.stringify(parts)),
-    // `partOrder`：部件**声明序快照**。`parts` 落 JSONB 后键序会被重排（长度+字节），
+    // `_keyOrder`：部件**声明序快照**（**原版自己的字段名与机制**，见 `formulaExtra.ts` 注释与
+    // `docs/2026-09-15-parts-order-fidelity.md`）。`parts` 落 JSONB 后键序会被重排（长度+字节），
     // 而原版打印列按声明序输出、`applyWidthIncrement` 更依赖它决定减量是否生效 —— 顺序会改数值。
-    // 数组在 JSONB 里保序，故把顺序单独存一份。见 docs/2026-09-15-parts-order-fidelity.md
-    extra: { ...JSON.parse(JSON.stringify(extra)), partOrder: Object.keys(parts) },
+    // 数组在 JSONB 里保序，故把顺序单独存一份。
+    extra: { ...JSON.parse(JSON.stringify(extra)), _keyOrder: Object.keys(parts) },
     remark: '',
   }
   saving.value = true
