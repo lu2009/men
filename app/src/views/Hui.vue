@@ -1055,8 +1055,14 @@ function profileOptionsFor(type: 'ping' | 'diao'): { label: string; value: strin
       out.push({ label: v, value: v })
     }
   }
-  for (const h of readFieldHistory(`profile_${type}`)) push(h)
-  for (const l of lines.value) if (l.line_type === type) push(l.profile)
+  // 候选**只有公式名一个来源** —— 原版型材格子的 `fetch-suggestions` 逐字是
+  //   `const x = Object.keys(O.value); t((e ? x.filter(t=>t.includes(e)) : x).map(e=>({value:e})))`
+  // 其中 `O.value` = **服务端「基础信息」接口返回的 material 字典**（型材名 → formulaID）。
+  // 原版**没有**本地候选历史、**也不能右键删除**（那 15 处 `onContextmenu` 只在 颜色/面玻/底玻/
+  // 套线种类/轨道种类/金额 上，**不含型材**），写侧 `je`(算列宽)/`Ye`(解析 formulaID) 也都不写候选库。
+  // 所以我们原先额外挂的 `readFieldHistory('profile_*')` 与「当前页面的行」两个来源是**自己加的**，
+  // 会造成「公式都删了、型材下拉里还有旧记录」—— 已移除。
+  // （`formulas` 表名即我们对 `O.value` 的等价物；按表归属过滤仍保留。）
   for (const f of formulas.value) {
     if (belongsToTable(f.formula_type, type)) push(f.name)
   }
@@ -1932,7 +1938,8 @@ function optCell(
 // 型材候选按行门型过滤（平开不显示移门公式）
 function profileCell(l: Line, width: number) {
   const opts = l.line_type === 'diao' ? diaoProfileOptions.value : pingProfileOptions.value
-  return optCell(l, 'profile', width, opts, (x) => void resolveRow(x), true, `profile_${l.line_type}`)
+  // 不加 `historyKey`：原版型材**不写候选库**（见 `profileOptionsFor` 注释），故无需记忆。
+  return optCell(l, 'profile', width, opts, (x) => void resolveRow(x), true)
 }
 // 移门/吊趟开向图：优先用从旧版提取的完整 DIRECTION_IMAGES 表（「扇数+开向」→ 图）。
 function diaoDirImage(fans: string, direction: string): string {
