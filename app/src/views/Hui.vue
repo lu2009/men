@@ -4412,8 +4412,10 @@ function basicInfoText(l: Line, engine: 'A' | 'B' | 'C' = 'B'): string {
   const hole = String(l.hole_size ?? '').trim()
   if (hole) items.unshift(hole)
   if (bRaw || fRaw || thick) {
-    const bottomNone = bRaw === '' || bRaw === '无'
-    const faceNone = fRaw === '' || fRaw === '无'
+    // 严格判字面量「无」—— 原版 B吊 @518522 / D吊 @556765 / D平 @537103 / C吊 @587104 / A平 @477457 / A吊 @466398
+    // 都是 `"无"===行["底玻"]`，**空串不算「无」**（空串会落到第三支）。
+    const bottomNone = bRaw === '无'
+    const faceNone = fRaw === '无'
     if (bottomNone && !faceNone) {
       items.push(engineA ? `单玻*${fRaw}*${thick}mm` : `${fRaw}*单玻`)
     } else if (bottomNone && faceNone) {
@@ -4431,7 +4433,8 @@ function basicInfoText(l: Line, engine: 'A' | 'B' | 'C' = 'B'): string {
     const suppress = engine === 'C'
       ? false // 引擎C（C吊）：尾部**恒** `开向<br>扇数`，无抑制（§D10）
       : engineA
-        ? (bRaw === '' || bRaw === '无') && (fRaw === '' || fRaw === '无')
+        // 原版 A吊 @477760：`"无"===面玻 && "无"===底玻 ? "" : "<br>"+开向+"<br>"+扇数` —— **严格**，无空串支
+        ? bRaw === '无' && fRaw === '无'
         : /哑口套|门套/.test(l.profile || '')
     tail = suppress ? '' : `${dir}<br>${l.fans || ''}`
   } else {
@@ -4487,8 +4490,9 @@ function oldSheetGlass(l: Line): string {
   const bRaw = l.bottom_glass || ''
   const fRaw = l.face_glass || ''
   if (!bRaw && !fRaw && !l.glass_thickness) return ''
-  const bottomNone = bRaw === '' || bRaw === '无'
-  const faceNone = fRaw === '' || fRaw === '无'
+  // 同 basicInfo：严格判「无」，空串不算（原版三分支出处同上）
+  const bottomNone = bRaw === '无'
+  const faceNone = fRaw === '无'
   if (bottomNone && !faceNone) return `${fRaw}*单玻`
   if (bottomNone && faceNone) return '无'
   return l.line_type === 'diao' ? `面:${fRaw}-底:${bRaw}` : `${fRaw}+${bRaw}*${l.glass_thickness || ''}`
