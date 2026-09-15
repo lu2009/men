@@ -1659,10 +1659,20 @@ function missingFieldsOf(l: Line): string[] {
   const add = (ok: boolean, name: string) => {
     if (!ok) m.push(name)
   }
+  // 必填清单**逐字照抄旧版**（平开 @349085 / 吊趟 @353602）：
+  //   平开 `["型材","数量","颜色","底玻","面玻", 玻璃厚,"开向", 计价方式]`
+  //   吊趟 `["型材","颜色","底玻","面玻", 玻璃厚,"开向","扇数", 轨道种类]`
+  // ⚠️ **底玻/面玻是必填**（原版两格都没有 `clearable`，配合新建行默认值 ⇒ 空串在旧版产生不出来）。
+  // 注：原版清单里**没有** 门洞宽/门洞高 —— 校验循环里那两条
+  //   `"门洞高"===e && _[e]<=0` / `"门洞宽"===e && _[e]<=0` 是**死代码**
+  //   （e 只取清单里的值，"门洞高/门洞宽" 不在清单中，永不命中）。看起来是当初漏加了，
+  //   但**我们暂按现状保留这两项必填**（更严、且不影响打印保真），差异已记档待定。
   add(!!l.profile.trim(), '型材')
   add(l.door_width > 0, '门洞宽')
   add(l.door_height > 0, '门洞高')
   add(!!l.color.trim(), '颜色')
+  add(!!l.bottom_glass.trim(), '底玻')
+  add(!!l.face_glass.trim(), '面玻')
   add(!!l.glass_thickness.trim(), '玻璃厚')
   add(!!l.direction.trim(), '开向')
   if (l.line_type === 'ping') {
@@ -1863,7 +1873,8 @@ function glassSelectCell(l: Line, field: 'face_glass' | 'bottom_glass', width: n
       value: (l as unknown as Record<string, string>)[field],
       options: glassOptions,
       filterable: true,
-      clearable: true,
+      // ⚠️ **不加 `clearable`** —— 原版底玻/面玻两格都没有（@75060 / @73314），
+      //    配合「必填」校验与新建行默认值（磨砂·白玻 / 白玻·白玻）⇒ 空串根本产生不出来。
       style: { width: `${width}px` },
       onUpdateValue: (v: string | null) => {
         const old = oldByField.get(l) ?? (l as unknown as Record<string, string>)[field] ?? ''
@@ -1888,6 +1899,10 @@ function cellError(l: Line, field: string): boolean {
     case 'door_width': return !(l.door_width > 0)
     case 'door_height': return !(l.door_height > 0)
     case 'color': return !l.color.trim()
+    // 底玻/面玻 也是必填：原版两格都挂了 `error-cell`（`{["error-cell"]: 校验结果["底玻"]}`），
+    // 且**没有 `clearable`**（见 @75060 平开 / @185271 吊趟 的底玻格、@73314 / @183565 的面玻格）。
+    case 'bottom_glass': return !l.bottom_glass.trim()
+    case 'face_glass': return !l.face_glass.trim()
     case 'glass_thickness': return !l.glass_thickness.trim()
     case 'direction': return !l.direction.trim()
     case 'quantity': return t === 'ping' && !(l.quantity >= 1)
