@@ -438,6 +438,16 @@ interface PartPreview {
   result: number
 }
 
+/**
+ * 取部件的 **KEY** —— 旧版一切「关键词匹配 / 精确取件 / 含单玻判定」读的都是它，
+ * 只有**显示名**才用 `materialName`（`Object.entries(parts).filter((([e,t]) => …e.includes(kw)…)`
+ * 后 `t.materialName + ":"`）。KEY 与 materialName 不等是常态，见
+ * `docs/2026-09-15-parts-key-vs-materialname.md`。
+ *
+ * 历史订单的 `l.parts` 是**持久化**的算料结果，早期只存了 materialName，故回退到它以免炸。
+ */
+const pk = (p: { key?: string; materialName?: string }) => p.key || p.materialName || ''
+
 interface MarkupItem {
   name: string
   price: number
@@ -3597,8 +3607,8 @@ function product10Row(l: Line) {
   //   `GlassSize = 玻璃高.result + "*" + 玻璃宽.result + "*" + (玻璃宽.quantity || 1)`
   // 部件集走 **L1/L2 专用映射**（自带数量修正 + ×行数量），不是引擎B 的原始结果。
   const parts = product10Parts(l).filter((p) => p && p.materialName)
-  const gH = parts.filter((p) => p.materialName.includes('玻璃高')).pop()
-  const gW = parts.filter((p) => p.materialName.includes('玻璃宽')).pop()
+  const gH = parts.filter((p) => pk(p).includes('玻璃高')).pop()
+  const gW = parts.filter((p) => pk(p).includes('玻璃宽')).pop()
   const glassSize = gH && gW ? `${gH.result}*${gW.result}*${gW.quantity || 1}` : ''
   return {
     orderID: order.receipt_no || '',
@@ -3650,8 +3660,8 @@ function product10Parts(l: Line): PartPreview[] {
 // product10（生产标签）复制张数：公式部件同时含「玻璃宽」「玻璃高」时取玻璃宽部件的 quantity，否则 1。
 function product10Copies(l: Line): number {
   const parts = product10Parts(l).filter((p) => p && p.materialName)
-  const gW = parts.filter((p) => p.materialName.includes('玻璃宽')).pop()
-  const gH = parts.filter((p) => p.materialName.includes('玻璃高')).pop()
+  const gW = parts.filter((p) => pk(p).includes('玻璃宽')).pop()
+  const gH = parts.filter((p) => pk(p).includes('玻璃高')).pop()
   if (!gW || !gH) return 1
   return Math.max(1, Math.floor(Number(gW.quantity) || 1))
 }
@@ -3774,9 +3784,12 @@ function glassProduces(): Record<string, unknown>[] {
     //     → 双玻 N = qty×数量；否则 单玻 N = qty/2×数量
     //   平开另有 parentSubsidiary → 双玻 4×数量 / 单玻 2×数量；diamond → 一律 3×数量
     //   移门另有一组「亮窗玻璃」（排除压线），其 N 的判据是 `底玻≠无 && 面玻≠无 || 名含单玻`
+    // ⚠️ 与其它列同规：**匹配读 KEY（`pk`），显示名读 `materialName`**。
+    //    旧版引擎 A 这几处也都是 `Object.entries(parts).filter((([e]) => e.includes("玻璃") && !e.includes("亮窗")))`
+    //    这类写法（`e` = KEY），`含单玻` 判定同理。
     const doubleGlass = (name: string) =>
       ((bRaw !== '无' || fRaw === '无' || name.includes('单玻')) && (fRaw !== '无' || bRaw === '无' || name.includes('单玻')))
-    const groupText = (list: { materialName: string; result: number; quantity: number }[], lastQty: (p: { materialName: string; quantity: number }) => number) => {
+    const groupText = (list: PartPreview[], lastQty: (p: PartPreview) => number) => {
       if (!list.length) return ''
       const last = list[list.length - 1]
       let n = lastQty(last)
@@ -3784,10 +3797,10 @@ function glassProduces(): Record<string, unknown>[] {
     }
     let doorsheet: string
     if (l.line_type === 'diao') {
-      const g1 = parts.filter((p) => p.materialName.includes('玻璃') && !p.materialName.includes('亮窗'))
-      const g2 = parts.filter((p) => p.materialName.includes('亮窗玻璃') && !p.materialName.includes('压线'))
-      let n1 = g1.length ? (doubleGlass(g1[g1.length - 1].materialName) ? g1[g1.length - 1].quantity * Q : (g1[g1.length - 1].quantity / 2) * Q) : 0
-      const n2 = g2.length ? (bRaw !== '无' && fRaw !== '无' || g2[g2.length - 1].materialName.includes('单玻') ? g2[g2.length - 1].quantity * Q : (g2[g2.length - 1].quantity / 2) * Q) : 0
+      const g1 = parts.filter((p) => pk(p).includes('玻璃') && !pk(p).includes('亮窗'))
+      const g2 = parts.filter((p) => pk(p).includes('亮窗玻璃') && !pk(p).includes('压线'))
+      let n1 = g1.length ? (doubleGlass(pk(g1[g1.length - 1])) ? g1[g1.length - 1].quantity * Q : (g1[g1.length - 1].quantity / 2) * Q) : 0
+      const n2 = g2.length ? (bRaw !== '无' && fRaw !== '无' || pk(g2[g2.length - 1]).includes('单玻') ? g2[g2.length - 1].quantity * Q : (g2[g2.length - 1].quantity / 2) * Q) : 0
       if (l.fans === '一固一活' || l.fans === '双活') n1 = 2 * Q
       const t1 = g1.map((p) => `${p.materialName}:${p.result}`).join('<br>')
       if (n2 > 0) {
@@ -3799,10 +3812,10 @@ function glassProduces(): Record<string, unknown>[] {
     } else {
       // 原版 A平（`_0xcfde65`）：`_0x413ea2 = ["玻璃","门扇"]` 后用 `reduce((acc,kw)=>[...acc, ...命中的件])`
       // **按关键词数组逐个分组累积** —— 玻璃全在前、门扇全在后。一次 filter 保 parts 原序在两族交错时顺序会不同。
-      const g = ['玻璃', '门扇'].flatMap((kw) => parts.filter((p) => p.materialName.includes(kw)))
+      const g = ['玻璃', '门扇'].flatMap((kw) => parts.filter((p) => pk(p).includes(kw)))
       doorsheet = groupText(g, (p) => {
-        let n = doubleGlass(p.materialName) ? p.quantity * Q : (p.quantity / 2) * Q
-        if (ft === 'parentSubsidiary') n = doubleGlass(p.materialName) ? 4 * Q : 2 * Q
+        let n = doubleGlass(pk(p)) ? p.quantity * Q : (p.quantity / 2) * Q
+        if (ft === 'parentSubsidiary') n = doubleGlass(pk(p)) ? 4 * Q : 2 * Q
         if (ft === 'diamond') n = 3 * Q
         return n
       })
@@ -3817,7 +3830,7 @@ function glassInfoProduces(): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
   for (const l of lines.value) {
     const parts = (l.parts ?? []).filter((p) => p && p.materialName)
-    const find = (re: RegExp) => parts.find((p) => re.test(p.materialName || ''))
+    const find = (re: RegExp) => parts.find((p) => re.test(pk(p)))
     const ft = String(formulaOf(l)?.formula_type || '') // 'diamond' | 'parentSubsidiary' | 'double' | 其它
     const diao = l.line_type === 'diao'
     const bRaw = l.bottom_glass || '无'
@@ -3836,8 +3849,8 @@ function glassInfoProduces(): Record<string, unknown>[] {
     }
     const push = (o: Record<string, unknown>) => rows.push({ ...base, doorImg: '', ...o })
     // 原始判据是**部件名含「单玻」**，不是底玻/面玻的值
-    const isSingle = (p: { materialName: string }) => p.materialName.includes('单玻')
-    const qv = (p: { materialName: string; quantity: number }, div = 1) =>
+    const isSingle = (p: PartPreview) => pk(p).includes('单玻')
+    const qv = (p: PartPreview, div = 1) =>
       (isSingle(p) ? (p.quantity / div) * Q : (p.quantity / 2 / div) * Q)
 
     if (diao) {
@@ -3854,13 +3867,13 @@ function glassInfoProduces(): Record<string, unknown>[] {
       const ONE_R_D1 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '3轨4扇']
       const ONE_L_D2 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '3轨4扇']
       const ONE_R_D2 = ['单轨2扇', '双活', '2轨2扇', '2轨3扇', '3轨3扇', '4轨4扇', '5轨5扇', '6轨6扇', '3轨4扇']
-      const qv2 = (p: { materialName: string; quantity: number }, dl: number, dr: number) => qv(p) - dl - dr
+      const qv2 = (p: PartPreview, dl: number, dr: number) => qv(p) - dl - dr
 
       // ── D1：底玻支（扇数为一固一活/双活时整块跳过） ──
       if (bRaw !== '无' && fans !== '一固一活' && fans !== '双活') {
-        const gW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && !p.materialName.includes('玻璃宽小'))
-        const gS = parts.find((p) => p.materialName.includes('玻璃宽小') && !p.materialName.includes('亮窗'))
-        const gH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗'))
+        const gW = parts.find((p) => pk(p).includes('玻璃宽') && !pk(p).includes('亮窗') && !pk(p).includes('玻璃宽小'))
+        const gS = parts.find((p) => pk(p).includes('玻璃宽小') && !pk(p).includes('亮窗'))
+        const gH = parts.find((p) => pk(p).includes('玻璃高') && !pk(p).includes('亮窗'))
         const h = gH ? gH.result : 0
         let dl = 0
         let dr = 0
@@ -3873,7 +3886,7 @@ function glassInfoProduces(): Record<string, unknown>[] {
         if (okR && fans.includes('2轨4扇')) dr = 2
         if (okL && fans.includes('3轨6扇')) dr = 2 // 原文此处用的是**左图**变量
         // 主行（玻璃宽 / 玻璃宽小）：原版**不设 doorImg**，保持字面量的空串
-        const mainRow = (p: { materialName: string; result: number; quantity: number } | undefined) => {
+        const mainRow = (p: PartPreview | undefined) => {
           if (!p) return
           const o = qv2(p, dl, dr)
           if (o > 0) push({ glassName: `底玻-${l.bottom_glass}`, width: p.result, height: h, quantity: o })
@@ -3886,9 +3899,9 @@ function glassInfoProduces(): Record<string, unknown>[] {
 
       // ── D2：面玻支（无扇数门控；一固一活另有「固玻-」行） ──
       if (fRaw !== '无') {
-        const fW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && !p.materialName.includes('固') && !p.materialName.includes('玻璃宽小'))
-        const fS = parts.find((p) => p.materialName.includes('玻璃宽小') && !p.materialName.includes('亮窗') && !p.materialName.includes('固'))
-        const fH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && !p.materialName.includes('固'))
+        const fW = parts.find((p) => pk(p).includes('玻璃宽') && !pk(p).includes('亮窗') && !pk(p).includes('固') && !pk(p).includes('玻璃宽小'))
+        const fS = parts.find((p) => pk(p).includes('玻璃宽小') && !pk(p).includes('亮窗') && !pk(p).includes('固'))
+        const fH = parts.find((p) => pk(p).includes('玻璃高') && !pk(p).includes('亮窗') && !pk(p).includes('固'))
         const h = fH ? fH.result : 0
         let dl = 0
         let dr = 0
@@ -3901,10 +3914,10 @@ function glassInfoProduces(): Record<string, unknown>[] {
         if (okR && fans.includes('2轨4扇')) dr = 2
         if (okL && fans.includes('3轨6扇')) dr = 2
         // 一固一活专用部件（仅在 扇数==='一固一活' 时参与）
-        const igW = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活固玻璃宽')) : undefined
-        const igH = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活固玻璃高')) : undefined
-        const imW = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活门玻璃宽')) : undefined
-        const imH = fans === '一固一活' ? parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗') && p.materialName.includes('一固一活门玻璃高')) : undefined
+        const igW = fans === '一固一活' ? parts.find((p) => pk(p).includes('玻璃宽') && !pk(p).includes('亮窗') && pk(p).includes('一固一活固玻璃宽')) : undefined
+        const igH = fans === '一固一活' ? parts.find((p) => pk(p).includes('玻璃高') && !pk(p).includes('亮窗') && pk(p).includes('一固一活固玻璃高')) : undefined
+        const imW = fans === '一固一活' ? parts.find((p) => pk(p).includes('玻璃宽') && !pk(p).includes('亮窗') && pk(p).includes('一固一活门玻璃宽')) : undefined
+        const imH = fans === '一固一活' ? parts.find((p) => pk(p).includes('玻璃高') && !pk(p).includes('亮窗') && pk(p).includes('一固一活门玻璃高')) : undefined
         let mainQ = fW ? qv2(fW, dl, dr) : 0
         // 一固一活：主行作废，扣减改为按开向取 1，且另推一行「固玻-」
         let guRow = false
@@ -3954,8 +3967,8 @@ function glassInfoProduces(): Record<string, unknown>[] {
 
       // ── D3 亮窗：两个独立 if，可各推一行 ──
       if (l.light_window_height) {
-        const lwW = parts.find((p) => p.materialName.includes('亮窗玻璃宽'))
-        const lwH = parts.find((p) => p.materialName.includes('亮窗玻璃高'))
+        const lwW = parts.find((p) => pk(p).includes('亮窗玻璃宽'))
+        const lwH = parts.find((p) => pk(p).includes('亮窗玻璃高'))
         if (lwW && lwH && bRaw !== '无' && !fans.includes('活')) {
           push({ glassName: `亮窗底玻-${l.bottom_glass}`, width: lwW.result, height: lwH.result, quantity: (lwW.quantity / 2) * Q })
         }
@@ -3975,8 +3988,8 @@ function glassInfoProduces(): Record<string, unknown>[] {
     const block = (which: 'bottom' | 'face') => {
       const on = which === 'bottom' ? bRaw !== '无' : fRaw !== '无'
       // 原版此处只排除「亮窗」，**不排除「玻璃宽小」**
-      const gW = parts.find((p) => p.materialName.includes('玻璃宽') && !p.materialName.includes('亮窗'))
-      const gH = parts.find((p) => p.materialName.includes('玻璃高') && !p.materialName.includes('亮窗'))
+      const gW = parts.find((p) => pk(p).includes('玻璃宽') && !pk(p).includes('亮窗'))
+      const gH = parts.find((p) => pk(p).includes('玻璃高') && !pk(p).includes('亮窗'))
       const fallbackName = which === 'bottom' ? `底玻-${l.bottom_glass}` : `面玻-${l.face_glass}`
       if (on && ft !== 'diamond') {
         if (ft === 'parentSubsidiary') {
@@ -4028,7 +4041,7 @@ function glassInfoProduces(): Record<string, unknown>[] {
     }
     // B4 钻石：三行，部件按**精确名**取
     if (ft === 'diamond') {
-      const exact = (n: string) => parts.find((p) => p.materialName === n)
+      const exact = (n: string) => parts.find((p) => pk(p) === n)
       for (const [kw, kh, name, dimg] of [
         ['左固玻璃宽', '左固玻璃高', `左固玻璃-${l.bottom_glass}`, img],
         ['右固玻璃宽', '右固玻璃高', `右固玻璃-${l.bottom_glass}`, img],
@@ -4475,7 +4488,9 @@ function product1Produces(): Record<string, unknown>[] {
     const parts = computeParts(l, 'P1').filter((p) => p && p.materialName)
     // 原版（@569700）走**部件遍历**、命中即赋值（同名多次=后者覆盖）
     const val = (name: string) => {
-      const p = parts.filter((x) => x.materialName === name || x.materialName?.includes(name)).pop()
+      // 原版 @569300 是「关键词数组 forEach → `Object.entries(parts).filter((([t]) => t.includes(关键词)))`」，
+      // `t` 是部件 **KEY**；这里同样按 KEY 匹配（显示名不参与）。
+      const p = parts.filter((x) => pk(x) === name || pk(x).includes(name)).pop()
       return p && !isNaN(Number(p.result)) ? Number(p.result) : 0
     }
     const s = (v: number) => (v ? String(v) : '')
@@ -4483,7 +4498,7 @@ function product1Produces(): Record<string, unknown>[] {
     let glassW = 0
     let fengBanW = 0
     for (const p of parts) {
-      const n = p.materialName || ''
+      const n = pk(p) // 同上：原版读 KEY
       const v = p.result && !isNaN(Number(p.result)) ? Number(p.result) : 0
       if (n.includes('玻璃高')) glassH = v
       if (n.includes('玻璃宽')) glassW = v
