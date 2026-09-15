@@ -4260,15 +4260,20 @@ function doorsheetText(l: Line, engine: EngineId): string {
   // 排除词：吊趟两套都是「亮窗」；平开 引擎B 是「亮窗玻璃」、旧 schema(引擎D) 是「上亮玻璃」
   const exclude = diao ? '亮窗' : oldSheetEngine ? '上亮玻璃' : '亮窗玻璃'
   const out: string[] = []
+  // ⚠️ **关键词与排除词都按部件 KEY 判定，显示名才用 `materialName`**（原版 B平 @490039 / D平 @531100：
+  //    `_0x5c8510.reduce((acc,t) => [...acc, ...Object.entries(parts)
+  //        .filter((([e]) => e.includes(t) && !e.includes("上亮玻璃")))
+  //        .map((([e,x]) => … x.materialName + ":" + x.result + "*" + l*数量))], [])`）。
+  //    `includes("单玻")` 同样读 KEY。分组顺序 = **关键词数组顺序**（外层 reduce），非 parts 声明序。
   for (const kw of kws) {
     for (const p of parts) {
       const n = p.materialName
-      if (!n.includes(kw) || n.includes(exclude)) continue
+      if (!p.key.includes(kw) || p.key.includes(exclude)) continue
       let q = p.quantity
       if (kw === '玻璃宽' || kw === '玻璃高') {
         const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
         // 平开：`Math.round(q/2)`，且 diamond 不折半；吊趟：`q/2` **不取整**（原版两套写法不同，§15）
-        if (single && !n.includes('单玻')) q = diao ? p.quantity / 2 : isDiamond(l) ? p.quantity : Math.round(p.quantity / 2)
+        if (single && !p.key.includes('单玻')) q = diao ? p.quantity / 2 : isDiamond(l) ? p.quantity : Math.round(p.quantity / 2)
         if (diao && l.fans === '一固一活') q = 1
         if (diao && l.fans === '双活') q = 2
       }
