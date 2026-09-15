@@ -3447,6 +3447,23 @@ function appendAccessory(remark: string, l: Line): string {
 // 生产单/玻璃合片 remark（原版 produces 行，两条引擎分别对应平开/吊趟）：
 //   平开 `_0x551a25` = [轨道种类, 五金, 安装地址, 备注] + 加配(`<br>`) + 墙型(`<br>`)
 //   吊趟 `_0x500ef9` = [五金, 单双丁(≠正常), 备注, 安装地址] + 加配(`<br>`)  —— **无墙型**
+/**
+ * 「品牌」段（原版 @497060 生产平开 / @517540 生产吊趟 / @536200·@55xxxx product2·product3）：
+ * 门控链是「**客户编号非空且 ≠ 0** → 查客户资料 → `品牌` 非 `null`/`''`/`' '`」
+ * （原版走在线接口 `getLatestClientsInfo`；我们用本地 `clients`，与 `applyClient` 同源），
+ * 命中后 `备注 += " " + "品牌:" + 品牌` —— **空格**分隔，**不是** `<br>`，且**在 `appendAccessory`(配件) 之前**。
+ *
+ * ⚠️ 只有这 4 个 producer 有；**玻璃合片单**（`glassRemark`）与 **product1**（`_0x4495e3`/`_0x1239ce`）
+ *    逐个确认过 `_0xc8b731` 前没有品牌块 ⇒ 那边不要加。
+ */
+function brandSegment(): string {
+  const code = String(order.client_code ?? '')
+  if (!code || code === '0') return ''
+  const b = clients.value.find((c) => c.code === code)?.brand
+  if (b == null || b === '' || b === ' ') return ''
+  return `品牌:${b}`
+}
+
 function produceRemark(l: Line): string {
   const items = l.line_type === 'diao'
     ? [l.hardware || null, l.double_ding && l.double_ding !== '正常' ? l.double_ding : null, l.remark || null, l.install_address || null]
@@ -3458,6 +3475,8 @@ function produceRemark(l: Line): string {
     const wall = wallTypeLabel(l)
     if (wall) s = s ? `${s}<br>${wall}` : wall
   }
+  const brand = brandSegment()
+  if (brand) s = s ? `${s} ${brand}` : brand
   return appendAccessory(s, l)
 }
 
@@ -3484,6 +3503,9 @@ function oldSheetRemark(l: Line): string {
   }
   const wall = wallTypeLabel(l)
   if (wall) s = s ? `${s}-${wall}` : wall
+  // 品牌段（product2/3 有，见 `brandSegment`）；分隔是**空格**，位置在 配件 之前。
+  const brand = brandSegment()
+  if (brand) s = s ? `${s} ${brand}` : brand
   return appendAccessory(s, l)
 }
 
@@ -3668,13 +3690,26 @@ function product10Row(l: Line) {
   let remark = l.remark || ''
   const add = markupNames(l)
   if (add) remark = remark ? `${remark}<br>加配：${add}` : `加配：${add}`
-  // 原版 GlassSize（@400471）：部件值形如 `{result}*{quantity}`；
-  //   `GlassSize = 玻璃高.result + "*" + 玻璃宽.result + "*" + (玻璃宽.quantity || 1)`
+  // 原版 GlassSize（@386080）：部件值形如 `{result}*{quantity}`；
+  //   **取第一个**含「玻璃高」的部件，配「**同前缀同后缀**」的「玻璃宽」部件：
+  //   `GlassSize = 高.result + "*" + 宽.result + "*" + parseInt(宽.quantity || "1")`
+  //   （原版先对 KEY 做拼音转写 `玻璃高→BoLiGao`、`玻璃宽→BoLiKuan`，再按前缀/后缀配对；
+  //    转写是**逐字符**映射，故等价于直接对中文 KEY 做同前缀同后缀配对。）
+  //   ❗不是「最后一个高 × 最后一个宽」—— 公式里若同时有 `玻璃高/宽` 与 `上亮窗玻璃高/宽`，
+  //     `.pop()` 会取到**上亮**那一对，原版取的是声明在前的 `玻璃高`。
   // 部件集走 **L1/L2 专用映射**（自带数量修正 + ×行数量），不是引擎B 的原始结果。
   const parts = product10Parts(l).filter((p) => p && p.materialName)
-  const gH = parts.filter((p) => pk(p).includes('玻璃高')).pop()
-  const gW = parts.filter((p) => pk(p).includes('玻璃宽')).pop()
-  const glassSize = gH && gW ? `${gH.result}*${gW.result}*${gW.quantity || 1}` : ''
+  const glassSize = (() => {
+    for (const p of parts) {
+      const i = p.key.indexOf('玻璃高')
+      if (i < 0) continue
+      const w = parts.find((x) => x.key === `${p.key.slice(0, i)}玻璃宽${p.key.slice(i + 3)}`)
+      if (!w) continue
+      const n = parseInt(String(w.quantity), 10)
+      return `${p.result}*${w.result}*${Number.isNaN(n) ? 1 : n}`
+    }
+    return ''
+  })()
   return {
     orderID: order.receipt_no || '',
     client: order.client_name || '',
@@ -3705,18 +3740,22 @@ function product10Parts(l: Line): PartPreview[] {
   const Q = l.quantity || 1
   const single = (l.bottom_glass || '') === '无' || (l.face_glass || '') === '无'
   return base.map((p) => {
-    const n = p.materialName
+    // ⚠️ 谓词一律读 **KEY**（原版 L1 @384171 / L2 @399118：
+    //   `Object.keys(部件).forEach(e => { e.includes("边封") … e.includes("滑")||e.includes("左右盖板")||e.includes("轨道盖板")
+    //      e.includes("玻璃") && !e.includes("亮窗") … !e.includes("单玻") })`），
+    //   且原版输出对象就是 `{ [KEY]: { materialName, result, quantity } }`（下游再对 KEY 做拼音转写）。
+    const k = p.key
     let result = p.result
     let q = p.quantity
-    if (n.includes('边封') && l.edge_seal_count != null) q = Number(l.edge_seal_count) || 0
-    if (l.track_length > 0 && (n.includes('滑') || n.includes('左右盖板') || n.includes('轨道盖板'))) result = l.track_length
-    if (n.includes('玻璃') && !n.includes('亮窗')) {
-      if (single && !n.includes('单玻')) q /= 2
+    if (k.includes('边封') && l.edge_seal_count != null) q = Number(l.edge_seal_count) || 0
+    if (l.track_length > 0 && (k.includes('滑') || k.includes('左右盖板') || k.includes('轨道盖板'))) result = l.track_length
+    if (k.includes('玻璃') && !k.includes('亮窗')) {
+      if (single && !k.includes('单玻')) q /= 2
       if (l.fans === '一固一活') q = 1
       if (l.fans === '双活') q = 2
     }
-    // L2 比 L1 多这一条（§13）：名含「玻璃」且含「亮窗」的件同样折半
-    if (isDiao && n.includes('玻璃') && n.includes('亮窗') && single && !n.includes('单玻')) q /= 2
+    // L2 比 L1 多这一条（§13）：KEY 含「玻璃」且含「亮窗」的件同样折半
+    if (isDiao && k.includes('玻璃') && k.includes('亮窗') && single && !k.includes('单玻')) q /= 2
     q *= Q
     return { ...p, result, quantity: q }
   })
@@ -3725,10 +3764,13 @@ function product10Parts(l: Line): PartPreview[] {
 // product10（生产标签）复制张数：公式部件同时含「玻璃宽」「玻璃高」时取玻璃宽部件的 quantity，否则 1。
 function product10Copies(l: Line): number {
   const parts = product10Parts(l).filter((p) => p && p.materialName)
-  const gW = parts.filter((p) => pk(p).includes('玻璃宽')).pop()
-  const gH = parts.filter((p) => pk(p).includes('玻璃高')).pop()
+  // 原版 @387340：门控是「行对象**同时**含 `*玻璃宽` 与 `*玻璃高` 两种键」；
+  //   张数 = **第一个**含「玻璃宽」的键的 `parseInt(quantity || "1")`（不是最后一个）。
+  const gW = parts.find((p) => p.key.includes('玻璃宽'))
+  const gH = parts.find((p) => p.key.includes('玻璃高'))
   if (!gW || !gH) return 1
-  return Math.max(1, Math.floor(Number(gW.quantity) || 1))
+  const n = parseInt(String(gW.quantity), 10)
+  return Math.max(1, Number.isNaN(n) ? 1 : n)
 }
 
 // 原版 product10 **预览**用的分组限量（@402331）：
@@ -4144,8 +4186,19 @@ const STORE_DOOR_NO_CLIENT = [
   '润佳门窗', '宜居门窗厂', '欧铂尊门业', '鑫美龙家居', '皓雅门窗', '富嘉名门', '珊珊极简移门', '華宇推拉',
   '立泰金属制品有限公司', '皇牌博雅铝门窗厂', '爱德益钛镁合金厂', '宏辉门窗', '华顺门业', '喜迎门移门',
   '天成门业', '煜宸门业', '粤诗丽门窗', '浩扬移门', '嘉和门业', '美固建材经营部',
-  '鸿程鑫派门窗', // 原版在 `_0x743794` 之外**硬编码**的单家门店（§20.3 / 引擎普查 C12）
 ]
+/**
+ * 原版在 `_0x743794` **之外**硬编码的单家门店（§20.3 / 引擎普查 C12）。
+ *
+ * ⚠️ **只参与 `door` 列判断，不参与 `doorImg` 门控** —— 原版两处用的不是同一份名单：
+ *   `door`    @515211 / @495…：`_0x743794.includes(店) || "鸿程鑫派门窗" === 店`
+ *   `doorImg` @494870（平开）/ @515705（吊趟）/ @585217（C吊）：
+ *             `!_0x743794.includes(店) && 行["图片ID"]` → **只有那 44 家**会被跳过取图
+ */
+const STORE_DOOR_NO_CLIENT_EXTRA = '鸿程鑫派门窗'
+/** `door` 列（客户/门类）的白名单判断。 */
+const isDoorNoClientStore = (name: string) =>
+  STORE_DOOR_NO_CLIENT.includes(name) || name === STORE_DOOR_NO_CLIENT_EXTRA
 /** 原版 product1 特判门店（@570279）：`kouHeigth` 改用「套线种类」、`kouWidth` 不再赋值。 */
 const STORE_SHENGFEI = '晟斐门窗厂'
 /** 原版回执 glass 列特判门店（@351196）：不加 `*{玻璃厚}mm` 后缀。 */
@@ -4463,8 +4516,12 @@ function basicInfoText(l: Line, engine: 'A' | 'B' | 'C' = 'B'): string {
 function productionRow(l: Line, engine: 'B' | 'C'): Record<string, unknown> {
   return {
     // 原版：白名单门店不含客户名
-    door: (STORE_DOOR_NO_CLIENT.includes(tenantName.value) ? [l.profile, l.color] : [order.client_name, l.profile, l.color]).filter(Boolean).join('<br>'),
-    doorImg: l.image_url || '',
+    door: (isDoorNoClientStore(tenantName.value) ? [l.profile, l.color] : [order.client_name, l.profile, l.color]).filter(Boolean).join('<br>'),
+    // 原版 @494870（平开）/ @515705（吊趟）/ @585217（C吊）：`!_0x743794.includes(店) && 行["图片ID"]` 才取图
+    // ⇒ **那 44 家白名单门店的门图整列为空**（注意这里**不含** `鸿程鑫派门窗`）。
+    // 对照：玻璃合片单（@464478）与 product2/3（@533xxx/@552xxx）**没有**白名单门控，只判 `行["图片ID"]`，
+    //       那两族我们无条件取图是对的，别一并改。
+    doorImg: STORE_DOOR_NO_CLIENT.includes(tenantName.value) ? '' : l.image_url || '',
     OrderID: order.receipt_no || '',
     basicInfo: basicInfoText(l, engine),
     lockImg: lineLockImage(l),
@@ -4592,13 +4649,11 @@ function product1Produces(): Record<string, unknown>[] {
     const s = (v: number) => (v ? String(v) : '')
     let glassH = 0
     let glassW = 0
-    let fengBanW = 0
     for (const p of parts) {
       const n = pk(p) // 同上：原版读 KEY
       const v = p.result && !isNaN(Number(p.result)) ? Number(p.result) : 0
       if (n.includes('玻璃高')) glassH = v
       if (n.includes('玻璃宽')) glassW = v
-      if (n.includes('封板宽')) fengBanW = v
     }
     // 门框（原版）：门框高/宽 先赋，前框高→`前`+(前框高+前包加长)，后框高/宽 以 `<br>后` 追加
     let frameHeigth = s(val('门框高'))
@@ -4611,9 +4666,13 @@ function product1Produces(): Record<string, unknown>[] {
     if (qianW) frameWidth = `前${qianW}`
     if (houW) frameWidth = `${frameWidth}<br>后${houW}`
     if (houH) frameHeigth = `${frameHeigth}<br>后${houH}`
-    // sheetWidth：上下方 + 封板宽>0 时追加
-    let sheetWidth = s(val('上下方'))
-    if (fengBanW > 0) sheetWidth = `${sheetWidth}<br>封板宽${fengBanW}`
+    // sheetWidth：**只有 上下方**。
+    // 原版 @570381 里确实还有两支 `Number(_0x55389d)>0 && (sheetWidth += "<br>封板宽"+…)` /
+    // `Number(_0x41a723)>0 && (sheetHeight += "<br>封板高"+…)`，但 `_0x55389d`/`_0x41a723` 由
+    // 赋值分支 `e===封板宽` / `e===封板高` 写入，而 **`e` 只遍历关键词数组 `_0x1389a5`，
+    // 数组里是 `"封板"`（无宽/高）** ⇒ 两个分支**恒为死代码**，原版永不输出「封板宽/封板高」。
+    // 我们原先会在 KEY 含「封板宽」时追加，属**多输出**，已去掉。
+    const sheetWidth = s(val('上下方'))
     // doorSize：门洞高x门洞宽；吊脚>0 追加，**否则**亮窗总高>0 追加；数量>1 追加；洞尺前置
     let doorSize = `${l.door_height || 0}x${l.door_width || 0}`
     if (l.jiao > 0) doorSize += `x${l.jiao}`
