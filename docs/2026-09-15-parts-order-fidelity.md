@@ -238,8 +238,7 @@ let a = 0
 - `computeParts` 的出口排序即可覆盖全部下游（本文件 §2.1 的 7 个调用点都从它拿 parts）
 - 后端 `extra` 已是 jsonb —— 数组在其中保序 ✅
 - 后端**无任何 jsonb 专有算子**（已核实：全仓 `->>` / `@>` / `jsonb_*` 命中 0），故不改列类型也无连带风险
-- **同类问题排查**：`order_lines.parts`（算料结果快照）、`markup`、套线/五金等以**对象**存储的字段
-  —— 若其顺序也被消费，同样需要数组化
+- **同类问题排查（已完成，见 §4.5）**
 
 ### 4.4 数据迁移
 
@@ -247,13 +246,28 @@ let a = 0
 但 B 的价值在于**导入链路**：从原版抓取时把 `Object.keys(parts)` 的**声明序**一并写进 `partOrder`，
 从此不再丢。
 
+### 4.5 同类问题排查（全库 JSON/JSONB 列逐列判定，2026-09-15）
+
+遍历 `information_schema` 取全部 8 个 `json/jsonb` 列，逐列判定「顶层是对象还是数组」+「顺序是否被消费」：
+
+| 列 | 顶层类型 | 顺序被消费？ | 判定 |
+|---|---|---|---|
+| **`formulas.parts`** | **对象** | ✅ 被消费（打印列序 + `applyWidthIncrement` 状态位 `a`）| ❌ **有问题 → 本文件已修** |
+| `formulas.extra` | 对象 | ❌ **全按名访问**（`resetSize`/`widthIncrement`/`TaoDong`/`hinge` 均按键取；`applyHinge` 用 `items.find(it=>it.includes('合页'))`）| ✅ 安全 |
+| `order_lines.parts` | **数组** | ✅ 被消费（`partsTooltip` 的 `.map` 显示序）| ✅ 数组在 JSONB 里保序 → 安全 |
+| `order_lines.markup` | **数组** | ✅ 被消费（`markupNames` 的 `.map` 拼接序）| ✅ 同上 → 安全 |
+| `print_templates.template` | 对象 | 顺序敏感部分**全是数组**（`config.panels`、`panels[].printElements`）| ✅ 安全 |
+| `column_configs.ping_columns` / `diao_columns` | 对象 | ❌ 按名（`colVis` = `map[key] !== false`）| ✅ 安全 |
+| `profile_prices.lock_rules` | 数组 | ✅ 被消费（锁具候选序，`rememberLocks`）| ✅ 安全 |
+
+**结论：全库只有 `formulas.parts` 一列满足「对象（丢序）+ 顺序被消费」这个组合，即本文件所述问题；其余列要么是数组（JSONB 保序），要么是纯按名访问 —— 均无需改动。**
+
 ---
 
 ## 5. 待办
 
 - [ ] `formulas.extra` 增加 `partOrder: string[]`（前端保存时提交 `Object.keys(parts)`）
 - [ ] `computeParts` 出口按 `partOrder` 排序（缺省退回现状，不改变未迁移数据的行为）
-- [ ] 排查同类：`order_lines.parts` / `markup` / 套线·五金等**对象**字段是否也有顺序被消费
 - [ ] 修复后：用一张部件数多、关键词命中多的公式端到端验证列内顺序
       （移门外框应为 `边封 → 上滑 → 下滑 → …`）
 
