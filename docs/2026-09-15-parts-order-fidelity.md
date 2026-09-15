@@ -98,6 +98,91 @@
 
 ---
 
+## 2.2 补漏清单（并行审计 po-ours 交付，team-lead 已逐条复核）
+
+> 本节是对 §2.1 的**补漏**。以下每条的代码位置与原文对照均已由 team-lead 复核。
+
+### 🔴 最大遗漏：`applyWidthIncrement` 是**跨键顺序状态机**
+
+`Hui.vue:2235-2281` 单趟 `for (const [key,p] of Object.entries(parts))`，用状态位 `a`：
+
+```js
+let a = 0
+… key.includes(fans) && key.includes('上下方') && (p.v += x, a = 1)
+… key.includes('封板宽') && a === 1 && (p.v -= x)          // ← 需 a=1
+… (上滑|上轨|下滑|左右盖板|上下盖板|轨道盖板) && a === 1 && (p.v -= dtv)   // ← 需 a=1
+… key.includes('上横') && 门洞高 < 亮窗总高 && a === 1 && (p.v -= dtv)      // ← 需 a=1
+```
+
+**原版逐字相同**（`Hui.formatted.js:9467`：`l.includes(扇数)&&l.includes("上下方")&&(c.v=…+x, a=1)`、
+`l.includes(封板宽)&&1===a&&(c.v=…-x)`）—— 原版跑在**声明序**上，我们跑在**重排序**上。
+
+**实测分叉（本条已坐实，三层证据）**：
+
+| 层 | 证据 |
+|---|---|
+| 我方代码 | `Hui.vue:2263-2279` 的 `a === 1` 门控 |
+| 原版 | `Hui.formatted.js:9467` 的 `1 === a` 门控（逐字对应）|
+| **客户端实际键序** | 直接抓 API 报文：`2轨2扇上下方` 在**第 0 位**、`2轨上滑` 在第 11 位（serde_json `BTreeMap` 按 UTF-8 字节序，ASCII 数字前缀排在汉字前）|
+| 原版声明序 | `original-formulas.json` 的推拉：`无亮窗边封, 2轨上滑, 2轨下滑, 2轨2扇上下方`(第 3 位) |
+
+⇒ 原版处理**轨道件**时 `a=0`（减量**不生效**），我们 `a=1`（减量**生效**）
+⇒ **同一张单子，轨道长度/封板宽/上横长度算出来不同** —— 这是唯一一处顺序会改**数值**的路径。
+
+> ⚠️ **当前实际影响 = 0**：库里只有 formula 4 / 9 配了 `widthIncrement`，而它们是**平开键形**
+> （`门框宽/上下方/…`，无轨道件、无 `{扇数}上下方`），`a` 恒为 0；唯一吊趟键形的 formula 7 没配
+> `widthIncrement`。所以**现在看不出来，导入真公式后必炸**。
+>
+> ⚠️ 另注：`computePartsUncached` 的**两遍 eval 防护挡不住这条** —— `applyWidthIncrement` 在
+> `2554` 执行，**早于**两遍 eval，直接改 `p.v` 污染最终 result。
+
+### 🔴 §2.1 漏掉的另外 3 处强敏感
+
+| # | 位置 | 说明 |
+|---|---|---|
+| 2 | `Hui.vue:3752-3754` `glassProduces.groupText` **平开分支** | `list[list.length-1]` 取**最后一个「门扇」命中件**的 quantity 决定 `数量:N`（§2.1 只覆盖了吊趟的 3762/3763）|
+| 3 | `Hui.vue:4433-4439` `product1Produces` 的 `for (const p of parts)` | 与 4426 的 `.pop()` 是**两条独立路径**：`玻璃高`/`玻璃宽`/`封板宽` 三处"后者覆盖"，直接喂 `4467 glassSize` 与 `4453 sheetWidth` |
+| 4 | `Hui.vue:2059-2065` `partsTooltip` | `l.parts.map(...).join('\n')` 纯 `.map` 出显示文本 → **顺序变则提示内容变** |
+
+> 第 4 条同时**纠正 §2.1 的结论**：`2635` 存的 `l.parts` 有**两个**消费点
+> （`2060` 强敏感显示 + `3792` `.find` 条件敏感），不能简单标"不敏感"。
+
+### 🟡 漏掉的组内/条件敏感
+
+| # | 位置 | 说明 |
+|---|---|---|
+| 5 | `Hui.vue:1118-1132` `partsTrackOptions` | 决定**轨道/套线下拉候选顺序**；读的是 `formulaOf(l).parts`，**不经 computeParts**，但**同一个重排序源** |
+| 6 | `Hui.vue:4158` `windowsText` 吊趟 `parts.find(扣板厚)` | 首个命中，与 3792 同类 |
+| 7 | `Hui.vue:4184-4193` `windowsText` 吊趟D 的 `.sort((a,b)=>a.prio-b.prio)` | 稳定排序 → **同 prio 并列时并列内序 = parts 序** |
+| 8 | `Hui.vue:3765/3768` `glassProduces` 吊趟 | `t1` 与 `g2.map(...)` 的**文本行序**（§2.1 只列了 3762/3763 的数量）|
+
+### ✅ 补入「不敏感」（穷举完整性）
+
+- `2286-2306 applyHinge`：逐键改自己的 `v`，无跨键状态
+- `2319-2513 applyPartState`：逐键 `set`；`keys.some()` 仅布尔存在性
+- `2590-2599` 两遍 eval + `secondPass`：本身免疫（但**挡不住 §2.2 第 1 条**，见上）
+- **`[0]` 全审**：`Hui.vue` 内 `[0]` 无一处作用在 parts 上（唯一近亲 `3645 arr[0]?.glass` 读的是 label rows）
+- `4857 .parts-preview`：**死 CSS**，全仓无引用
+
+### 🔴 另一个文件：`app/src/utils/formulaEngine.ts`
+
+| # | 位置 | 说明 |
+|---|---|---|
+| 14 | `formulaEngine.ts:148-161` `recalcForward`（调用方 `Formulas.vue:333`）| **单趟** `Object.entries(parts)`，跨件引用取 `computed[ref]`，**没算到就当 `'0'`** —— 依赖件排后面就占位成 0。**与 `computePartsUncached` 的两遍实现不一致**。序源 `Formulas.vue:832 Object.assign(parts, p)` ⇒ 同一重排序源。影响公式编辑器的占位值/结果列 |
+| 15 | `Formulas.vue:313 rows` + `639 applyTemplate` | 编辑器明细表行序 = `Object.entries(parts)`；`applyTemplate` 按 `TEMPLATES` 序重建 ⇒ **保存并重载后行序会变**（**用户可见**）|
+
+### 一条重要的存储语义差异
+
+**`order_lines.parts` 是 JSONB 数组**（数组在 jsonb 里保序），**`formulas.parts` 是对象**（对象丢序）。
+同一个 `.parts` 名字，两种行为 —— 行上存下来的算料结果**顺序是保留的**。
+
+### 🔧 对 §4 修复方案的补充
+
+改序后**必须回归 `applyWidthIncrement`**（轨道件/封板宽/上横的长度）——
+这是唯一一处顺序会改变**数值**（而非仅顺序）的路径（见本节第 1 条）。
+
+---
+
 ## 3. 存量数据：**无法恢复**
 
 - 我们库现有 6 条公式：`123` / `推拉` / `33333` / `测试移门A` / `测试亮窗2格` / `带量子`
