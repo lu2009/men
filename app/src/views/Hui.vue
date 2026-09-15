@@ -4164,6 +4164,16 @@ function doorframeText(l: Line, engine: EngineId): string {
 // 吊趟 引擎B：亮窗类[中柱,亮窗玻璃,槽,压线] + 扣板组（拼扣板厚，`*<br>` 分隔；扣板厚缺失时打 `*0`）。
 // 吊趟 oldSheet：可选亮窗段（仅 亮窗总高>门洞高）+ 主体段（[槽,封板高,封板宽] 按关键词下标排序后拆「非玻璃/玻璃」）
 //                + 扣板组（拼扣板厚，普通 `*` 分隔）。
+//
+// ⚠️ **匹配一律用部件 KEY，显示名才用 `materialName`** —— 原版四处实现都是
+//    `Object.entries(parts).filter((([e]) => 关键词.some(t => e.includes(t))))` 后
+//    `t.materialName + ":" + …`（@492734 平开引擎B、@533094 平开 oldSheet、
+//    @512847 吊趟引擎B、@550917/@551313 吊趟 oldSheet；token 解码见
+//    `legacy/decode-stringmap.mjs`）。KEY 与 materialName **不等**是常态
+//    （如 KEY `上亮窗玻璃高` / materialName `上亮玻璃高`、KEY `2轨扣板厚` / materialName `扣板厚`），
+//    按 materialName 匹配会**静默丢件**：`上亮玻璃高` 不含关键词 `上亮窗玻璃`。
+//    同理，`includes('玻璃')` / `includes('单玻')` / `includes('亮窗玻璃')` 这些判定
+//    在原版里**读的也是 KEY**（`e.includes(...)`），故一并改为 `p.key`。
 function windowsText(l: Line, engine: EngineId): string {
   const oldSheetEngine = engine === 'D'
   const parts = computeParts(l, engine).filter((p) => p && p.materialName)
@@ -4173,8 +4183,8 @@ function windowsText(l: Line, engine: EngineId): string {
   // 玻璃件数量修正（吊趟两套额外有扇数修正）
   const glassQty = (p: PartPreview, withFans: boolean) => {
     let q = p.quantity
-    if (p.materialName.includes('玻璃')) {
-      if (single && !p.materialName.includes('单玻')) q = withFans ? q / 2 : Math.round(q / 2)
+    if (p.key.includes('玻璃')) {
+      if (single && !p.key.includes('单玻')) q = withFans ? q / 2 : Math.round(q / 2)
       if (withFans && l.fans === '一固一活') q = 1
       if (withFans && l.fans === '双活') q = 2
     }
@@ -4182,10 +4192,10 @@ function windowsText(l: Line, engine: EngineId): string {
   }
 
   if (l.line_type === 'diao') {
-    const thick = parts.find((p) => p.materialName.includes('扣板厚'))?.result ?? 0
+    const thick = parts.find((p) => p.key.includes('扣板厚'))?.result ?? 0
     const padGroup = () =>
       parts
-        .filter((p) => p.materialName.includes('扣板') && !p.materialName.includes('扣板厚'))
+        .filter((p) => p.key.includes('扣板') && !p.key.includes('扣板厚'))
         .map((p) => {
           const o = clamp01(p.quantity * Q)
           return oldSheetEngine
@@ -4194,26 +4204,26 @@ function windowsText(l: Line, engine: EngineId): string {
         })
     if (!oldSheetEngine) {
       const lw = parts
-        .filter((p) => ['中柱', '亮窗玻璃', '槽', '压线'].some((k) => p.materialName.includes(k)))
+        .filter((p) => ['中柱', '亮窗玻璃', '槽', '压线'].some((k) => p.key.includes(k)))
         .map((p) => partLine(p.materialName, `${p.result}*${clamp01(glassQty(p, true) * Q)}`))
       return [...lw, ...padGroup()].join('<br>')
     }
     let head = ''
     if (l.light_window_height > l.door_height) {
       head = parts
-        .filter((p) => ['中柱', '亮窗玻璃', '压线'].some((k) => p.materialName.includes(k)))
+        .filter((p) => ['中柱', '亮窗玻璃', '压线'].some((k) => p.key.includes(k)))
         .map((p) => {
-          const x = p.materialName.includes('亮窗玻璃') && (l.bottom_glass || '无') === '无' ? Q / 2 : Q
+          const x = p.key.includes('亮窗玻璃') && (l.bottom_glass || '无') === '无' ? Q / 2 : Q
           return `${p.materialName}:${p.result}*${clamp01(p.quantity * x)}`
         })
         .join('<br>')
     }
     const KW = ['槽', '封板高', '封板宽']
     const main = parts
-      .filter((p) => KW.some((k) => p.materialName.includes(k)) && !p.materialName.includes('亮窗玻璃'))
+      .filter((p) => KW.some((k) => p.key.includes(k)) && !p.key.includes('亮窗玻璃'))
       .map((p) => ({
-        prio: KW.findIndex((k) => p.materialName.includes(k)),
-        isGlass: p.materialName.includes('玻璃'),
+        prio: KW.findIndex((k) => p.key.includes(k)),
+        isGlass: p.key.includes('玻璃'),
         text: `${p.materialName}:${p.result}*${clamp01(glassQty(p, true) * Q)}`,
       }))
       .sort((a, b) => a.prio - b.prio)
@@ -4223,10 +4233,10 @@ function windowsText(l: Line, engine: EngineId): string {
 
   const kw = oldSheetEngine ? ['扣板', '上亮横', '压线', '封板', '上亮窗玻璃'] : ['扣板', '上亮横', '上亮窗玻璃', '压线']
   return parts
-    .filter((p) => kw.some((k) => p.materialName.includes(k)))
+    .filter((p) => kw.some((k) => p.key.includes(k)))
     .map((p) => {
       let q = glassQty(p, false)
-      if (isDiamond(l) && p.materialName.includes('玻璃') && single && !p.materialName.includes('单玻')) q = p.quantity
+      if (isDiamond(l) && p.key.includes('玻璃') && single && !p.key.includes('单玻')) q = p.quantity
       return `${p.materialName}:${p.result}*${q * Q}`
     })
     .join('<br>')
