@@ -4107,9 +4107,17 @@ const DS_KW = {
 // 吊趟（两套同构）：轨道组（边封数覆盖数量、轨道长覆盖滑/盖板的结果）→「套线名：{套线种类}」→套线组（包宽/包高）。
 function doorframeText(l: Line, engine: EngineId): string {
   const oldSheetEngine = engine === 'D'
+  const cEngine = engine === 'C'
+  // 品牌分隔符 `:<br>` 在旧版是**逐分支硬编码**的，不是全局开关：
+  //   B平/B吊 的**每一个**分支都判品牌；**D平/D吊/C吊 一个都不判**（恒 `:`）。
+  //   我们原先按「非 D 引擎」一律 `partLine()` ⇒ B吊 的下轨/上滑/上轨/套线少 `<br>`、D 系多 `<br>`。
+  const brand = engine === 'B'
   const parts = computeParts(l, engine).filter((p) => p && p.materialName)
   const Q = l.quantity || 1
-  const fmt = (p: PartPreview, result?: number) => partLine(p.materialName, `${result ?? p.result}*${p.quantity * Q}`)
+  const fmt = (p: PartPreview, result?: number) => {
+    const rest = `${result ?? p.result}*${p.quantity * Q}`
+    return brand ? partLine(p.materialName, rest) : `${p.materialName}:${rest}`
+  }
 
   if (l.line_type === 'diao') {
     const track = (l.track || '')
@@ -4120,39 +4128,45 @@ function doorframeText(l: Line, engine: EngineId): string {
     const src = parts
       .filter((p) => ['边封', '下轨', '上轨', '滑', '固定', '移动', '上横', '盖板'].some((k) => p.key.includes(k)))
       .filter((p) => !p.key.includes('企'))
+      // 边封闸门照抄原版 `0 !== 行["边封数"]`：**宽松不等**，故 `null`/`''` 时**保留**边封
+      //（我们原先 `Number(...) !== 0` 会把 `null` 也判成 0 而**整条边封消失**）。
       .filter(
         (p) =>
-          (!p.key.includes('边封') || Number(l.edge_seal_count) !== 0) &&
+          (!p.key.includes('边封') || (l.edge_seal_count as unknown) !== 0) &&
           !(track.includes('吊轨') && p.key.includes('下滑')),
       )
-    const multi = src.filter((p) => p.key.includes('下滑')).length > 1
+    // C吊（@581383）**没有** multi 判定，也**没有**左右盖板/轨道盖板两条轨道长覆盖 —— 只有 `边封` + `滑`。
+    const multi = !cEngine && src.filter((p) => p.key.includes('下滑')).length > 1
     const trackGrp = (multi ? src.filter((p) => !p.key.includes('下滑') || p.materialName.includes(track)) : src).map((p) => {
       const k = p.key
       const n = p.materialName
       let result = p.result
       let qty = p.quantity
       if (k.includes('边封') && l.edge_seal_count != null) qty = Number(l.edge_seal_count)
-      if ((k.includes('滑') || k.includes('左右盖板') || k.includes('轨道盖板')) && l.track_length > 0) result = l.track_length
-      if (k.includes('下滑')) return partLine(multi && n.includes(track) ? n : `${track}${n}`, `${result}*${qty * Q}`)
-      if (k.includes('下轨')) return `${track}${n}:${result}*${qty * Q}`
+      if (k.includes('滑') && l.track_length > 0) result = l.track_length
+      if (!cEngine && (k.includes('左右盖板') || k.includes('轨道盖板')) && l.track_length > 0) result = l.track_length
+      const rest = `${result}*${qty * Q}`
+      if (k.includes('下滑')) return brand ? partLine(multi && n.includes(track) ? n : `${track}${n}`, rest) : `${multi && n.includes(track) ? n : `${track}${n}`}:${rest}`
+      if (k.includes('下轨')) return `${track}${n}:${rest}`
       if ((k.includes('上滑') || k.includes('上轨')) && track.includes('吊轨')) {
         const kw = k.includes('上滑') ? '上滑' : '上轨'
-        return `${n.includes(kw) ? n.replace(kw, track) : `${track}-${n}`}:${result}*${qty * Q}`
+        return `${n.includes(kw) ? n.replace(kw, track) : `${track}-${n}`}:${rest}`
       }
-      return partLine(n, `${result}*${qty * Q}`)
+      return brand ? partLine(n, rest) : `${n}:${rest}`
     })
     // 套线组：**按部件 key 匹配**（原版 `Object.entries(parts).filter(([e])=>e.includes("包宽")||e.includes("包高"))`
-    // @Hui.formatted.js:12498），显示名取 `materialName`。二者不同名 —— 如公式 7 的 key
+    // @512145），显示名取 `materialName`。二者不同名 —— 如公式 7 的 key
     // `无亮窗双包宽` 其 materialName 是 `套线宽`，按 materialName 匹配会整个漏掉。
     const casing = parts
       .filter((p) => p.key.includes('包宽') || p.key.includes('包高'))
       .flatMap((p) => {
         const n = p.materialName
+        const c = (rest: string) => (brand ? `${n}:<br>${rest}` : `${n}:${rest}`)
         if (p.key.includes('包高') && ((l.front_casing_add || 0) > 0 || (l.back_casing_add || 0) > 0)) {
           const q = (p.quantity * Q) / 2
-          return [`${n}:${p.result + (l.front_casing_add || 0)}*${q}`, `${n}:${p.result + (l.back_casing_add || 0)}*${q}`]
+          return [c(`${p.result + (l.front_casing_add || 0)}*${q}`), c(`${p.result + (l.back_casing_add || 0)}*${q}`)]
         }
-        return [`${n}:${p.result}*${p.quantity * Q}`]
+        return [c(`${p.result}*${p.quantity * Q}`)]
       })
     return casing.length > 0
       ? `${trackGrp.join('<br>')}<br>套线名：${l.casing || ''}<br>${casing.join('<br>')}`
@@ -4199,6 +4213,14 @@ function doorframeText(l: Line, engine: EngineId): string {
 //    在原版里**读的也是 KEY**（`e.includes(...)`），故一并改为 `p.key`。
 function windowsText(l: Line, engine: EngineId): string {
   const oldSheetEngine = engine === 'D'
+  // 引擎C（C吊，只服务「生产单1」的吊趟行）：**原版不做任何玻璃修正**，
+  // @583110 `_0x35fcb4 = Object.entries(parts).filter((([e]) => ["中柱","亮窗玻璃","槽","压线"].some(t => e.includes(t))))
+  //   .map((([e,t]) => t.materialName + ":" + t.result + "*" + clamp(t.quantity*数量)))` —— 既无折半、也无扇数修正。
+  const cEngine = engine === 'C'
+  // 品牌分隔符 `:<br>` **只有引擎B（B平/B吊）有**；D平/D吊/C吊 原版一律硬编码 `:`
+  // （@533034 平开D、@550882 吊趟D-head、@583110 吊趟C 都直接 `t.materialName+":"`）。
+  const brand = engine === 'B'
+  const sep = (name: string, rest: string) => (brand ? partLine(name, rest) : `${name}:${rest}`)
   const parts = computeParts(l, engine).filter((p) => p && p.materialName)
   const Q = l.quantity || 1
   const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
@@ -4221,14 +4243,14 @@ function windowsText(l: Line, engine: EngineId): string {
         .filter((p) => p.key.includes('扣板') && !p.key.includes('扣板厚'))
         .map((p) => {
           const o = clamp01(p.quantity * Q)
-          return oldSheetEngine
+          return oldSheetEngine || cEngine
             ? `${p.materialName}:${p.result}*${thick}*${o}`
             : partLine(p.materialName, `${p.result}${thick > 0 ? `*<br>${thick}` : `*${thick}`}*${o}`)
         })
     if (!oldSheetEngine) {
       const lw = parts
         .filter((p) => ['中柱', '亮窗玻璃', '槽', '压线'].some((k) => p.key.includes(k)))
-        .map((p) => partLine(p.materialName, `${p.result}*${clamp01(glassQty(p, true) * Q)}`))
+        .map((p) => sep(p.materialName, cEngine ? `${p.result}*${clamp01(p.quantity * Q)}` : `${p.result}*${clamp01(glassQty(p, true) * Q)}`))
       return [...lw, ...padGroup()].join('<br>')
     }
     let head = ''
@@ -4260,16 +4282,21 @@ function windowsText(l: Line, engine: EngineId): string {
     .map((p) => {
       let q = glassQty(p, false)
       if (isDiamond(l) && p.key.includes('玻璃') && single && !p.key.includes('单玻')) q = p.quantity
-      return `${p.materialName}:${p.result}*${q * Q}`
+      return sep(p.materialName, `${p.result}*${q * Q}`)
     })
     .join('<br>')
 }
 
 function doorsheetText(l: Line, engine: EngineId): string {
   const oldSheetEngine = engine === 'D'
+  const cEngine = engine === 'C'
+  // 品牌分隔符 `:<br>` 与「玻璃高前插 `<br>`」**只存在于引擎B**：
+  //   C吊（@580778 `_0x1239ce.doorsheet`）恒为 `x.materialName+":"+x.result+"*"+…`，**既无 `:<br>` 也无前插 `<br>`**，
+  //   且关键词数组同 D吊（无 封板高/封板宽）—— 我们原先给 C 用了 `DS_KW.diao`（带封板）且套了 B 的两个变体，属引擎串味。
+  const brand = engine === 'B'
   const parts = computeParts(l, engine).filter((p) => p && p.materialName)
   const diao = l.line_type === 'diao'
-  const kws = isDiamond(l) ? DS_KW.diamond : diao ? (oldSheetEngine ? DS_KW.diaoOld : DS_KW.diao) : oldSheetEngine ? DS_KW.pingOld : DS_KW.ping
+  const kws = isDiamond(l) ? DS_KW.diamond : diao ? (oldSheetEngine || cEngine ? DS_KW.diaoOld : DS_KW.diao) : oldSheetEngine ? DS_KW.pingOld : DS_KW.ping
   // 排除词：吊趟两套都是「亮窗」；平开 引擎B 是「亮窗玻璃」、旧 schema(引擎D) 是「上亮玻璃」
   const exclude = diao ? '亮窗' : oldSheetEngine ? '上亮玻璃' : '亮窗玻璃'
   const out: string[] = []
@@ -4291,9 +4318,9 @@ function doorsheetText(l: Line, engine: EngineId): string {
         if (diao && l.fans === '双活') q = 2
       }
       const rest = `${p.result}*${q * (l.quantity || 1)}`
-      // 杉杉门店变体只存在于引擎B（生产单）两套；oldSheet 两套恒用 `:`
-      const c = oldSheetEngine ? `${n}:${rest}` : partLine(n, rest)
-      out.push(kw === '玻璃高' ? `<br>${c}` : c)
+      // 杉杉门店变体只存在于引擎B（生产单）两套；oldSheet 两套与 C吊 恒用 `:`
+      const c = brand ? partLine(n, rest) : `${n}:${rest}`
+      out.push(kw === '玻璃高' && !cEngine ? `<br>${c}` : c)
     }
   }
   return out.join('<br>')
