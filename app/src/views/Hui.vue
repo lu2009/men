@@ -624,6 +624,35 @@ const LS = {
   },
 }
 
+// —— 旧版「默认值」机制 ——
+// 键名照抄原版（平开 @36957 / 移门 @147180 两个 ref 初始化）：
+//   底玻   `BottomGlass`     两表**共用同一个键**，但**首次运行回落值不同**：平开「磨砂」、移门「白玻」
+//   玻璃厚 `GlassThickness`  两表共用，回落 4
+//   开向   `OpenDirection`   **只有移门表**读，回落「左前」（平开表开向硬编码 `""`）
+// 且**平开表**在用户改这三项时会「顺带设为默认」并弹提示（`le`/`ne`/`te`，定义 @36957、调用 @75380/@75890/@77100/@93688），
+// 守卫一致：**非空 且 与当前默认不同** 才写并提示。
+const LS_BOTTOM_GLASS = 'BottomGlass'
+const LS_GLASS_THICKNESS = 'GlassThickness'
+const LS_OPEN_DIRECTION = 'OpenDirection'
+/** 默认底玻：平开「磨砂」/ 移门「白玻」（等价于原版 `F.value` / `O.value`）。 */
+const defaultBottomGlass = (type: 'ping' | 'diao') => LS.get(LS_BOTTOM_GLASS) || (type === 'diao' ? '白玻' : '磨砂')
+/** 默认玻璃厚（等价于原版 `ee.value` / `P.value`）。 */
+const defaultGlassThickness = () => Number(LS.get(LS_GLASS_THICKNESS)) || 4
+/** 改底玻 → 设为默认（原版 `le`）。 */
+function rememberDefaultBottomGlass(v: string) {
+  const next = (v || '').trim()
+  if (!next || next === defaultBottomGlass('ping')) return
+  LS.set(LS_BOTTOM_GLASS, next)
+  message.success(`已将"${next}"设为默认底玻`)
+}
+/** 改玻璃厚 → 设为默认（原版 `ne`）。 */
+function rememberDefaultGlassThickness(v: string) {
+  const n = Number(v)
+  if (!v || Number.isNaN(n) || n === defaultGlassThickness()) return
+  LS.set(LS_GLASS_THICKNESS, String(n))
+  message.success(`已将"${n}mm"设为默认玻璃厚度`)
+}
+
 // 记忆默认：新建行读取，提交行写回「上一次使用值」。
 // 数字清洗：n-input-number 清空时给 null/NaN，统一归零（数量≥1），防后端 400。
 // 非负整数先 round 再 clamp；其余尺寸四舍五入到 0 位（毫米/元）。
@@ -1202,19 +1231,24 @@ function hardwareOptionsFor(l: Line): { label: string; value: string }[] {
 function newLine(type: 'ping' | 'diao'): Line {
   // 计价默认：平开门读 PriceType（默认套），吊趟门旧版硬编码「方」。
   const defPriceType = type === 'diao' ? '方' : LS.get('PriceType') || '套'
-  const defBottomGlass = LS.get('BottomGlass') || ''
-  const defFaceGlass = LS.get('FaceGlass') || '白玻'
-  // 新行玻璃厚按 底玻/面玻 初始状态判断（旧版 ce() 联动）：底玻空/无→单玻→8；底玻面玻都非空非无→双玻→4。
-  const defGlassThickness =
-    defBottomGlass === '' || defBottomGlass === '无'
-      ? '8'
-      : defFaceGlass !== '' && defFaceGlass !== '无'
-        ? '4'
-        : ''
+  // 底玻/面玻/玻璃厚/开向 的初值**逐字照抄原版新建行工厂**（平开 @39301 / 移门 @149781）：
+  //   `{"底玻": F.value, "面玻": "白玻", "玻璃厚": ce(), "开向": ""}`  ← 平开
+  //   `{"底玻": O.value, "面玻": "白玻", "玻璃厚": …,   "开向": L.value}` ← 移门
+  // 注意 **面玻是硬编码「白玻」**（不读 localStorage），且**底玻一定有值** ——
+  // 原版从不产生「底玻为空」的行，故 `"无" === 底玻` 的严格判定不会误伤。
+  const defBottomGlass = defaultBottomGlass(type)
+  const defFaceGlass = '白玻'
+  // 原版 `ce()`：底玻为「无」且默认厚度 < 8 时取 8，否则取默认厚度。
+  const t = defaultGlassThickness()
+  const defGlassThickness = String(defBottomGlass === '无' && t < 8 ? 8 : t)
   return {
     id: null,
     line_type: type,
-    profile: '', color: '', direction: '', fans: '', track: '', casing: '', hardware: '',
+    profile: '',
+    color: '',
+    // 移门开向回落「左前」（localStorage `OpenDirection`）；平开恒空串。
+    direction: type === 'diao' ? LS.get(LS_OPEN_DIRECTION) || '左前' : '',
+    fans: '', track: '', casing: '', hardware: '',
     bottom_glass: defBottomGlass, face_glass: defFaceGlass, glass_thickness: defGlassThickness,
     door_width: 0, door_height: 0, light_window_height: 0, wall_thickness: 0, jiao: 0,
     mother_door_width: 0,
@@ -1762,15 +1796,18 @@ function syncGlassMarkup(l: Line, newValue: string, oldValue: string) {
 // 面玻/底玻合并联动：改任一玻璃都同步玻璃厚（按当前两玻状态）与「元/方」玻璃加价项。
 function onGlassSelection(l: Line, newValue: string, oldValue: string) {
   syncGlassMarkup(l, newValue, oldValue)
-  // 玻璃厚联动按「当前底玻/面玻实况」判断，与本次改的是哪个字段无关（旧版 W() 对两者 blur 都触发）。
-  // 底玻为空(未选) 视同「无」→ 单玻；双玻需 底玻、面玻都显式选了非空非无。
+  // 逐字照抄旧版 `oe`（@38200 一带），与本次改的是哪个字段无关（对两者 blur 都触发）：
+  //   if ("无" === 底玻)                                     → 玻璃厚 = 8
+  //   else if ("无" !== 底玻 && "无" !== 面玻 && 8 === 厚)    → 玻璃厚 = 默认厚（默认厚非法或为 8 时取 4）
+  // **严格判字面量「无」** —— 空串不算「无」（原版新建行底玻恒有值，不会出现空串）。
+  // 原版第二支**只在厚恰好为 8 时**才改写，且取的是「默认玻璃厚」而非写死 4。
   const bottom = (l.bottom_glass || '').trim()
   const face = (l.face_glass || '').trim()
-  const singleBottom = bottom === '' || bottom === '无'
-  if (singleBottom) {
-    l.glass_thickness = '8' // 单玻(底玻=空/无) → 8
-  } else if (face !== '' && face !== '无') {
-    l.glass_thickness = '4' // 双玻(底玻非空非无、面玻也非空非无) → 一律重置为 4
+  if (bottom === '无') {
+    l.glass_thickness = '8'
+  } else if (face !== '无' && Number(l.glass_thickness) === 8) {
+    const t = defaultGlassThickness()
+    l.glass_thickness = String(Number.isFinite(t) && t !== 8 ? t : 4)
   }
   lineRefresh(l)
 }
@@ -1833,6 +1870,8 @@ function glassSelectCell(l: Line, field: 'face_glass' | 'bottom_glass', width: n
         ;(l as unknown as Record<string, string>)[field] = (v as string) ?? ''
         oldByField.set(l, (v as string) ?? '')
         onGlassSelection(l, (v as string) ?? '', old)
+        // 「改底玻 → 设为默认」只在**平开表**（原版 `le` 仅挂在平开表底玻格的 onSelect/onBlur）。
+        if (field === 'bottom_glass' && l.line_type === 'ping') rememberDefaultBottomGlass((v as string) ?? '')
       },
     },
   )
@@ -2778,7 +2817,14 @@ function pingCols(): DataTableColumn<Line>[] {
           // 底玻标签同样随公式类型变（原版：钻石型 '固玻：'，否则 '底玻：'），缩写为「固/底」。
           sub(isDiamond(l) ? '固' : '底', glassSelectCell(l, 'bottom_glass', 88)),
           // 厚度一格**不分支**：原版此处恒为 '厚度：'，钻石型也照旧。
-          sub('厚', optCell(l, 'glass_thickness', 88, glassThicknessOptions)),
+          // 平开表改厚度即「设为默认玻璃厚度」（原版 `ne`，@77100）。
+          sub(
+            '厚',
+            optCell(l, 'glass_thickness', 88, glassThicknessOptions, (row) => {
+              if (row.line_type === 'ping') rememberDefaultGlassThickness(row.glass_thickness)
+              lineRefresh(row)
+            }),
+          ),
         ),
     },
     {
