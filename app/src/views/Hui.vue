@@ -2377,8 +2377,11 @@ function applyPartState(parts: PartsMap, l: Line, engine: EngineId = 'B'): void 
   const diao = l.line_type === 'diao'
   const fans = (l.fans || '').trim()
   if (diao && !fans) return // 原版吊趟：无扇数直接 continue
-  const bRaw = l.bottom_glass || '无'
-  const fRaw = l.face_glass || '无'
+  // ⚠️ **严格判字面量「无」，空串不算「无」** —— 旧版全篇 52 处底/面玻判定都是 `"无" === 行["底玻"]`，
+  //    且**没有任何**「空值回落成无」的写法（全篇 `||"无"` 的 34 个命中全是布尔或，后面紧跟 `===`）。
+  //    这里 `|| ''` 只为挡 undefined；正常流程下底玻/面玻恒有值（新建行默认 磨砂/白玻，见 newLine）。
+  const bRaw = l.bottom_glass || ''
+  const fRaw = l.face_glass || ''
   const wuBo = bRaw === '无' || fRaw === '无' // 单玻
   const shuangBo = bRaw !== '无' && fRaw !== '无' // 双玻
   const wall = Number(l.wall_thickness) || 0
@@ -3319,8 +3322,9 @@ function dimSizeLabel(l: Line): string {
 // 玻璃列（旧版回执）：单玻/双玻/无，镜片 + 玻璃厚。
 // 回执玻璃列（原版，ping 判定顺序）：单玻 / 无 / 固玻(钻石) / 背板(厚0) / 底玻:面玻:。
 function glassSpecPrintable(l: Line): string {
-  const bottom = l.bottom_glass || '无'
-  const face = l.face_glass || '无'
+  // 原版 @351196（平开）/ @442766（吊趟）**直接读 `e["底玻"]` 做 `"无"===` 严格比较**，无空值回落。
+  const bottom = l.bottom_glass || ''
+  const face = l.face_glass || ''
   const thick = l.glass_thickness || ''
   // 原版（@351196 平开 / @442766 吊趟）：`家家发门业` / `星之铝门窗` 两家**不加** `*{厚}mm`
   const mm = STORE_GLASS_NO_MM.includes(tenantName.value) ? '' : `*${thick}mm`
@@ -3662,7 +3666,7 @@ function product10Row(l: Line) {
     size,
     lockway: l.casing ? `${l.casing}${dir}` : dir,
     color: l.color,
-    glass: (l.bottom_glass || '无') === '无' ? `单玻:${l.face_glass || ''}` : `底:${l.bottom_glass || ''}-面:${l.face_glass || ''}`,
+    glass: (l.bottom_glass || '') === '无' ? `单玻:${l.face_glass || ''}` : `底:${l.bottom_glass || ''}-面:${l.face_glass || ''}`,
     address: l.install_address || '',
     remark,
     GlassSize: glassSize,
@@ -3684,7 +3688,7 @@ function product10Parts(l: Line): PartPreview[] {
   // 平开走 **L1**、移门走 **L2**（各自独立的 state 规则 + 结果映射，§13）
   const base = computeParts(l, isDiao ? 'L2' : 'L1')
   const Q = l.quantity || 1
-  const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+  const single = (l.bottom_glass || '') === '无' || (l.face_glass || '') === '无'
   return base.map((p) => {
     const n = p.materialName
     let result = p.result
@@ -3821,8 +3825,8 @@ function glassProduces(): Record<string, unknown>[] {
     }
     const parts = computeParts(l, 'A').filter((p) => p && p.materialName) // 引擎A
     const ft = String(formulaOf(l)?.formula_type || '')
-    const bRaw = l.bottom_glass || '无'
-    const fRaw = l.face_glass || '无'
+    const bRaw = l.bottom_glass || ''
+    const fRaw = l.face_glass || ''
     const Q = l.quantity || 1
     // 原版（引擎A `_0xcfde65`/`_0x4d28ce`）：每组拼 `{名}:{result}`，组末补一个 `<br>数量:N`，
     // 其中 **N 取「该组最后一个命中件的 quantity」**（不是求和）：
@@ -3879,8 +3883,8 @@ function glassInfoProduces(): Record<string, unknown>[] {
     const find = (re: RegExp) => parts.find((p) => re.test(pk(p)))
     const ft = String(formulaOf(l)?.formula_type || '') // 'diamond' | 'parentSubsidiary' | 'double' | 其它
     const diao = l.line_type === 'diao'
-    const bRaw = l.bottom_glass || '无'
-    const fRaw = l.face_glass || '无'
+    const bRaw = l.bottom_glass || ''
+    const fRaw = l.face_glass || ''
     const Q = l.quantity || 1
     const img = holeImageOf(l) // 原版 `_0x3a3de5`：按 开向(+轨道种类) 取的挖孔图
     // 原版：吊趟循环 `if (底玻==='无' && 面玻==='无') continue`；**平开循环没有这句**
@@ -4269,7 +4273,7 @@ function windowsText(l: Line, engine: EngineId): string {
   const sep = (name: string, rest: string) => (brand ? partLine(name, rest) : `${name}:${rest}`)
   const parts = computeParts(l, engine).filter((p) => p && p.materialName)
   const Q = l.quantity || 1
-  const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+  const single = (l.bottom_glass || '') === '无' || (l.face_glass || '') === '无'
   const clamp01 = (v: number) => (v > 0 && v < 1 ? 1 : v)
   // 玻璃件数量修正（吊趟两套额外有扇数修正）
   const glassQty = (p: PartPreview, withFans: boolean) => {
@@ -4304,7 +4308,7 @@ function windowsText(l: Line, engine: EngineId): string {
       head = parts
         .filter((p) => ['中柱', '亮窗玻璃', '压线'].some((k) => p.key.includes(k)))
         .map((p) => {
-          const x = p.key.includes('亮窗玻璃') && (l.bottom_glass || '无') === '无' ? Q / 2 : Q
+          const x = p.key.includes('亮窗玻璃') && (l.bottom_glass || '') === '无' ? Q / 2 : Q
           return `${p.materialName}:${p.result}*${clamp01(p.quantity * x)}`
         })
         .join('<br>')
@@ -4357,7 +4361,7 @@ function doorsheetText(l: Line, engine: EngineId): string {
       if (!p.key.includes(kw) || p.key.includes(exclude)) continue
       let q = p.quantity
       if (kw === '玻璃宽' || kw === '玻璃高') {
-        const single = (l.bottom_glass || '无') === '无' || (l.face_glass || '无') === '无'
+        const single = (l.bottom_glass || '') === '无' || (l.face_glass || '') === '无'
         // 平开：`Math.round(q/2)`，且 diamond 不折半；吊趟：`q/2` **不取整**（原版两套写法不同，§15）
         if (single && !p.key.includes('单玻')) q = diao ? p.quantity / 2 : isDiamond(l) ? p.quantity : Math.round(p.quantity / 2)
         if (diao && l.fans === '一固一活') q = 1
