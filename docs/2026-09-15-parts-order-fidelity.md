@@ -110,37 +110,62 @@
 
 ---
 
-## 4. 修复方案（已确认）
+## 4. 修复方案：**方案 B（`extra.partOrder` 数组）**，非 A
 
-**必须同时做两件事，缺一不可：**
+### 4.1 方案 A（改 `json` 列 + `preserve_order`）—— **实测不可行** ❌
 
-1. **后端开 `serde_json` 的 `preserve_order`**
-   `backend/Cargo.toml`：`serde_json = { version = "1", features = ["preserve_order"] }`
-   → `Value::Object` 由 `BTreeMap` 变 `IndexMap`，反序列化不再排序。
-2. **`formulas.parts` 由 `jsonb` 改 `json`**
-   迁移：`ALTER TABLE formulas ALTER COLUMN parts TYPE json USING parts::json;`
-   → `json` 保留文本原文顺序。
+原设想：① 后端开 `serde_json` 的 `preserve_order`；② `formulas.parts` 由 `jsonb` 改 `json`。
+实测否掉了它：
 
-**只做第 2 步不够**（serde_json 那层仍会排序）；**只做第 1 步也不够**（jsonb 仍会重排）。
+| 实测 | 命令 | 结果 |
+|---|---|---|
+| `json` 列本身**确实保序** | `INSERT ... ('{"zeta":1,"alpha":2,"zz":3,"ab":4}'::json)` | 原样保留 ✅ |
+| `jsonb` 列**重排对象键** | 同串 `::jsonb` | `{"ab":4,"zz":3,"zeta":1,"alpha":2}` ❌ |
+| **`jsonb::json` 转换不恢复顺序** | `(b::json)::text` | 仍是 jsonb 的乱序 ❌ |
+| **sqlx 以 jsonb OID 发参数** | `sqlx-postgres-0.8.6/src/types/json.rs:19` `type_info() → PgTypeInfo::JSONB` | 参数进 PG 前**已按 jsonb 解析** → 顺序在入库前就丢了 ❌ |
+| `text` 参数写 `json` 列 | `PREPARE ins(text) AS INSERT INTO t2 VALUES ($1)` | **直接报错**（无 text→json 赋值转换）❌ |
 
-### 连带检查点
+⇒ 即使把列改成 `json`，sqlx 仍以 **jsonb** 语义发送/解析参数，顺序照样丢；
+要绕开只能把所有写入点改成「绑 text + 显式 `$1::json`」，**改动面大且脆**。
 
-- 后端**所有**读写 `parts` 的地方（`backend/src/modules/formula/service.rs` 的 SELECT 列、
-  `Value` 绑定、INSERT/UPDATE；`orders/`、`catalog/` 是否也碰 `parts`）
-- 是否有 SQL 用到 jsonb 专有算子（`->>`、`@>`、`jsonb_object_keys`、jsonb 索引）—— 改 `json` 后这些会失效
-- 前端 `Formulas.vue` 提交 `parts: JSON.parse(JSON.stringify(parts))`（对象序在报文里是对的，问题在后端侧）
-- 打印模板 `formulas.parts` 之外，**套线/五金等其它以对象存储的字段**是否有同类问题
+### 4.2 方案 B（`extra.partOrder: string[]`）—— **推荐** ✅
 
-### 数据迁移
+**关键实测**：`jsonb` **只重排对象键，数组保持有序**
 
-存量无法还原；待导入真实公式时，**确保导入链路是「有序对象 → preserve_order → json 列」**，
-即可从源头保住声明序。
+```
+数组在 jsonb 里 : ["zeta", "alpha", "zz", "ab"]   ← 顺序完整保留
+```
+
+同理 `serde_json::Value::Array` 是 `Vec`（有序），**只有 `Object`（`BTreeMap`）会被排序**。
+⇒ 把顺序存成**数组**，就同时绕过两道重排，**既不用改列类型、也不用开 `preserve_order`**。
+
+做法：
+1. `formulas.extra` 里加 `partOrder: string[]`（写入时按前端提交的对象键序生成）
+2. 渲染侧（`computeParts` 出口）按 `partOrder` 排一次；缺 `partOrder` 时退回现状
+3. 前端 `Formulas.vue` 保存时把 `Object.keys(parts)` 一并提交
+
+### 4.3 连带检查点
+
+- `computeParts` 的出口排序即可覆盖全部下游（本文件 §2.1 的 7 个调用点都从它拿 parts）
+- 后端 `extra` 已是 jsonb —— 数组在其中保序 ✅
+- 后端**无任何 jsonb 专有算子**（已核实：全仓 `->>` / `@>` / `jsonb_*` 命中 0），故不改列类型也无连带风险
+- **同类问题排查**：`order_lines.parts`（算料结果快照）、`markup`、套线/五金等以**对象**存储的字段
+  —— 若其顺序也被消费，同样需要数组化
+
+### 4.4 数据迁移
+
+存量公式**没有顺序来源**（§3），B 也救不回存量；
+但 B 的价值在于**导入链路**：从原版抓取时把 `Object.keys(parts)` 的**声明序**一并写进 `partOrder`，
+从此不再丢。
 
 ---
 
 ## 5. 待办
 
-- [ ] 后端 `serde_json` 开 `preserve_order`
-- [ ] 迁移：`formulas.parts` → `json`
-- [ ] 复查所有 `parts` 读写点与 jsonb 专有算子
-- [ ] 修复后：用一张部件数多、关键词命中多的公式（如 32 部件的移门公式）端到端验证列内顺序
+- [ ] `formulas.extra` 增加 `partOrder: string[]`（前端保存时提交 `Object.keys(parts)`）
+- [ ] `computeParts` 出口按 `partOrder` 排序（缺省退回现状，不改变未迁移数据的行为）
+- [ ] 排查同类：`order_lines.parts` / `markup` / 套线·五金等**对象**字段是否也有顺序被消费
+- [ ] 修复后：用一张部件数多、关键词命中多的公式端到端验证列内顺序
+      （移门外框应为 `边封 → 上滑 → 下滑 → …`）
+
+> **原「方案 A」条目已撤销** —— 见 §4.1：sqlx 以 jsonb OID 发参，改列类型无法保序。
