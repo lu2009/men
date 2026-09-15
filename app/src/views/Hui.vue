@@ -4100,25 +4100,30 @@ function doorframeText(l: Line, engine: EngineId): string {
 
   if (l.line_type === 'diao') {
     const track = (l.track || '')
+    // ⚠️ 筛选一律读部件 **KEY**，显示名才用 `materialName`（原版 B吊 @509947 / D吊 @548564 / C吊 @581434：
+    //    `Object.entries(parts).filter((([e]) => ["边封","下轨","上轨","滑","固定","移动","上横","盖板"].some(t => e.includes(t))))`，
+    //    分支判定同样是 `e.includes("滑")` / `e.includes("下滑")` / `e.includes("上滑")` …）。
+    //    **唯一按 materialName 的是「多轨道时挑哪根下滑」**（原版 `t.materialName?.includes(行.轨道种类)`）。
     const src = parts
-      .filter((p) => ['边封', '下轨', '上轨', '滑', '固定', '移动', '上横', '盖板'].some((k) => p.materialName.includes(k)))
-      .filter((p) => !p.materialName.includes('企'))
+      .filter((p) => ['边封', '下轨', '上轨', '滑', '固定', '移动', '上横', '盖板'].some((k) => p.key.includes(k)))
+      .filter((p) => !p.key.includes('企'))
       .filter(
         (p) =>
-          (!p.materialName.includes('边封') || Number(l.edge_seal_count) !== 0) &&
-          !(track.includes('吊轨') && p.materialName.includes('下滑')),
+          (!p.key.includes('边封') || Number(l.edge_seal_count) !== 0) &&
+          !(track.includes('吊轨') && p.key.includes('下滑')),
       )
-    const multi = src.filter((p) => p.materialName.includes('下滑')).length > 1
-    const trackGrp = (multi ? src.filter((p) => !p.materialName.includes('下滑') || p.materialName.includes(track)) : src).map((p) => {
+    const multi = src.filter((p) => p.key.includes('下滑')).length > 1
+    const trackGrp = (multi ? src.filter((p) => !p.key.includes('下滑') || p.materialName.includes(track)) : src).map((p) => {
+      const k = p.key
       const n = p.materialName
       let result = p.result
       let qty = p.quantity
-      if (n.includes('边封') && l.edge_seal_count != null) qty = Number(l.edge_seal_count)
-      if ((n.includes('滑') || n.includes('左右盖板') || n.includes('轨道盖板')) && l.track_length > 0) result = l.track_length
-      if (n.includes('下滑')) return partLine(multi && n.includes(track) ? n : `${track}${n}`, `${result}*${qty * Q}`)
-      if (n.includes('下轨')) return `${track}${n}:${result}*${qty * Q}`
-      if ((n.includes('上滑') || n.includes('上轨')) && track.includes('吊轨')) {
-        const kw = n.includes('上滑') ? '上滑' : '上轨'
+      if (k.includes('边封') && l.edge_seal_count != null) qty = Number(l.edge_seal_count)
+      if ((k.includes('滑') || k.includes('左右盖板') || k.includes('轨道盖板')) && l.track_length > 0) result = l.track_length
+      if (k.includes('下滑')) return partLine(multi && n.includes(track) ? n : `${track}${n}`, `${result}*${qty * Q}`)
+      if (k.includes('下轨')) return `${track}${n}:${result}*${qty * Q}`
+      if ((k.includes('上滑') || k.includes('上轨')) && track.includes('吊轨')) {
+        const kw = k.includes('上滑') ? '上滑' : '上轨'
         return `${n.includes(kw) ? n.replace(kw, track) : `${track}-${n}`}:${result}*${qty * Q}`
       }
       return partLine(n, `${result}*${qty * Q}`)
@@ -4142,20 +4147,25 @@ function doorframeText(l: Line, engine: EngineId): string {
   }
 
   let base: string[]
+  // ⚠️ 与吊趟同规：**筛选读 KEY，显示名读 materialName**。原版 B平 @490500-491700 / D平(oldSheet) @531974：
+  //    钻石型 `e.filter(k => Object.prototype.hasOwnProperty.call(parts, k))`（**KEY**，不是 materialName）；
+  //    非钻石型 `entries.forEach(([e,x]) => e.includes("门框高") ? 高组.push : e.includes("门框宽") && 宽组.push)`；
+  //    前/后/门板同样 `Object.entries(parts).filter((([e]) => ["前框"].some(t => e.includes(t))))`。
+  //    `前框高`/`后框高` 加包长的判定也是 `e.includes(...)`（KEY）。
   if (isDiamond(l)) {
     base = ['左边', '右边', '斜长', '竖框']
-      .map((k) => parts.find((p) => p.materialName === k))
+      .map((k) => parts.find((p) => p.key === k))
       .filter((p): p is PartPreview => !!p)
       .map((p) => fmt(p))
   } else if (oldSheetEngine) {
-    base = parts.filter((p) => p.materialName.includes('门框')).map((p) => fmt(p))
+    base = parts.filter((p) => p.key.includes('门框')).map((p) => fmt(p))
   } else {
-    const g = (kw: string) => parts.filter((p) => p.materialName.includes(kw)).map((p) => fmt(p))
+    const g = (kw: string) => parts.filter((p) => p.key.includes(kw)).map((p) => fmt(p))
     base = [...g('门框高'), ...g('门框宽')]
   }
-  const front = parts.filter((p) => p.materialName.includes('前框')).map((p) => (p.materialName.includes('前框高') ? fmt(p, p.result + (l.front_casing_add || 0)) : fmt(p)))
-  const back = parts.filter((p) => p.materialName.includes('后框')).map((p) => (p.materialName.includes('后框高') ? fmt(p, p.result + (l.back_casing_add || 0)) : fmt(p)))
-  const board = parts.filter((p) => p.materialName.includes('门板')).map((p) => fmt(p))
+  const front = parts.filter((p) => p.key.includes('前框')).map((p) => (p.key.includes('前框高') ? fmt(p, p.result + (l.front_casing_add || 0)) : fmt(p)))
+  const back = parts.filter((p) => p.key.includes('后框')).map((p) => (p.key.includes('后框高') ? fmt(p, p.result + (l.back_casing_add || 0)) : fmt(p)))
+  const board = parts.filter((p) => p.key.includes('门板')).map((p) => fmt(p))
   return [...base, ...front, ...back, ...board].join('<br>')
 }
 
