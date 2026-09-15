@@ -120,16 +120,66 @@ node -e 'const t=require("/tmp/hui-map.json");const A=t.aliases;const M=(al,i)=>
 
 ---
 
-## 4. 全量核对（4 路小分队，进行中）
+### 3.2 「外框」列 ✅ 已修
 
-| 范围 | 状态 |
-|---|---|
-| 门扇列 `doorsheetText` / `DS_KW` | 进行中 |
-| 外框列 `doorframeText`（含轨道组、平开各子块）| 进行中 |
-| 亮窗/扣板列 `windowsText`（含各引擎变体）| 进行中 |
-| 锁图/备注/basicInfo + 定制 producer（`Hui.vue:3599-4031`）| 进行中 |
+吊趟轨道组（B吊 @509947 / D吊 @548564 / C吊 @581434）与平开门框组（B平 @490500 / D平 @531974）
+的筛选、`企` 排除、`边封数` 闸门、`下滑` 多轨道挑选用 track 等，全部改为 `p.key`。
+其中**唯一保持 `materialName`** 的是「多轨道时挑哪根下滑」（原版 `t.materialName?.includes(行.轨道种类)`）。
+平开钻石型原写 `p.materialName === k`（注释却写着 hasOwnProperty），改为 `p.key === k`。
 
-> 结论回执后补入本文件，再**一次性统一修改**（避免改一半）。
+### 3.3 「门扇」列 ✅ 已修
+
+B平 @490039 / D平 @531100，关键词分组与排除词（引擎B `亮窗玻璃`、oldSheet `上亮玻璃`）一律按 KEY。
+**这是一处会改变输出的修正**——`_keyOrder`/KEY 为 `上亮窗玻璃高` 的件含子串 `亮窗玻璃`，
+`materialName`（`上亮玻璃高`）不含，故修前漏排除：
+
+```
+修前 门扇 = 光企高, 上下方, 玻璃高, 上亮玻璃高, 玻璃宽, 上亮玻璃宽
+修后 门扇 = 光企高, 上下方, 玻璃高, 玻璃宽
+```
+
+同时核对了 `DS_KW` 三组关键词**逐字**与旧版一致（814=龙骨横 749=门扇高 175=封边横
+863=玻璃宽 877=玻璃高 231=龙骨竖 853=门扇宽 538=封边竖 490=左固玻璃 1142=右固玻璃 536=门玻璃）。
+
+### 3.4 其余 producer ✅ 已修
+
+新增 `pk(p) = p.key || p.materialName`（历史订单 `l.parts` 可能没存 key，回退保证不炸），
+把 `product1(P1)`、`product10`、引擎A 玻璃合片单、玻璃合料单（glassInfo）里剩余的
+`materialName` 匹配一次收敛干净。代表证据：
+`@569300`（product1 关键词 forEach → `t.includes(e)`）、
+`@424788/@429023/@433301`（glassInfo `find((([e]) => e === M(981)="门玻璃宽"))`，即我们的 `exact()`）。
+
+**顺带修正一处从未生效的判据**：`fans === '一固一活'` 分支里的
+`materialName.includes('一固一活固玻璃宽')` 恒为假（materialName 是裸名），改为按 KEY 后才会命中。
+
+---
+
+## 4. 全量核对结论：**47 / 47**
+
+把旧版 chunk 里所有部件遍历调用点扫了一遍：
+
+```
+Object.entries(<部件对象>).<filter|find|forEach|map>((([e …]  →  共 47 处
+```
+
+**47 处全部解构第一个元素 `e`（= 部件 KEY）**，无一处拿 `materialName` 去匹配
+（`materialName` 只出现在 `.map((([e,t]) => … t.materialName + ":")` 这类**显示**位置）。
+故本文件 §1 的规律是**普遍的**，不是个别列的特例。
+
+| 范围 | 旧版偏移（代表） | 我们的函数 | 状态 |
+|---|---|---|---|
+| 亮窗/扣板 · 平开B / 平开oldSheet | @492734 / @533094 | `windowsText` | ✅ |
+| 亮窗/扣板 · 吊趟B / 吊趟oldSheet | @512847 / @550917+@551313 | `windowsText` | ✅ |
+| 外框 · 吊趟轨道组 B/D/C | @509947 / @548564 / @581434 | `doorframeText` | ✅ |
+| 外框 · 平开B / 平开oldSheet | @490500 / @531974 | `doorframeText` | ✅ |
+| 门扇 · 平开B / 平开oldSheet | @490039 / @531100 | `doorsheetText` | ✅ |
+| 引擎A 玻璃合片单 | — | `product1Produces` 前段 | ✅ |
+| 玻璃合料单 glassInfo | @424788 / @429023 / @433301 | `glassInfoProduces` | ✅ |
+| product1(P1) / product10 | @569300 | `product1Produces` / `product10*` | ✅ |
+
+> **未穷尽**：`锁图` 与 `备注` 两列（`lineLockImage` / `produceRemark`）本轮未逐字核对
+> —— 它们不遍历 `parts`，走的是行字段（锁具名数组/加配等），不受本问题影响，
+> 但仍属「未证实」。
 
 ---
 
