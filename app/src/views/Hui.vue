@@ -2600,9 +2600,22 @@ function computePartsUncached(l: Line, engine: EngineId): PartPreview[] {
   // 扣板厚负值联动（§52.7 / 原文 @487868 平开 vs @507050 吊趟）：**两族杀的部件名不同** ——
   //   平开：`名含'扣板' || 名含'压条'`；吊趟：`名含'扣板高' || 名含'扣板宽'`
   const kbKill = diaoLine ? /扣板高|扣板宽/ : /扣板|压条/
-  return Object.entries(parts)
+  const out = Object.entries(parts)
     .filter(([key, p]) => !!p.formula && p.state && !(kbThickNeg && kbKill.test(key)))
     .map(([key, p]) => ({ key, materialName: p.materialName || key, quantity: p.quantity || 0, result: round2(computed[key] ?? 0) }))
+  // 按公式的**部件声明序**重排（`extra.partOrder`）。
+  // 必要性：`parts` 落 JSONB 后对象键会被「长度+字节」重排，而原版各打印列（移门外框、全部 windows 列）
+  // 直接按 `Object.entries(parts)` 的声明序输出；更要命的是 `applyWidthIncrement` 的状态位 `a`
+  // 依赖「{扇数}上下方」是否**先于**轨道件出现 —— 顺序会改变**算出来的数值**（不只显示顺序）。
+  // 顺序存成数组（JSONB 保序）故能穿过来。缺 `partOrder` 的旧数据保持现状，行为不变。
+  // 详见 docs/2026-09-15-parts-order-fidelity.md
+  const order = (f.extra as { partOrder?: unknown } | undefined)?.partOrder
+  if (Array.isArray(order) && order.length) {
+    const rank = new Map(order.map((k, i) => [String(k), i]))
+    // 不在声明序里的部件排到最后（`sort` 稳定，保持它们原有的相对次序）
+    out.sort((a, b) => (rank.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.key) ?? Number.MAX_SAFE_INTEGER))
+  }
+  return out
 }
 
 // 单行算料：有 formula_id 才计算（仿旧版门图列「算料」）
