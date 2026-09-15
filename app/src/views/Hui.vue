@@ -1663,13 +1663,13 @@ function missingFieldsOf(l: Line): string[] {
   //   平开 `["型材","数量","颜色","底玻","面玻", 玻璃厚,"开向", 计价方式]`
   //   吊趟 `["型材","颜色","底玻","面玻", 玻璃厚,"开向","扇数", 轨道种类]`
   // ⚠️ **底玻/面玻是必填**（原版两格都没有 `clearable`，配合新建行默认值 ⇒ 空串在旧版产生不出来）。
-  // 注：原版清单里**没有** 门洞宽/门洞高 —— 校验循环里那两条
-  //   `"门洞高"===e && _[e]<=0` / `"门洞宽"===e && _[e]<=0` 是**死代码**
-  //   （e 只取清单里的值，"门洞高/门洞宽" 不在清单中，永不命中）。看起来是当初漏加了，
-  //   但**我们暂按现状保留这两项必填**（更严、且不影响打印保真），差异已记档待定。
+  // ⚠️ **原版清单里没有 门洞宽/门洞高**（用户确认「按照原版改」）。
+  //    @349301 校验循环里那两条 `"门洞高"===e && _[e]<=0` / `"门洞宽"===e && _[e]<=0`
+  //    是**死代码** —— `e` 只遍历清单 `x`，而这两项不在 `x` 中，永不命中
+  //    （形态像当初漏加了清单项）。故原版**实际不校验尺寸**：`errorFields["门洞高"]` 也没有
+  //    任何地方会写 `true`（单元格上挂着 `error-cell` 绑定但永远是 false）。
+  //    ⇒ 我们同步去掉这两项必填（**这是一处放宽**；要恢复只需把两行 `add` 加回来）。
   add(!!l.profile.trim(), '型材')
-  add(l.door_width > 0, '门洞宽')
-  add(l.door_height > 0, '门洞高')
   add(!!l.color.trim(), '颜色')
   add(!!l.bottom_glass.trim(), '底玻')
   add(!!l.face_glass.trim(), '面玻')
@@ -1896,8 +1896,8 @@ function cellError(l: Line, field: string): boolean {
   const t = l.line_type
   switch (field) {
     case 'profile': return !l.profile.trim()
-    case 'door_width': return !(l.door_width > 0)
-    case 'door_height': return !(l.door_height > 0)
+    // 门洞宽/高**不标红** —— 原版从不给 `errorFields["门洞高"/"门洞宽"]` 写 true（死代码，见
+    // `missingFieldsOf` 的注释），单元格上的 `error-cell` 绑定恒为 false。
     case 'color': return !l.color.trim()
     // 底玻/面玻 也是必填：原版两格都挂了 `error-cell`（`{["error-cell"]: 校验结果["底玻"]}`），
     // 且**没有 `clearable`**（见 @75060 平开 / @185271 吊趟 的底玻格、@73314 / @183565 的面玻格）。
@@ -2015,10 +2015,15 @@ function diaoDirImage(fans: string, direction: string): string {
 
 // 方向图（原版 lockImg / openImg）：平开按开向查 PING 图标；移门按 扇数+开向 查 DIRECTION_IMAGES。
 function lineLockImage(l: Line): string {
-  // 开向图按**原始开向**查（原版先过 `getOriginalOpenDirection` 归一化）：
-  // 自定义开向改名后，行上可能是显示名，直接用会查不到图。
-  const dir = getOriginalOpenDirection(l.direction)
-  return l.line_type === 'diao' ? diaoDirImage(l.fans, dir) : PING_DIRECTION_IMAGES[dir] || ''
+  // ⚠️ **两族的取图键不同**（原版逐处硬编码，不是统一走归一化）：
+  //   平开：`directionImageMap[ getOriginalOpenDirection(开向) ]`
+  //         —— @350462(回执平开) / @464353(A平) / @497357(B平)
+  //   吊趟：`directionImageMap[ "" + 扇数 + 开向 ]`
+  //         —— @476780(A吊) / @517793(B吊) / @556000(D吊)，**不过 getOriginalOpenDirection**
+  //   （`getOriginalOpenDirection` 全篇只出现 5 处：定义 + 回执平开 + 三个平开 producer。）
+  return l.line_type === 'diao'
+    ? diaoDirImage(l.fans, l.direction)
+    : PING_DIRECTION_IMAGES[getOriginalOpenDirection(l.direction)] || ''
 }
 
 function colorCell(l: Line, width: number) {
@@ -3866,6 +3871,19 @@ function holeImgByDir(l: Line, dir: '左' | '右'): string {
   return imgs.find((i) => i.direction === dir)?.data_url || ''
 }
 
+/**
+ * 打印/预览「玻璃订单」前，确保**各行公式的挖孔图都已加载**。
+ *
+ * ⚠️ `loadFormulaImages` 原先**只在「算料」里调用一次**（`calcSingleRow`），而 `holeImageOf` /
+ * `holeImgByDir` 是同步查缓存的 ⇒ **载入一张已保存的订单后直接打印玻璃订单，挖孔图整列为空**
+ * （必须先在页面上点一次「算料」才会出现）。这里在打印/预览入口补一次兜底加载
+ * （`loadFormulaImages` 自带缓存，重复调用是 no-op）。
+ */
+async function ensureFormulaImages() {
+  const ids = [...new Set(lines.value.map((l) => l.formula_id).filter((v): v is number => v != null))]
+  await Promise.all(ids.map((id) => loadFormulaImages(id)))
+}
+
 function glassProduces(): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
   // 玻璃合片单：ping→diao 分块但**入口不按 formulaid 排序**
@@ -4201,6 +4219,11 @@ const isDoorNoClientStore = (name: string) =>
   STORE_DOOR_NO_CLIENT.includes(name) || name === STORE_DOOR_NO_CLIENT_EXTRA
 /** 原版 product1 特判门店（@570279）：`kouHeigth` 改用「套线种类」、`kouWidth` 不再赋值。 */
 const STORE_SHENGFEI = '晟斐门窗厂'
+/** 原版 product1（@569290 `_0x1389a5`）逐字关键词清单 —— 部件遍历按它逐个分组命中。 */
+const PRODUCT1_KW = [
+  '门框高', '门框宽', '玻璃', '前框高', '后框高', '前框宽', '后框宽', '封板',
+  '扣板高', '扣板宽', '扣板厚', '光企高', '上下方', '玻璃高', '玻璃宽',
+]
 /** 原版回执 glass 列特判门店（@351196）：不加 `*{玻璃厚}mm` 后缀。 */
 const STORE_GLASS_NO_MM = ['家家发门业', '星之铝门窗']
 /** 原版 glassHole 特判门店（@411200 `_0xa370fc`）：`remark` 整列为空。 */
@@ -4655,6 +4678,9 @@ function product1Produces(): Record<string, unknown>[] {
       if (n.includes('玻璃高')) glassH = v
       if (n.includes('玻璃宽')) glassW = v
     }
+    // 原版 product1 的部件关键词清单（@569290 `_0x1389a5`，逐字 15 项）；
+    // 「部件遍历体内的语句是否被执行」= 是否存在部件命中其中任一关键词（见 `kouHeigth`）。
+    const anyKwHit = parts.some((p) => PRODUCT1_KW.some((k) => pk(p).includes(k)))
     // 门框（原版）：门框高/宽 先赋，前框高→`前`+(前框高+前包加长)，后框高/宽 以 `<br>后` 追加
     let frameHeigth = s(val('门框高'))
     let frameWidth = s(val('门框宽'))
@@ -4697,7 +4723,11 @@ function product1Produces(): Record<string, unknown>[] {
       //   `if (租户==='晟斐门窗厂' && 行.图片ID) try{ const e=await getImage(行.图片ID); e && (kouWidth=e) }catch{}`
       // 我们的行图片由 `hydrateRowImages` 预先水合到 `l.image_url`，故同步取它即可（取不到仍为空串）。
       kouWidth: STORE_SHENGFEI === tenantName.value ? (l.image_id && l.image_url) || '' : s(val('扣板宽')),
-      kouHeigth: STORE_SHENGFEI === tenantName.value ? l.casing || '' : s(val('扣板高')),
+      // ⚠️ 原版这一句挂在**部件遍历体内**（@570381，且**没有 `&& l` 门控**）：
+      //   `"晟斐门窗厂" === 租户 ? (kouHeigth = 行["套线种类"]) : (扣板高→…, 扣板宽→…)`
+      //   ⇒ 只有「至少有一个部件的 KEY 命中 15 个关键词之一」时才会被赋值，
+      //     一个都没命中时保持初始空串（我们用 `anyKwHit` 表达同一条件）。
+      kouHeigth: STORE_SHENGFEI === tenantName.value ? (anyKwHit ? l.casing || '' : '') : s(val('扣板高')),
       kouThickness: s(val('扣板厚')),
       // 原版 product1 remark = [五金, 单双丁(≠正常), 备注, 安装地址].join("<br>") + 加配（**无轨道种类、无墙型**）
       remark: (() => {
@@ -4814,6 +4844,8 @@ async function openTemplatePreview(initialMode?: string) {
 async function renderTemplatePreview(mode: string) {
   templatePreviewLoading.value = true
   try {
+    // 玻璃订单的 `doorImg` 是**公式挖孔图**，先兜底加载（原先只有「算料」会加载）
+    await ensureFormulaImages()
     const templates = await api.getPrintTemplatesByMode(mode)
     const tpl = templates[0]?.template
     if (!tpl) {
@@ -4856,6 +4888,7 @@ async function printGlassHole() {
     return
   }
   try {
+    await ensureFormulaImages()
     await printByMode('glassHole', { glassInfoList: glassInfoProduces() })
   } catch (e) {
     message.error(e instanceof Error ? e.message : '玻璃订单打印失败')
