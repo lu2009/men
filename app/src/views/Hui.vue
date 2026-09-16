@@ -2004,6 +2004,11 @@ function removeLine(l: Line) {
 // ===== 行内就地编辑（仿旧版 Excel 式表格）=====
 // 值变更即重算（平方/套线金额/金额/加价），型材失焦触发取价+公式。
 const lineRefresh = (l: Line) => {
+  // 行上任何字段变了都丢掉该行的算料缓存。
+  // `partsSig` 已经把所有影响算料的字段列全，这里是**兜底**：万一以后又新增了
+  // 影响算料结果的行字段却忘了加进签名，也不会再出现「改了字段、算料结果不变、
+  // 点『算料』也没用」的幽灵 bug（洞尺/单双丁 都栽过这个）。
+  partsCache.delete(l)
   l.square = computeSquare(l)
   recalcMarkup(l)
   l.casing_amount = casingAmountOf(l)
