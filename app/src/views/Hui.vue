@@ -355,7 +355,8 @@
       </template>
     </n-modal>
 
-    <!-- 列显隐设置（仿旧版 ping_column/diao_column） -->
+    <!-- 列显隐设置（两表共 40 多个复选框，比旧版多，**必须限高可滚** ——
+         否则卡片会长到 1390px 高、在 900px 屏上把底部的取消/保存顶出视口） -->
     <n-modal v-model:show="visOpen" preset="card" title="列显隐设置" style="width: 720px">
       <div class="vis-grid">
         <div class="vis-col">
@@ -379,6 +380,7 @@
       </div>
       <template #footer>
         <div class="footer">
+          <n-button quaternary @click="resetVisDraft">恢复默认</n-button>
           <n-button @click="visOpen = false">取消</n-button>
           <n-button type="primary" :loading="savingVis" @click="saveVisDialog">保存</n-button>
         </div>
@@ -990,6 +992,12 @@ function openVisDialog() {
   for (const c of PING_VIS_KEYS) visDraft.ping_columns[c.key] = colVis(pingColVis, c.key)
   for (const c of DIAO_VIS_KEYS) visDraft.diao_columns[c.key] = colVis(diaoColVis, c.key)
   visOpen.value = true
+}
+
+/** 「恢复默认」：把草稿勾回旧版租户配置那套（见 `PING_COL_DEFAULTS`），**要再点保存才生效**。 */
+function resetVisDraft() {
+  for (const c of PING_VIS_KEYS) visDraft.ping_columns[c.key] = PING_COL_DEFAULTS[c.key] !== false
+  for (const c of DIAO_VIS_KEYS) visDraft.diao_columns[c.key] = DIAO_COL_DEFAULTS[c.key] !== false
 }
 
 async function saveVisDialog() {
@@ -6012,6 +6020,10 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 24px;
+  /* 限高可滚：见模板里的说明 */
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 .vis-col .vis-head {
   font-weight: 600;
