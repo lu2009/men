@@ -154,7 +154,8 @@
       <div class="vis-col">
         <div class="mgmt-row">
           <span class="mgmt-name">加价项目</span>
-          <n-input v-model:value="addMarkupForm.name" placeholder="请输入加价项目名称" style="width: 320px" />
+          <!-- 旧版这一格不给宽度（撑满），只有单价/计价方式是 30%（:2660/:2668/:2676） -->
+          <n-input v-model:value="addMarkupForm.name" placeholder="请输入加价项目名称" style="flex: 1" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">单价</span>
@@ -164,19 +165,20 @@
             :show-button="false"
             :min="addMarkupForm.unit === '元/套' ? undefined : 0"
             placeholder="单价"
-            style="width: 150px"
+            style="width: 30%"
           />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">计价方式</span>
-          <n-select v-model:value="addMarkupForm.unit" :options="markupUnitOptions" style="width: 150px" />
+          <n-select v-model:value="addMarkupForm.unit" :options="markupUnitOptions" style="width: 30%" />
         </div>
       </div>
       <template #footer>
         <div class="footer">
           <n-button @click="addMarkupOpen = false">取消</n-button>
-          <n-button @click="addMarkupOnce">单次添加</n-button>
-          <n-button type="primary" @click="addMarkupSync">同步保存</n-button>
+          <!-- 按钮 type 照旧版：单次添加 = primary，同步保存 = success（:2647/:2651） -->
+          <n-button type="primary" @click="addMarkupOnce">单次添加</n-button>
+          <n-button type="success" @click="addMarkupSync">同步保存</n-button>
         </div>
       </template>
     </n-modal>
@@ -194,15 +196,15 @@
       <div class="vis-col">
         <div class="mgmt-row">
           <span class="mgmt-name">加价项目</span>
-          <n-input v-model:value="mgmtAdd.name" placeholder="请输入加价项目名称" style="width: 320px" />
+          <n-input v-model:value="mgmtAdd.name" placeholder="请输入加价项目名称" style="flex: 1" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">单价</span>
-          <n-input-number v-model:value="mgmtAdd.price" :show-button="false" placeholder="单价" style="width: 150px" />
+          <n-input-number v-model:value="mgmtAdd.price" :show-button="false" min="0" placeholder="单价" style="width: 30%" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">计价方式</span>
-          <n-select v-model:value="mgmtAdd.unit" :options="markupUnitOptions" style="width: 150px" />
+          <n-select v-model:value="mgmtAdd.unit" :options="markupUnitOptions" style="width: 30%" />
         </div>
       </div>
       <template #footer>
@@ -222,21 +224,21 @@
             :value="mgmtEdit.index"
             :options="markupEditOptions"
             placeholder="选择修改或删除的项目"
-            style="width: 320px"
+            style="width: 100%"
             @update:value="pickMarkupEdit"
           />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">加价项目</span>
-          <n-input v-model:value="mgmtEdit.name" placeholder="请输入加价项目名称" style="width: 320px" />
+          <n-input v-model:value="mgmtEdit.name" placeholder="请输入加价项目名称" style="flex: 1" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">单价</span>
-          <n-input-number v-model:value="mgmtEdit.price" :show-button="false" placeholder="单价" style="width: 150px" />
+          <n-input-number v-model:value="mgmtEdit.price" :show-button="false" min="0" placeholder="单价" style="width: 30%" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">计价方式</span>
-          <n-select v-model:value="mgmtEdit.unit" :options="markupUnitOptions" style="width: 150px" />
+          <n-select v-model:value="mgmtEdit.unit" :options="markupUnitOptions" style="width: 30%" />
         </div>
       </div>
       <template #footer>
@@ -250,9 +252,12 @@
 
     <!-- 自动加价设置：文案与旧版一致（:13228-13247，width 320） -->
     <n-modal v-model:show="autoMarkupOpen" preset="card" title="自动加价设置" style="width: 320px">
-      <div class="vis-col">
+      <!-- 结构/内联样式照抄旧版 :13238-13246：外层 div `padding:10px 0`；
+           提示行是**内联** `color:#909399; font-size:12px; margin-top:8px`（不走 .hint 类，
+           以免带上它多出来的 line-height:1.6）。 -->
+      <div style="padding: 10px 0">
         <n-checkbox :checked="disableAutoMarkup" @update:checked="onAutoMarkupDraft" label="去除自动加价" />
-        <div class="hint" style="padding-left: 22px">勾选后，玻璃和尺寸相关加价项目将不再自动选中</div>
+        <div style="color: #909399; font-size: 12px; margin-top: 8px">勾选后，玻璃和尺寸相关加价项目将不再自动选中</div>
       </div>
       <template #footer>
         <div class="footer">
@@ -5826,8 +5831,9 @@ onMounted(async () => {
   margin-bottom: 6px;
 }
 .mgmt-name {
-  flex: 1;
-  min-width: 0;
+  /* 旧版三个加价项目弹窗都是 el-form `label-width: 100px`（:2655 / :13130 / :13179） */
+  width: 100px;
+  flex: none;
 }
 /* 未保存行高亮（id=null） */
 .table-wrap :deep(.n-data-table .unsaved-row .n-data-table-td) {
