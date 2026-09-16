@@ -3878,22 +3878,6 @@ function holeKeyOf(direction: string): string {
   return direction.includes('右') ? '双开右' : '双开左'
 }
 
-/**
- * 内开 ↔ 外开 的「同一张图」兄弟方向。
- *
- * 旧版开孔图**不区分内开/外开**：左锁内开 与 左锁外开 用同一张图、右锁内开 与 右锁外开 同一张，
- * 内左/外左、内右/外右 同理（原版把键交给 `param1=getimage` 由服务端归一，前端看到的取图结果
- * 就是「按 左/右 + 锁位 命中，内开外开共用」）。我们这边公式图是按方向存的，
- * 所以先精确命中、命中不到再退到内/外互换的兄弟方向。**只作兜底** ——
- * 两方向都有图时仍各用各的，行为不劣化。
- */
-function inOutSibling(direction: string): string {
-  if (!direction) return ''
-  if (direction.includes('内')) return direction.replace('内', '外')
-  if (direction.includes('外')) return direction.replace('外', '内')
-  return ''
-}
-
 /** 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。 */
 function holeImageByKey(l: Line, key: string): string {
   if (!key) return ''
@@ -3902,12 +3886,18 @@ function holeImageByKey(l: Line, key: string): string {
   return imgs.find((i) => i.direction === key)?.data_url || ''
 }
 
-/** 平开行的挖孔图（原版 `_0x3a3de5`）：先按 `holeKeyOf(开向)`，未命中再退到内/外互换的兄弟方向。 */
+/**
+ * 平开行的挖孔图（原版 `_0x3a3de5`）—— **只按 `holeKeyOf(开向)` 精确取，没有内/外兜底**。
+ *
+ * ⚠️ 曾一度加过「内开取不到就退到外开、反之亦然」的兜底，**已撤销**：直接在旧版服务端
+ * （`param1=getimage&param2={formulaID}{方向}`）实测，**没有内↔外归一** ——
+ * 公式 `复古平开门` 有 `左锁内开`（200）但没有 `左锁外开`（404）。
+ * 而 `35*16平开` 的 左锁内开/左锁外开 返回**字节完全相同**的图（sha 一致），
+ * 即店家两个方向**各存了一张内容相同的图** —— 看起来「内开外开一样」，是数据如此，不是取图兜底。
+ * ⇒ 该公式没画过某方向时，原版就是空图 + 报 `获取开孔图片失败,请确认或联系管理员`，我们必须一致。
+ */
 function holeImageOf(l: Line): string {
-  return (
-    holeImageByKey(l, holeKeyOf(l.direction)) ||
-    holeImageByKey(l, holeKeyOf(inOutSibling(l.direction)))
-  )
+  return holeImageByKey(l, holeKeyOf(l.direction))
 }
 
 /** 按固定方向键取挖孔图（原版吊趟把图存在 `{formulaID}左` / `{formulaID}右` 下）。 */
