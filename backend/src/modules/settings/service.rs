@@ -50,6 +50,29 @@ pub async fn create_price_item(
     Ok(row_to_item(row))
 }
 
+/// 修改（旧版 `param1=editPrice`，body `{before,after}`；新版有主键，直接按 id 改）。
+pub async fn update_price_item(
+    pool: &PgPool,
+    tenant_id: i64,
+    id: i64,
+    input: &AddPriceItemInput,
+) -> ApiResult<AddPriceItemDto> {
+    let row: PriceItemRow = sqlx::query_as(
+        "UPDATE add_price_items SET name = $3, price = $4, unit = $5, updated_at = now() \
+         WHERE id = $1 AND tenant_id = $2 \
+         RETURNING id, name, price, unit",
+    )
+    .bind(id)
+    .bind(tenant_id)
+    .bind(&input.name)
+    .bind(input.price)
+    .bind(&input.unit)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("加价项目不存在"))?;
+    Ok(row_to_item(row))
+}
+
 /// 删除。
 pub async fn delete_price_item(pool: &PgPool, tenant_id: i64, id: i64) -> ApiResult<()> {
     let result = sqlx::query("DELETE FROM add_price_items WHERE id = $1 AND tenant_id = $2")

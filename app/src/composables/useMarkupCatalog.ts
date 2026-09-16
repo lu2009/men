@@ -1,7 +1,9 @@
 import { computed, ref } from 'vue'
 import { api } from '../api/client'
 
-interface CatalogItem {
+export interface CatalogItem {
+  /** 后端 `add_price_items.id`；种子项与「单次添加」项没有 id。 */
+  id?: number
   name: string
   price: number
   unit: string
@@ -11,37 +13,59 @@ interface CatalogItem {
 const MARKUP_UNITS = ['元/套', '元/支', '元/方', '元/米', '元/公分', '无']
 export const markupUnitOptions = MARKUP_UNITS.map((u) => ({ label: u, value: u }))
 
+/** 目录种子 —— 旧版 `useAddPriceItems` 模块初始化时就带这一条，**每次进页面都有**，
+ *  与后端目录**去重合并**（`Hui.formatted.js:969-984`）。它本身不落库。 */
+const SEED: CatalogItem = { name: '人工', price: 100, unit: '元/套' }
+
 // 加价项目目录：模块级单例（仿旧版 useAddPriceItems）。
 // - 同步保存 的项来自后端（add_price_items 表，持久化）。
 // - 单次添加 的项仅进 sessionOnly（内存，不持久化），刷新即失。
-export const markupCatalog = ref<CatalogItem[]>([])
+//
+// ⚠️ 本模块是**模块级单例、拿不到组件上下文**，所以这里一律**不弹提示**，
+// 改由调用方（Hui.vue，持有 useMessage）按返回值弹。
+export const markupCatalog = ref<CatalogItem[]>([{ ...SEED }])
 const sessionOnly = ref<CatalogItem[]>([])
 
+function sameItem(a: CatalogItem, b: CatalogItem): boolean {
+  return a.name === b.name && a.price === b.price && a.unit === b.unit
+}
+
 function dedupAppend(list: CatalogItem[], item: CatalogItem): boolean {
-  const dup = list.some((c) => c.name === item.name && c.price === item.price && c.unit === item.unit)
-  if (dup) return false
+  if (list.some((c) => sameItem(c, item))) return false
   list.push({ ...item })
   return true
 }
 
-/** 加载后端加价项目目录（同步保存项）。 */
-export async function loadMarkupCatalog() {
+/** 加载后端目录并**去重合并**（不动种子）；失败返回 false（旧版此时弹「初始化失败」，`Hui.formatted.js:979`）。 */
+export async function loadMarkupCatalog(): Promise<boolean> {
   try {
     const items = await api.listAddPriceItems()
-    markupCatalog.value = (items || []).map((i) => ({ name: i.name, price: i.price, unit: i.unit }))
+    for (const i of items || []) {
+      const row: CatalogItem = { id: i.id, name: i.name, price: i.price, unit: i.unit }
+      if (!dedupAppend(markupCatalog.value, row)) {
+        // 已存在（多为与种子重合的那条）→ 补上后端 id，后续改/删才能走 id
+        const hit = markupCatalog.value.find((c) => sameItem(c, i))
+        if (hit && hit.id == null) hit.id = i.id
+      }
+    }
+    return true
   } catch {
-    // 后端不可用：保留内存中的
+    return false
   }
 }
 
-/** 同步保存：写入后端（永久）并加入目录，返回是否成功。 */
+/** 同步保存：写后端（永久）并加入目录。后端失败时仍本地加，返回 false。 */
 export async function syncAddCatalogItem(item: CatalogItem): Promise<boolean> {
+  const ok = dedupAppend(markupCatalog.value, item)
+  if (!ok) return false
   try {
-    await api.createAddPriceItem(item)
+    const created = await api.createAddPriceItem({ name: item.name, price: item.price, unit: item.unit })
+    const hit = markupCatalog.value.find((c) => sameItem(c, item))
+    if (hit && created?.id != null) hit.id = created.id
+    return true
   } catch {
-    // 后端失败：仍本地加，但不回落持久化
+    return false
   }
-  return dedupAppend(markupCatalog.value, item)
 }
 
 /** 单次添加：仅加内存（本次会话可选，不持久化）。 */
@@ -50,28 +74,43 @@ export function sessionAddCatalogItem(item: CatalogItem) {
   dedupAppend(sessionOnly.value, item)
 }
 
-/** 删除目录项（后端 + 本地）。 */
-export async function removeCatalogItem(i: number) {
+/** 修改目录项。有 id 的走后端 `PUT`；无 id 的（种子 / 单次添加）只改内存。 */
+export async function updateCatalogItem(index: number, next: CatalogItem): Promise<boolean> {
+  const cur = markupCatalog.value[index]
+  if (!cur) return false
+  if (cur.id != null) {
+    try {
+      await api.updateAddPriceItem(cur.id, { name: next.name, price: next.price, unit: next.unit })
+    } catch {
+      return false
+    }
+  }
+  markupCatalog.value[index] = { id: cur.id, name: next.name, price: next.price, unit: next.unit }
+  return true
+}
+
+/** 删除目录项（后端 + 本地）。无 id 的只删内存。 */
+export async function removeCatalogItem(i: number): Promise<boolean> {
   const target = markupCatalog.value[i]
-  if (!target) return
+  if (!target) return false
   markupCatalog.value.splice(i, 1)
-  const si = sessionOnly.value.findIndex(
-    (c) => c.name === target.name && c.price === target.price && c.unit === target.unit,
-  )
+  const si = sessionOnly.value.findIndex((c) => sameItem(c, target))
   if (si >= 0) sessionOnly.value.splice(si, 1)
+  if (target.id == null) return true
   try {
-    const items = await api.listAddPriceItems()
-    const db = items.find((x) => x.name === target.name && x.price === target.price && x.unit === target.unit)
-    if (db) await api.deleteAddPriceItem(db.id)
+    await api.deleteAddPriceItem(target.id)
+    return true
   } catch {
-    // 忽略
+    return false
   }
 }
 
 // 目录候选（合并后端 + 本次单次添加）。
 export const markupCatalogOptions = computed(() =>
-  [...markupCatalog.value, ...sessionOnly.value.filter((s) => !markupCatalog.value.some((c) => c.name === s.name && c.price === s.price && c.unit === s.unit))].map((m, i) => ({
-    label: m.name,
-    value: `${i}_${m.name}`,
-  })),
+  [
+    ...markupCatalog.value,
+    ...sessionOnly.value.filter(
+      (s) => !markupCatalog.value.some((c) => sameItem(c, s)),
+    ),
+  ].map((m, i) => ({ label: m.name, value: `${i}_${m.name}` })),
 )

@@ -10,11 +10,13 @@
 | 项 | 状态 |
 |---|---|
 | §2.2 平开/吊趟金额分支 | ✅ 已完成（`ff959aa0`） |
-| §2.1 门洞宽/门洞高自动带出 | ✅ 已完成 |
+| §2.1 门洞宽/门洞高自动带出 | ✅ 已完成（`45f7cf1b`） |
 | §4.1 单元格算式明细 | ✅ 已完成（并入 §2.2，同一批分支产出） |
 | §4.12 吊趟墙厚多候选弹窗 | ✅ 已完成（并入 §2.1） |
-| **§9（新增）recalcMarkup 越权删项** | ✅ 已完成 |
-| §2.3 修改加价项目 / §3.x / §4 其余 / §5.1 | ⬜ 待做 |
+| **§9（新增）recalcMarkup 越权删项** | ✅ 已完成（并入 §2.1） |
+| §2.3 修改加价项目 | ✅ 已完成 |
+| §3.1 目录种子 / §3.2 开关格式 / §3.3 初始化失败提示 | ✅ 已完成 |
+| §4.2–§4.11 UI 细节 / §5.1 打印 | ⬜ 待做 |
 
 ## 0. 一句话结论
 
@@ -88,8 +90,12 @@ else if(e[名称].includes("轨道超长")){ c = Number(替换后的数字)/10 }
 body `{name,price,unit}`，带 `ElMessageBox.confirm("确定要删除此加价项目吗?")`（`:8123-8133`）。
 两者成功后都 `window.location.reload()`（`:12843-12845`）。
 
-**新版**：只有 `GET / POST / DELETE /api/v1/add-price-items`（`app/src/api/client.ts:162-169`），
-**没有「修改」**。
+**新版**：原先只有 `GET / POST / DELETE /api/v1/add-price-items`，**没有「修改」**。
+已补：后端 `PUT /api/v1/add-price-items/{id}`（`settings/{handler,service,mod}.rs`）+
+前端 `api.updateAddPriceItem`。旧版用 `{before,after}` 是因为它的服务端没有主键；
+新版有 id，直接按 id 改，语义等价。
+管理 UI 也按旧版拆成三弹窗：`加价项目管理`(400，两个按钮) → `新增加价项目`(500) / `修改加价项目`(500，
+底部 `取消`/`删除`/`确认修改`)。
 
 ---
 
@@ -120,7 +126,10 @@ LS.get('smartdoor_disable_auto_markup') === '1'   /   LS.set(…, v ? '1' : '0')
 
 **旧版**：`getAddPrice` 非 200 或解析失败 → `ElMessage.error("初始化失败")`（`:979` 已核；另在 Diao
 `:3914-3921`、主页 `:8157-8167` 各有一份 `getAddPrice` 调用）。
-**新版**：`useMarkupCatalog.ts:28-35` 的 `catch {}` 直接吞掉，用户看不到失败。
+**新版**：原先 `catch {}` 直接吞掉。已改：`loadMarkupCatalog()` 返回布尔，调用方（页面 onMounted、
+「修改/删除」入口）失败时弹 `初始化失败`。
+> 实现注：`useMarkupCatalog` 是模块级单例、**拿不到组件上下文**，naive-ui 的 `useMessage()` 在
+> setup 外调用会在 dev 下直接抛错，所以 composable 内一律不弹提示，全部改为**按返回值由调用方弹**。
 
 ---
 

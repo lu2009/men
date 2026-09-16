@@ -174,34 +174,85 @@
       </template>
     </n-modal>
 
-    <!-- 加价项目管理 -->
-    <n-modal v-model:show="markupMgmtOpen" preset="card" title="加价项目管理" style="width: 560px">
-      <div class="mgmt-row">
-        <n-input v-model:value="mgmtItem.name" placeholder="加价项目名" style="width: 180px" />
-        <n-input-number v-model:value="mgmtItem.price" :show-button="false" placeholder="单价" style="width: 110px" />
-        <n-select v-model:value="mgmtItem.unit" :options="markupUnitOptions" style="width: 120px" />
-        <n-button type="primary" @click="addCatalogItemForMgmt">添加</n-button>
+    <!-- 加价项目管理：一个入口 → 两个按钮（复刻旧版 Hui.formatted.js:13107-13117，width 400 居中） -->
+    <n-modal v-model:show="markupMgmtOpen" preset="card" title="加价项目管理" style="width: 400px" :bordered="false">
+      <div class="footer" style="justify-content: center">
+        <n-button type="primary" @click="openMarkupAdd">新增加价项目</n-button>
+        <n-button type="warning" @click="openMarkupEdit">修改/删除加价项目</n-button>
       </div>
-      <n-divider style="margin: 10px 0" />
-      <div class="mgmt-list">
-        <div v-for="(m, i) in markupCatalog" :key="i" class="mgmt-row">
-          <span class="mgmt-name">{{ m.name }}</span>
-          <span class="mgmt-price">¥{{ m.price }}</span>
-          <span class="mgmt-unit">{{ m.unit }}</span>
-          <n-button size="tiny" text type="error" @click="removeCatalogItem(i)">删除</n-button>
+    </n-modal>
+
+    <!-- 新增加价项目（目录，写后端）：width 500（旧版 :13119） -->
+    <n-modal v-model:show="markupAddOpen" preset="card" title="新增加价项目" style="width: 500px">
+      <div class="vis-col">
+        <div class="mgmt-row">
+          <span class="mgmt-name">加价项目</span>
+          <n-input v-model:value="mgmtAdd.name" placeholder="请输入加价项目名称" style="width: 320px" />
+        </div>
+        <div class="mgmt-row">
+          <span class="mgmt-name">单价</span>
+          <n-input-number v-model:value="mgmtAdd.price" :show-button="false" placeholder="单价" style="width: 150px" />
+        </div>
+        <div class="mgmt-row">
+          <span class="mgmt-name">计价方式</span>
+          <n-select v-model:value="mgmtAdd.unit" :options="markupUnitOptions" style="width: 150px" />
         </div>
       </div>
       <template #footer>
-        <div class="footer"><n-button @click="markupMgmtOpen = false">关闭</n-button></div>
+        <div class="footer">
+          <n-button @click="markupAddOpen = false">取消</n-button>
+          <n-button type="primary" @click="confirmMarkupAdd">确认</n-button>
+        </div>
       </template>
     </n-modal>
 
-    <!-- 自动加价设置 -->
-    <n-modal v-model:show="autoMarkupOpen" preset="dialog" title="自动加价设置"
-      positive-text="确定" negative-text="取消" @positive-click="autoMarkupOpen = false" @negative-click="autoMarkupOpen = false">
+    <!-- 修改加价项目（footer 取消 / 删除 / 确认修改，旧版 :13164-13180） -->
+    <n-modal v-model:show="markupEditOpen" preset="card" title="修改加价项目" style="width: 500px">
       <div class="vis-col">
-        <n-checkbox :checked="disableAutoMarkup" @update:checked="toggleAutoMarkup" label="关闭自动加价（超宽/超高/超墙厚/轨道超长/超平米 不自动计算）" />
+        <div class="mgmt-row">
+          <span class="mgmt-name">选择项目</span>
+          <n-select
+            :value="mgmtEdit.index"
+            :options="markupEditOptions"
+            placeholder="选择修改或删除的项目"
+            style="width: 320px"
+            @update:value="pickMarkupEdit"
+          />
+        </div>
+        <div class="mgmt-row">
+          <span class="mgmt-name">加价项目</span>
+          <n-input v-model:value="mgmtEdit.name" placeholder="请输入加价项目名称" style="width: 320px" />
+        </div>
+        <div class="mgmt-row">
+          <span class="mgmt-name">单价</span>
+          <n-input-number v-model:value="mgmtEdit.price" :show-button="false" placeholder="单价" style="width: 150px" />
+        </div>
+        <div class="mgmt-row">
+          <span class="mgmt-name">计价方式</span>
+          <n-select v-model:value="mgmtEdit.unit" :options="markupUnitOptions" style="width: 150px" />
+        </div>
       </div>
+      <template #footer>
+        <div class="footer">
+          <n-button @click="markupEditOpen = false">取消</n-button>
+          <n-button type="error" @click="confirmMarkupDelete">删除</n-button>
+          <n-button type="primary" @click="confirmMarkupEdit">确认修改</n-button>
+        </div>
+      </template>
+    </n-modal>
+
+    <!-- 自动加价设置：文案与旧版一致（:13228-13247，width 320） -->
+    <n-modal v-model:show="autoMarkupOpen" preset="card" title="自动加价设置" style="width: 320px">
+      <div class="vis-col">
+        <n-checkbox :checked="disableAutoMarkup" @update:checked="onAutoMarkupDraft" label="去除自动加价" />
+        <div class="hint" style="padding-left: 22px">勾选后，玻璃和尺寸相关加价项目将不再自动选中</div>
+      </div>
+      <template #footer>
+        <div class="footer">
+          <n-button @click="autoMarkupOpen = false">取消</n-button>
+          <n-button type="primary" @click="saveAutoMarkup">保存</n-button>
+        </div>
+      </template>
     </n-modal>
 
     <!-- 排序方式（原版 @324476 打开 / @324531 保存；全 legacy 唯一写入 `smartdoor_sort_method` 的地方）-->
@@ -413,6 +464,7 @@ import {
   removeCatalogItem,
   sessionAddCatalogItem,
   syncAddCatalogItem,
+  updateCatalogItem,
 } from '../composables/useMarkupCatalog'
 import {
   confirmCustomNames,
@@ -916,31 +968,140 @@ async function saveVisDialog() {
   }
 }
 
-// 加价项目管理弹窗：管理 markupCatalog（增/删），localStorage 持久化
+// ===== 加价项目管理（复刻旧版主页三弹窗：管理 → 新增 / 修改删除）=====
+// 旧版：`加价项目管理`(400) → 两个按钮；`新增加价项目`(500)；`修改加价项目`(500)
+//       Hui.formatted.js:13107-13226；目录增删改走 addAddPrice / editPrice / deleteAddPrice
 const markupMgmtOpen = ref(false)
-const mgmtItem = reactive({ name: '', price: 0, unit: '元/套' })
+const markupAddOpen = ref(false)
+const markupEditOpen = ref(false)
 
+/** 新增弹窗的表单（旧版 `_0x4956b9`，打开时重置为 name:'', price:0, unit:'元/套'）。 */
+const mgmtAdd = reactive({ name: '', price: 0, unit: '元/套' })
 function openMarkupMgmt() {
   markupMgmtOpen.value = true
 }
-
-async function addCatalogItemForMgmt() {
-  const name = mgmtItem.name.trim()
+function openMarkupAdd() {
+  mgmtAdd.name = ''
+  mgmtAdd.price = 0
+  mgmtAdd.unit = '元/套'
+  markupMgmtOpen.value = false
+  markupAddOpen.value = true
+}
+async function confirmMarkupAdd() {
+  const name = mgmtAdd.name.trim()
+  // 旧版校验：名称「请输入加价项目名称」；单价「单价必须大于0」（管理弹窗这份是 min:.01，:7986-7993）
   if (!name) {
-    message.warning('请输入加价项目名')
+    message.warning('请输入加价项目名称')
     return
   }
-  await syncAddCatalogItem({ name, price: mgmtItem.price || 0, unit: mgmtItem.unit || '元/套' })
-  mgmtItem.name = ''
-  mgmtItem.price = 0
+  if (!(mgmtAdd.price > 0)) {
+    message.warning('单价必须大于0')
+    return
+  }
+  const ok = await syncAddCatalogItem({ name, price: mgmtAdd.price, unit: mgmtAdd.unit || '元/套' })
+  if (!ok) {
+    message.warning('加价项目已存在！') // 去重失败即已存在，原版提示后**不关窗**
+    return
+  }
+  message.success('加价项目添加成功')
+  markupAddOpen.value = false
+}
+
+/** 「修改/删除加价项目」：打开前重载目录（旧版 `_0x2612ea` 先 `await _0x51e171()`）。 */
+const mgmtEdit = reactive({ index: -1, name: '', price: 0, unit: '元/套' })
+const markupEditOptions = computed(() =>
+  markupCatalog.value.map((m, i) => ({ label: `${m.name} ${m.price}${m.unit}`, value: i })),
+)
+async function openMarkupEdit() {
+  if (!(await loadMarkupCatalog())) message.error('初始化失败')
+  mgmtEdit.index = -1
+  mgmtEdit.name = ''
+  mgmtEdit.price = 0
+  mgmtEdit.unit = '元/套'
+  markupMgmtOpen.value = false
+  markupEditOpen.value = true
+}
+function pickMarkupEdit(i: number) {
+  const a = markupCatalog.value[i]
+  mgmtEdit.index = i
+  if (!a) return
+  mgmtEdit.name = a.name
+  mgmtEdit.price = a.price
+  mgmtEdit.unit = a.unit
+}
+async function confirmMarkupEdit() {
+  if (mgmtEdit.index < 0) {
+    message.warning('请先选择一个项目')
+    return
+  }
+  if (!mgmtEdit.name.trim()) {
+    message.warning('请输入加价项目名称')
+    return
+  }
+  if (!(mgmtEdit.price > 0)) {
+    message.warning('单价必须大于0')
+    return
+  }
+  // 同名（除自己外）判重 —— 旧版 `_0x3cdb91` 的 `.some(...)`
+  const dup = markupCatalog.value.some(
+    (c, i) => i !== mgmtEdit.index && c.name === mgmtEdit.name.trim() && c.price === mgmtEdit.price && c.unit === mgmtEdit.unit,
+  )
+  if (dup) {
+    message.warning('加价项目已存在！')
+    return
+  }
+  const ok = await updateCatalogItem(mgmtEdit.index, {
+    name: mgmtEdit.name.trim(),
+    price: mgmtEdit.price,
+    unit: mgmtEdit.unit || '元/套',
+  })
+  if (!ok) {
+    message.error('编辑失败，请重试')
+    return
+  }
+  message.success('加价项目修改成功')
+  markupEditOpen.value = false
+}
+async function confirmMarkupDelete() {
+  if (mgmtEdit.index < 0) {
+    message.warning('请先选择一个项目')
+    return
+  }
+  const target = markupCatalog.value[mgmtEdit.index]
+  dialog.warning({
+    title: '提示',
+    content: '确定要删除此加价项目吗?',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      const ok = await removeCatalogItem(mgmtEdit.index)
+      message[ok ? 'success' : 'error'](ok ? '加价项目删除成功' : '加价项目删除失败')
+      mgmtEdit.index = -1
+      mgmtEdit.name = ''
+      mgmtEdit.price = 0
+      mgmtEdit.unit = '元/套'
+    },
+    onNegativeClick: () => message.info('已取消删除'),
+  })
+  void target
 }
 
 // 自动加价设置（本地开关，仿旧版 smartdoor_disable_auto_markup）
+// ⚠️ 存的是**布尔值的字符串**（`"true"` / `"false"`），不是 `"1"`/`"0"` ——
+//   旧版读写都是 `=== "true"` / `String(v)`（`Hui.formatted.js:835` / `:8009-8014`），
+//   必须一致，否则从旧版迁过来的浏览器里那份设置会被读反。
+//   旧版点「保存」才落盘，故这里也用草稿态。
 const autoMarkupOpen = ref(false)
-const disableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === '1')
-function toggleAutoMarkup(v: boolean) {
-  disableAutoMarkup.value = v
-  LS.set('smartdoor_disable_auto_markup', v ? '1' : '0')
+const disableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === 'true')
+const autoMarkupDraft = ref(disableAutoMarkup.value)
+function onAutoMarkupDraft(v: boolean) {
+  autoMarkupDraft.value = v
+}
+function saveAutoMarkup() {
+  disableAutoMarkup.value = autoMarkupDraft.value
+  LS.set('smartdoor_disable_auto_markup', String(autoMarkupDraft.value))
+  autoMarkupOpen.value = false
+  message.success('设置已保存')
 }
 
 async function loadColumnConfig() {
@@ -978,7 +1139,8 @@ function onMoreSelect(key: string) {
     case 'productionCustom3': void printProductionCustom('product3'); break
     case 'terminal': void copyTerminalLink(); break
     case 'markupMgmt': openMarkupMgmt(); break
-    case 'autoMarkup': autoMarkupOpen.value = true; break
+    // 打开时把草稿同步成已存值（旧版点「保存」才落盘，取消应丢弃改动）
+    case 'autoMarkup': autoMarkupDraft.value = disableAutoMarkup.value; autoMarkupOpen.value = true; break
     case 'sortMethod': openSortMethod(); break
     case 'payQrcode': payQrcodeOpen.value = true; break
     case 'openDir': openOpenDirSettings(); break
@@ -5198,7 +5360,8 @@ onMounted(async () => {
   restoreDraft()
   loadOpenDirectionSettings()
   void loadPayQrcode()
-  void loadMarkupCatalog()
+  // 旧版拉目录失败会弹「初始化失败」（Hui.formatted.js:979）
+  void loadMarkupCatalog().then((ok) => { if (!ok) message.error('初始化失败') })
   void loadColumnConfig()
   markSaved()
   window.addEventListener('beforeunload', handleBeforeUnload)

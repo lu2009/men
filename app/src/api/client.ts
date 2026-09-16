@@ -165,6 +165,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  updateAddPriceItem: (id: number, payload: AddPriceItemInput) =>
+    request<AddPriceItemDto>(`/v1/add-price-items/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
   deleteAddPriceItem: (id: number) =>
     request<{ deleted: boolean }>(`/v1/add-price-items/${id}`, { method: 'DELETE' }),
   // 打印模板（汇算字典）：按 mode 或全量拉取。

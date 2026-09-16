@@ -45,6 +45,16 @@ pub async fn create_price_item(
     Ok(response::ok(serde_json::to_value(item).unwrap()))
 }
 
+pub async fn update_price_item(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<i64>,
+    Json(req): Json<AddPriceItemInput>,
+) -> ApiResult<Json<Value>> {
+    let item = service::update_price_item(&state.pool, user.tenant_id, id, &req).await?;
+    Ok(response::ok(serde_json::to_value(item).unwrap()))
+}
+
 pub async fn delete_price_item(
     State(state): State<AppState>,
     user: CurrentUser,
