@@ -3406,7 +3406,7 @@ function pingCols(): DataTableColumn<Line>[] {
             : []),
           ...(colVis(pingColVis, 'track') ? [sub('锁具：', trackCell(l))] : []),
           sub('开向：', optCell(l, 'direction', pingDirectionOptions.value, undefined, true)),
-          h('div', { class: 'image-cell2' }, [
+          h('div', { class: 'image-cell2 image-cell2--ping' }, [
             img ? h('img', { src: img, alt: l.direction, class: 'direction-image' }) : null,
           ]),
         )
@@ -3546,7 +3546,7 @@ function diaoCols(): DataTableColumn<Line>[] {
             }, true),
           ),
           sub('开向：', optCell(l, 'direction', directionSuffixOptions.value, undefined, true)),
-          h('div', { class: 'image-cell2' }, [
+          h('div', { class: 'image-cell2 image-cell2--diao' }, [
             img ? h('img', { src: img, alt: l.direction, class: 'direction-image' }) : null,
           ]),
         )
@@ -6066,12 +6066,25 @@ onMounted(async () => {
 .table-wrap :deep(.n-input.red-number-input .n-input__input-el) {
   color: red;
 }
-/* 开向示意图：旧版 `.direction-image{max-width:100%;object-fit:contain}`，
-   容器 `.image-cell2{position:relative;display:flex;justify-content:center;align-items:center}`（平开 width:70%/height:70%、移门 width:50%/height:40%）。 */
+/*
+ * 开向示意图。旧版靠 `.image-cell2` 的**百分比宽度**给图封顶：
+ *   平开 `.image-cell2{width:70%;height:70%}` ／ 移门 `.image-cell2{width:50%;height:40%}`
+ * 加上 `img.direction-image{max-width:100%;object-fit:contain}`。
+ * ⚠️ 这两条 width 不能省：图是**原始尺寸**渲染的，而移门那批图最大到 **479×126**
+ * （平开那批只有 80~115 宽），不封顶就会把整个格子撑爆。
+ * 百分比高度对着 auto 高度的父元素等于没用，真正起作用的是 width —— 照抄即可。
+ */
 .table-wrap :deep(.image-cell2) {
   display: flex;
   justify-content: center;
   align-items: center;
+  margin: 0 auto;
+}
+.table-wrap :deep(.image-cell2--ping) {
+  width: 70%;
+}
+.table-wrap :deep(.image-cell2--diao) {
+  width: 50%;
 }
 .table-wrap :deep(.direction-image) {
   max-width: 100%;
