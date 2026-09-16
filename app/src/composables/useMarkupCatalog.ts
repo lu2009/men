@@ -9,8 +9,12 @@ export interface CatalogItem {
   unit: string
 }
 
-// 加价项目单位（六种）。
-const MARKUP_UNITS = ['元/套', '元/支', '元/方', '元/米', '元/公分', '无']
+// 加价项目单位。顺序照旧版管理弹窗的单位表 `_0x3ccc56`（`Hui.formatted.js:7995-8007`）：
+//   元/套、元/方、元/公分、元/米、元/支、无
+// ⚠️ 旧版**汇算页**那张表（`$t`，`:1642-1656`）是 **7 项、且 `元/方` 重复了一次**
+//   （第 2 项与第 4 项 value/label 完全一样）。那是笔误 —— 两个选项选中同一个值、无任何行为差异，
+//   只是下拉里多一行噪音。这里**不复制这个重复**，其余 6 项与顺序保持一致。
+const MARKUP_UNITS = ['元/套', '元/方', '元/公分', '元/米', '元/支', '无']
 export const markupUnitOptions = MARKUP_UNITS.map((u) => ({ label: u, value: u }))
 
 /** 目录种子 —— 旧版 `useAddPriceItems` 模块初始化时就带这一条，**每次进页面都有**，
@@ -68,10 +72,11 @@ export async function syncAddCatalogItem(item: CatalogItem): Promise<boolean> {
   }
 }
 
-/** 单次添加：仅加内存（本次会话可选，不持久化）。 */
-export function sessionAddCatalogItem(item: CatalogItem) {
-  dedupAppend(markupCatalog.value, item)
-  dedupAppend(sessionOnly.value, item)
+/** 单次添加：仅加内存（本次会话可选，不持久化）。返回 false 表示目录里已有。 */
+export function sessionAddCatalogItem(item: CatalogItem): boolean {
+  const ok = dedupAppend(markupCatalog.value, item)
+  if (ok) dedupAppend(sessionOnly.value, item)
+  return ok
 }
 
 /** 修改目录项。有 id 的走后端 `PUT`；无 id 的（种子 / 单次添加）只改内存。 */
@@ -112,5 +117,6 @@ export const markupCatalogOptions = computed(() =>
     ...sessionOnly.value.filter(
       (s) => !markupCatalog.value.some((c) => sameItem(c, s)),
     ),
-  ].map((m, i) => ({ label: m.name, value: `${i}_${m.name}` })),
+    // option label 照旧版：`名称 + " " + price + unit`（如 `人工 100元/套`，Hui.formatted.js:2512）
+  ].map((m, i) => ({ label: `${m.name} ${m.price}${m.unit}`, value: `${i}_${m.name}` })),
 )

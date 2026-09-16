@@ -149,16 +149,23 @@
       </n-drawer-content>
     </n-drawer>
 
-    <!-- 新增加价项目 -->
-    <n-modal v-model:show="addMarkupOpen" preset="card" title="新增加价项目" style="width: 480px">
+    <!-- 新增加价项目（汇算页行内入口；旧版 title/宽 500、label 加价项目/单价/计价方式，:2640-2688） -->
+    <n-modal v-model:show="addMarkupOpen" preset="card" title="新增加价项目" style="width: 500px">
       <div class="vis-col">
         <div class="mgmt-row">
-          <span class="mgmt-name">加价项目名</span>
-          <n-input v-model:value="addMarkupForm.name" placeholder="加价项目名" style="width: 240px" />
+          <span class="mgmt-name">加价项目</span>
+          <n-input v-model:value="addMarkupForm.name" placeholder="请输入加价项目名称" style="width: 320px" />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">单价</span>
-          <n-input-number v-model:value="addMarkupForm.price" :show-button="false" placeholder="单价" style="width: 150px" />
+          <!-- 原版单价 min 随单位变：元/套 允许负数（`-Infinity`），其余必须 ≥0（:2652） -->
+          <n-input-number
+            v-model:value="addMarkupForm.price"
+            :show-button="false"
+            :min="addMarkupForm.unit === '元/套' ? undefined : 0"
+            placeholder="单价"
+            style="width: 150px"
+          />
         </div>
         <div class="mgmt-row">
           <span class="mgmt-name">计价方式</span>
@@ -616,33 +623,56 @@ function openAddMarkup(l: Line) {
   addMarkupOpen.value = true
 }
 
-// 校验表单 → 加到当前行 → 刷新 → 关弹窗。返回该项供调用方决定如何进目录；失败返回 null。
-function pushMarkupItem(): { name: string; price: number; unit: string } | null {
+/**
+ * 提交「新增加价项目」弹窗（旧版 `ea`，Hui.formatted.js:1657-1690）。
+ *
+ * 关键：**先去重目录，通过了才挂到当前行**。目录里已有的项走多选下拉选，不走这里 ——
+ * 所以重复时原版是 `加价项目已存在！` 且**弹窗不关**、行上也不加。
+ * `同步保存`(sync=true) 额外 POST `addAddPrice` 并提示成败；`单次添加`(false) 只进内存、不提示。
+ */
+async function submitAddMarkup(sync: boolean) {
   const name = addMarkupForm.name.trim()
   if (!name) {
-    message.warning('请输入加价项目名')
-    return null
+    message.warning('请输入加价项目名称')
+    return
+  }
+  const price = Number(addMarkupForm.price)
+  if (addMarkupForm.price == null || Number.isNaN(price)) {
+    message.warning('请输入有效单价')
+    return
+  }
+  const unit = addMarkupForm.unit || '元/套'
+  // 原版校验：`unit !== '元/套' && Number(t) < 0` → 报错（元/套 允许负数）
+  if (unit !== '元/套' && price < 0) {
+    message.warning('除元/套外，单价必须大于等于0')
+    return
   }
   const l = addMarkupTarget.value
-  if (!l) return null
-  const item = { name, price: addMarkupForm.price || 0, unit: addMarkupForm.unit || '元/套' }
+  if (!l) return
+
+  const item = { name, price, unit }
+  if (markupCatalog.value.some((c) => c.name === name && c.price === price && c.unit === unit)) {
+    message.warning('加价项目已存在！') // 不关窗、不加到行上（原版如此）
+    return
+  }
+  const ok = sync ? await syncAddCatalogItem(item) : sessionAddCatalogItem(item)
+  if (sync && !ok) message.error('加价项目添加失败')
+  else if (sync) message.success('加价项目添加成功')
+
   l.markup = l.markup ?? []
   l.markup.push({ ...item, amount: 0 })
   lineRefresh(l)
   addMarkupOpen.value = false
-  return item
 }
 
-// 单次添加：仅加到当前行 + 内存目录（本次会话可选，不持久化）
+// 单次添加：只进内存目录（本次会话可选，不持久化）
 function addMarkupOnce() {
-  const item = pushMarkupItem()
-  if (item) sessionAddCatalogItem(item)
+  void submitAddMarkup(false)
 }
 
-// 同步保存：加到当前行 + 后端持久化目录（永久，其它行/之后可选）
+// 同步保存：写后端持久化目录（永久，其它行/之后可选）
 async function addMarkupSync() {
-  const item = pushMarkupItem()
-  if (item) await syncAddCatalogItem(item)
+  await submitAddMarkup(true)
 }
 
 // 开向模式/自定义命名已抽到 ../composables/useOpenDirection（仿原版 _0x5a7707）
@@ -1761,6 +1791,18 @@ function markupDetail(item: MarkupItem, l: Line, carry: { v: number }): MarkupDe
 }
 
 /**
+ * 行上加价项目的**明细文本**多行（对应原版行上的 `加价项目` 字段）。
+ *
+ * 原版在 `wt`/`ft` 里把每项算出的文本 `join("\n")` 写进行字段（`Hui.formatted.js:1308`），
+ * 单元格再按 `\n` 渲染成 `.expression-line`（`:2515`）；但**该字段不落库**
+ * —— 保存行时只发 `加价项目原始数据`（`:1442`）。所以新版**现算**即可，不必加字段。
+ */
+function markupLines(l: Line): string[] {
+  const carry = { v: 0 }
+  return (l.markup ?? []).filter((m) => m && m.name).map((m) => markupDetail(m, l, carry).text)
+}
+
+/**
  * 重算整行加价：逐条算金额，合计写入 `other_fee`。
  *
  * ⚠️ 这里**只算钱，不增删任何项**。
@@ -2509,12 +2551,15 @@ function markupSelectCell(l: Line) {
   // 明细多行：原版把 `wt`/`ft` 产出的文本按 `\n` 渲染成 `.expression-line`（`Hui.formatted.js:2515`），
   // 内容是**带算式的文本**（如 `超宽: 5元/公分*3.5公分*2=35元`），不是「名称 ¥金额」。
   // 文本可现算（与金额同源、同一批分支），故不必落库。
-  const carry = { v: 0 }
-  const lines = (l.markup ?? []).filter((m) => m && m.name).map((m) => markupDetail(m, l, carry).text)
+  const lines = markupLines(l)
   return h('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0' }, [
     h(NSelect, {
+      // 旧版属性（Hui.formatted.js:2504-2506）：multiple + collapse-tags + collapse-tags-tooltip + filterable
       size: 'small',
       multiple: true,
+      'collapse-tags': true,
+      'collapse-tags-tooltip': true,
+      filterable: true,
       options: opts,
       value: selected,
       placeholder: '请选择加价项目',
@@ -3685,6 +3730,11 @@ function pricingDetail(l: Line): string {
       ? `•${name}${l.casing_price}元/米*${len} =${l.casing_amount}元`
       : `•${name}${l.casing_price}元/米*${len}*${l.quantity}=${l.casing_amount}元`
   }
+  // 原版在单价行/套线行之后再追加上加价项目那几行（`Hui.formatted.js:8721` / `:8819`）：
+  //   `加价项目 && (s += "<br>•" + 加价项目.replace(/\n/g, "<br>•"))`
+  // 首行同样带前导 `<br>•` —— 计价方式为空（前面什么都没拼）时结果以 `<br>•` 开头，照抄。
+  const add = markupLines(l).join('\n')
+  if (add) s += '<br>•' + add.replace(/\n/g, '<br>•')
   return s
 }
 
