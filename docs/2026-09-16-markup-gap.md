@@ -18,6 +18,7 @@
 | §3.1 目录种子 / §3.2 开关格式 / §3.3 初始化失败提示 | ✅ 已完成 |
 | §4.2–§4.7、§4.10、§4.11 UI 细节 | ✅ 已完成 |
 | §5.1 打印追加加价行 | ✅ 已完成 |
+| **§4 补第二轮：单元格结构/样式 + 三弹窗宽度与按钮 type** | ✅ 已完成（`f6d62187` / `c76127ee`） |
 | **§4.5 单位表重复项** | ⚠️ 未复制（见 §4.5 注） |
 | **§4.8 同步保存按钮门控** | ⛔ 做不了（见 §4.8 注） |
 
@@ -175,6 +176,32 @@ LS.get('smartdoor_disable_auto_markup') === '1'   /   LS.set(…, v ? '1' : '0')
 > （`:1504` Ping / `:4312` Diao）。**新系统没有 `defaulted` 这个概念**（`UserDto` 只有
 > id/tenant_id/username/name/role，`backend/src/modules/auth/model.rs:16`），
 > 要做必须先定义它在新系统里对应什么。**在定义清楚之前不猜**，按钮保持恒显示。
+
+### 4bis. 第二轮补的（`f6d62187` / `c76127ee`）
+
+第一轮按「差距表」逐条改完之后，又把**单元格与三个弹窗的 DOM 结构 / 类名 / 内联样式**
+拿来逐字对了一遍（对照旧版平开 @2497-2520、吊趟 @5288-5300、弹窗 @2640-2688 与 :13107-13246，
+样式抄自 `legacy/css/Hui-39b802eb.css`），补了一批第一轮没覆盖的：
+
+| 位置 | 旧版 | 我们（改前） |
+|---|---|---|
+| 单元格外层 | `div.extra-items-container {flex;column;width:100%}` | 无类名 |
+| 「点击添加」 | `div.glass-input-label` 文案 **`" 点击添加： "`**（前后各一空格+全角冒号）<br>`font-size:11px; color:#1302fa`，`cursor:pointer`，**排在单元格最前** | NButton tiny/text，文案「点击添加…」，**排在最后** |
+| 下拉宽 | `100%` | `150px` |
+| 明细容器 | `div.extra-items-expressions {margin-top:4px; white-space:pre-line; font-size:12px; line-height:1.5}` | 无类名 |
+| 明细行 | `div.expression-line {margin-bottom:2px}` | 有类名但套了 inline 灰字 11px |
+| 表单 label 宽 | `100px`（三个弹窗一致） | `flex:1` 撑开 |
+| 加价项目 输入框 | 不给宽度（撑满） | `320px` |
+| 单价 / 计价方式 | `30%` | `150px` |
+| 「修改」的「选择项目」 | `100%` | `320px` |
+| 按钮 type | 单次添加 `primary`、同步保存 `success` | **正好反了** |
+| 自动加价设置内容 | 外层 `padding:10px 0`；提示行**内联** `#909399 / 12px / margin-top:8px` | `.hint` 类（多带 line-height:1.6）+ 多余 `padding-left:22px` |
+
+⚠️ **踩坑记录（以后写这类单元格 CSS 会再遇到）**：那四个类必须写 `:deep()` 才生效。
+该单元格是在 **DataTable 的 `render` 回调**里渲染的，回调执行时 `currentRenderingInstance`
+是 NDataTable 而非本组件，vnode 拿不到本组件的 `data-v` 标记 ⇒ 普通 `<style scoped>` 一条都不命中
+（实测 display 仍是 block、字号 12px、颜色也不是 #1302fa）。`:deep(X)` 编译成 `[data-v-本组件] X`，
+靠祖先命中绕开。旧版能用普通 scoped，是因为它走 Element Plus 的**作用域插槽**，插槽内容在父作用域渲染。
 
 ---
 
