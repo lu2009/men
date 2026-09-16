@@ -375,6 +375,8 @@ import {
   NInput,
   NInputNumber,
   NModal,
+  NRadio,
+  NRadioGroup,
   NSelect,
   NSpace,
   NTooltip,
@@ -1452,22 +1454,6 @@ function computeAmount(l: Line): number {
   return Math.round(subtotal * (l.discount || 0))
 }
 
-/** 解析「超宽1500」「超高2200」「超墙厚20」「轨道超长3000」「超平米2」等自动加价项名。 */
-function parseAutoMarkup(name: string): { kind: string; threshold: number } | null {
-  const m = name.trim().match(/^(超宽|超高|超墙厚|轨道超长|超平米)(\d+(?:\.\d+)?)$/)
-  if (!m) return null
-  return { kind: m[1], threshold: Number(m[2]) }
-}
-
-// 原版 `Qt`（@59742）的自动加价**只认「超宽/超高/超墙厚 + 元/公分」**：
-//   `re = new RegExp("^"+(超宽|超高|超墙厚)+"\\d+$")`；`re.test(item.name) && item.unit === '元/公分'`
-// 同名但单位不是「元/公分」的项按**普通项**处理。轨道超长/超平米不在该判定内。
-const AUTO_CM_KINDS = ['超宽', '超高', '超墙厚']
-const isAutoCmMarkup = (item: MarkupItem): boolean => {
-  const a = parseAutoMarkup(item.name)
-  return !!a && AUTO_CM_KINDS.includes(a.kind) && item.unit === '元/公分'
-}
-
 /**
  * 单条加价项：算出 **金额** 与 **明细文本**。
  *
@@ -1613,56 +1599,25 @@ function markupDetail(item: MarkupItem, l: Line, carry: { v: number }): MarkupDe
 }
 
 /**
- * 重算整行加价：自动加价项按前缀分组，每组仅保留「阈值 ≤ 实际且差值最小」的一项，
- * 其余未匹配的自动项计 0；普通项按单位公式。合计写入 other_fee。
+ * 重算整行加价：逐条算金额，合计写入 `other_fee`。
+ *
+ * ⚠️ 这里**只算钱，不增删任何项**。
+ *   原版 `wt`/`ft`（`Hui.formatted.js:1256-1307` / `:4170-4204`）就是遍历「已挂的项」算钱，
+ *   一个 `splice`/`filter` 都没有（已逐行核过）。**该挂哪些自动项，全部由字段失焦钩子决定**：
+ *     平开 `Qt`（`:1578-1626`，门洞宽/门洞高/墙厚）、玻璃 `_e`（`:845-871`）
+ *     吊趟 `:5075-5125`（只墙厚，≥2 候选弹窗）
+ *   原先这里按「阈值最大者胜」把落选的自动项**直接剔除** —— 后果是：
+ *   关掉自动加价后，只要行上任何一个字段变化触发重算，用户手动挂的 `超宽N` 也会被悄悄删掉；
+ *   原版此时是不动的（钩子被开关挡住，`wt` 又从不删项）。
  */
 function recalcMarkup(l: Line): number {
-  const h = Math.max(l.door_height || 0, l.light_window_height || 0)
-  const actualOf = (kind: string): number => {
-    switch (kind) {
-      case '超宽': return l.door_width || 0
-      case '超高': return h
-      case '超墙厚': return l.wall_thickness || 0
-      case '超平米': return l.square || 0
-      case '轨道超长': return Number.POSITIVE_INFINITY
-      default: return 0
-    }
-  }
-  const applies = (kind: string, th: number): boolean => {
-    if (kind === '超宽' || kind === '超高') return l.price_type === '套' && actualOf(kind) > th
-    if (kind === '轨道超长') return true
-    return actualOf(kind) > th
-  }
-
-  const winners = new Set<MarkupItem>()
-  const groups = new Map<string, MarkupItem[]>()
-  for (const item of l.markup) {
-    if (!isAutoCmMarkup(item)) continue
-    const auto = parseAutoMarkup(item.name)!
-    const arr = groups.get(auto.kind) ?? []
-    arr.push(item)
-    groups.set(auto.kind, arr)
-  }
-  for (const [kind, arr] of groups) {
-    const valid = arr.filter((it) => applies(kind, parseAutoMarkup(it.name)!.threshold))
-    if (!valid.length) continue
-    valid.sort((a, b) => parseAutoMarkup(b.name)!.threshold - parseAutoMarkup(a.name)!.threshold)
-    winners.add(valid[0])
-  }
-
-  // 原版 `Qt`：字段变化时把「已挂的同类自动项」**从列表里移除**再补入 winners，而不是保留置 0。
-  // 故这里把落选的自动项（超宽/超高/超墙厚 + 元/公分）直接剔除。
   let total = 0
-  const kept: MarkupItem[] = []
   // `carry` 贯穿整行 —— 复刻原版把基准量声明在**循环外**（平开 `o` @:1259 / 吊趟 `c` @:4173）
   const carry = { v: 0 }
-  for (const item of l.markup) {
-    if (isAutoCmMarkup(item) && !winners.has(item)) continue
+  for (const item of l.markup ?? []) {
     item.amount = round2(markupDetail(item, l, carry).amount)
     total += item.amount
-    kept.push(item)
   }
-  l.markup = kept
   l.other_fee = round2(total)
   return l.other_fee
 }
@@ -1924,25 +1879,103 @@ function onGlassSelection(l: Line, newValue: string, oldValue: string) {
   lineRefresh(l)
 }
 
-// 墙厚→「超墙厚」加价项联动（旧版 5077-5126）：墙厚超过某「超墙厚N 元/公分」阈值时加入该项（多项时取最贴近的），
-// 不再超过则移除已有的「超墙厚」项。
-function syncWallThicknessMarkup(l: Line) {
-  const t = l.wall_thickness || 0
-  const catalog = markupCatalog.value.filter(
-    (c) => /^超墙厚\d+$/.test(c.name.trim()) && c.unit === '元/公分',
+// ===== 尺寸类自动加价（平开 / 吊趟两套）=====
+// 平开 `Qt`  Hui.formatted.js:1578-1626
+// 吊趟      Hui.formatted.js:5075-5125
+// 触发时机都是**失焦**（不是随输入），且都受「自动加价」开关控制。
+
+type SizeField = 'door_width' | 'door_height' | 'wall_thickness'
+
+/** 候选：目录里 `^前缀\d+$` 且 元/公分，且**阈值严格小于**实际值（原版 `n > e`）。 */
+function sizeMarkupCandidates(prefix: string, actual: number) {
+  const re = new RegExp(`^${prefix}\\d+$`)
+  return markupCatalog.value
+    .map((c) => ({ c, th: Number((c.name.trim().match(/\d+$/) || [])[0] || 0) }))
+    .filter((x) => re.test(x.c.name.trim()) && x.c.unit === '元/公分' && actual > x.th)
+}
+
+/**
+ * 平开尺寸类自动带出（原版 `Qt`）。
+ * - 门洞宽→`超宽`、门洞高→`超高`、墙厚→`超墙厚`
+ * - **门洞宽/门洞高 仅当 `计价方式==='套'`**；墙厚恒触发
+ * - 先按 `startsWith(前缀)` 清掉本行旧项（比候选筛选用 `^前缀\d+$` 更松，原版如此），
+ *   再取「阈值最大（= 差值最小）」的一条挂上
+ */
+function syncSizeMarkupPing(l: Line, field: SizeField) {
+  if (disableAutoMarkup.value) return
+  if (field !== 'wall_thickness' && l.price_type !== '套') return
+  const prefix = field === 'door_width' ? '超宽' : field === 'door_height' ? '超高' : '超墙厚'
+  const actual =
+    field === 'door_width' ? l.door_width || 0 : field === 'door_height' ? l.door_height || 0 : l.wall_thickness || 0
+
+  l.markup = (l.markup ?? []).filter(
+    (m) => !(m.name.trim().startsWith(prefix) && m.unit === '元/公分'),
   )
-  // 移除行里已有的「超墙厚」项
-  l.markup = (l.markup ?? []).filter((m) => !/^超墙厚\d+$/.test(m.name.trim()))
-  // 取阈值 < 当前墙厚 且最贴近（阈值最大）的一项加入
-  const candidates = catalog
-    .map((c) => ({ c, th: Number(c.name.match(/\d+$/)?.[0] || 0) }))
-    .filter((x) => t > x.th)
-    .sort((a, b) => b.th - a.th)
-  if (candidates.length) {
-    const best = candidates[0].c
-    l.markup.push({ ...best, amount: 0 })
+  const cands = sizeMarkupCandidates(prefix, actual)
+  if (cands.length) {
+    cands.sort((a, b) => b.th - a.th)
+    l.markup.push({ ...cands[0].c, amount: 0 })
   }
   lineRefresh(l)
+}
+
+/** 吊趟「超墙厚」多候选择一（原版 `ElMessageBox.confirm(html,"选择加价项目",{dangerouslyUseHTMLString})` @:5108-5125）。 */
+function pickDiaoWallMarkup(l: Line, cands: { c: { name: string; price: number; unit: string }; th: number }[]) {
+  const sel = ref(0)
+  dialog.warning({
+    title: '选择加价项目',
+    content: () =>
+      h('div', { style: 'max-height:300px;overflow-y:auto' }, [
+        h('p', { style: 'margin-bottom:12px;font-weight:bold' }, '检测到多个超墙厚选项，请选择一个：'),
+        h(
+          NRadioGroup,
+          { value: sel.value, 'onUpdate:value': (v: number) => (sel.value = v) },
+          {
+            default: () =>
+              cands.map((x, i) =>
+                h(NRadio, { key: i, value: i, label: `${x.c.name} ${x.c.price}${x.c.unit}` }),
+              ),
+          },
+        ),
+      ]),
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      const pick = cands[sel.value]
+      if (!pick) return
+      l.markup.push({ ...pick.c, amount: 0 })
+      lineRefresh(l)
+    },
+  })
+}
+
+/**
+ * 吊趟墙厚自动带出（原版 `:5075-5125`）。
+ * ⚠️ 与平开有两处不同，**照抄**：
+ *   ① 只处理 `墙厚 → 超墙厚`（没有 超宽/超高）
+ *   ② 候选数 **`<=1` 直接 return** —— 只有 1 个候选时**不自动加**；≥2 才弹窗让用户选
+ */
+function syncSizeMarkupDiao(l: Line) {
+  if (disableAutoMarkup.value) return
+  const actual = l.wall_thickness || 0
+  l.markup = (l.markup ?? []).filter(
+    (m) => !(m.name.trim().startsWith('超墙厚') && m.unit === '元/公分'),
+  )
+  const cands = sizeMarkupCandidates('超墙厚', actual)
+  if (cands.length <= 1) {
+    lineRefresh(l)
+    return
+  }
+  pickDiaoWallMarkup(l, cands)
+}
+
+/** 尺寸类自动加价统一入口（按行类型分发）。 */
+function syncSizeMarkup(l: Line, field: SizeField) {
+  if (l.line_type === 'diao') {
+    if (field === 'wall_thickness') syncSizeMarkupDiao(l)
+    return
+  }
+  syncSizeMarkupPing(l, field)
 }
 
 // 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
@@ -1958,8 +1991,10 @@ function wallThicknessCell(l: Line, width: number) {
       inputStyle: { textAlign: 'right' },
       onUpdateValue: (v: number | null) => {
         l.wall_thickness = sanitizeNum(v, 0)
-        syncWallThicknessMarkup(l)
+        lineRefresh(l)
       },
+      // 原版 `Qt` 挂在 onBlur：吊趟会在 ≥2 候选时弹窗，随输入触发会连弹
+      onBlur: () => syncSizeMarkup(l, 'wall_thickness'),
     },
   )
 }
@@ -2033,6 +2068,9 @@ function tCell(l: Line, field: string, width: number, onBlur?: (l: Line) => void
 }
 
 function intCell(l: Line, field: string, width: number, min = 0) {
+  // 门洞宽/门洞高在**失焦**时触发尺寸类自动加价（原版 `Qt` 挂在 onBlur 上，不是随输入）
+  const sizeField =
+    field === 'door_width' || field === 'door_height' ? (field as SizeField) : null
   return h(
     NInputNumber,
     {
@@ -2047,6 +2085,7 @@ function intCell(l: Line, field: string, width: number, min = 0) {
         ;(l as unknown as Record<string, number>)[field] = sanitizeNum(v, min)
         lineRefresh(l)
       },
+      onBlur: sizeField ? () => syncSizeMarkup(l, sizeField) : undefined,
     },
   )
 }
