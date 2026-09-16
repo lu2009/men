@@ -3878,12 +3878,22 @@ function holeKeyOf(direction: string): string {
   return direction.includes('右') ? '双开右' : '双开左'
 }
 
-/** 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。 */
+/**
+ * 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。
+ *
+ * ⚠️ 同一个 direction 可能有多条：「生成挖孔图」一次写两张 ——
+ *   `(锁向,           mirrored=false)`  ← 显式指定的那张
+ *   `(左右互换(锁向),  mirrored=true )`  ← 画对面方向时顺带写进来的
+ * 所以画两次（比如锁向先 `左锁内开`、再 `左锁外开`）后，`左锁内开` 会同时有
+ * `(false, 左凹槽图)` 和 `(true, 右凹槽图)` 两条。原先 `.find()` 取 id 最小的那条，
+ * **纯看入库顺序**；这里改为优先取显式指定的 `mirrored=false`，都没有才退而取任意一条。
+ */
 function holeImageByKey(l: Line, key: string): string {
   if (!key) return ''
   const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
   if (!imgs) return ''
-  return imgs.find((i) => i.direction === key)?.data_url || ''
+  const rows = imgs.filter((i) => i.direction === key)
+  return (rows.find((i) => !i.mirrored) || rows[0])?.data_url || ''
 }
 
 /**
