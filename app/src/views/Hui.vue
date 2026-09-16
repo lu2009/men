@@ -2565,9 +2565,19 @@ function markupSelectCell(l: Line) {
   // 内容是**带算式的文本**（如 `超宽: 5元/公分*3.5公分*2=35元`），不是「名称 ¥金额」。
   // 文本可现算（与金额同源、同一批分支），故不必落库。
   const lines = markupLines(l)
-  return h('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0' }, [
+  // ⚠️ 结构与类名照抄原版（平开 @2497-2520 / 吊趟 @5288-5300 两处同构）：
+  //   div.extra-items-container
+  //     ├ div.glass-input-label  文案 `" 点击添加： "`（**前后各一个空格 + 全角冒号**）cursor:pointer
+  //     ├ el-select              multiple/collapse-tags/collapse-tags-tooltip/filterable，宽 **100%**
+  //     └ div.extra-items-expressions（有内容才渲染）
+  //   四个类的样式见 <style scoped> 末尾（从 legacy/css/Hui-39b802eb.css 抄的）。
+  return h('div', { class: 'extra-items-container' }, [
+    h(
+      'div',
+      { class: 'glass-input-label', style: { cursor: 'pointer' }, onClick: () => openAddMarkup(l) },
+      ' 点击添加： ',
+    ),
     h(NSelect, {
-      // 旧版属性（Hui.formatted.js:2504-2506）：multiple + collapse-tags + collapse-tags-tooltip + filterable
       size: 'small',
       multiple: true,
       'collapse-tags': true,
@@ -2576,7 +2586,7 @@ function markupSelectCell(l: Line) {
       options: opts,
       value: selected,
       placeholder: '请选择加价项目',
-      style: { width: '150px' },
+      style: { width: '100%' },
       onUpdateValue: (vals: (string | number)[]) => {
         const names = vals.map((v) => String(v))
         l.markup = names.map((n) => {
@@ -2589,14 +2599,13 @@ function markupSelectCell(l: Line) {
         lineRefresh(l)
       },
     }),
-    ...lines.map((t) =>
-      h('div', { class: 'expression-line', style: 'font-size:11px;color:#606266;white-space:nowrap' }, t),
-    ),
-    h(
-      NButton,
-      { size: 'tiny', text: true, type: 'primary', onClick: () => openAddMarkup(l) },
-      { default: () => '点击添加…' },
-    ),
+    lines.length
+      ? h(
+          'div',
+          { class: 'extra-items-expressions' },
+          lines.map((t) => h('div', { class: 'expression-line' }, t)),
+        )
+      : null,
   ])
 }
 const markupCol = (): DataTableColumn<Line> => ({
@@ -5540,6 +5549,33 @@ onMounted(async () => {
 }
 .parts-preview {
   margin-top: 12px;
+}
+/* ===== 加价项目单元格（照抄 legacy/css/Hui-39b802eb.css，与旧版逐字一致）=====
+   ⚠️ 必须用 `:deep()`：这一格是在 **DataTable 的 `render` 回调**里渲染的，
+   回调执行时 `currentRenderingInstance` 是 NDataTable 而非本组件，vnode 拿不到本组件的
+   `data-v` 标记 ⇒ 不带 `:deep()` 的话 `<style scoped>` 的规则一条都不会命中
+   （实测：display 仍是 block、字号仍是 12px、颜色不是 #1302fa）。
+   `:deep(X)` 编译成 `[data-v-本组件] X`，靠祖先命中，正好绕开这一点。
+   —— 旧版能用普通 scoped 是因为它走 Element Plus 的**作用域插槽**，插槽内容在父作用域渲染。 */
+:deep(.extra-items-container) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+:deep(.glass-input-label) {
+  font-size: 11px;
+  white-space: nowrap;
+  color: #1302fa;
+  min-width: 0px;
+}
+:deep(.extra-items-expressions) {
+  margin-top: 4px;
+  white-space: pre-line;
+  font-size: 12px;
+  line-height: 1.5;
+}
+:deep(.expression-line) {
+  margin-bottom: 2px;
 }
 .markup-list {
   display: flex;
