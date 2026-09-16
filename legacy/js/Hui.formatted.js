@@ -1,5 +1,5 @@
-// Hui.formatted.js —— 由 /tmp/deobfuscate-hui3.js 自动生成（勿手工编辑）。
-// 已替换所有本地解码器 _0xHEX(N)（含别名链）；组件内单字母解码器 a()/t()/x() 未处理。
+// Hui.formatted.js —— 由 legacy/deobfuscate-hui.mjs 自动生成（勿手工编辑）。
+// 已替换所有本地解码器 _0xHEX(N)；组件内单字母解码器 a()/t()/x() 未处理。
 
 import{
   m as _0x52e3f2,d as _0x43de51,C as Capacitor,F as Filesystem,f as Directory,g as Share,a as CapacitorUpdater,h as cjsExports
@@ -87,7 +87,7 @@ function _0x1b48(e,t){
 }
 ();
 const shouldUseNewSizeFormat=e=>{
-  const t=e["105gyqtBV"](/^smartdoor(\d+)?$/);
+  const t=e["match"](/^smartdoor(\d+)?$/);
   if(!t)return!1;
   if(!t[1])return!0;
   const a=Number(t[1]);
@@ -399,109 +399,109 @@ const getBoardHeightHistory=()=>{
 }
 ();
 const _hoisted_1$8={
-  class:_0x4017e5(289)
+  class:"ping-hui-outer-container"
 },_hoisted_2$8={
   class:"ping-hui-container"
 },_hoisted_3$7={
-  key:0,class:_0x4017e5(599)
+  key:0,class:"edit-actions"
 },_hoisted_4$7={
-  class:_0x4017e5(391)
+  class:"upload-buttons"
 },_hoisted_5$7={
-  class:_0x4017e5(506)
+  class:"image-cell"
 },_hoisted_6$7={
-  class:_0x4017e5(424)
+  class:"image-error"
 },_hoisted_7$5={
-  key:1,class:_0x4017e5(391)
+  key:1,class:"upload-buttons"
 },_hoisted_8$5={
-  class:_0x4017e5(457)
+  class:"glass-inputs-container2"
 },_hoisted_9$5={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_10$5={
   class:"glass-input-group"
 },_hoisted_11$5={
-  class:_0x4017e5(457)
+  class:"glass-inputs-container2"
 },_hoisted_12$5={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_13$5={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_14$5={
-  class:_0x4017e5(353)
+  class:"glass-inputs-container"
 },_hoisted_15$5={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_16$4={
   class:"glass-input-label"
 },_hoisted_17$4={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_18$4={
   class:"glass-input-label"
 },_hoisted_19$4={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_20$3={
-  class:_0x4017e5(457)
+  class:"glass-inputs-container2"
 },_hoisted_21$2={
-  key:0,class:_0x4017e5(258)
+  key:0,class:"glass-input-group"
 },_hoisted_22$2={
-  key:1,class:_0x4017e5(258)
+  key:1,class:"glass-input-group"
 },_hoisted_23$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_24$2={
-  class:_0x4017e5(227)
+  class:"image-cell2"
 },_hoisted_25$2=["src","alt"],_hoisted_26$2={
-  class:_0x4017e5(457)
+  class:"glass-inputs-container2"
 },_hoisted_27$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_28$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_29$2={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_30$2={
-  key:0,class:_0x4017e5(258)
+  key:0,class:"glass-input-group"
 },_hoisted_31$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_32$2={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_33$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_34$2={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_35$2={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_36$2={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_37$2={
-  key:2,class:_0x4017e5(258)
+  key:2,class:"glass-input-group"
 },_hoisted_38$2={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_39$1={
-  class:_0x4017e5(555)
+  class:"glass-input-label"
 },_hoisted_40$1={
-  key:3,class:_0x4017e5(258)
+  key:3,class:"glass-input-group"
 },_hoisted_41$1={
   style:{
-    display:_0x4017e5(173),"align-items":_0x4017e5(343),"justify-content":_0x4017e5(631),width:_0x4017e5(414)
+    display:"flex","align-items":"center","justify-content":"space-between",width:"100%"
   }
 },_hoisted_42$1={
   key:0,style:{
-    "margin-top":"4px","font-size":_0x4017e5(396),color:"#606266","line-height":_0x4017e5(312)
+    "margin-top":"4px","font-size":"12px",color:"#606266","line-height":"1.4"
   }
 },_hoisted_43$1={
-  class:_0x4017e5(353)
+  class:"glass-inputs-container"
 },_hoisted_44$1={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_45$1={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_46$1={
-  class:_0x4017e5(457)
+  class:"glass-inputs-container2"
 },_hoisted_47$1={
   class:"glass-input-group"
 },_hoisted_48$1={
-  class:_0x4017e5(258)
-},_hoisted_49$1=[_0x4017e5(330)],_hoisted_50$1={
-  class:_0x4017e5(364)
-},_hoisted_51$1=[_0x4017e5(496)],_hoisted_52$1={
-  key:0,class:_0x4017e5(154)
+  class:"glass-input-group"
+},_hoisted_49$1=["onContextmenu"],_hoisted_50$1={
+  class:"extra-items-container"
+},_hoisted_51$1=["onClick"],_hoisted_52$1={
+  key:0,class:"extra-items-expressions"
 },_hoisted_53$1={
-  class:_0x4017e5(258)
+  class:"glass-input-group"
 },_hoisted_54$1={
   key:0
 },_hoisted_55$1={
@@ -512,36 +512,36 @@ const _hoisted_1$8={
   class:"table-footer"
 },_hoisted_58$1={
   style:{
-    display:_0x4017e5(173),"justify-content":_0x4017e5(277),gap:"12px"
+    display:"flex","justify-content":"flex-start",gap:"12px"
   }
 },_hoisted_59$1={
   style:{
     "margin-bottom":"15px"
   }
 },_hoisted_60$1={
-  class:_0x4017e5(596)
+  class:"dialog-footer"
 },_hoisted_61$1={
   class:"text-image-form"
 },_hoisted_62$1={
-  class:_0x4017e5(596)
+  class:"dialog-footer"
 },_hoisted_63$1={
-  class:_0x4017e5(596)
+  class:"dialog-footer"
 },_hoisted_64$1={
-  class:_0x4017e5(530)
+  class:"direction-mode-content"
 },_hoisted_65$1={
-  class:_0x4017e5(596)
+  class:"dialog-footer"
 },_hoisted_66$1={
   style:{
-    width:_0x4017e5(675)
+    width:"120px"
   }
 },_hoisted_67$1={
-  class:_0x4017e5(596)
+  class:"dialog-footer"
 },_hoisted_68$1={
-  key:0,class:_0x4017e5(319)
+  key:0,class:"door3d-overlay"
 },_hoisted_69$1={
   class:"door3d-container"
 },_hoisted_70={
-  class:_0x4017e5(508)
+  class:"door3d-header"
 };function _0x2d32(e,t){
   const a=_0x1260();
   return _0x2d32=function(t,x){
@@ -569,7 +569,7 @@ function _0x1260(){
   })()
 }
 const OPEN_DIRECTION_CUSTOM_NAMES_KEY="openDirectionCustomNames",fontSize$1=118,lineHeight$1=145,_0x5a7707=Vue.defineComponent({
-  __name:_0x4017e5(351),props:{
+  __name:"Ping_hui",props:{
     selectedDate:{
       type:Date,default:()=>new Date
     },oderColumn:{
@@ -585,7 +585,7 @@ const OPEN_DIRECTION_CUSTOM_NAMES_KEY="openDirectionCustomNames",fontSize$1=118,
     },highlightOrderQuery:{
       type:String,default:""
     }
-  },emits:["update:showPingkai",_0x4017e5(205),_0x4017e5(605),_0x4017e5(696)],setup(e,{
+  },emits:["update:showPingkai","refresh","unselect","calculateSingleRow"],setup(e,{
     expose:t,emit:a
   }){
     const x=_0x4017e5,_=Vue.ref({
@@ -2850,7 +2850,7 @@ function _0x1fe6(e,t){
   }
 }
 ();
-const _0x148cac=_0x1c627c(_0x5a7707,[["697228eizmJT","17950qBkHbU"]]);
+const _0x148cac=_0x1c627c(_0x5a7707,[[_0x1578d0(260),_0x1578d0(269)]]);
 function _0x5554(){
   var e=["nJu1nZaWnhjdC2Hwuq","nJK3mJi4zwL6BuPu","mteWnJfLwhjgrva","mtiYntG2nu9REg10yG","ndmYndGXnLDxDvjywa","ndrhDw9brgO","mZy4mJC1mLDhthH6sa","zgf0ys12lwe4ntqZmdnM","nduYzhLtu2fR","x19Zy29WzuLK","mtC5ntbXqMTiyLu"];
   return(_0x5554=function(){
@@ -2872,29 +2872,29 @@ const _0x15b47b=_0x2e9a;
 }
 ();
 const _hoisted_1$7={
-  class:"doorSheets"
+  class:"dialog-header"
 },_hoisted_2$7={
-  class:"small"
+  class:"suanliao-container"
 },_hoisted_3$6={
   class:"type-switch"
 },_hoisted_4$6={
-  key:0,class:"door3d-back desktop-right"
+  key:0,class:"params-container"
 },_hoisted_5$6={
-  class:"swingDoorOuterRight"
+  class:"direction-image-container"
 },_hoisted_6$6=["src"],_hoisted_7$4={
-  key:1,class:"door3d-back desktop-right"
+  key:1,class:"params-container"
 },_hoisted_8$4={
-  class:"swingDoorOuterRight"
+  class:"direction-image-container"
 },_hoisted_9$4=["src"],_hoisted_10$4={
-  key:2,class:"开向图"
+  key:2,class:"preview-container"
 },_hoisted_11$4=["innerHTML"],_hoisted_12$4={
-  class:"preview-content"
+  class:"dialog-footer"
 },_hoisted_13$4={
-  key:0,class:"door3d-header"
+  key:0,class:"door3d-overlay"
 },_hoisted_14$4={
-  class:"套线种类"
+  class:"door3d-container"
 },_hoisted_15$4={
-  class:"不支持的门配置："
+  class:"door3d-header"
 };function _0xf0ee(){
   const e=["C3vHBMXPyw8Ty29UDgfPBMvY","5BMZ5BYa6zEO","nhjxvgLmCq","zg9VCJnKlwjHy2SGzgvZA3rVCc1YAwDODa","D2fYBMLUzW","mJi3mZyWmfPLA3vYDq","CMvNAxn0CMfUDa","C3DPBMDeB29YuMLNAhq","zxjYB3i","5BYa5zcr5zU+","6k+36l6t5ywL5OMh5PwW","5lIn5PsV5OYb55Qe6zEO6ywn572U77YA","Bv9YAwDODa","zM9YBxvSywLK","mJq0ntG0mLv0uLzJsa","zgLHBg9NlwzVB3rLCG","A2v5CW","zwWTCMfKAw8Tz3jVDxa","CgLUz01HDgvYAwfS","5PEG5Rov6i635y+w55sO5OI35PwW5O2U","6zEO5RsE6AUy","C3DPBMDeB29Yt3v0zxjsAwDODa","6k+36l6t5ywL5Awx57Q/56En57g7","5Awx57Q/56En57g7","nZG2mdC4qxPpv25r","zwWTC2vSzwn0","zwWTzgLHBg9N","zM9YBxvSyvr5CgvZ","ndaWChG","Bw9KzwW","zg9VCJnKlw92zxjSyxK","5PYj5lQU56Qx","Aw5UzxjsAwDODa","zwWTCMfKAw8TyNv0Dg9U","zgLHBg9NlwHLywrLCG","yM9KEq","zMLSDgvY","6k+36ycj5OUP5z6l5P2q","mtm3mtiZzxHhy0T2","zgLHBW","BgfIzwW","6k+36ycj5OUP5BYa5zcr","B19Szwz0","zwWTzM9YBs1PDgvT","C21HBgW","C3vHBMXPyw8TzgLHBg9N","CgLUzW","BgLUzxL0ExbLzgf0yq","BgfYz2u","u3vHBKXPyw9tAgvUuwK","5lQU56Qx5PwW6yEp","6l2O6ygt56En57g7","zwWTzM9YBq","mtaWChG","y2fSy3vSyxrL","CgLUz0rPCMvJDgLVBKLTywDLtwfW","zwWTy2HLy2TIB3G","C3vJy2vZCW","Bw9KzwXwywX1zq","ChjLDMLLDY1JB250zw50","ntrHthnvvhm","6k+35AgR5yAz5OMh5PwW","DMfSDwu","zg9VCJnKlwjHy2SGBw9IAwXLlwXLzNq","B3bLBKrPCMvJDgLVBNm","6k+36l6t5ywL5z6l5P2q","CgfYyw1ZlwnVBNrHAw5LCG","zgLHB01HDgvYAwfS","Dg9mB3DLCKnHC2u","6k+36l6t5ywL5BYa5zcr","zwWTAw5WDxqTBNvTyMvY","B3v0zxjmzwz0","ChjLDMLLDY1JB250ywLUzxi","6k+35AgR5yAz6l2O6ygt56En57g7","zg9VCJnKlwHLywrLCG","5lIn5PsV5OYb55Qe5BMZ5BYa6zEO5BYa5zcr77YA","566x5PAz56wE5zMO","zgL2","zg9VCLnOzwv0CW","CgLUz09Wzw5eAxjLy3rPB25Z","C3bHBG","DhjPBq","ChjPBwfYEq","ioAFPEECIZneia","zgLYzwn0Aw9UlwLTywDLlwnVBNrHAw5LCG","Aw5JBhvKzxm","zg9VCJnKlwnVBNrHAw5LCG","mJiWmJu0uhLHsezr","6k+35AgR5yAz6zEO5RsE5A69","ioI/LowBNIa","6k+35AgR5yAz6zEO5RsE6AUy","566x5PAz57Ut5P6C","ofvys3bxqq","ntuWndeWmezOEwvpEa","5BYa5zcr56s65Osp5zU+","DhjHy2T5DhLWzwrHDge","AxnbCNjHEq","mtaWjq","B19YAwDODa","6zEO5RsE5A69","BwfW","zwWTB3b0Aw9U","zgLHB0rPCMvJDgLVBKLTywDLtwfW","mZq4nZiZzgHVEwzK","DxbKyxrLoM1VzgvSvMfSDwu","5lQU56Qx5Oc76AUy","5z6l5P2q5PYQ5OM+5yIW5A+55BQu55Qe5ywS5BYpsuq"];
   return(_0xf0ee=function(){
@@ -2922,7 +2922,7 @@ function _0x2e9a(e,t){
   },_0x2e9a(e,t)
 }
 const _0xefaa43=Vue.defineComponent({
-  __name:"5504100FhyeOx",props:{
+  __name:"SuanLiaoShenQi",props:{
     modelValue:{
       type:Boolean,default:!1
     },pingMaterial:{
@@ -2957,7 +2957,7 @@ const _0xefaa43=Vue.defineComponent({
       type:Object,default:()=>({
       })
     }
-  },emits:["请选择开向","o_right"],setup(e,{
+  },emits:["update:modelValue","calculate"],setup(e,{
     expose:t,emit:a
   }){
     const x=_0x15b47b,_=e,l=a,o=Vue.computed({
@@ -3383,7 +3383,7 @@ var _0x54403a=_0x4656;
   }
 }
 ();
-const _0x92856f=_0x1c627c(_0xefaa43,[["165656kOPFiN","272640sEeZPb"]]),_0x11aa97=_0xa9fc;
+const _0x92856f=_0x1c627c(_0xefaa43,[[_0x54403a(146),_0x54403a(151)]]),_0x11aa97=_0xa9fc;
 !function(e,t){
   const a=_0xa9fc,x=_0x38f2();
   for(;
@@ -3398,13 +3398,13 @@ const _0x92856f=_0x1c627c(_0xefaa43,[["165656kOPFiN","272640sEeZPb"]]),_0x11aa97
 }
 ();
 const _hoisted_1$6={
-  class:_0x11aa97(246)
+  class:"ping-hui-outer-container"
 },_hoisted_2$6={
-  class:_0x11aa97(254)
+  class:"ping-hui-container"
 },_hoisted_3$5={
-  key:0,class:_0x11aa97(146)
+  key:0,class:"debug-info"
 },_hoisted_4$5={
-  key:0,class:_0x11aa97(397)
+  key:0,class:"edit-actions"
 },_hoisted_5$5={
   class:"upload-buttons"
 },_hoisted_6$5={
@@ -3412,101 +3412,101 @@ const _hoisted_1$6={
 },_hoisted_7$3={
   class:"image-error"
 },_hoisted_8$3={
-  key:1,class:_0x11aa97(470)
+  key:1,class:"upload-buttons"
 },_hoisted_9$3={
-  class:_0x11aa97(535)
+  class:"glass-inputs-container2"
 },_hoisted_10$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_11$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_12$3={
   class:"glass-inputs-container"
 },_hoisted_13$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_14$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_15$3={
-  class:_0x11aa97(259)
+  class:"glass-input-group2"
 },_hoisted_16$3={
-  class:_0x11aa97(240)
+  class:"glass-inputs-container"
 },_hoisted_17$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_18$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_19$3={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_20$2={
-  class:_0x11aa97(240)
+  class:"glass-inputs-container"
 },_hoisted_21$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_22$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_23$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_24$1={
-  class:_0x11aa97(448)
-},_hoisted_25$1=[_0x11aa97(623),_0x11aa97(126)],_hoisted_26$1={
-  class:_0x11aa97(535)
+  class:"image-cell2"
+},_hoisted_25$1=["src","alt"],_hoisted_26$1={
+  class:"glass-inputs-container2"
 },_hoisted_27$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_28$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_29$1={
   class:"glass-inputs-container"
 },_hoisted_30$1={
   class:"glass-input-group"
 },_hoisted_31$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_32$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_33$1={
   class:"glass-input-group"
 },_hoisted_34$1={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_35$1={
   key:2,class:"glass-input-group"
 },_hoisted_36$1={
-  class:_0x11aa97(535)
+  class:"glass-inputs-container2"
 },_hoisted_37$1={
   class:"glass-input-group"
 },_hoisted_38$1={
   class:"glass-input-group"
 },_hoisted_39={
-  key:0,class:_0x11aa97(484)
+  key:0,class:"glass-input-label"
 },_hoisted_40={
-  key:1,class:_0x11aa97(336)
+  key:1,class:"glass-input-group"
 },_hoisted_41={
-  class:_0x11aa97(535)
+  class:"glass-inputs-container2"
 },_hoisted_42={
   class:"glass-input-group",style:{
-    "flex-wrap":_0x11aa97(287),gap:_0x11aa97(141)
+    "flex-wrap":"wrap",gap:"6px"
   }
 },_hoisted_43={
-  class:_0x11aa97(336),style:{
-    "margin-top":_0x11aa97(141)
+  class:"glass-input-group",style:{
+    "margin-top":"6px"
   }
 },_hoisted_44={
-  class:_0x11aa97(240)
+  class:"glass-inputs-container"
 },_hoisted_45={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_46={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_47={
   class:"glass-inputs-container2"
 },_hoisted_48={
   class:"glass-input-group"
 },_hoisted_49={
   class:"glass-input-group"
-},_hoisted_50=[_0x11aa97(539)],_hoisted_51={
-  class:_0x11aa97(233)
-},_hoisted_52=[_0x11aa97(632)],_hoisted_53={
-  key:0,class:_0x11aa97(307)
+},_hoisted_50=["onContextmenu"],_hoisted_51={
+  class:"extra-items-container"
+},_hoisted_52=["onClick"],_hoisted_53={
+  key:0,class:"extra-items-expressions"
 },_hoisted_54={
-  class:_0x11aa97(535)
+  class:"glass-inputs-container2"
 },_hoisted_55={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_56={
-  class:_0x11aa97(336)
+  class:"glass-input-group"
 },_hoisted_57={
   key:0
 },_hoisted_58={
@@ -3514,29 +3514,29 @@ const _hoisted_1$6={
 },_hoisted_59={
   key:0
 },_hoisted_60={
-  class:_0x11aa97(148)
+  class:"table-footer"
 },_hoisted_61={
   style:{
-    "margin-bottom":_0x11aa97(520)
+    "margin-bottom":"15px"
   }
 },_hoisted_62={
-  class:_0x11aa97(457)
+  class:"dialog-footer"
 },_hoisted_63={
   class:"text-image-form"
 },_hoisted_64={
-  class:_0x11aa97(457)
+  class:"dialog-footer"
 },_hoisted_65={
   style:{
-    display:_0x11aa97(200),"justify-content":_0x11aa97(662),gap:_0x11aa97(111)
+    display:"flex","justify-content":"flex-start",gap:"12px"
   }
 },_hoisted_66={
   class:"dialog-footer"
 },_hoisted_67={
-  key:0,class:_0x11aa97(530)
+  key:0,class:"door3d-overlay"
 },_hoisted_68={
-  class:_0x11aa97(499)
+  class:"door3d-container"
 },_hoisted_69={
-  class:_0x11aa97(121)
+  class:"door3d-header"
 };function _0x38f2(){
   const e=["Bw9KzwWTDMfSDwu","mhb4","6k+36l6t5ywL5y2v5lU3","5l+D5A2y6AkC6iMY6ycj6Ag55AsX6lsL","5zUE5OMN5y2v5y+3","y2XPzw50wa","mUI9QdlMIyC","Aw5JBhvKzxm","C2vWDerVB3jsAwDODa","CMvTB3zLrxzLBNrmAxn0zw5LCG","6l2O6ygt6zw/77YA","ywrKu2vWDerVB3jsAwDODa","jgLUzgv4","y3vZDg9TzxjjBMzV","5OQy5y+GnUAjHW","5l+D5A2y546755kd57g75z6l6ycj6Ag55AsX6lsL","CMvHzg9UBhK","y29SB3i","5BEM5y+Z5Asw5BYa","5y2v5y+m5lIb","nISW5yAf5OQy","zg91yMXLvhjHy2TuCMLWBgveB29YuMLNAhq","zMXVB3i","55wz5zYO5B2t5yMn6Ag1","zg91yMXLrg9VCLjPz2H0","5zco5yYf5yQG6zw/","mcSZ5yAf5OQy","5zcm5Q2L5l+D5A2y","mcS25yAf5OQy","zgLZywjSzuvKAxrPBMC","ogTXrNnQwG","rgLHB19ODwK","zwWTAw1Hz2u","zMXLEa","5PIV5zcM5yIG6zMKiG","y2f0y2G","mtaW","zw50zxi","Dhj1zq","5BEY5yQG6l295zU+54Mh","msS15Asw5OQy","ndq4ndq2rgDeu2fK","y3vZDg9Tlwf1Dg9JB21WBgv0zsbNBgfZCY1PBNb1Da","6zEO5zU+5zcn5A2x","yMvMB3jLDw5SB2fK","BwLUlxDPzhrO","mYSY5Asw5OQy","6k+36l6t5ywL5PYj5Pwi55Qe5PwW5A2x","Aw1Hz2uV","5z6l5P2ql+MINoIjSG","zwWTDxbSB2fK","odm2nteWzfzyqMfz","A2v5CW","zwWTzM9YBs1PDgvT","ywrKvhjPCgXLrg9VCKXLzNq","zwWTC2vSzwn0","CxvHzerVB3jsAwDODa","Dgv4DefSAwDU","5BEY5BcgiG","Dgv4DgfYzwe","5A695BQM77YA","ncSW5yAf5OQy","zg91yMXLvhjHy2TuCMLWBgveB29YtgvMDa","zMLUzeLUzgv4","5OQy5y+GnEAjHW","nsSW5yAf5OQy","zxH0CMeTAxrLBxmTy29UDgfPBMvY","BMfTzq","C3bHBG","Aw1Hz2vvCMW","z2v0q29TChv0zwrtDhLSzq","55sF5lQN6l+B5BQM","mtaWjq","z2XHC3mTAw5WDxrZlwnVBNrHAw5LCG","5y2v5lU3l+AvSoMhJW","ChjLDMvUDerLzMf1Bhq","zg9VCJnKlwjHy2SGzgvZA3rVCc1YAwDODa","5Awx57Q/5y2v5lU377YA","C2XPy2u","CgLUzY1ODwKTB3v0zxiTy29UDgfPBMvY","B25tzwXLy3q","Aw1N","t3bLBKrPCMvJDgLVBG","5A6I5OI357Yw5y+3","C3r5Bgu","yM9KEq","ndGWChG","CgLUzY1ODwKTy29UDgfPBMvY","6zEO6iQX5zU+","y2XPzw50wq","y29UDgvUDa","5yQG5lU36Ag555UU5RE75yQG5OIq5yQF","z2XHC3mTAw5WDxqTz3jVDxaY","6k+35ywi5AgR5yAz6zEO5RsE5A695zkm6zEO5RsE6AUy","5Awx57Q/56En57g7","Aw5KzxHpzG","5PwW6yEp77YA","5ywdl+AwUq","mtuZmdK2oefQA0nICW","6l655Bcb5PwW77YA","5lIl6l2O6ygt56En57g7","y2vSBc1PBwfNzq","5zU+54Mh5l+D5A2y5AsX6lsL77Ym6k+36yEn6k+v","mtaWChG","mYSW","zM9UDezHBwLSEq","yxbWBgLJyxrPB24VANnVBG","zMLSDgvY","Aw1Hz2uVANbLzW","C21HBgW","6l2O6ygt6zw/","Dg9tDhjPBMC","zwWTAwnVBI0TDxbSB2fK","5BMZ5PA55PwW","nsSW","B25gB2n1CW","6k+35ywi6ycj5OUP5OMh5PwW5zkm5BYa5zcr","mIS05yAf5OQy","5ywdl+wfRowiHG","6l655Bcb5PwW","D3jHCa","zMLSBfn0EwXL","C2LUz2XLvhjHy2TsAwDODa","CMvWBgfJzq","AwnVBG","y2vPBa","mcSZ5Asw5OQy","B25SB2fK","y2XVC2u","6lAf6AUyoG","5yID5AEl5yYw5AsX6lsL","zNjHBwu","zgv0ywLS","5lIk6l2Ol+I+UEwWGq","ioAFPEECIZneia","zgL2","5ywdl+EXSW","5BEM5y+Z5yAf5BYa","5lIk5lIb5yQG5y2v5lIb","5RE75yQG5PAh5A2x5AsX6lsL77Ym5Bcg5l+D5A2y5y6F5zU+","zxH0CMeTAxrLBxmTzxHWCMvZC2LVBNm","5A6j6kof5zYW5z2a","y2XLyxi","D2HPDgu","ncSX5yAf5OQy","zg91yMXLrg9VCK91DfjPz2H0","y2fUDMfZ","y3vYCMvUDfjVDxrL","y2vUDgvY","r0vu","ywjZB2X1Dgu","zgf0yq","y2XPy2S","Bwf0y2G","5OQy5y+GmUAjHW","CMvMCMvZAa","zMLUza","6k6H5lU35PA55BYp","zgLHB19JB2X1Bw4","CMv0DxjUvMfSDwu","B25LCNjVCG","6k+36ycj5OUP5yQG5lU36Ag555UU","B25jBNb1Da","D2fYBMLUzW","Cg9ZAxrPB24","CxvLCNLtzwXLy3rVCG","5Awx57Q/6yEr6AkD","D2LKDgG","zgvSzxrL","z2XHC3mTAw5WDxqTz3jVDxa","ioEcUEwhU+A3U+wkOo+8MIa","ywrKvhjPCgXLrg9VCLjPz2H0","yxbWzw5Kq2HPBgq","6iEQ5A6A5lMj5PA55PwW","DxbSB2fKlwXPBMS","Bw9KzwXwywX1zq","Dg9cBg9I","C2vWDerVB3jmzwz0","jNbHCMfTnd0","5z6l5P2qici","zM9YrwfJAa","z2XHC3m","5BYa5zcr5zU+","5PAh5A2x5zU+54Mh55sF5OIq5BM25l+D5A2y5OIq5yQF","zg91yMXLrg9VCKzVDxjpDxq","5lIT5Asw5BYa","5Ash5RoO77YA","5ywS5yIgkG","Aw1Hz2u","5y2v5lIb5Akz","5yIG6zMK5OIq5yQF","5lIk5lYG5zU+54Mh","AgfYzhDHCMu","ywrKvMvYDgLJywXuAgLYza","5lIl6l2O6ygtl+wLL+E6VW","6l2O6ygt56En57g7","5AgR5yAz5z6l5P2q","ue9tva","y3jLyxrLrwXLBwvUDa","BwfW","zM9JDxm","mtaRmowgHEAkMa","5Awx57Q/5y2v5lU3","iowKJEwiTIa","zxHWCMvZC2LVBI1SAw5L","zNvSBfbHDgG","zgvSzxrLlwLTywDL","5yw25A6d6ls555sO","C2HPzNq","CMvZDwX0","zNjVBq","Aw5WDxrBBMfTzt0IChjPy2vjDgvTiL06y2HLy2TLza","CxvHzerVB3jmzwz0","6zEO5RsE5Bc65A+4","5yQG5lU36Ag555UU","zxjYB3i","5Bcb5P2/6AUy77YA","5PQc5lIn5PsV5OYbia","5OQy5y+GooAjHW","5ywdl+wLLW","ywrKvhjPCgXLvhjHy2TgB3vYrg9VCLr3B1nJCMvLBKLUBMvY","cIaGicaGidWVzgL2pGOGicaG","5y+Q6io95lIk5lYG5zU+54Mh5PAh5lU2iq","io+8IowpQUIdVEs4IUs8OcbQCgCVCg5NiowBVUEjH+AwH+s7TU+8Isa","ncSY5yAf5OQy","mISX5Asw5OQy","5zYW5z2a77YA","mcSXmowKLUAkMa","C3rVCa","Cg9PBNrLCG","zwrPDc1Hy3rPB25Z","Bw9KzwW","5zU+54Mh5lIn5A2y5zYO5OIw5BEY6kkR5yIG6zMK77Ym6k+36yEn5PAW5lIk5lYG","z2v0tw9UDgG","DhLWzq","5l+U5Ps55AsX6lsL","5yIG6zMK56gU6k6K","Dw5ZzwXLy3q","5Q2J5zYO6lEZ6l2S5yIW55s75BId6Ag16z2IlI4U","5lIn5PsV5OYb55Qe6zEO6ywn572U77YA","CMvTB3zLq2HPBgq","y2fSy3vSyxrLu2LUz2XLuM93","zNjHBwuZ","CMvNAxn0CMfUDa","5zU+54Mh5lIk5lYG5BM25l+D5A2y5OIq5yQF","B25dAgfUz2u","zML4zwq","5y+m5yYf5RsE5Bc6","mcS15yAf5OQy","DMfSDwu","BgfIzwW","nUI9QdBMIyC","yMX1CG","5BQv546777YA","AxngAw5PDgu","5l+D5A2y5lQu6yEr6ycj6Ag55AsX6lsL","DhjPCgXLvhjHy2TtAxHeB29YqMfJAW","Dg9W","CMf3","Ahr0Chm6lY93D3CUC2fTCNrKB29YlMnVBs5JBI8Xp3bHCMfTmt1HzgrbzgrqCMLJzszWyxjHBti9","Agv4rg9VCLjPz2H0","BMv4Da","nYSW5Asw5OQy","z2v0rNvSBfLLyxi","zMLSBfrLEhq","B2rLCKnVBhvTBG","AM9PBG","C2vSzwn0","D2HPDgvtCgfJzq","C29Tzq","yxv0BY1TyxjRDxaTC2v0DgLUzY1JAgfUz2vK","DhjPBq","AxntzwXLy3rLza","5lQU56Qx5Oc76AUy","mISY5Asw5OQy","5Bcb5P2/6AUy","B25wAxnPyMXLq2HHBMDL","nISW5Asw5OQy","pc9ZCgfUpGOGicaGicaGidWVBgfIzwW+cIaGicaGidWVzgL2pG","C3vIC3rYAw5N","DxbSB2fKlwrPywXVzW","Aw1Hz2uTy2vSBdi","C3rHCNrZv2L0Aa","y3vZDg9Tlwf1Dg9JB21WBgv0zq","5PEG5Rov6i635y+wienHBNzHCYbdB250zxH0","ncSW5Asw5OQy","mYSX5yAf5OQy","Ahr0Chm6lY93D3CUC2fTCNrKB29YlMnVBs5JBI8Xp3bHCMfTmt1KzwXLDgvsB3CMCgfYyw0Ypq","CM93","mcSXmowgHEAkMa","zgLHBg9NlwzVB3rLCG","lMvSlwLUChv0x19PBM5LCG","nsSX5Asw5OQy","nZy3odiWv29NtwPq","57UN57UT56A75BYa","5y2v5yYf5RsE5Bc6","5zU+54Mhsuq","osSW5yAf5OQy","ywrKu2vWDerVB3jmzwz0","Aw5UzxjuzxH0","C2v0vg9VBa","DgvZDa","nsSW5Asw5OQy","DxbSB2fKlwj1DhrVBNm","5PEG5PA55zcr","tM8GAw1Hz2uGsuqGzM91BMq","DMLLDY0Zzc1IDg4","5lIk5lIb5yQG5y+m5lIb","AgLNAgXPz2H0t3jKzxjrDwvYEq","m+I9QdBMIyC","5B2t5yMn5PEL5PYFoIa","5BEM5Asw5BYa","Aw1Hz2vPza","ChGGqxjPywWSicjnAwnYB3nVzNqGwwfizwKIlcbZyw5ZlxnLCMLM","jNbHCMfTmZ0","C2LUz2XLvhjHy2Tmzwz0","C3rVCMvoyw1L","z2XHC3mTAw5WDxqTBgfIzwW","mcS35yAf5OQy","C3rVCfbYB3bHz2f0Aw9U","y29UzMLYBq","5BEM5yAf5BYa","ioI/LowBNIa","5yIG6zMK5AsX6lsL","ioA3U+wkOoIHJca","zhjHD0LTywDL","cIaGicaGidXKAxyGC3r5Bgu9iM1HEc1OzwLNAhq6idmWmhb4oYbVDMvYzMXVDY15oIbHDxrVoYi+cIaGicaGicaGphaGC3r5Bgu9iM1HCMDPBI1IB3r0B206ideYChG7igzVBNqTD2vPz2H0oIbIB2XKoYi+5Qoa5Rwl5yIW5AsA5lIQ","AxnbCNjHEq","5yQG6l295zU+54Mh5AsX6lsL77Ym6k+36yEn5PAW5lIk5lYG","zM9UDfnPEMu","6zEO5RsE6AUy","qM90Dg9Tr2XHC3m","zg9VCJnKlwnVBNrHAw5LCG","ywrKuxvHzerVB3jsAwDODa","m+I9QdpMIyC","C2L6zq","mUI9QdtMIyC","AgvPz2H0","6k+36l6t5ywL6zEO5zU+5zcn5A2x77Yi5PYa5AsAmJtKUkRLRzFVViK","C2vYDMLJzq","6k+L546755kd57g75z6l5lIn5A2y5zYO5lQo6ycj6Ag55lIT","5Awx57Q/77YA","B25dBg9Zzq","ywrKrg91yMXLrg9VCKzVDxi","mtaRmowKLUAkMa","5BMZ5PA55PwW77YA","ywrKrg91yMXLvhjHy2TuCMLWBgveB29YtgvMDa","C3vJy2vZCW","5y+m5lIb5Akz","BNvSBa","nISW","zgLZywjSzwq","B2zMC2v0v2LKDgG","mtvWEa","C3rYAw5N","zxjYB3jgAwvSzhm","mcS55yAf5OQy","mISZ5Asw5OQy","5PMU6ycA6zw/6jM5","5zU+54Mh5Ash5RoO77Yi5y+V6ycj77YjoG","C2HVD1n0B3jLtMfTzq","ocSW5yAf5OQy","C2v0sxrLBq","zg9VCJnKlw92zxjSyxK","iZaWmdaWma","ioAwH+wTL+s8OowBVIa","ncS05yAf5OQy","ncS05Asw5OQy","z2XHC3mTAw5WDxrZlwnVBNrHAw5LCJi","Dg9mB3DLCKnHC2u","B25cBhvY","C3bSAxq","B25dB250zxH0BwvUDq","CxvPBNreB29YtgvMDa","BwvZC2fNzq","C21HCNrKB29Yx2rPC2fIBgvFyxv0B19TyxjRDxa","y2XHC3m","noI9QdtMIyC","Bwf4","zMv0y2GTC3vNz2vZDgLVBNm","m+I9QdlMIyCX57QX","DhjPCgXLvhjHy2TeB3vIBgveB29Yt25Lu2nYzwvUuMLNAhq","ChjPy2u","5PEG5Rov6i635y+w55sO5OI35PwW5O2U","Dw5ZyxzLzc1YB3C","mZaL","ywrKrxzLBNrmAxn0zw5LCG","BM93CMfW","ywn0Aw9UlwnVBhvTBG","5y+Z5yMn5yAf57QX","B25vCgrHDgu6Bw9KzwXwywX1zq","zMLSBfjLy3q","iowpLUA2Ica","BNvTyMvY","mcS25Asw5OQy","DgfYz2v0","zwWTAwnVBG","ywrKvhjPCgXLvhjHy2TgB3vYrg9VCLr3B1nJCMvLBK91DgvY","CM91BMq","ywrKuxvPBNreB29YtgvMDa","C2HVD0nOzwnRyM94","6k+L6kgm5RkH5PYj5z6l5P2q5PwW5O2U77Ym5PEG5Rov6k6H566x","nsSX5yAf5OQy","yM94u2L6Aw5N","ywrKrg91yMXLrg9VCLjPz2H0","mtC1ota2nw9orxf4uG","zg91yMXLrg9VCKXLzNq","zwWTDgfN","AgfZ","Aw5MBW","C3bSAwnL","zM9UDa","zwWTDxbSB2fKx190zxH0","mcS55Asw5OQy","y3vZDg9Tlwj1DhrVBI1IDg4","mISX5yAf5OQy","DMLZAwjPBgL0Eq","ntaWChG","DhjPCgXLvhjHy2TgB3vYrg9VCLr3B1nJCMvLBKLUBMvY","mcS45yAf5OQy","5zU+54Mh5Ash5RoOloACGowKMJiW5lIQ5A2x","ChvZAa","5OQy5y+GnoAjHW","5RsEl+whGowWUU+8MG","CgfKu3rHCNq","5A2y5zYO5PYQ5l+D5A2y55Qe5l+U5Ps577Ym56A75BYa5zco5Bcg5lII5AsX77Ym5PIV5zcM57UN57UT56A75BYa77YF","zwWTzM9YBq","pgrPDIbZDhLSzt0IBwfYz2LUoIa4ChGGmdSIpGOGicaGicaGidXSywjLBcbZDhLSzt0Iy3vYC29YoIbWB2LUDgvYoYbKAxnWBgf5oIbMBgv4oYbHBgLNBI1PDgvTCZOGy2vUDgvYoYi+cIaGicaGicaGica8Aw5WDxqGDhLWzt0ICMfKAw8Iig5HBwu9iNbYAwnLsxrLBsiGDMfSDwu9iG","Dw5PDa","CMvKlw51BwjLCI1PBNb1DcbNBgfZCY1PBNb1Da","y2fUy2vS","5lQU56Qx5PwW6yEp77YA","ywrKsgv4rg9VCKXLzNq","mcSY5yAf5OQy","ywrKu2LUz2XLvhjHy2TeB3vIBgveB29Y","ANnVBG","yM9YzgvY","C2v0","ncSX5Asw5OQy","zg91yMXLrg9VCKzVDxi","ioEcUEwhU+s8OowBVIa","5Asn5yI25AsX6lsL77Ym6k+36yEn6k+v","zg9Uzq","z2v0q29UDgv4Da","6k+36l6t5ywL5yQG5lU36Ag555UU5zcn56EW","6AkC6iMY5yc85lI656M677Ym5PEG5Rov5yIG6zMK","5lIT5yAf5BYa","DhjPCgXLvhjHy2TgB3vYrg9VCLr3B1nJCMvLBK91DgvY","5Akz5y6A77YA","zwWTy2HLy2TIB3G","z2XHC3mTAw5WDxq","DhjPCgXLrg9VCLjPz2H0","m+I9QdtMIyCY57QX","y2HHCKf0","Agv4rg9VCKXLzNq","iUIUVUs4UUM7MoIUPow6LEEoUW","C3jJ","CMfUzg9T","ywrKsgv4rg9VCLjPz2H0","nEI9QdxMIyC","l2rYyxDeB29Y","6i635y+w5z+656ga5l+H5OgV5AsX6lsL","ChjPBwfYEq","n+I9QdFMIyC","zwWTDxbSB2fKx190Axa","B25dBgLJAW","mcS05Asw5OQy","6i635y+w5Pon5l2C5zgy5zcn56EW5BYc5BI4","6z2I54675yc85lI656M677Ym5PEG5Rov5yIG6zMK","DxnLCMLUzM8","5yQG5lU36Ag555UU5BEY5A2y5zYO77Yb","5PAW5AkE5yQG5lU36Ag555UU","54k55yE75lIk5lYG","AgLKzgvU","ohb4","5PQc5lIn5PsV5OYb6k+L6zEO5OMh57g75z6l","5zU+54Mh5yIG6zMK5AsX6lsL","yMXVy2S","zwWTAw5WDxq","6l2O6ygt77YA","z2v0sxrLBq","6k+36l6t5ywL6zEO5zU+5zcn5A2x","CgfYC2u","mZaWChG","zg91yMXLrg9VCK91DeXLzNq","5zU+54Mh5yQG6l295AsX6lsL","DhjPCgXLvhjHy2TeB3vIBgveB29Yt25Lu2nYzwvUtgvMDa","y3jLyxrLrNjHBwu","5y2v5QYH5RE75yQG","5yIG6zMK5AsX6lsL77Ym6k+36yEn6k+v","msS05yAf5OQy","r2XHC3nuAgLJA25LC3m","ocSW5Asw5OQy","msSY5yAf5OQy","ihn0EwXLpsjTyxjNAw4TCMLNAhq6idHWEdSIic8+cIaGicaGicaGica8C3bHBJ4","zMXLEc1ZDgfYDa","mYSZ5Asw5OQy","5AgR5yAz5lQu6yEr","zg9VCJnKlwjHy2SGBw9IAwXLlwXLzNq","ywrKvMvYDgLJywXgB3vYDgG","mISW","ywrKrM9YBvjLzG","5lQu6yEr5yc85lI656M677Ym5PEG5Rov5yIG6zMK","5zU+54Mh5yIG6zMK5OIq5yQF","mtjWEa","mcS05yAf5OQy","mIS05Asw5OQy","otGYnJKYuwLirM1h","zM9YBxvSywLK","zgLYzwn0Aw9UlwLTywDL","5y+Z5Asw5BYa","CxvPBNreB29YuMLNAhq","DMfSAwrHDgu","zwWTDgfIBguTy29SDw1U","zg9VCJnKlwHLywrLCG","BM93","ioEHRUIUPca","6zEO5RsE5A69","yw1VDw50lwLUChv0","ywX0","mISW5Asw5OQy","zg9myxLVDxq","BgvUz3rO","C3rYAw5NAwz5","mYSW5Asw5OQy","Ahr0Chm6lY93D3CUC2fTCNrKB29YlMnVBs5JBI8Xp3bHCMfTmt1PBML0AwfSAxPeAwfVjNbHCMfTmJ0","5y6A5BQM77YA","5yQG5lU36Ag555UU5y6F5AEl5PwW5O2U","B2jQzwn0","mtuW","DxbKyxrLoNnOB3DeAwfV","Dgv4DejHC2vSAw5L","Cg9ZDa","546755kd5y6A","nNb4","5yMn5yYf5yQG6zw/","5Q2J5zYO6lEZ6l2S5yIW55s75BId6Ag16z2I55sF5OIq5yQO55s7lI4U","56gU6k6K5yIG6zMK","iIdMNkRMIB7LIldLR7NLUPtNMOtLHAZLVi9jro+8JoIVT+AJGoAFPEwEI+ADKowqJEENSoAyR+wqPUATO+EHRG","zgvIDwCTAw5MBW","5OQy5y+GoEAjHW","DgfIBguTzM9VDgvY","5PwW5O2U5PU05PAW5OIq5yQF","zgfUz2vY","mJa0ndvqEvjusMm","5yQG5lU36Ag555UU5RE75yQG5AsX6lsL","ywrKrg91yMXLvhjHy2TuCMLWBgveB29YuMLNAhq","y29Kzq","6lAf5Akz5y6A","Dg9gAxHLza","mISZ5yAf5OQy","5l+D5A2y5BM25yIh5O2I","ywrKrg91yMXLrg9VCKXLzNq","6AUy5BQM77YA","5lQU56Qx5PwW6yEp","5BEY5y+w5RAi5yIG6zMK","ywrK","5AgR5yAz6AkC6iMY","lMvSlxrHyMXL","Ahr0Chm6lY93D3CUC2fTCNrKB29YlMnVBs5JBI8Xp3bHCMfTmt1NzxrbzgrqCMLJzszWyxjHBti9"];
   return(_0x38f2=function(){
@@ -3564,7 +3564,7 @@ function _0xa9fc(e,t){
   },_0xa9fc(e,t)
 }
 const fontSize=118,lineHeight=145,_0x4d18bf=Vue.defineComponent({
-  __name:_0x11aa97(198),props:{
+  __name:"Diao_hui",props:{
     selectedDate:{
       type:Date,default:()=>new Date
     },showCheckbox:{
@@ -3578,7 +3578,7 @@ const fontSize=118,lineHeight=145,_0x4d18bf=Vue.defineComponent({
     },highlightOrderQuery:{
       type:String,default:""
     }
-  },emits:[_0x11aa97(137),"update:showCheckbox","refresh","unselect",_0x11aa97(408)],setup(e,{
+  },emits:["update:showDiao","update:showCheckbox","refresh","unselect","calculateSingleRow"],setup(e,{
     expose:t,emit:a
   }){
     const x=_0x11aa97,{
@@ -4341,7 +4341,7 @@ const fontSize=118,lineHeight=145,_0x4d18bf=Vue.defineComponent({
       },diao_hui:vt,selectAll:()=>{
         Z[x(416)].forEach((e=>{
           Vue.nextTick((()=>{
-            e["3轨3扇"]=!0,pt(e)
+            e["isSelected"]=!0,pt(e)
           }))
         }))
       },selectedExtraItems:rt,tableData:Z,clearTable:()=>{
@@ -5606,7 +5606,7 @@ function _0x319f(e,t){
   }
 }
 ();
-const _0xf4057=_0x1c627c(_0x4d18bf,[["1258118sKkNsR","data-v-6dcd3802"]]);
+const _0xf4057=_0x1c627c(_0x4d18bf,[[_0x1e0a3b(161),"data-v-6dcd3802"]]);
 function _0x162e(){
   const e=["mZKZndbrBMjYBw4","y29UDgfPBG","D2LKDgG","mtmWChG","y2XPzw50","6AUy5BQMkg1Tkq","5OYw5A2u5zU+","CMvHzefZrgf0yvvsta","zg9VCKLTzW","zgL2","zgfUz2vY","BNvTyMvY","Aw1Hz2uV","zwWTAw1Hz2u","54k55yE75lIk5lYG","546755kd5zcn56EW","mtiWr1vPyxrb","mtHWEa","C2f2zq","zwWTDxbSB2fK","C3jJ","mtb0tLvOwfm","mJbWEa","mtaW","zgvMyxvSDa","yNv0Dg9UlwDYB3vW","ndq4mZmZouDoBeXlua","5Bcg5zU+54Mh5OUw5yIW5Q2K5Ase77Ym5OIw","nZbWEa","CMf3","B25vCgrHDgu6Bw9KzwXwywX1zq","B25SB2fK","zwWTAw5WDxq","ndGWotGYu3r5vefv","zwWTzgLHBg9N","DgHPy2TUzxnZ","ndiXntC1m0LvzejbzG","mtC3weLIqKHx","C21HBgW","5y6A5BQMkg1Tkq","mZa5ndH1wLHgzu4","ms42","C3vJy2vZCW","m0TsCvbYCq","z2XHC3mTzwrPDc13CMfWCgvY","DhLWzq","zgLHBg9NlwzVB3rLCG","BgvUz3rO","C3bHBG","zwWTDxbSB2fKx190Axa","zwWTDgfIBguTy29SDw1U","C3rHCNrZv2L0Aa","r2XHC3nfzgL0","ChjPBwfYEq","z2XHC3neyxrH","mteW","Bw9KzwXwywX1zq","CMvTyxjR","CxvHBNrPDhK","5lIk5lYG5zU+54Mh","zxjYB3i","AgvPz2H0","BwfW","z2XHC3noyw1L","mtaWjq","CMLNAhq","56gU6k6K5l+U5Ps5","ChvZAa","B25dBgLJAW","mtm3mdztvMDYzgi","ndqWmJi3mMLnBxHWqW","546755kd5y2v5BEY5PU05PAW","Aw1Hz2uVkG","5A695BQMkg1Tkq","DMfSDwu","zwWTAwnVBI0TDxbSB2fK","DxbSB2fKlwrPywXVzW","zwWTDxbSB2fKx190zxH0","C3bSAwnL","zwWTAwnVBG","5y+Q6io95lIk5lYG5zU+54Mh5PAh5lU2iq","mtiWmhb4","Dgv4DgfYzwe","nde3mdHiA09WyNG","t3jKzxjjra","z2XHC3mTAw1Hz2uTy2vSBa","DxbKyxrLoM1VzgvSvMfSDwu","mtiW"];
   return(_0x162e=function(){
@@ -5648,24 +5648,24 @@ function _0x309a(e,t){
 }
 ();
 const _hoisted_1$5={
-  class:"upload-dialog"
+  class:"glass-edit-wrapper"
 },_hoisted_2$5={
-  class:"remark"
+  class:"button-group"
 },_hoisted_3$4={
-  class:"raw"
+  class:"glass-image-cell"
 },_hoisted_4$4={
   key:1
 },_hoisted_5$4={
   class:"glass-image-actions"
 },_hoisted_6$4={
-  class:"splice"
+  class:"dialog-footer"
 },_0x5c428f=Vue.defineComponent({
-  __name:"OrderID",props:{
+  __name:"GlassEdit",props:{
     modelValue:{
       type:Boolean
     },glassData:{
     }
-  },emits:["onUpdate:modelValue","el-table-column"],setup(e,{
+  },emits:["update:modelValue","save"],setup(e,{
     emit:t
   }){
     const a=e,x=t,_=Vue.ref(!1),l=Vue.ref([]),o=Vue.ref(!1),c=Vue.ref(null);
@@ -5675,7 +5675,7 @@ const _hoisted_1$5={
         ...e
       }))))
     })),Vue.watch(_,(e=>{
-      !e&&x("onUpdate:modelValue",!1)
+      !e&&x("update:modelValue",!1)
     }));
     const n=e=>{
       const t=_0x309a;
@@ -5692,7 +5692,7 @@ const _hoisted_1$5={
         ...e
       })))),_[e(168)]=!1,ElementPlus.ElMessage[e(224)](e(165))
     },r=()=>{
-      _["save"]=!1
+      _["value"]=!1
     };return(e,t)=>{
       const a=_0x309a,x=Vue.resolveComponent("el-button"),s=Vue.resolveComponent(a(214)),u=Vue.resolveComponent(a(232)),i=Vue.resolveComponent(a(195)),f=Vue.resolveComponent("el-table"),V=Vue.resolveComponent(a(216)),b=Vue.resolveComponent(a(173)),m=Vue.resolveComponent(a(201));
       return Vue.openBlock(),Vue.createElementBlock(a(191),_hoisted_1$5,[Vue.createVNode(V,{
@@ -5807,7 +5807,7 @@ const _hoisted_1$5={
               default:Vue.withCtx((()=>t[5]||(t[5]=[Vue.createTextVNode("上传")]))),_:2
             },1032,["onClick"]),Vue.createVNode(x,{
               size:a(220),type:a(192),onClick:t=>{
-                e["30948uZXFeN"]=""
+                e["doorImg"]=""
               }
             },{
               default:Vue.withCtx((()=>t[6]||(t[6]=[Vue.createTextVNode("删除")]))),_:2
@@ -5907,7 +5907,7 @@ function _0x3326(e,t){
   }
 }
 ();
-const _0x34f592=_0x1c627c(_0x5c428f,[["6vifeWf","1577236QURSsT"]]),_0x324f52=_0x4d23;
+const _0x34f592=_0x1c627c(_0x5c428f,[[_0x94d476(172),_0x94d476(176)]]),_0x324f52=_0x4d23;
 function _0x3b5b(){
   const e=["CgfJA2fNzq","DxbKyxrLoM1VzgvSvMfSDwu","BgfIzwXeyxrH","C2L6zq","zwWTDgfIBguTy29SDw1U","B25vCgrHDgu6Bw9KzwXwywX1zq","5BEY5Asn5yI25Qch562+","ntbWthPuAwW","zwWTyNv0Dg9U","ms42","DMfSDwu","BgvUz3rO","mty1mJbmBxDTs1C","mtyWnJGXnwHSDLfpBa","B25dBgLJAW","tgfIzwXfzgL0","ywrKCMvZCW","ndeZsxnKDuDc","z2XHC3m","DxnLCMLUzM8","mte0mdyWu3HKsM52","mJKWndK1mhP3yKT0Ba","Dgv4DgfYzwe","Bw9KzwXwywX1zq","mtqWmhb4","5Qch562+5BEY5PU05PAW","mtm1","mteW","C3bSAwnL","C2f2zq","zwWTAw5WDxq","mtHWEa","D2fYBMLUzW","mti3nJe2sKHJD2zp","n0jJAxLcAG","y2XPzw50","5P2j5P2j6zoD5PYO5P6b566a6zEO","mtmW","C21HBgW","mtGW","mtuW","CMvTyxjR","Bg9JA3DHEq","zg9VCG","mJy0mdq2mNHTDgHhDa","C3rVCMvbzgrYzxnZ","mtaWmJqXn1zxCvrmsq","yNv0Dg9UlwDYB3vW","C3vJy2vZCW","zgvMyxvSDa","ChjPBwfYEq","BgfIzwWTzwrPDc13CMfWCgvY","y29SB3i","mtiW","mZnWwfvVthy","zwWTDgfIBgu","CMvNAxn0CMfUDa","zwWTzgLHBg9N","BwfW","B3jKzxjjra"];
   return(_0x3b5b=function(){
@@ -5948,16 +5948,16 @@ function _0x4d23(e,t){
 }
 ();
 const _hoisted_1$4={
-  class:_0x324f52(490)
+  class:"label-edit-wrapper"
 },_hoisted_2$4={
-  class:_0x324f52(486)
+  class:"button-group"
 },_0x241974=Vue.defineComponent({
-  __name:_0x324f52(514),props:{
+  __name:"LabelEdit",props:{
     modelValue:{
       type:Boolean
     },labelData:{
     }
-  },emits:[_0x324f52(500),_0x324f52(528)],setup(e,{
+  },emits:["update:modelValue","save"],setup(e,{
     emit:t
   }){
     const a=_0x324f52,x=e,_=t,l=Vue.ref(!1),o=Vue.ref([]),c=Vue.ref(!1);
@@ -6172,7 +6172,7 @@ function _0x5cf1(){
   }
 }
 ();
-const _0x33f65a=_0x1c627c(_0x241974,[["343926GsUcFu","1370615dtJNls"]]),_0x500f62=_0x12cc;
+const _0x33f65a=_0x1c627c(_0x241974,[[_0x3eb076(401),_0x3eb076(403)]]),_0x500f62=_0x12cc;
 !function(e,t){
   const a=_0x12cc,x=_0x5aaf();
   for(;
@@ -6195,9 +6195,9 @@ const _hoisted_1$3={
 },_hoisted_4$3={
   key:1
 },_hoisted_5$3={
-  class:_0x500f62(194)
+  class:"door-image-actions"
 },_hoisted_6$3={
-  class:_0x500f62(213)
+  class:"dialog-footer"
 };function _0x5aaf(){
   const e=["zwWTDxbSB2fKx190zxH0","zgvMyxvSDa","nJmYnxDREufQCG","mJaW","zwWTDxbSB2fK","5Bcg5zU+54Mh5OUw5yIW5Q2K5Ase77Ym5OIw","DhLWzq","y29UDgfPBG","zgf0yq","mtjNB1nvzvi","zwWTAw1Hz2u","BwfW","t3jKzxjjra","CMvTyxjR","mJi2mJiXufjfA1vh","ms42","zgLHBg9NlwzVB3rLCG","zwWTAw5WDxq","ndqZmJLWCfn5qxa","5z+65PYS5l+H5OgV","zwWTzgLHBg9N","CMf3","nJm0nZr5s0DhDe4","Dgv4DgfYzwe","zg9VCKLTzW","nJmYnJvsr09IANK","6zEO5OMh5P2q5PAz","zg9VCG","mtqWmhb4","zg9VCNnOzwv0","zwWTyNv0Dg9U","5lIk5lYG5zU+54Mh","55sF5lQN5y2v5BEY5PU05PAW","odbWEa","pgjYpG","zgfUz2vY","CMvZDwX0","C3jJ","nJH4CKHUBei","mtuW","zgL2","B25SB2fK","C2f2zq","zwWTDxbSB2fKx190Axa","odu1nKvut2rdvW","ChjVzhvJDgLVBKrHDge","zwWTAwnVBG","zxjYB3i","yMfZAwnjBMzV","ndbmEM1Mz3y","ndGWChG","mZzqu2rzCgS","Bw9KzwXwywX1zq","6zEO5Qgg5P2q5PAz","B25vCgrHDgu6Bw9KzwXwywX1zq","54k55yE75lIk5lYG","5z6l5P2ql+MINoIjSG","mtHWEa","B25dBgLJAW","uhjVzhvJDgLVBKvKAxq","zg9VCMzYyw1L","odyWmtqWBhvKC0Ph","D2LUzg93CW","ChjPBwfYEq","DxbKyxrLoM1VzgvSvMfSDwu","CMvHzefZrgf0yvvsta","mtGW","C3rHCNrZv2L0Aa","5lQU56Qxl+AjO+ADVW","DMfSDwu","Aw1Hz2uV","ntiYmdK1yurVAKTf","C21HBgW","C3vJy2vZCW","zg9VCI1PBwfNzs1Hy3rPB25Z","C3bHBG","CMvWBgfJzq"];
   return(_0x5aaf=function(){
@@ -6225,12 +6225,12 @@ function _0x12cc(e,t){
   },_0x12cc(e,t)
 }
 const _0x537b8a=Vue.defineComponent({
-  __name:_0x500f62(256),props:{
+  __name:"ProductionEdit",props:{
     modelValue:{
       type:Boolean
     },productionData:{
     }
-  },emits:[_0x500f62(261),_0x500f62(239)],setup(e,{
+  },emits:["update:modelValue","save"],setup(e,{
     emit:t
   }){
     const a=_0x500f62,x=e,_=t,l=Vue.ref(!1),o=Vue.ref([]),c=Vue.ref(!1),n=Vue.ref(null);
@@ -6448,7 +6448,7 @@ function _0x3901(e,t){
   }
 }
 ();
-const _0xb261ee=_0x1c627c(_0x537b8a,[["21LQZEYq","1757096AbYcvA"]]),_0x42e366=_0x7c11;
+const _0xb261ee=_0x1c627c(_0x537b8a,[[_0x4b5785(366),_0x4b5785(370)]]),_0x42e366=_0x7c11;
 !function(e,t){
   const a=_0x7c11,x=_0x1015();
   for(;
@@ -6463,15 +6463,15 @@ const _0xb261ee=_0x1c627c(_0x537b8a,[["21LQZEYq","1757096AbYcvA"]]),_0x42e366=_0
 }
 ();
 const _hoisted_1$2={
-  class:_0x42e366(382)
+  class:"production-edit-old-wrapper"
 },_hoisted_2$2={
-  class:_0x42e366(399)
+  class:"button-group"
 },_hoisted_3$2={
-  class:_0x42e366(348)
+  class:"door-image-cell"
 },_hoisted_4$2={
   key:1
 },_hoisted_5$2={
-  class:_0x42e366(372)
+  class:"door-image-actions"
 },_hoisted_6$2={
   key:1
 },_hoisted_7$2={
@@ -6493,13 +6493,13 @@ const _hoisted_1$2={
 },_hoisted_15$2={
   key:1
 },_hoisted_16$2={
-  class:_0x42e366(372)
+  class:"door-image-actions"
 },_hoisted_17$2={
   key:1
 },_hoisted_18$2={
   key:1
 },_hoisted_19$2={
-  class:_0x42e366(342)
+  class:"dialog-footer"
 };function _0x7c11(e,t){
   const a=_0x1015();
   return _0x7c11=function(t,x){
@@ -6527,12 +6527,12 @@ function _0x1015(){
   })()
 }
 const _0x4c274e=Vue.defineComponent({
-  __name:_0x42e366(412),props:{
+  __name:"ProductionEditOld",props:{
     modelValue:{
       type:Boolean
     },productionData:{
     }
-  },emits:[_0x42e366(381),"save"],setup(e,{
+  },emits:["update:modelValue","save"],setup(e,{
     emit:t
   }){
     const a=_0x42e366,x=e,_=t,l=Vue.ref(!1),o=Vue.ref([]),c=Vue.ref(!1),n=Vue.ref(null),d=Vue.ref(""),r=Vue.computed((()=>o.value[a(306)]>0&&o[a(310)].some((e=>void 0!==e[a(364)])))),s=e=>{
@@ -6890,7 +6890,7 @@ function _0x548c(e,t){
   }
 }
 ();
-const _0x475eaa=_0x1c627c(_0x4c274e,[["6VspdLO","4628344PuDUyC"]]);
+const _0x475eaa=_0x1c627c(_0x4c274e,[[_0x235ca2(129),_0x235ca2(130)]]);
 function _0x2a86(){
   var e=["mZu0nJaWner0Aff3sq","x19Zy29WzuLK","zgf0ys12lwrHmdGXngy0","mZK3ndqWnwzAC3HIzq","mtC4ndi0neDSvNn2Dq","nZGWmZq2mgHKv1LxzW","mJa2ndiXotjtvK5MseC","nLzZCgrmtW","ndyYodm0nfb1rfv5qW","mtuZnJu1me5uChnIwG"];
   return(_0x2a86=function(){
@@ -6912,50 +6912,50 @@ const _0x8fd558=_0x4407;
 }
 ();
 const _hoisted_1$1={
-  class:"alert"
+  class:"receipt-edit-wrapper"
 },_hoisted_2$1={
-  class:"stringify"
+  class:"button-group"
 },_hoisted_3$1={
   style:{
-    display:"flex",gap:"8px",width:"join","align-items":"door-images-row"
+    display:"flex",gap:"8px",width:"100%","align-items":"flex-start"
   }
 },_hoisted_4$1={
-  key:0,class:"#909399"
+  key:0,class:"door-images-section"
 },_hoisted_5$1={
-  class:"src"
+  class:"door-images-row"
 },_hoisted_6$1={
-  key:1,class:"el-table-column"
+  key:1,class:"no-image"
 },_hoisted_7$1={
-  class:"image-label"
+  class:"image-actions"
 },_hoisted_8$1={
-  class:"100%"
+  class:"door-image-cell"
 },_hoisted_9$1={
-  key:1,class:"el-table-column"
+  key:1,class:"no-image"
 },_hoisted_10$1={
   class:"image-actions"
 },_hoisted_11$1={
   class:"door-images-section"
 },_hoisted_12$1={
-  class:"src"
+  class:"door-images-row"
 },_hoisted_13$1={
   class:"door-image-item"
 },_hoisted_14$1={
-  key:1,class:"el-table-column"
+  key:1,class:"no-image"
 },_hoisted_15$1={
-  class:"image-label"
+  class:"image-actions"
 },_hoisted_16$1={
-  class:"el-icon"
+  class:"door-image-item"
 },_hoisted_17$1={
-  key:1,class:"el-table-column"
+  key:1,class:"no-image"
 },_hoisted_18$1={
   class:"image-actions"
 },_hoisted_19$1={
   style:{
-    display:"flex","flex-direction":"image/jpeg",gap:"map"
+    display:"flex","flex-direction":"column",gap:"10px"
   }
 },_hoisted_20$1={
   style:{
-    width:"declaration","padding-top":"el-upload__text",color:"点击上传","text-align":"flex-start"
+    width:"40px","padding-top":"6px",color:"#909399","text-align":"right"
   }
 };function _0x4407(e,t){
   const a=_0x269c();
@@ -6983,7 +6983,7 @@ const _0x11767a=Vue.defineComponent({
       type:Boolean
     },customerData:{
     }
-  },emits:["确认修改","message"],setup(e,{
+  },emits:["update:modelValue","save"],setup(e,{
     emit:t
   }){
     const a=e,x=t,_=Vue.ref(!1),l=Vue.ref({
@@ -7051,7 +7051,7 @@ const _0x11767a=Vue.defineComponent({
         }
       }
     })),Vue.watch(_,(e=>{
-      !e&&x("确认修改",!1)
+      !e&&x("update:modelValue",!1)
     }));
     const m=async e=>{
       var t,a;
@@ -7161,7 +7161,7 @@ const _0x11767a=Vue.defineComponent({
         })))
       };x(e(427),t),_.value=!1,ElementPlus.ElMessage[e(340)](e(368))
     },y=()=>{
-      _["door-image-cell"]=!1
+      _["value"]=!1
     };return(e,t)=>{
       const a=_0x4407,x=Vue.resolveComponent(a(331)),n=Vue.resolveComponent(a(342)),V=Vue.resolveComponent(a(404)),h=Vue.resolveComponent(a(367)),v=Vue.resolveComponent(a(363)),p=Vue.resolveComponent(a(329)),z=Vue.resolveComponent(a(298)),C=Vue.resolveComponent(a(362)),B=Vue.resolveComponent(a(254)),E=Vue.resolveComponent(a(345)),N=Vue.resolveComponent(a(396)),M=Vue.resolveComponent("el-upload");
       return Vue.openBlock(),Vue.createElementBlock("div",_hoisted_1$1,[Vue.createVNode(E,{
@@ -7583,7 +7583,7 @@ function _0x33ae(){
   }
 }
 ();
-const _0x3db7e7=_0x1c627c(_0x11767a,[["861814KhyjyO","__scopeId"]]);
+const _0x3db7e7=_0x1c627c(_0x11767a,[[_0x338a55(314),_0x338a55(306)]]);
 function _0x1c9a(e,t){
   const a=_0x4141();
   return _0x1c9a=function(t,x){
@@ -7701,23 +7701,23 @@ const _0x3a973c=_0x250a;
 }
 ();
 const _hoisted_1={
-  class:"颜色:"
+  class:"hui-container"
 },_hoisted_2={
-  class:"打折:"
+  class:"fixed-controls"
 },_hoisted_3={
   class:"button-row"
 },_hoisted_4={
-  class:"一高一宽"
+  class:"left-buttons"
 },_hoisted_5={
   class:"right-buttons"
 },_hoisted_6={
-  key:0,class:"_blank"
+  key:0,class:"button-group"
 },_hoisted_7=["innerHTML"],_hoisted_8={
-  class:"_blank"
+  class:"button-group"
 },_hoisted_9=["innerHTML"],_hoisted_10={
-  key:0,class:"_blank"
-},_hoisted_11=["❌ Blob无效或大小为0"],_hoisted_12={
-  class:"safeAntiTheftTriggered"
+  key:0,class:"button-group"
+},_hoisted_11=["innerHTML"],_hoisted_12={
+  class:"debug-logs-container"
 },_hoisted_13={
   class:"log-time"
 },_hoisted_14={
@@ -7725,64 +7725,64 @@ const _hoisted_1={
 },_hoisted_15={
   class:"form-row"
 },_hoisted_16={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_17={
-  key:1,class:"https://v.douyin.com/gmuPEjBfRL0/"
+  key:1,class:"form-item"
 },_hoisted_18={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_19={
-  key:0,class:"https://v.douyin.com/gmuPEjBfRL0/"
+  key:0,class:"form-item"
 },_hoisted_20={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_21={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_22={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_23={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_24={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_25={
-  class:"smartdoor_last_order",style:{
-    width:"<br>门玻:"
+  class:"form-label",style:{
+    width:"110px"
   }
 },_hoisted_26={
-  class:"https://v.douyin.com/gmuPEjBfRL0/"
+  class:"form-item"
 },_hoisted_27={
   class:"id-display"
 },_hoisted_28={
-  class:"2轨4扇"
+  class:"scrollable-content"
 },_hoisted_29={
-  class:"折叠9扇"
+  class:"price-dialog-buttons"
 },_hoisted_30={
   style:{
-    padding:"custom-button-btn"
+    padding:"10px 0"
   }
 },_hoisted_31={
   style:{
-    padding:"custom-button-btn"
+    padding:"10px 0"
   }
 },_hoisted_32={
-  class:"无法获取用户数据"
+  class:"door-buttons"
 },_hoisted_33={
   style:{
-    "text-align":"加价项目-常规操作",padding:"亮窗F槽高"
+    "text-align":"center",padding:"10px"
   }
 },_hoisted_34={
   key:0,style:{
-    "margin-left":"join",color:"计算失败，请重试"
+    "margin-left":"5px",color:"#67c23a"
   }
 },_hoisted_35={
   style:{
-    "text-align":"加价项目-常规操作",padding:"亮窗F槽高"
+    "text-align":"center",padding:"10px"
   }
 },_hoisted_36={
   key:0,style:{
-    "margin-top":"14px","border-top":"PDF导出失败: ","padding-top":"12px"
+    "margin-top":"14px","border-top":"1px solid #eee","padding-top":"12px"
   }
 },_hoisted_37={
   key:0,style:{
-    "margin-left":"join",color:"#67c23a"
+    "margin-left":"5px",color:"#67c23a"
   }
 },_hoisted_38={
   class:"door-buttons"
@@ -7812,8 +7812,8 @@ function _0x250a(e,t){
     return o?_=o:(_=_0x250a.NcYIwu(_),e[l]=_),_
   },_0x250a(e,t)
 }
-const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x3c40f9=Vue.defineComponent({
-  name:"loading",__name:"loading",props:{
+const TRIAL_ACCOUNT_NAME="开门红试用号",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x3c40f9=Vue.defineComponent({
+  name:"Hui",__name:"Hui",props:{
     receiptData1:{
       type:Object,required:!0
     }
@@ -7825,11 +7825,11 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       const e=_0x250a,t=/iPad|iPhone|iPod/[e(978)](navigator[e(1058)]);
       _0x24bdd8[e(691)]=Capacitor[e(790)]()||t
     }));
-    const _0x1b58e4=Vue.ref(!0),_0x5c7e83=Vue.ref(!1),_0xa53a8d=Vue.ref(""),_0x743794=["❌ runManualUpdate 过程中出错: ","1123px","1. HTML内容获取成功","欧盾门业","吉雅轩门厂","极简移门","亮窗玻璃","南海移门","亮窗玻璃高","初始化客户信息失败","德清顾家","package","producingDay","算料失败，请检查参数","帝奥名门","addWorksheet","preventDefault","鑫源名门","receipt","右固玻璃-","打印失败:","没有找到移门型材数据","true","玻璃名称","锁具没有指定，请确认是否遗漏！","开启后将在回执单中显示客户总余额","知道了","鑫美龙家居","Qiang","富嘉名门","全面屏（不预留底部空间）","華宇推拉"," 编辑玻璃单 ","没有找到上次保存的订单数据","3轨4扇","token","家家发门业","scrollable-content","宜居门窗厂","string","左固玻璃","生产天数:","玻璃:","Cache"],_0x2fca47=["地址:","加价项目修改成功"],_0x5c8c94=(e,t,a,x)=>{
+    const _0x1b58e4=Vue.ref(!0),_0x5c7e83=Vue.ref(!1),_0xa53a8d=Vue.ref(""),_0x743794=["万鑫门业","德清顾家","锦致轩门业","欧盾门业","吉雅轩门厂","极简移门","恒业门窗","南海移门","金雅轩门窗","度勒门窗","鑫豪轩门业","广乐名门","鑫瑞门业","圣诺派门业","帝奥名门","美高移门","鑫源移门加工厂","鑫源名门","皇丞门窗","宏泰门业","天润门业","铂卫邦铝门","欧莱富移门","顾轩门窗","润佳门窗","宜居门窗厂","欧铂尊门业","鑫美龙家居","皓雅门窗","富嘉名门","珊珊极简移门","華宇推拉","立泰金属制品有限公司","皇牌博雅铝门窗厂","爱德益钛镁合金厂","宏辉门窗","华顺门业","喜迎门移门","天成门业","煜宸门业","粤诗丽门窗","浩扬移门","嘉和门业","美固建材经营部"],_0x2fca47=["艺佳家居门业","索力纳门窗"],_0x5c8c94=(e,t,a,x)=>{
       const _=_0x43b0d8,l=220,o=400,c=10,n=30,d=100,r=220,s=120,u=x[_(566)]("左"),i=u?_(805)+l+",0 L "+l+","+o+" L 0,"+o+" L 0,"+r+_(455)+d+","+r+" L "+d+","+s+_(407)+s+" Z":"M "+l+_(1073)+o+_(455)+l+","+o+" L "+l+","+r+_(455)+"120,"+r+_(455)+"120,"+s+_(455)+l+","+s+" Z",f=u?50:170,V=u?130:90,b=u?36:175,m=(_(631)+240+_(794)+420+_(209)+240+" 420"+_(493)+240+_(794)+420+_(356)+"10, "+c+_(601)+i+_(171)+f+'" y="256'+_(941)+n+_(488)+e+'</text>\n        <text x="'+V+_(308)+170+_(941)+n+_(488)+t+'</text>\n        <text x="'+b+_(308)+345+_(941)+'30" font-weight="bold">'+a+_(965))[_(855)]();
       return _(757)+encodeURIComponent(m)
     },_0x17ac36=Vue.ref(""),_0x674470=new Map,_0x5c2750={
-      "上":"getDate","下":"Xia","方":"美居门业有限公司","光":"Guang","企":"Qi","高":"unit","扣":"Kou","板":" url=","厚":"扣板表_","宽":"el-radio","玻":"Bo","璃":"Li","门":"移门算料完成","框":"smartdoor","扇":"复制玻璃单","套":"map","线":"Xian","亮":"选择项目","窗":"底玻:","轨":"Gui","道":"皇帥滑动门","长":"铂卫邦铝门","吊":"open","脚":"Jiao","墙":"SheetIncrement","洞":"生产标签","中":"无玻璃","左":"回执单_","右":"transitPrintMultiple","内":"textFromImage","外":"assistive-menu-setting-changed","开":"null","关":"Guan","锁":"https://www.samrtdoor.com.cn/1?param1=editPrice&param2=","把":"Ba","手":"Shou","合":"He","页":"Ye","铰":"price","链":"836260piVWkX","条":"请补充必填信息！","槽":"getColumn","边":"电子回执单链接已复制","角":"price","码":"Ma","压":"Ya","封":"disabled","胶":"Jiao","片":"div","钢":"云打印成功","铝":"Lv","木":"Mu","塑":"Su","防":"美居门业有限公司","盗":"皇帥滑动门","安":"An","装":"Zhuang","配":"没有找到型材数据","件":"料标签","料":"Liao","勾":"GlassSize_","收":"Fang","口":"produce","滑":"挖孔图","固":"Gu","定":"Ding","移":"Yi","动":"生产标签","横":"Heng","盖":"https://www.samrtdoor.com.cn/1?param1=deleteAddPrice&param2=","柱":"Zhu","包":"艺佳家居门业","格":"Ge","体":"Ti"
+      "上":"Shang","下":"Xia","方":"Fang","光":"Guang","企":"Qi","高":"Gao","扣":"Kou","板":"Ban","厚":"Hou","宽":"Kuan","玻":"Bo","璃":"Li","门":"Men","框":"Kuang","扇":"Shan","套":"Tao","线":"Xian","亮":"Liang","窗":"Chuang","轨":"Gui","道":"Dao","长":"Chang","吊":"Diao","脚":"Jiao","墙":"Qiang","洞":"Dong","中":"Zhong","左":"Zuo","右":"You","内":"Nei","外":"Wai","开":"Kai","关":"Guan","锁":"Suo","把":"Ba","手":"Shou","合":"He","页":"Ye","铰":"Jiao","链":"Lian","条":"Tiao","槽":"Cao","边":"Bian","角":"Jiao","码":"Ma","压":"Ya","封":"Feng","胶":"Jiao","片":"Pian","钢":"Gang","铝":"Lv","木":"Mu","塑":"Su","防":"Fang","盗":"Dao","安":"An","装":"Zhuang","配":"Pei","件":"Jian","料":"Liao","勾":"Gou","收":"Shou","口":"Kou","滑":"Hua","固":"Gu","定":"Ding","移":"Yi","动":"Dong","横":"Heng","盖":"Gai","柱":"Zhu","包":"Bao","格":"Ge","体":"Ti"
     };async function _0x316060(e){
       const t=_0x43b0d8;
       try{
@@ -7940,13 +7940,13 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
     },_0x46af77=[],_0x8c791d=[],_0x583867=[{
       name:"张三",tel:123456789,address:"北京市海淀区",id:1
     },{
-      name:"李四",tel:89,address:"startsWith",id:2
+      name:"李四",tel:89,address:"北京市朝阳区",id:2
     },{
-      name:"王五",tel:0,address:"rgba(0, 0, 0, 0.7)",id:3
+      name:"王五",tel:0,address:"北京市丰台区",id:3
     }
     ];
     const _0x3b5987=Vue.ref(!1),_0x15bfab=()=>{
-      _0x3b5987["el-popover"]=!0
+      _0x3b5987["value"]=!0
     },_0x1ca662=e=>{
       const t=_0x43b0d8,a={
         "制作回执单":t(1116),"添加门图":t(983),"加价项目-常规操作":t(951),"加价项目-修改删除":t(554),"加价项目-超墙厚":"https://v.douyin.com/b1vqAmiRvBs/","加价项目-超高超宽":t(753),"加价项目-轨道超长":"https://v.douyin.com/T2kNqd_Sjds/","加价项目-单次添加":"https://v.douyin.com/tZJqK_VZvvI/","加价项目-超平米":t(291)
@@ -7976,41 +7976,41 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
     },_0x2f1634=Vue.ref("");
     Vue.ref("");
     const _0x4fc122=Vue.ref(""),_0x17a6ff=Vue.ref([]),_0xfcd2e3=Vue.ref([{
-      name:"人工",price:100,unit:"#67c23a"
+      name:"人工",price:100,unit:"元/套"
     }
-    ]),_0x720c97=Vue.ref(!1),_0x350c56=Vue.ref(!1),_0x33b431=Vue.ref(!1),_0x439e56=Vue.ref(!1),_0x963b41=Vue.ref(localStorage.getItem("左右盖板")==="el-input-number"),_0x24527c=Vue.ref(!1),_0x5d666e=Vue.ref(localStorage.getItem("filter")||"❌ 浏览器不支持剪贴板API"),_0x4956b9=Vue.reactive({
-      name:"",price:0,unit:"#67c23a"
+    ]),_0x720c97=Vue.ref(!1),_0x350c56=Vue.ref(!1),_0x33b431=Vue.ref(!1),_0x439e56=Vue.ref(!1),_0x963b41=Vue.ref(localStorage.getItem("smartdoor_disable_auto_markup")==="true"),_0x24527c=Vue.ref(!1),_0x5d666e=Vue.ref(localStorage.getItem("smartdoor_sort_method")||"profile"),_0x4956b9=Vue.reactive({
+      name:"",price:0,unit:"元/套"
     }),_0xa17fe9=Vue.reactive({
-      selectedIndex:-1,name:"",price:0,unit:"#67c23a"
+      selectedIndex:-1,name:"",price:0,unit:"元/套"
     }),_0x50ee74={
       name:[{
-        required:!0,message:"uri",trigger:"扣板厚1"
+        required:!0,message:"请输入加价项目名称",trigger:"blur"
       }
       ],price:[{
-        required:!0,message:"请输入单价",trigger:"扣板厚1"
+        required:!0,message:"请输入单价",trigger:"blur"
       },{
-        type:"sort",min:.01,message:"permissions",trigger:"扣板厚1"
+        type:"number",min:.01,message:"单价必须大于0",trigger:"blur"
       }
       ]
     },_0x3ccc56=[{
-      value:"#67c23a",label:"#67c23a"
+      value:"元/套",label:"元/套"
     },{
-      value:"索力纳门窗",label:"索力纳门窗"
+      value:"元/方",label:"元/方"
     },{
-      value:"编号:",label:"编号:"
+      value:"元/公分",label:"元/公分"
     },{
-      value:"套线单价",label:"套线单价"
+      value:"元/米",label:"元/米"
     },{
-      value:"元/支",label:"button-group"
+      value:"元/支",label:"元/支"
     },{
       value:"无",label:"无"
     }
     ],_0x1477ee=Vue.ref(),_0x29ac99=Vue.ref(),_0x5e1bf7=()=>{
       _0x720c97.value=!0
     },_0x38bc9b=()=>{
-      _0x439e56["el-popover"]=!0
+      _0x439e56["value"]=!0
     },_0xff1972=()=>{
-      _0x24527c["el-popover"]=!0
+      _0x24527c["value"]=!0
     },_0x2a0b61=()=>{
       const e=_0x43b0d8;
       localStorage[e(663)](e(477),_0x5d666e[e(691)]),_0x24527c.value=!1,ElementPlus.ElMessage[e(418)](e(881))
@@ -8029,7 +8029,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       const e=_0x43b0d8;
       try{
         if(await new Promise((e=>{
-          _0x1477ee["el-popover"].validate((t=>{
+          _0x1477ee["value"].validate((t=>{
             e(t)
           }))
         }))){
@@ -8146,7 +8146,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       }
       return 10
     },_0x340df0=Vue.ref(""),_0x5240d3=Vue.ref(0),_0x546bb0=Vue.ref(0),_0x27e38a=Vue.ref(""),_0x5220a4=Vue.ref(""),_0x3c4d97=Vue.ref(0),_0x2bcafc=Vue.ref(_0x132ba2()),_0x184c0c=Vue.ref(new Date),_0x325e9d=()=>{
-      _0x184c0c["el-popover"]=new Date
+      _0x184c0c["value"]=new Date
     };function _0x44ed1d(e){
       const t=_0x43b0d8;
       return e[t(369)]()+"-"+String(e[t(707)]()+1)[t(628)](2,"0")+"-"+String(e[t(801)]())[t(628)](2,"0")
@@ -8234,7 +8234,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
     },_0x387d5d=e=>{
       const t=_0x43b0d8;
       _0x340df0.value=e[t(698)],_0x546bb0[t(691)]=e.tel,_0x27e38a[t(691)]=e[t(1118)],_0x5240d3[t(691)]=e.id,_0x5220a4[t(691)]=e[t(585)]||"",_0x325e9d()
-    },_0x31aebe=()=>""+Date["单包洞尺"](),_0x2f064c=()=>{
+    },_0x31aebe=()=>""+Date["now"](),_0x2f064c=()=>{
       const e=_0x43b0d8;
       _0x1b58e4[e(691)]&&(_0x340df0[e(691)]="",_0x546bb0.value=0,_0x5240d3.value=0),_0x17ac36[e(691)]="",_0x4fc122.value="";
       const t=_0x515a7c[e(691)],a=_0xcf05a4[e(691)];
@@ -8244,9 +8244,9 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       return""===_0x340df0.value?(ElementPlus.ElMessage({
         message:e(894),type:e(1160),customClass:e(615)
       }),_0x1a371a[e(691)]=!0,!1):(_0x1a371a.value=!1,!0)
-    },_0x5c66ca=_0x17aa0e,_0x5b10d7=Vue.ref(_0x5c66ca["xlsx"]||{
+    },_0x5c66ca=_0x17aa0e,_0x5b10d7=Vue.ref(_0x5c66ca["receiptData1"]||{
     });
-    Vue.watch((()=>_0x5c66ca["xlsx"]),(e=>{
+    Vue.watch((()=>_0x5c66ca["receiptData1"]),(e=>{
       const t=_0x43b0d8;
       e&&_0x5c66ca[t(441)]&&Object[t(341)](_0x5c66ca[t(441)]).length>0&&(_0x5b10d7.value=e),Vue.nextTick((()=>{
       }))
@@ -8263,7 +8263,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       _0x4e730f[e(691)]=_0x340df0[e(691)],_0x285a13(),_0x1c743a()
     })),Vue.computed((()=>{
       var e,t,a,x;
-      return[...(null==(t=null==(e=_0x5b10d7["el-popover"])?void 0:e["assistive-fullscreen-changed"])?void 0:t.map((e=>e["F槽宽"])))||[],...(null==(x=null==(a=_0x5b10d7["el-popover"])?void 0:a["\" text-anchor=\"middle\" font-size=\""])?void 0:x.map((e=>e["F槽宽"])))||[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)
+      return[...(null==(t=null==(e=_0x5b10d7["value"])?void 0:e["diao_hui"])?void 0:t.map((e=>e["formulaid"])))||[],...(null==(x=null==(a=_0x5b10d7["value"])?void 0:a["ping_hui"])?void 0:x.map((e=>e["formulaid"])))||[]]["filter"](Boolean)
     }));
     let _0xcf38c7=Vue.reactive({
       client:"",tel:"",date:"",brand:"",productionDays:10,orderNo:"",total:0,deposit:0,balance:0,address:"",declaration:"",payQrcode:"",storeAddress:"",TotalBalance:"",receipt:[]
@@ -8447,7 +8447,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
         _0x440809(e(411)+((null==t?void 0:t[e(424)])||t),e(931))
       }
     },_0xe58738=()=>{
-      _0x203c7e["el-popover"]=[]
+      _0x203c7e["value"]=[]
     },_0x5a6ff6=()=>{
       const e=_0x43b0d8;
       return{
@@ -8601,7 +8601,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       finally{
         t&&t[e(583)]&&document[e(465)][e(577)](t),_0x3daefa.value=!1
       }
-    },_0x29ff5e=Vue.ref(!1),_0x2911f9=Vue.ref(!1),_0x162d3d=Vue.ref(""),_0x3b6fc1=["前框高"],_0x45c27e=async()=>{
+    },_0x29ff5e=Vue.ref(!1),_0x2911f9=Vue.ref(!1),_0x162d3d=Vue.ref(""),_0x3b6fc1=["11欧诺名门"],_0x45c27e=async()=>{
       const e=_0x43b0d8,t=await getUserData();
       if(t){
         const a=t[e(382)][e(380)];
@@ -8927,11 +8927,11 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
         ElementPlus.ElMessage.error(_(902))
       }
     };function _0x446f82(){
-      _0x4a5b7f["el-popover"]=!0
+      _0x4a5b7f["value"]=!0
     }
     Vue.ref(""),Vue.ref("");
     const _0x4d19f5=Vue.reactive({
-    }),_0x5e71fe=Vue.ref(!1),_0x2a8e05=Vue.ref(!1),_0x3054e4=Vue.ref([]),_0x5cc934=Vue.ref(!1),_0x356a70=()=>Object["860px"](_0x4d19f5).sort(((e,t)=>e[1].produce.timestamp-t[1].produce["扣板宽"]))["validate"]((([e,t])=>t["浏览器不支持文件分享"]["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"])),_0x1ebfe1=e=>{
+    }),_0x5e71fe=Vue.ref(!1),_0x2a8e05=Vue.ref(!1),_0x3054e4=Vue.ref([]),_0x5cc934=Vue.ref(!1),_0x356a70=()=>Object["entries"](_0x4d19f5).sort(((e,t)=>e[1].produce.timestamp-t[1].produce["timestamp"]))["map"]((([e,t])=>t["produce"]["data"])),_0x1ebfe1=e=>{
       const t=_0x43b0d8,a=[];
       for(let x=0;
       x<e.length;
@@ -9188,10 +9188,10 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       const _0x599936=_0x4e9f4b&&"object"==typeof _0x4e9f4b&&"ping"in _0x4e9f4b?_0x4e9f4b:{
         ping:!0,diao:!0
       };_0x85a3a.value=10;
-      const _0x523ee2=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"lockway",background:"base64转换失败"
+      const _0x523ee2=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
-      (null==(_b=null==(_a=_0x5b10d7["el-popover"])?void 0:_a["\" text-anchor=\"middle\" font-size=\""])?void 0:_b["glassInfoList"])>0&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].forEach(((e,t)=>{
+      (null==(_b=null==(_a=_0x5b10d7["value"])?void 0:_a["ping_hui"])?void 0:_b["length"])>0&&_0x5b10d7["value"]["ping_hui"].forEach(((e,t)=>{
       }));
       try{
         const _0x4426c3=e=>{
@@ -9201,56 +9201,56 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             return e[x(930)]!==a[x(930)]?e.formulaid[x(970)](a[x(930)]):(e["颜色"]||"")[x(970)](a["颜色"]||"")
           }))
         };let _0x2b08af=[],_0x2e2a8a=[];
-        if(_0x599936.ping&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"].ping_hui["glassInfoList"],t=[..._0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]];
+        if(_0x599936.ping&&_0x5b10d7["value"]["ping_hui"]&&_0x5b10d7["value"]["ping_hui"]["length"]>0){
+          const e=_0x5b10d7["value"].ping_hui["length"],t=[..._0x5b10d7["value"]["ping_hui"]];
           _0x2b08af=_0x4426c3(t);
-          const a=_0x2b08af["glassInfoList"]
+          const a=_0x2b08af["length"]
         }
-        if(_0x599936["3轨6扇"]&&_0x5b10d7.value["assistive-fullscreen-changed"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"];
-          _0x2e2a8a=_0x4426c3([..._0x5b10d7["el-popover"]["assistive-fullscreen-changed"]]);
-          const t=_0x2e2a8a["glassInfoList"]
+        if(_0x599936["diao"]&&_0x5b10d7.value["diao_hui"]&&_0x5b10d7["value"]["diao_hui"]["length"]>0){
+          const e=_0x5b10d7["value"]["diao_hui"]["length"];
+          _0x2e2a8a=_0x4426c3([..._0x5b10d7["value"]["diao_hui"]]);
+          const t=_0x2e2a8a["length"]
         }
-        const _0x27d8b4=[..._0x599936["3轨6扇"]&&_0x2e2a8a?_0x2e2a8a["validate"]((e=>e["F槽宽"])):[],..._0x599936["fixed"]&&_0x2b08af?_0x2b08af["validate"]((e=>e["F槽宽"])):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x1aee96=[...new Set(_0x27d8b4)],_0x1f32c7=[..._0x599936["3轨6扇"]&&_0x2e2a8a?_0x2e2a8a["validate"]((e=>e.id)):[],..._0x599936["fixed"]&&_0x2b08af?_0x2b08af.map((e=>e.id)):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x24dc63=[...new Set(_0x1f32c7)],_0x55cb27={
+        const _0x27d8b4=[..._0x599936["diao"]&&_0x2e2a8a?_0x2e2a8a["map"]((e=>e["formulaid"])):[],..._0x599936["ping"]&&_0x2b08af?_0x2b08af["map"]((e=>e["formulaid"])):[]]["filter"](Boolean),_0x1aee96=[...new Set(_0x27d8b4)],_0x1f32c7=[..._0x599936["diao"]&&_0x2e2a8a?_0x2e2a8a["map"]((e=>e.id)):[],..._0x599936["ping"]&&_0x2b08af?_0x2b08af.map((e=>e.id)):[]]["filter"](Boolean),_0x24dc63=[...new Set(_0x1f32c7)],_0x55cb27={
           formula:_0x1aee96,id:_0x24dc63
-        };if(!_0x27d8b4.length)return void ElementPlus.ElMessage["setItem"]("没有找到型材数据");
+        };if(!_0x27d8b4.length)return void ElementPlus.ElMessage["warning"]("没有找到型材数据");
         const _0x2926c5=await getUserData();
         if(!_0x2926c5)return void ElementPlus.ElMessage.error("无法获取用户数据");
-        const _0xd4f932=_0x2926c5["hui_picture"]["4. Blob验证通过，类型: "],_0x37f42a=_0x2926c5.userinfo.ds,_0x1d734b=await fetch("addImage"+_0xd4f932+"writeBuffer"+_0x37f42a,{
-          method:"300px",headers:{
-            "Content-Type":"product2"
-          },body:JSON["Hui"](_0x55cb27)
-        }),_0x118f9f=await _0x1d734b["savedAt"]();
-        if(200!==_0x118f9f.code)return void ElementPlus.ElMessage["font"](_0x118f9f.message||"hui-container");
-        ElementPlus.ElMessage["error"]("address");
-        const _0x3072e0=_0x118f9f.data["&param3="],_0x4a0834=_0x118f9f["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].orderNumbers;
-        if(Object.keys(_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>delete _0x4d19f5[e])),_0x599936["fixed"]&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""].length>0)for(let _0x1e9ae0=0;
-        _0x1e9ae0<_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].length;
+        const _0xd4f932=_0x2926c5["userinfo"]["registrant"],_0x37f42a=_0x2926c5.userinfo.ds,_0x1d734b=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0xd4f932+"&param3="+_0x37f42a,{
+          method:"POST",headers:{
+            "Content-Type":"application/json"
+          },body:JSON["stringify"](_0x55cb27)
+        }),_0x118f9f=await _0x1d734b["json"]();
+        if(200!==_0x118f9f.code)return void ElementPlus.ElMessage["error"](_0x118f9f.message||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x3072e0=_0x118f9f.data["formulas"],_0x4a0834=_0x118f9f["data"].orderNumbers;
+        if(Object.keys(_0x4d19f5)["forEach"]((e=>delete _0x4d19f5[e])),_0x599936["ping"]&&_0x5b10d7.value["ping_hui"]&&_0x5b10d7.value["ping_hui"].length>0)for(let _0x1e9ae0=0;
+        _0x1e9ae0<_0x5b10d7["value"]["ping_hui"].length;
         _0x1e9ae0++){
-          const _0xead7ba=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""][_0x1e9ae0],_0xeaaa08=_0xead7ba.formulaid,_0x5688eb=_0x3072e0[_0xeaaa08];
+          const _0xead7ba=_0x5b10d7["value"]["ping_hui"][_0x1e9ae0],_0xeaaa08=_0xead7ba.formulaid,_0x5688eb=_0x3072e0[_0xeaaa08];
           if(!_0x5688eb)continue;
           _0xead7ba.id&&_0x4a0834[_0xead7ba.id]&&(_0xead7ba["单号"]=_0x4a0834[_0xead7ba.id]);
-          const _0x4134a4=JSON.parse(JSON["Hui"](_0x5688eb.diao)),_0xd8b5bb="洞尺"===_0xead7ba["洞尺"]?null==_0x5688eb?void 0:_0x5688eb["6LdJTqf"]:void 0,_0x26dcd3=JSON["values"](JSON["Hui"](_0x5688eb["get"])),_0x38622f=Number(_0xead7ba["saved_password"])||0,_0x415b68=null==_0x5688eb?void 0:_0x5688eb["charCodeAt"];
+          const _0x4134a4=JSON.parse(JSON["stringify"](_0x5688eb.diao)),_0xd8b5bb="洞尺"===_0xead7ba["洞尺"]?null==_0x5688eb?void 0:_0x5688eb["resetSize"]:void 0,_0x26dcd3=JSON["parse"](JSON["stringify"](_0x5688eb["formulaType"])),_0x38622f=Number(_0xead7ba["边封数"])||0,_0x415b68=null==_0x5688eb?void 0:_0x5688eb["swingWall"];
           let _0x116ee0=0,_0x28242d=0;
-          _0x415b68&&null!=_0xead7ba["saved_password"]&&2!==_0x38622f&&(1===_0x38622f&&(_0x116ee0=Number(_0x415b68["canShare"])||0),4===_0x38622f?(_0x116ee0=Number(_0x415b68.SingleWall)||0,_0x28242d=Number(_0x415b68["declaration"])||0):0===_0x38622f?_0x116ee0=Number(_0x415b68.DoubleWall)||0:5===_0x38622f?(_0x116ee0=Number(_0x415b68["doorframe"])||0,_0x28242d=Number(_0x415b68["declaration"])||0):3===_0x38622f&&(_0x28242d=Number(_0x415b68["declaration"])||0));
-          const _0x905433="fixed"+(_0x1e9ae0+1),_0x1dc9f7=null==_0x5688eb?void 0:_0x5688eb["复制扣板"];
+          _0x415b68&&null!=_0xead7ba["边封数"]&&2!==_0x38622f&&(1===_0x38622f&&(_0x116ee0=Number(_0x415b68["SingleWall"])||0),4===_0x38622f?(_0x116ee0=Number(_0x415b68.SingleWall)||0,_0x28242d=Number(_0x415b68["UpWall"])||0):0===_0x38622f?_0x116ee0=Number(_0x415b68.DoubleWall)||0:5===_0x38622f?(_0x116ee0=Number(_0x415b68["DoubleWall"])||0,_0x28242d=Number(_0x415b68["UpWall"])||0):3===_0x38622f&&(_0x28242d=Number(_0x415b68["UpWall"])||0));
+          const _0x905433="ping"+(_0x1e9ae0+1),_0x1dc9f7=null==_0x5688eb?void 0:_0x5688eb["hinge"];
           let _0x1d30f7=0,_0x50e11e=0;
-          if(_0x1dc9f7&&"object"==typeof _0x1dc9f7&&Object["导入上次订单"](_0x1dc9f7)["glassInfoList"]>0){
-            const t=String(_0xead7ba["五金"]||""),a=t.includes("_")?t.split("_"):t?[t]:[],x=a["validate"]((e=>e["打印成功"]())).filter((e=>e.includes("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox.confirm('五金中检测到多个含"合页"的元素：'+x["needsSecondPass"]("、")+"orderID"+x[0]+"五金中检测到多个含\"合页\"的元素：","auto-markup-setting-changed",{
-                confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+          if(_0x1dc9f7&&"object"==typeof _0x1dc9f7&&Object["keys"](_0x1dc9f7)["length"]>0){
+            const t=String(_0xead7ba["五金"]||""),a=t.includes("_")?t.split("_"):t?[t]:[],x=a["map"]((e=>e["trim"]())).filter((e=>e.includes("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox.confirm('五金中检测到多个含"合页"的元素：'+x["join"]("、")+"，将使用第一个\""+x[0]+"\"进行匹配计算，是否继续？","多个合页提示",{
+                confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
-              if(void 0!==_0x1dc9f7[t])_0x1d30f7=-(Number(_0x1dc9f7[t]["加价项目-超墙厚"])||0),_0x50e11e=-(Number(_0x1dc9f7[t]["diao"])||0);
+              if(void 0!==_0x1dc9f7[t])_0x1d30f7=-(Number(_0x1dc9f7[t]["上下方减尺"])||0),_0x50e11e=-(Number(_0x1dc9f7[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox["粤诗丽门窗"]("润佳门窗"+t+'"在合页配置中未找到匹配，是否继续计算？'," 导出Excel ",{
-                  confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+                await ElementPlus.ElMessageBox["confirm"]("五金中的\""+t+'"在合页配置中未找到匹配，是否继续计算？',"合页匹配失败",{
+                  confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
               catch(e){
@@ -9260,7 +9260,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           const _0xbe0061="无"===_0xead7ba["底玻"]||"无"===_0xead7ba["面玻"],_0x19e294="无"!==_0xead7ba["底玻"]&&"无"!==_0xead7ba["面玻"];
           if(_0xbe0061){
-            const e=Object["导入上次订单"](_0x4134a4);
+            const e=Object["keys"](_0x4134a4);
             e.forEach((t=>{
               const a=_0x2938b1;
               if((t[a(566)]("玻璃宽")||t[a(566)](a(877)))&&!t[a(566)]("单玻")){
@@ -9269,47 +9269,47 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x19e294&&Object["导入上次订单"](_0x4134a4)["✅ 图片已下载，请手动分享"]((e=>{
+          _0x19e294&&Object["keys"](_0x4134a4)["forEach"]((e=>{
             const t=_0x2938b1;
             e[t(566)]("单玻")&&(_0x4134a4[e][t(523)]=!1),!e.includes("单玻")&&e.includes("玻璃")&&(_0x4134a4[e][t(523)]=!0)
-          })),Object["导入上次订单"](_0x4134a4)["✅ 图片已下载，请手动分享"]((e=>{
+          })),Object["keys"](_0x4134a4)["forEach"]((e=>{
             const t=_0x2938b1,a=_0x4134a4[e];
             e.includes("上下方")&&(a.v=(Number(a.v)||0)+_0x1d30f7),e[t(566)](t(1152))&&!e.includes("亮窗")&&(a.v=(Number(a.v)||0)+_0x50e11e),e[t(566)](t(877))&&Number(_0xead7ba[t(946)])>0&&!e[t(566)]("亮窗")&&(a.v=Number(_0xead7ba[t(946)])+a.v);
             e[t(566)](t(863))||e.includes(t(877))||(_0xead7ba["墙厚"]>0?a.state=!0:e.includes("扣板")?a[t(523)]=!1:a.state=!0,e[t(566)]("封板")&&0==Number(_0xead7ba[t(946)])&&(a[t(523)]=!1),e.includes(t(946))&&Number(_0xead7ba[t(946)])>0&&(a[t(523)]=!0,a.v=Number(_0xead7ba[t(946)])-a.v))
           }));
-          const _0x36dd6c=_0xead7ba["门洞宽"],_0x44474a=_0xead7ba["封边横"],_0x742d03=_0xead7ba["双开内右"]||0,_0xecbb88=_0xd8b5bb&&Number(_0xd8b5bb["localeCompare"])||0,_0x46cf8e=_0xd8b5bb&&Number(_0xd8b5bb["Wai"])||0;
+          const _0x36dd6c=_0xead7ba["门洞宽"],_0x44474a=_0xead7ba["门洞高"],_0x742d03=_0xead7ba["亮窗总高"]||0,_0xecbb88=_0xd8b5bb&&Number(_0xd8b5bb["width"])||0,_0x46cf8e=_0xd8b5bb&&Number(_0xd8b5bb["height"])||0;
           let _0x527eeb=_0x36dd6c,_0x1c2c48=_0x44474a,_0x288be4=_0x742d03;
           (0!==_0xecbb88||0!==_0x46cf8e)&&(_0x527eeb=_0x36dd6c-_0xecbb88,_0x742d03>_0x44474a?_0x288be4=_0x742d03-_0x46cf8e:_0x1c2c48=_0x44474a-_0x46cf8e),0!==_0x116ee0&&(_0x527eeb-=_0x116ee0),0!==_0x28242d&&(_0x742d03>_0x44474a?_0x288be4-=_0x28242d:_0x1c2c48-=_0x28242d);
           const _0x2f9d46={
-            h:_0x1c2c48,w:_0x527eeb,h1:_0x288be4,j:_0xead7ba["吊脚"]||0,t:_0xead7ba["墙厚"]||0,s:_0xead7ba["UpWall"]||0
+            h:_0x1c2c48,w:_0x527eeb,h1:_0x288be4,j:_0xead7ba["吊脚"]||0,t:_0xead7ba["墙厚"]||0,s:_0xead7ba["轨道长"]||0
           };let _0x415207=!1;
-          Object["导入上次订单"](_0x4134a4)["✅ 图片已下载，请手动分享"]((_0x32b9fa=>{
+          Object["keys"](_0x4134a4)["forEach"]((_0x32b9fa=>{
             const _0x5ac2a9=_0x2938b1,_0x3790df=_0x4134a4[_0x32b9fa];
             if(_0x3790df.state)try{
               let _0x1326cd=_0x3790df.formula;
               if(_0x1326cd){
-                if(_0x1326cd["60px"]("=")&&(_0x1326cd=_0x1326cd["门框宽"](1)),_0x1326cd.includes("请输入加价项目名称"))return void(_0x3790df["windows"]=!0);
+                if(_0x1326cd["startsWith"]("=")&&(_0x1326cd=_0x1326cd["substring"](1)),_0x1326cd.includes(".result"))return void(_0x3790df["needsSecondPass"]=!0);
                 let _0x495a00=_0x1326cd;
-                for(const[e,t]of Object["860px"](_0x2f9d46))_0x495a00=_0x495a00["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x2f9d46))_0x495a00=_0x495a00["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x11302c=["v"];
                 for(const e of _0x11302c)if(void 0!==_0x3790df[e]){
                   const t=_0x3790df[e],a=t<0?"("+t+")":t;
-                  _0x495a00=_0x495a00["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x495a00=_0x495a00["replace"](new RegExp(e,"g"),a)
                 }
-                const _0x2bf790=eval(_0x495a00),_0x40d715=Math["删除失败"](_0x2bf790);
-                _0x40d715<0?(_0x3790df["kou"]=!1,_0x3790df["门玻璃高"]=0,_0x32b9fa.includes("顾轩门窗")&&(_0x415207=!0)):(_0x3790df["门玻璃高"]=_0x40d715,_0x415207&&(_0x32b9fa["折叠5扇"]("扣板")||_0x32b9fa.includes("扣板")||_0x32b9fa["折叠5扇"]("压条"))&&(_0x3790df["kou"]=!1))
+                const _0x2bf790=eval(_0x495a00),_0x40d715=Math["round"](_0x2bf790);
+                _0x40d715<0?(_0x3790df["state"]=!1,_0x3790df["result"]=0,_0x32b9fa.includes("扣板厚")&&(_0x415207=!0)):(_0x3790df["result"]=_0x40d715,_0x415207&&(_0x32b9fa["includes"]("扣板")||_0x32b9fa.includes("扣板")||_0x32b9fa["includes"]("压条"))&&(_0x3790df["state"]=!1))
               }
             }
             catch(_0x2981cc){
-              _0x3790df.result="font"
+              _0x3790df.result="error"
             }
           })),Object.keys(_0x4134a4).forEach((_0x12827a=>{
             const _0x119142=_0x2938b1,_0x330156=_0x4134a4[_0x12827a];
-            if(_0x330156["kou"]&&_0x330156["windows"])try{
-              let _0x4368ad=_0x330156["toFixed"];
-              _0x4368ad["60px"]("=")&&(_0x4368ad=_0x4368ad["门框宽"](1));
+            if(_0x330156["state"]&&_0x330156["needsSecondPass"])try{
+              let _0x4368ad=_0x330156["formula"];
+              _0x4368ad["startsWith"]("=")&&(_0x4368ad=_0x4368ad["substring"](1));
               let _0x3999c3=_0x4368ad;
-              Object["导入上次订单"](_0x4134a4)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x4134a4)["forEach"]((e=>{
                 const t=_0x119142,a=e+t(708);
                 if(_0x3999c3[t(566)](a)){
                   const e=a[t(363)](".")[0],x=Object[t(1124)](_0x4134a4)[t(990)]((([a,x])=>a[t(566)](e)&&!0===x.state));
@@ -9319,21 +9319,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x3999c3=_0x3999c3[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x2f9d46))_0x3999c3=_0x3999c3["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x2f9d46))_0x3999c3=_0x3999c3["replace"](new RegExp(e,"g"),t);
               const _0x1b3b66=["v"];
               for(const e of _0x1b3b66)if(void 0!==_0x330156[e]){
                 const t=_0x330156[e],a=t<0?"("+t+")":t;
-                _0x3999c3=_0x3999c3["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x3999c3=_0x3999c3["replace"](new RegExp(e,"g"),a)
               }
-              const _0x1b0a11=eval(_0x3999c3),_0x3c524e=Math["删除失败"](_0x1b0a11);
-              _0x3c524e<0?(_0x330156["kou"]=!1,_0x330156["门玻璃高"]=0):_0x330156.result=_0x3c524e,delete _0x330156["windows"]
+              const _0x1b0a11=eval(_0x3999c3),_0x3c524e=Math["round"](_0x1b0a11);
+              _0x3c524e<0?(_0x330156["state"]=!1,_0x330156["result"]=0):_0x330156.result=_0x3c524e,delete _0x330156["needsSecondPass"]
             }
             catch(_0x113102){
-              _0x330156["门玻璃高"]="font",_0x330156.state=!1
+              _0x330156["result"]="error",_0x330156.state=!1
             }
           }));
           const _0x1dcc9={
-          };Object["导入上次订单"](_0x4134a4)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x4134a4)["forEach"]((e=>{
             const t=_0x2938b1,a=_0x4134a4[e];
             if(!0===a[t(523)]){
               let x=a[t(1094)]||0,_=a[t(650)]||0;
@@ -9343,21 +9343,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }
           }));
           const _0x159bea={
-          };_0x159bea["玻璃已重置"]=String(_0xead7ba["单号"]),_0x159bea["prototype"]=_0xead7ba["客户"],_0x159bea["orderNumbers"]=_0xead7ba["型材"]+_0xead7ba["颜色"];
-          let _0x57727e=_0xead7ba["封边横"]+"*"+_0xead7ba["折叠8扇"];
-          if(_0xead7ba["吊脚"]>0&&(_0x57727e+="*"+_0xead7ba["吊脚"]),_0xead7ba["墙厚"]>0&&(_0x57727e+="*"+_0xead7ba["墙厚"]),_0xead7ba["亮窗总高"]>0&&(_0x57727e+="*"+_0xead7ba["双开内右"]),_0x159bea.size=_0x57727e,_0x159bea["\" viewBox=\"0 0 "]=_0xead7ba["颜色"],""!==_0xead7ba["套线种类"]?_0x159bea["✅ 已切换到新版本，应用即将重启/重载"]=_0xead7ba["恒业门窗"]+_0xead7ba["开向"]:_0x159bea["✅ 已切换到新版本，应用即将重启/重载"]=_0xead7ba["开向"],_0x159bea["DubleDong"]=_0xead7ba["单号"],_0x159bea["❌ 9.1 base64 转换失败"]=_0xead7ba["安装地址"],"无"===_0xead7ba["底玻"]?_0x159bea["❌ Blob对象为null"]="split"+_0xead7ba["面玻"]:_0x159bea.glass="底:"+_0xead7ba["底玻"]+"entries"+_0xead7ba["面玻"],_0xead7ba["token_expires_at"]&&String(_0xead7ba["token_expires_at"])["折叠5扇"]("https://www.samrtdoor.com.cn/1?param1=updataProgress&param2="))try{
-            const e=String(_0xead7ba["token_expires_at"]).split("https://www.samrtdoor.com.cn/1?param1=updataProgress&param2=");
-            if(e["glassInfoList"]>=2){
+          };_0x159bea["qrcode"]=String(_0xead7ba["单号"]),_0x159bea["client"]=_0xead7ba["客户"],_0x159bea["door"]=_0xead7ba["型材"]+_0xead7ba["颜色"];
+          let _0x57727e=_0xead7ba["门洞高"]+"*"+_0xead7ba["门洞宽"];
+          if(_0xead7ba["吊脚"]>0&&(_0x57727e+="*"+_0xead7ba["吊脚"]),_0xead7ba["墙厚"]>0&&(_0x57727e+="*"+_0xead7ba["墙厚"]),_0xead7ba["亮窗总高"]>0&&(_0x57727e+="*"+_0xead7ba["亮窗总高"]),_0x159bea.size=_0x57727e,_0x159bea["color"]=_0xead7ba["颜色"],""!==_0xead7ba["套线种类"]?_0x159bea["lockway"]=_0xead7ba["套线种类"]+_0xead7ba["开向"]:_0x159bea["lockway"]=_0xead7ba["开向"],_0x159bea["orderID"]=_0xead7ba["单号"],_0x159bea["address"]=_0xead7ba["安装地址"],"无"===_0xead7ba["底玻"]?_0x159bea["glass"]="单玻:"+_0xead7ba["面玻"]:_0x159bea.glass="底:"+_0xead7ba["底玻"]+"-面:"+_0xead7ba["面玻"],_0xead7ba["图片ID"]&&String(_0xead7ba["图片ID"])["includes"]("_T_"))try{
+            const e=String(_0xead7ba["图片ID"]).split("_T_");
+            if(e["length"]>=2){
               const t=e[1];
-              _0x159bea["tableData"]=t
+              _0x159bea["textFromImage"]=t
             }
           }
           catch(_0x3da47a){
           }
-          _0xead7ba["token_expires_at"]&&!String(_0xead7ba["token_expires_at"])["折叠5扇"]("https://www.samrtdoor.com.cn/1?param1=updataProgress&param2=")&&(_0x159bea["tableData"]="获取公式失败");
+          _0xead7ba["图片ID"]&&!String(_0xead7ba["图片ID"])["includes"]("_T_")&&(_0x159bea["textFromImage"]="微信图");
           const _0x1e8782=_0x1dcc9;
           _0x57cedf(_0x1dcc9,_0x159bea,_0x143606);
-          const _0x721092=Object["导入上次订单"](_0x159bea)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("BoLiGao")));
+          const _0x721092=Object["keys"](_0x159bea)["filter"]((e=>e["includes"]("BoLiGao")));
           if(_0x721092.forEach(((e,t)=>{
             const a=_0x2938b1,x=e[a(1087)]("BoLiGao"),_=e[a(338)](0,x),l=e.substring(x+a(415).length),o=_+a(1167)+l;
             if(_0x159bea[o]){
@@ -9367,41 +9367,41 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                 _0x159bea[e]=c
               }
             }
-          })),Object["导入上次订单"](_0x159bea)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("client"))).forEach((e=>{
-          })),_0x159bea["日期: "]=[_0xead7ba["备注"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),'""'!==_0xead7ba["findIndex"]&&_0xead7ba["加价项目"]!=="outerHTML"&&_0xead7ba["加价项目"])try{
-            let e=_0xead7ba["height"],t=[];
-            if(typeof e==="image/png")try{
+          })),Object["keys"](_0x159bea)["filter"]((e=>e["includes"]("GlassSize"))).forEach((e=>{
+          })),_0x159bea["remark"]=[_0xead7ba["备注"]]["filter"](Boolean)["join"]("<br>"),'""'!==_0xead7ba["加价项目"]&&_0xead7ba["加价项目"]!=="null"&&_0xead7ba["加价项目"])try{
+            let e=_0xead7ba["加价项目原始数据"],t=[];
+            if(typeof e==="string")try{
               let a=0;
               const x=4;
               let _=e;
               for(;
               "string"==typeof _&&a<x;
-              )a++,_=JSON["values"](_);
-              typeof _==="image/png"||(t=_)
+              )a++,_=JSON["parse"](_);
+              typeof _==="string"||(t=_)
             }
             catch(_0x844366){
             }
-            if(!Array["PDF导出成功"](t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e["el-form"])))).map((e=>e["el-form"]))["needsSecondPass"]("-");
+            if(!Array["isArray"](t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e["name"])))).map((e=>e["name"]))["join"]("-");
               if(e){
                 let t="加配："+e;
-                _0x159bea["日期: "]?_0x159bea["日期: "]+="加价项目已存在！"+t:_0x159bea.remark=t
+                _0x159bea["remark"]?_0x159bea["remark"]+="<br>"+t:_0x159bea.remark=t
               }
             }
           }
           catch(_0x190c9d){
           }
-          if(_0x143606["折叠5扇"]("BoLiKuan")&&_0x143606["折叠5扇"]("canvas尺寸无效")){
-            const e="GlassSize"in _0x159bea&&_0x159bea["client"],t=Object["导入上次订单"](_0x159bea)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["60px"]("post")));
+          if(_0x143606["includes"]("BoLiKuan")&&_0x143606["includes"]("BoLiGao")){
+            const e="GlassSize"in _0x159bea&&_0x159bea["GlassSize"],t=Object["keys"](_0x159bea)["filter"]((e=>e["startsWith"]("GlassSize_")));
             if(e){
-              const e=Object.keys(_0x159bea)["formulaID"]((e=>e["折叠5扇"]("BoLiKuan"))),t=e&&_0x159bea[e]?parseInt(String(_0x159bea[e]).split("*")[1]||"1",10):1;
+              const e=Object.keys(_0x159bea)["find"]((e=>e["includes"]("BoLiKuan"))),t=e&&_0x159bea[e]?parseInt(String(_0x159bea[e]).split("*")[1]||"1",10):1;
               for(let a=0;
               a<t;
               a++)_0x8c791d.push({
                 ..._0x159bea
               })
             }
-            else t.length>0?t["✅ 图片已下载，请手动分享"](((e,t)=>{
+            else t.length>0?t["forEach"](((e,t)=>{
               const a=_0x2938b1,x=e.replace("GlassSize_",""),_={
                 ..._0x159bea
               };_.GlassSize=_0x159bea[e];
@@ -9415,24 +9415,24 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               ..._0x159bea
             })
           }
-          else _0x8c791d["12px"]({
+          else _0x8c791d["push"]({
             ..._0x159bea
           })
         }
-        if(_0x599936["3轨6扇"]&&_0x5b10d7["el-popover"].diao_hui&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0){
+        if(_0x599936["diao"]&&_0x5b10d7["value"].diao_hui&&_0x5b10d7["value"]["diao_hui"]["length"]>0){
           for(let _0x385ee4=0;
-          _0x385ee4<_0x5b10d7.value.diao_hui["glassInfoList"];
+          _0x385ee4<_0x5b10d7.value.diao_hui["length"];
           _0x385ee4++){
-            const _0x3bc4a5=_0x5b10d7["el-popover"].diao_hui[_0x385ee4],_0x34efe0=_0x3bc4a5["F槽宽"],_0x1def3f=_0x3072e0[_0x34efe0];
+            const _0x3bc4a5=_0x5b10d7["value"].diao_hui[_0x385ee4],_0x34efe0=_0x3bc4a5["formulaid"],_0x1def3f=_0x3072e0[_0x34efe0];
             if(!_0x1def3f)continue;
             _0x3bc4a5.id&&_0x4a0834[_0x3bc4a5.id]&&(_0x3bc4a5["单号"]=_0x4a0834[_0x3bc4a5.id]);
-            const _0x3b79ec=JSON["values"](JSON["Hui"](_0x1def3f["3轨6扇"])),_0x26f0d8="洞尺"===_0x3bc4a5["洞尺"]?null==_0x1def3f?void 0:_0x1def3f["6LdJTqf"]:void 0,_0x375d7d=_0x3bc4a5["洞尺"]==="isArray"||_0x3bc4a5["洞尺"]==="轨道种类"?null==_0x1def3f?void 0:_0x1def3f["commentPreviewContainer"]:void 0;
+            const _0x3b79ec=JSON["parse"](JSON["stringify"](_0x1def3f["diao"])),_0x26f0d8="洞尺"===_0x3bc4a5["洞尺"]?null==_0x1def3f?void 0:_0x1def3f["resetSize"]:void 0,_0x375d7d=_0x3bc4a5["洞尺"]==="单包洞尺"||_0x3bc4a5["洞尺"]==="双包洞尺"?null==_0x1def3f?void 0:_0x1def3f["TaoDong"]:void 0;
             let _0x234e32;
-            _0x375d7d&&("单包洞尺"===_0x3bc4a5["洞尺"]&&_0x375d7d["下载回执单"]?_0x234e32=_0x375d7d["下载回执单"]:_0x3bc4a5["洞尺"]==="轨道种类"&&_0x375d7d["border"]&&(_0x234e32=_0x375d7d.DubleDong));
-            const _0x939848=null==_0x1def3f?void 0:_0x1def3f.widthIncrement,_0x435aa2=_0x939848&&Number(_0x939848.SheetIncrement)||0,_0x57f771=_0x939848&&Number(_0x939848["el-autocomplete"])||0,_0x4ad432=Number(_0x3bc4a5["边封数"])||0,_0x387737=2!==_0x4ad432&&0!==_0x435aa2?_0x435aa2*(2-_0x4ad432):0,_0x522616=2!==_0x4ad432&&0!==_0x57f771?_0x57f771*(2-_0x4ad432):0,_0x410da3="3轨6扇"+(_0x385ee4+1),_0x51c0dd="无"===_0x3bc4a5["底玻"]||"无"===_0x3bc4a5["面玻"],_0x531ecb="无"!==_0x3bc4a5["底玻"]&&"无"!==_0x3bc4a5["面玻"];
+            _0x375d7d&&("单包洞尺"===_0x3bc4a5["洞尺"]&&_0x375d7d["SingleDong"]?_0x234e32=_0x375d7d["SingleDong"]:_0x3bc4a5["洞尺"]==="双包洞尺"&&_0x375d7d["DubleDong"]&&(_0x234e32=_0x375d7d.DubleDong));
+            const _0x939848=null==_0x1def3f?void 0:_0x1def3f.widthIncrement,_0x435aa2=_0x939848&&Number(_0x939848.SheetIncrement)||0,_0x57f771=_0x939848&&Number(_0x939848["TrackIncrement"])||0,_0x4ad432=Number(_0x3bc4a5["边封数"])||0,_0x387737=2!==_0x4ad432&&0!==_0x435aa2?_0x435aa2*(2-_0x4ad432):0,_0x522616=2!==_0x4ad432&&0!==_0x57f771?_0x57f771*(2-_0x4ad432):0,_0x410da3="diao"+(_0x385ee4+1),_0x51c0dd="无"===_0x3bc4a5["底玻"]||"无"===_0x3bc4a5["面玻"],_0x531ecb="无"!==_0x3bc4a5["底玻"]&&"无"!==_0x3bc4a5["面玻"];
             if(_0x51c0dd){
               const e=Object.keys(_0x3b79ec);
-              e["✅ 图片已下载，请手动分享"]((t=>{
+              e["forEach"]((t=>{
                 const a=_0x2938b1;
                 if(!t[a(566)]("亮窗")&&!t.includes("LiangChuang")&&(t[a(566)](a(863))||t[a(566)](a(877)))&&!t[a(566)]("单玻")){
                   const x=t+"单玻";
@@ -9440,7 +9440,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                 }
               }))
             }
-            _0x531ecb&&Object["导入上次订单"](_0x3b79ec)["✅ 图片已下载，请手动分享"]((e=>{
+            _0x531ecb&&Object["keys"](_0x3b79ec)["forEach"]((e=>{
               const t=_0x2938b1;
               e[t(566)]("亮窗")||e[t(566)]("LiangChuang")||(e[t(566)]("单玻")&&(_0x3b79ec[e][t(523)]=!1),!e[t(566)]("单玻")&&e.includes("玻璃")&&(_0x3b79ec[e].state=!0))
             }));
@@ -9451,16 +9451,16 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               e[t(566)]("活")&&!e[t(566)](t(877))&&(a[t(523)]=!0),e[t(566)](t(877))&&a.track===_0x3bc4a5[t(184)]&&e.includes(_0x4e52a2)&&(a.state=!0),_0x3bc4a5[t(335)]>0&&(e.includes("玻璃")||e[t(566)]("亮窗"))&&(a[t(523)]=!0)
             }));
             else{
-              const e=_0x3bc4a5["扇数"]+"玻璃",t=Object["导入上次订单"](_0x3b79ec).some((t=>t["折叠5扇"](e)&&t["折叠5扇"]("单玻")));
+              const e=_0x3bc4a5["扇数"]+"玻璃",t=Object["keys"](_0x3b79ec).some((t=>t["includes"](e)&&t["includes"]("单玻")));
               let a=0,x=0,_=0;
-              if((0!==_0x387737||0!==_0x522616)&&2!==Number(_0x3bc4a5["saved_password"])){
-                const e=_0x4e52a2["13px"](/(\d+)扇/);
+              if((0!==_0x387737||0!==_0x522616)&&2!==Number(_0x3bc4a5["边封数"])){
+                const e=_0x4e52a2["match"](/(\d+)扇/);
                 if(e){
                   const t=Number(e[1]);
                   0!==_0x387737&&(x=_0x387737/t),0!==_0x522616&&(_=_0x522616)
                 }
               }
-              Object["导入上次订单"](_0x3b79ec).forEach((l=>{
+              Object["keys"](_0x3b79ec).forEach((l=>{
                 const o=_0x2938b1,c=_0x3b79ec[l],n="无"===_0x3bc4a5["底玻"]||"无"===_0x3bc4a5["面玻"],d=!_0x4e52a2[o(566)]("活")&&n;
                 if(t&&!n&&l[o(566)](e)&&l[o(566)]("单玻"))return void(c[o(523)]=!1);
                 if(d&&t&&l.includes(e))return void(c.state=l[o(566)]("单玻"));
@@ -9473,40 +9473,40 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                 l[o(566)]("收口")&&_0x4e52a2.includes("4扇")&&!_0x4e52a2[o(566)]("折叠")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x4e52a2[o(566)]("3扇")&&_0x4e52a2[o(566)]("折叠")&&!_0x3bc4a5["开向"][o(566)]("0")&&(c.state=!0),l[o(566)]("收口")&&_0x4e52a2.includes("4扇")&&_0x4e52a2.includes("折叠")&&!_0x3bc4a5["开向"][o(566)]("0")&&(c.state=!0),l[o(566)]("收口")&&_0x4e52a2[o(566)]("5扇")&&_0x4e52a2.includes("折叠")&&!_0x3bc4a5["开向"].includes("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x4e52a2[o(566)]("6扇")&&_0x4e52a2[o(566)]("折叠")&&!_0x3bc4a5["开向"].includes("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x4e52a2[o(566)]("2轨3扇")&&(c.state=!0),l[o(566)]("收口")&&_0x4e52a2[o(566)](o(976))&&(c.state=!0)
               }))
             }
-            const _0x47d4f3=_0x3bc4a5["折叠8扇"],_0x5ad837=_0x3bc4a5["封边横"],_0x380e54=_0x3bc4a5["亮窗总高"]||0,_0x25718d=_0x26f0d8&&Number(_0x26f0d8["localeCompare"])||0,_0x1587e4=_0x26f0d8&&Number(_0x26f0d8["Wai"])||0,_0x94c98e=_0x234e32&&Number(_0x234e32["宽减"])||0,_0x470530=_0x234e32&&Number(_0x234e32["高减"])||0;
+            const _0x47d4f3=_0x3bc4a5["门洞宽"],_0x5ad837=_0x3bc4a5["门洞高"],_0x380e54=_0x3bc4a5["亮窗总高"]||0,_0x25718d=_0x26f0d8&&Number(_0x26f0d8["width"])||0,_0x1587e4=_0x26f0d8&&Number(_0x26f0d8["height"])||0,_0x94c98e=_0x234e32&&Number(_0x234e32["宽减"])||0,_0x470530=_0x234e32&&Number(_0x234e32["高减"])||0;
             let _0x53823d=_0x47d4f3,_0x34bff4=_0x5ad837,_0x5e354c=_0x380e54;
             (0!==_0x25718d||0!==_0x1587e4)&&(_0x53823d=_0x47d4f3-_0x25718d,_0x380e54>_0x5ad837?_0x5e354c=_0x380e54-_0x1587e4:_0x34bff4=_0x5ad837-_0x1587e4),(0!==_0x94c98e||0!==_0x470530)&&(_0x53823d-=_0x94c98e,_0x380e54>_0x5ad837?_0x5e354c-=_0x470530:_0x34bff4-=_0x470530);
-            const _0x552932=null==_0x1def3f?void 0:_0x1def3f["charCodeAt"],_0x554188=String(_0x3bc4a5["圣诺派门业"]||"").trim();
+            const _0x552932=null==_0x1def3f?void 0:_0x1def3f["swingWall"],_0x554188=String(_0x3bc4a5["单双丁"]||"").trim();
             let _0x42523f=0,_0x1cabcf=0;
-            _0x552932&&_0x554188&&"正常"!==_0x554188&&(_0x554188==="录入失败"?_0x42523f=Number(_0x552932.SingleWall)||0:"双丁墙"===_0x554188?_0x42523f=Number(_0x552932["doorframe"])||0:_0x554188==="\"进行匹配计算，是否继续？"?_0x1cabcf=Number(_0x552932["declaration"])||0:"上丁加单丁"===_0x554188?(_0x42523f=Number(_0x552932["canShare"])||0,_0x1cabcf=Number(_0x552932["declaration"])||0):_0x554188===" L "&&(_0x42523f=Number(_0x552932["doorframe"])||0,_0x1cabcf=Number(_0x552932["declaration"])||0)),0!==_0x1cabcf&&(_0x380e54>_0x5ad837?_0x5e354c-=_0x1cabcf:_0x34bff4-=_0x1cabcf),0!==_0x42523f&&(_0x53823d-=_0x42523f);
+            _0x552932&&_0x554188&&"正常"!==_0x554188&&(_0x554188==="单丁墙"?_0x42523f=Number(_0x552932.SingleWall)||0:"双丁墙"===_0x554188?_0x42523f=Number(_0x552932["DoubleWall"])||0:_0x554188==="上丁墙"?_0x1cabcf=Number(_0x552932["UpWall"])||0:"上丁加单丁"===_0x554188?(_0x42523f=Number(_0x552932["SingleWall"])||0,_0x1cabcf=Number(_0x552932["UpWall"])||0):_0x554188==="上丁加双丁"&&(_0x42523f=Number(_0x552932["DoubleWall"])||0,_0x1cabcf=Number(_0x552932["UpWall"])||0)),0!==_0x1cabcf&&(_0x380e54>_0x5ad837?_0x5e354c-=_0x1cabcf:_0x34bff4-=_0x1cabcf),0!==_0x42523f&&(_0x53823d-=_0x42523f);
             const _0x58ca63={
               h:_0x34bff4,w:_0x53823d,h1:_0x5e354c,t:_0x3bc4a5["墙厚"]||0
             };let _0x25df36=!1;
-            Object["导入上次订单"](_0x3b79ec)["✅ 图片已下载，请手动分享"]((_0x143b1a=>{
+            Object["keys"](_0x3b79ec)["forEach"]((_0x143b1a=>{
               const _0x38081a=_0x2938b1,_0x1dfd82=_0x3b79ec[_0x143b1a];
-              if(_0x1dfd82["kou"])try{
-                let _0x2f55bb=_0x1dfd82["toFixed"];
+              if(_0x1dfd82["state"])try{
+                let _0x2f55bb=_0x1dfd82["formula"];
                 if(_0x2f55bb){
-                  if(_0x2f55bb["60px"]("=")&&(_0x2f55bb=_0x2f55bb["门框宽"](1)),_0x2f55bb.includes("请输入加价项目名称"))return void(_0x1dfd82["windows"]=!0);
+                  if(_0x2f55bb["startsWith"]("=")&&(_0x2f55bb=_0x2f55bb["substring"](1)),_0x2f55bb.includes(".result"))return void(_0x1dfd82["needsSecondPass"]=!0);
                   let _0x3f6aec=_0x2f55bb;
-                  for(const[e,t]of Object["860px"](_0x58ca63))_0x3f6aec=_0x3f6aec["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                  for(const[e,t]of Object["entries"](_0x58ca63))_0x3f6aec=_0x3f6aec["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                   const _0x553bd9=["v"];
                   for(const e of _0x553bd9)if(void 0!==_0x1dfd82[e]){
                     const t=_0x1dfd82[e],a=t<0?"("+t+")":t;
-                    _0x3f6aec=_0x3f6aec["合页匹配失败"](new RegExp(e,"g"),a)
+                    _0x3f6aec=_0x3f6aec["replace"](new RegExp(e,"g"),a)
                   }
-                  const _0x23f4df=eval(_0x3f6aec),_0x395f7e=Math["删除失败"](_0x23f4df);
-                  _0x395f7e<1&&!_0x143b1a.includes("滑")&&!_0x143b1a["折叠5扇"]("单轨")?(_0x1dfd82["kou"]=!1,_0x1dfd82["门玻璃高"]=0,_0x1dfd82["style"]=0,_0x143b1a["折叠5扇"]("顾轩门窗")&&(_0x25df36=!0)):(_0x1dfd82.result=_0x395f7e,_0x25df36&&(_0x143b1a["折叠5扇"]("下载图片失败")||_0x143b1a["折叠5扇"]("扣板宽"))&&(_0x1dfd82.quantity=0,_0x1dfd82["kou"]=!1))
+                  const _0x23f4df=eval(_0x3f6aec),_0x395f7e=Math["round"](_0x23f4df);
+                  _0x395f7e<1&&!_0x143b1a.includes("滑")&&!_0x143b1a["includes"]("单轨")?(_0x1dfd82["state"]=!1,_0x1dfd82["result"]=0,_0x1dfd82["quantity"]=0,_0x143b1a["includes"]("扣板厚")&&(_0x25df36=!0)):(_0x1dfd82.result=_0x395f7e,_0x25df36&&(_0x143b1a["includes"]("扣板高")||_0x143b1a["includes"]("扣板宽"))&&(_0x1dfd82.quantity=0,_0x1dfd82["state"]=!1))
                 }
               }
               catch(_0x2d2beb){
-                _0x1dfd82.result="font"
+                _0x1dfd82.result="error"
               }
-            })),Object.keys(_0x3b79ec)["✅ 图片已下载，请手动分享"]((_0xd8ee0b=>{
+            })),Object.keys(_0x3b79ec)["forEach"]((_0xd8ee0b=>{
               const _0x15e237=_0x2938b1,_0x4e350e=_0x3b79ec[_0xd8ee0b];
-              if(_0x4e350e["kou"]&&_0x4e350e["windows"])try{
-                let _0x31acf2=_0x4e350e["toFixed"];
-                _0x31acf2.startsWith("=")&&(_0x31acf2=_0x31acf2["门框宽"](1));
+              if(_0x4e350e["state"]&&_0x4e350e["needsSecondPass"])try{
+                let _0x31acf2=_0x4e350e["formula"];
+                _0x31acf2.startsWith("=")&&(_0x31acf2=_0x31acf2["substring"](1));
                 let _0x49dc19=_0x31acf2;
                 Object.keys(_0x3b79ec).forEach((e=>{
                   const t=_0x15e237,a=e+".result";
@@ -9527,15 +9527,15 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   const t=_0x4e350e[e],a=t<0?"("+t+")":t;
                   _0x49dc19=_0x49dc19.replace(new RegExp(e,"g"),a)
                 }
-                const _0x2203a0=eval(_0x49dc19),_0x45f987=Math["删除失败"](_0x2203a0);
-                _0x45f987<0||0==_0x45f987?(_0x4e350e.state=!1,_0x4e350e["门玻璃高"]=0):_0x4e350e["门玻璃高"]=_0x45f987,delete _0x4e350e["windows"]
+                const _0x2203a0=eval(_0x49dc19),_0x45f987=Math["round"](_0x2203a0);
+                _0x45f987<0||0==_0x45f987?(_0x4e350e.state=!1,_0x4e350e["result"]=0):_0x4e350e["result"]=_0x45f987,delete _0x4e350e["needsSecondPass"]
               }
               catch(_0x8e405d){
-                _0x4e350e["门玻璃高"]="font",_0x4e350e["kou"]=!1
+                _0x4e350e["result"]="error",_0x4e350e["state"]=!1
               }
             }));
             const _0x3aca5c={
-            };Object.keys(_0x3b79ec)["✅ 图片已下载，请手动分享"]((e=>{
+            };Object.keys(_0x3b79ec)["forEach"]((e=>{
               const t=_0x2938b1,a=_0x3b79ec[e];
               if(!0===a[t(523)]){
                 let x=a[t(1094)]||0,_=a.quantity||0;
@@ -9545,22 +9545,22 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }));
             const _0x336291={
-            };_0x57cedf(_0x3aca5c,_0x336291),_0x336291["玻璃已重置"]=String(_0x3bc4a5["单号"]),_0x336291["prototype"]=_0x3bc4a5["客户"],_0x336291["orderNumbers"]=_0x3bc4a5["型材"]+_0x3bc4a5["颜色"];
-            let _0x4667eb=_0x3bc4a5["封边横"]+"*"+_0x3bc4a5["折叠8扇"];
-            if(_0x3bc4a5["双开内右"]>0&&(_0x4667eb+="*"+_0x3bc4a5["双开内右"]),_0x336291["编辑生产单"]=_0x4667eb,_0x336291.color=_0x3bc4a5["颜色"],""!==_0x3bc4a5["恒业门窗"]?_0x336291.lockway=_0x3bc4a5["恒业门窗"]+_0x3bc4a5["开向"]:_0x336291["✅ 已切换到新版本，应用即将重启/重载"]=_0x3bc4a5["开向"],_0x336291.orderID=_0x3bc4a5["单号"],_0x336291["❌ 9.1 base64 转换失败"]=_0x3bc4a5["pdf"],"无"===_0x3bc4a5["底玻"]?_0x336291["❌ Blob对象为null"]="split"+_0x3bc4a5["面玻"]:_0x336291["❌ Blob对象为null"]="底:"+_0x3bc4a5["底玻"]+"entries"+_0x3bc4a5["面玻"],_0x3bc4a5["图片ID"]&&String(_0x3bc4a5["token_expires_at"]).includes("https://www.samrtdoor.com.cn/1?param1=updataProgress&param2="))try{
-              const e=String(_0x3bc4a5["token_expires_at"]).split("https://www.samrtdoor.com.cn/1?param1=updataProgress&param2=");
-              if(e["glassInfoList"]>=2){
+            };_0x57cedf(_0x3aca5c,_0x336291),_0x336291["qrcode"]=String(_0x3bc4a5["单号"]),_0x336291["client"]=_0x3bc4a5["客户"],_0x336291["door"]=_0x3bc4a5["型材"]+_0x3bc4a5["颜色"];
+            let _0x4667eb=_0x3bc4a5["门洞高"]+"*"+_0x3bc4a5["门洞宽"];
+            if(_0x3bc4a5["亮窗总高"]>0&&(_0x4667eb+="*"+_0x3bc4a5["亮窗总高"]),_0x336291["size"]=_0x4667eb,_0x336291.color=_0x3bc4a5["颜色"],""!==_0x3bc4a5["套线种类"]?_0x336291.lockway=_0x3bc4a5["套线种类"]+_0x3bc4a5["开向"]:_0x336291["lockway"]=_0x3bc4a5["开向"],_0x336291.orderID=_0x3bc4a5["单号"],_0x336291["address"]=_0x3bc4a5["安装地址"],"无"===_0x3bc4a5["底玻"]?_0x336291["glass"]="单玻:"+_0x3bc4a5["面玻"]:_0x336291["glass"]="底:"+_0x3bc4a5["底玻"]+"-面:"+_0x3bc4a5["面玻"],_0x3bc4a5["图片ID"]&&String(_0x3bc4a5["图片ID"]).includes("_T_"))try{
+              const e=String(_0x3bc4a5["图片ID"]).split("_T_");
+              if(e["length"]>=2){
                 const t=e[1];
-                _0x336291["tableData"]=t
+                _0x336291["textFromImage"]=t
               }
             }
             catch(_0x589445){
             }
-            _0x3bc4a5["图片ID"]&&!String(_0x3bc4a5["token_expires_at"]).includes("_T_")&&(_0x336291["tableData"]="获取公式失败");
+            _0x3bc4a5["图片ID"]&&!String(_0x3bc4a5["图片ID"]).includes("_T_")&&(_0x336291["textFromImage"]="微信图");
             const _0x7c6c8b=_0x3aca5c;
-            _0x336291["日期: "]=[_0x3bc4a5["备注"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！");
-            const _0x4fb32e=Object["导入上次订单"](_0x336291)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("BoLiGao")));
-            if(_0x4fb32e["✅ 图片已下载，请手动分享"](((e,t)=>{
+            _0x336291["remark"]=[_0x3bc4a5["备注"]]["filter"](Boolean)["join"]("<br>");
+            const _0x4fb32e=Object["keys"](_0x336291)["filter"]((e=>e["includes"]("BoLiGao")));
+            if(_0x4fb32e["forEach"](((e,t)=>{
               const a=_0x2938b1,x=e[a(1087)](a(415)),_=e[a(338)](0,x),l=e[a(338)](x+a(415)[a(1107)]),o=_+a(1167)+l;
               if(_0x336291[o]){
                 const x=String(_0x336291[e])[a(363)]("*")[0],l=String(_0x336291[o]).split("*"),c=x+"*"+l[0]+"*"+(l[1]||"1");
@@ -9569,34 +9569,34 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x336291[e]=c
                 }
               }
-            })),Object["导入上次订单"](_0x336291)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("GlassSize")))["✅ 图片已下载，请手动分享"]((e=>{
-            })),'""'!==_0x3bc4a5["findIndex"]&&_0x3bc4a5["findIndex"]!=="outerHTML"&&_0x3bc4a5["findIndex"])try{
-              let e=_0x3bc4a5["height"],t=[];
+            })),Object["keys"](_0x336291)["filter"]((e=>e["includes"]("GlassSize")))["forEach"]((e=>{
+            })),'""'!==_0x3bc4a5["加价项目"]&&_0x3bc4a5["加价项目"]!=="null"&&_0x3bc4a5["加价项目"])try{
+              let e=_0x3bc4a5["加价项目原始数据"],t=[];
               if("string"==typeof e)try{
                 let a=0;
                 const x=4;
                 let _=e;
                 for(;
-                typeof _==="image/png"&&a<x;
-                )a++,_=JSON["values"](_);
-                typeof _==="image/png"||(t=_)
+                typeof _==="string"&&a<x;
+                )a++,_=JSON["parse"](_);
+                typeof _==="string"||(t=_)
               }
               catch(_0x35ad84){
               }
-              if(!Array.isArray(t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-                let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e.name))))["validate"]((e=>e["el-form"]))["needsSecondPass"]("-");
+              if(!Array.isArray(t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+                let e=t["filter"]((e=>isNaN(Number(e.name))))["map"]((e=>e["name"]))["join"]("-");
                 if(e){
-                  let t="7. 创建ClipboardItem..."+e;
-                  _0x336291["日期: "]?_0x336291["日期: "]+="<br>"+t:_0x336291["日期: "]=t
+                  let t="加配："+e;
+                  _0x336291["remark"]?_0x336291["remark"]+="<br>"+t:_0x336291["remark"]=t
                 }
               }
             }
             catch(_0x50f83c){
             }
             const _0x5e0aa1=[];
-            if(_0x143606["折叠5扇"]("el-checkbox")&&_0x143606["折叠5扇"]("BoLiGao")){
-              const e=Object.keys(_0x336291)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["60px"]("GlassSize_")));
-              if(e["glassInfoList"]>0)e.forEach(((e,t)=>{
+            if(_0x143606["includes"]("BoLiKuan")&&_0x143606["includes"]("BoLiGao")){
+              const e=Object.keys(_0x336291)["filter"]((e=>e["startsWith"]("GlassSize_")));
+              if(e["length"]>0)e.forEach(((e,t)=>{
                 const a=_0x2938b1,x=e[a(964)](a(316),""),_={
                   ..._0x336291
                 };_[a(403)]=_0x336291[e];
@@ -9608,23 +9608,23 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                 })
               }));
               else{
-                const e=Object["导入上次订单"](_0x336291)["formulaID"]((e=>e["折叠5扇"]("BoLiKuan"))),t=e&&_0x336291[e]?parseInt(String(_0x336291[e])["确认修改"]("*")[1]||"1",10):1;
+                const e=Object["keys"](_0x336291)["find"]((e=>e["includes"]("BoLiKuan"))),t=e&&_0x336291[e]?parseInt(String(_0x336291[e])["split"]("*")[1]||"1",10):1;
                 for(let a=0;
                 a<t;
-                a++)_0x8c791d["12px"]({
+                a++)_0x8c791d["push"]({
                   ..._0x336291
                 })
               }
             }
-            else _0x8c791d["12px"]({
+            else _0x8c791d["push"]({
               ..._0x336291
             })
           }
           const _0x20abf2=[],_0x32ecf7=new Map;
-          _0x8c791d["✅ 图片已下载，请手动分享"]((e=>{
+          _0x8c791d["forEach"]((e=>{
             const t=_0x2938b1,a=e[t(999)]+"_"+e[t(403)];
             !_0x32ecf7[t(579)](a)&&_0x32ecf7[t(532)](a,[]),_0x32ecf7[t(800)](a)[t(447)](e)
-          })),_0x32ecf7["✅ 图片已下载，请手动分享"](((e,t)=>{
+          })),_0x32ecf7["forEach"](((e,t)=>{
             const a=_0x2938b1,x=e[a(1107)]>0&&e[0][a(602)]&&e[0].glass.includes("单玻")?1:2,_=e[a(783)](0,Math.min(e[a(1107)],x));
             _0x20abf2.push(..._)
           })),_0x20abf2.forEach((e=>{
@@ -9640,7 +9640,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                 t[x(1107)]>=2&&(e[a]=t.slice(0,2)[x(423)]("*"))
               }
             }))
-          })),_0x32ecf7["✅ 图片已下载，请手动分享"](((e,t)=>{
+          })),_0x32ecf7["forEach"](((e,t)=>{
             const a=_0x2938b1;
             if(e.length>=2){
               const t=_0x20abf2[a(990)]((t=>e[a(1164)]((e=>e===t)))).slice(0,2);
@@ -9653,24 +9653,24 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }
           }));
-          const _0x4b98a3=localStorage.getItem("smartdoor_sort_method")||"❌ 浏览器不支持剪贴板API";
-          _0x4b98a3==="一固一活固玻璃高"&&_0x20abf2.sort(((e,t)=>{
+          const _0x4b98a3=localStorage.getItem("smartdoor_sort_method")||"profile";
+          _0x4b98a3==="order"&&_0x20abf2.sort(((e,t)=>{
             const a=_0x2938b1;
             return(parseInt((e[a(999)]||e[a(496)]||"")[a(363)]("-")[0])||0)-(parseInt((t[a(999)]||t.OrderID||"")[a(363)]("-")[0])||0)
           }));
           const _0x3b4a53=_0x20abf2;
-          if(_0x523ee2["2.添加门类"](),_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca.receiptData1)["glassInfoList"]>0)return _0x20abf2;
+          if(_0x523ee2["close"](),_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca.receiptData1)["length"]>0)return _0x20abf2;
           const _0x1c9122=await getUserData();
-          if(!_0x1c9122)return void ElementPlus.ElMessage["font"]("timestamp");
-          const _0x388e54=null==(_d=null==(_c=null==_0x1c9122?void 0:_0x1c9122["4. Blob验证通过，类型: "])?void 0:_c["尺寸:"])?void 0:_d.product10,_0x232ea1=_0x20029b.commentPreview(_0x388e54,_0x3b4a53);
-          _0x3c8618.value=_0x232ea1[0]["导出为WPS PDF"],await Vue.nextTick(),_0xe9dd07["el-popover"]=_0x485486["el-popover"]?_0x485486["el-popover"].scrollWidth:0,_0x2911f9["el-popover"]=!0
+          if(!_0x1c9122)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+          const _0x388e54=null==(_d=null==(_c=null==_0x1c9122?void 0:_0x1c9122["registrant"])?void 0:_c["template"])?void 0:_d.product10,_0x232ea1=_0x20029b.commentPreview(_0x388e54,_0x3b4a53);
+          _0x3c8618.value=_0x232ea1[0]["outerHTML"],await Vue.nextTick(),_0xe9dd07["value"]=_0x485486["value"]?_0x485486["value"].scrollWidth:0,_0x2911f9["value"]=!0
         }
       }
       catch(_0x521c7e){
-        ElementPlus.ElMessage["font"]("计算失败，请重试")
+        ElementPlus.ElMessage["error"]("计算失败，请重试")
       }
       finally{
-        _0x523ee2["2.添加门类"]()
+        _0x523ee2["close"]()
       }
     },_0x29dab2=Vue.ref([]),_0xd56d11=Vue.ref(!1),_0x3a5b2d=Vue.ref(!1),_0x3cae6f=Vue.ref(!1),_0x317813=Vue.ref([]),_0x2982b7=Vue.ref(!1),_0x564d43=()=>{
       const e=_0x43b0d8;
@@ -9700,7 +9700,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       const t=_0x43b0d8;
       _0x46af77=e,_0x2911f9[t(691)]&&4===_0x85a3a[t(691)]&&await _0xe1c7f9()
     },_0x23c3e2=()=>{
-      _0x2982b7["el-popover"]=!0
+      _0x2982b7["value"]=!0
     },_0x16babf=async e=>{
       const t=_0x43b0d8;
       try{
@@ -9840,53 +9840,53 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
       var _a,_b,_c,_d,_e,_f;
       const _0x46841d=_0x43b0d8;
       _0x85a3a.value=3,_0x107c5d.value=!0;
-      const _0x3fc4ad=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"lockway",background:"base64转换失败"
+      const _0x3fc4ad=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
       try{
-        const _0xb5da85=[...(null==(_a=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"])?void 0:_a["validate"]((e=>e["F槽宽"])))||[],...(null==(_b=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""])?void 0:_b.map((e=>e["F槽宽"])))||[]].filter(Boolean),_0x5a4b1a=[...new Set(_0xb5da85)],_0x4825f0=[...(null==(_c=_0x5b10d7.value["assistive-fullscreen-changed"])?void 0:_c.map((e=>e.id)))||[],...(null==(_d=_0x5b10d7["el-popover"].ping_hui)?void 0:_d["validate"]((e=>e.id)))||[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0xeaa312=[...new Set(_0x4825f0)],_0x20f863={
+        const _0xb5da85=[...(null==(_a=_0x5b10d7["value"]["diao_hui"])?void 0:_a["map"]((e=>e["formulaid"])))||[],...(null==(_b=_0x5b10d7["value"]["ping_hui"])?void 0:_b.map((e=>e["formulaid"])))||[]].filter(Boolean),_0x5a4b1a=[...new Set(_0xb5da85)],_0x4825f0=[...(null==(_c=_0x5b10d7.value["diao_hui"])?void 0:_c.map((e=>e.id)))||[],...(null==(_d=_0x5b10d7["value"].ping_hui)?void 0:_d["map"]((e=>e.id)))||[]]["filter"](Boolean),_0xeaa312=[...new Set(_0x4825f0)],_0x20f863={
           formula:_0x5a4b1a,id:_0xeaa312
-        };if(!_0xb5da85.length)return void ElementPlus.ElMessage["setItem"]("没有找到移门型材数据");
+        };if(!_0xb5da85.length)return void ElementPlus.ElMessage["warning"]("没有找到移门型材数据");
         const _0x38a6c6=await getUserData();
-        if(!_0x38a6c6)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x2d4eee=_0x38a6c6.userinfo["4. Blob验证通过，类型: "],_0xa370fc=_0x2d4eee==="加价项目添加成功"||_0x2d4eee==="单双丁"||"嘉博门业"===_0x2d4eee,_0x4cb3c4=_0x38a6c6.userinfo.ds,_0x593404=await fetch("addImage"+_0x2d4eee+"writeBuffer"+_0x4cb3c4,{
-          method:"300px",headers:{
-            "Content-Type":"product2"
-          },body:JSON["Hui"](_0x20f863)
-        }),_0x487f2a=await _0x593404["savedAt"]();
-        if(200!==_0x487f2a.code)return void ElementPlus.ElMessage.error(_0x487f2a["-底:"]||"hui-container");
-        ElementPlus.ElMessage["error"]("address");
-        const _0x239303=_0x487f2a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["&param3="],_0x1a364c=_0x487f2a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["confirm"];
+        if(!_0x38a6c6)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x2d4eee=_0x38a6c6.userinfo["registrant"],_0xa370fc=_0x2d4eee==="皇帥滑动门"||_0x2d4eee==="尚航逸门窗"||"嘉博门业"===_0x2d4eee,_0x4cb3c4=_0x38a6c6.userinfo.ds,_0x593404=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x2d4eee+"&param3="+_0x4cb3c4,{
+          method:"POST",headers:{
+            "Content-Type":"application/json"
+          },body:JSON["stringify"](_0x20f863)
+        }),_0x487f2a=await _0x593404["json"]();
+        if(200!==_0x487f2a.code)return void ElementPlus.ElMessage.error(_0x487f2a["message"]||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x239303=_0x487f2a["data"]["formulas"],_0x1a364c=_0x487f2a["data"]["orderNumbers"];
         let _0x85408=[];
-        Object["导入上次订单"](_0x4d19f5).forEach((e=>delete _0x4d19f5[e]));
+        Object["keys"](_0x4d19f5).forEach((e=>delete _0x4d19f5[e]));
         for(let _0x334b7f=0;
-        _0x334b7f<_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].length;
+        _0x334b7f<_0x5b10d7["value"]["ping_hui"].length;
         _0x334b7f++){
-          const _0x2c0817=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""][_0x334b7f],_0x54e4dc=_0x2c0817["F槽宽"],_0xeb62f2=_0x239303[_0x54e4dc];
+          const _0x2c0817=_0x5b10d7["value"]["ping_hui"][_0x334b7f],_0x54e4dc=_0x2c0817["formulaid"],_0xeb62f2=_0x239303[_0x54e4dc];
           if(!_0xeb62f2)continue;
           _0x2c0817.id&&_0x1a364c[_0x2c0817.id]&&(_0x2c0817["单号"]=_0x1a364c[_0x2c0817.id]);
-          const _0x432374=JSON["values"](JSON["Hui"](_0xeb62f2.diao)),_0x1af72a="洞尺"===_0x2c0817["洞尺"]?null==_0xeb62f2?void 0:_0xeb62f2.resetSize:void 0,_0x238851=JSON["values"](JSON["Hui"](_0xeb62f2.formulaType)),_0x458c43=Number(_0x2c0817["saved_password"])||0,_0x523215=null==_0xeb62f2?void 0:_0xeb62f2["charCodeAt"];
+          const _0x432374=JSON["parse"](JSON["stringify"](_0xeb62f2.diao)),_0x1af72a="洞尺"===_0x2c0817["洞尺"]?null==_0xeb62f2?void 0:_0xeb62f2.resetSize:void 0,_0x238851=JSON["parse"](JSON["stringify"](_0xeb62f2.formulaType)),_0x458c43=Number(_0x2c0817["边封数"])||0,_0x523215=null==_0xeb62f2?void 0:_0xeb62f2["swingWall"];
           let _0x39a09a=0,_0x57d67d=0;
-          _0x523215&&null!=_0x2c0817["边封数"]&&2!==_0x458c43&&(1===_0x458c43&&(_0x39a09a=Number(_0x523215.SingleWall)||0),4===_0x458c43?(_0x39a09a=Number(_0x523215.SingleWall)||0,_0x57d67d=Number(_0x523215.UpWall)||0):0===_0x458c43?_0x39a09a=Number(_0x523215["doorframe"])||0:5===_0x458c43?(_0x39a09a=Number(_0x523215.DoubleWall)||0,_0x57d67d=Number(_0x523215["declaration"])||0):3===_0x458c43&&(_0x57d67d=Number(_0x523215["declaration"])||0));
-          let _0xd9bef8="fixed"+(_0x334b7f+1);
-          const _0x563b81=null==_0xeb62f2?void 0:_0xeb62f2["复制扣板"];
+          _0x523215&&null!=_0x2c0817["边封数"]&&2!==_0x458c43&&(1===_0x458c43&&(_0x39a09a=Number(_0x523215.SingleWall)||0),4===_0x458c43?(_0x39a09a=Number(_0x523215.SingleWall)||0,_0x57d67d=Number(_0x523215.UpWall)||0):0===_0x458c43?_0x39a09a=Number(_0x523215["DoubleWall"])||0:5===_0x458c43?(_0x39a09a=Number(_0x523215.DoubleWall)||0,_0x57d67d=Number(_0x523215["UpWall"])||0):3===_0x458c43&&(_0x57d67d=Number(_0x523215["UpWall"])||0));
+          let _0xd9bef8="ping"+(_0x334b7f+1);
+          const _0x563b81=null==_0xeb62f2?void 0:_0xeb62f2["hinge"];
           let _0x20eff8=0,_0x5bc5ce=0;
-          if(_0x563b81&&typeof _0x563b81==="SingleWall"&&Object["导入上次订单"](_0x563b81)["glassInfoList"]>0){
-            const t=String(_0x2c0817["五金"]||""),a=t["折叠5扇"]("_")?t.split("_"):t?[t]:[],x=a["validate"]((e=>e["打印成功"]()))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox["粤诗丽门窗"]("showButton"+x["needsSecondPass"]("、")+'，将使用第一个"'+x[0]+"五金中检测到多个含\"合页\"的元素：","auto-markup-setting-changed",{
-                confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+          if(_0x563b81&&typeof _0x563b81==="object"&&Object["keys"](_0x563b81)["length"]>0){
+            const t=String(_0x2c0817["五金"]||""),a=t["includes"]("_")?t.split("_"):t?[t]:[],x=a["map"]((e=>e["trim"]()))["filter"]((e=>e["includes"]("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox["confirm"]("五金中检测到多个含\"合页\"的元素："+x["join"]("、")+'，将使用第一个"'+x[0]+"\"进行匹配计算，是否继续？","多个合页提示",{
+                confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
-              if(void 0!==_0x563b81[t])_0x20eff8=-(Number(_0x563b81[t]["加价项目-超墙厚"])||0),_0x5bc5ce=-(Number(_0x563b81[t]["diao"])||0);
+              if(void 0!==_0x563b81[t])_0x20eff8=-(Number(_0x563b81[t]["上下方减尺"])||0),_0x5bc5ce=-(Number(_0x563b81[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox.confirm("润佳门窗"+t+"alignment"," 导出Excel ",{
-                  confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+                await ElementPlus.ElMessageBox.confirm("五金中的\""+t+"\"在合页配置中未找到匹配，是否继续计算？","合页匹配失败",{
+                  confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
               catch(e){
@@ -9896,8 +9896,8 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           const _0x42aaaf="无"===_0x2c0817["底玻"]||"无"===_0x2c0817["面玻"],_0x182cc8="无"!==_0x2c0817["底玻"]&&"无"!==_0x2c0817["面玻"];
           if(_0x42aaaf){
-            const e=Object["导入上次订单"](_0x432374);
-            e["✅ 图片已下载，请手动分享"]((t=>{
+            const e=Object["keys"](_0x432374);
+            e["forEach"]((t=>{
               const a=_0x46841d;
               if((t[a(566)]("玻璃宽")||t.includes(a(877)))&&!t[a(566)]("单玻")){
                 const x=t+"单玻";
@@ -9905,46 +9905,46 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x182cc8&&Object["导入上次订单"](_0x432374)["✅ 图片已下载，请手动分享"]((e=>{
+          _0x182cc8&&Object["keys"](_0x432374)["forEach"]((e=>{
             const t=_0x46841d;
             e.includes("单玻")&&(_0x432374[e][t(523)]=!1),!e[t(566)]("单玻")&&e.includes("玻璃")&&(_0x432374[e][t(523)]=!0)
-          })),Object["导入上次订单"](_0x432374)["✅ 图片已下载，请手动分享"]((e=>{
+          })),Object["keys"](_0x432374)["forEach"]((e=>{
             const t=_0x46841d,a=_0x432374[e];
             e[t(566)](t(266))&&(a.v=(Number(a.v)||0)+_0x20eff8),e[t(566)](t(1152))&&!e[t(566)]("亮窗")&&(a.v=(Number(a.v)||0)+_0x5bc5ce),e.includes(t(877))&&Number(_0x2c0817[t(946)])>0&&!e.includes("亮窗")&&(a.v=Number(_0x2c0817["封板高"])+a.v);
             e[t(566)](t(863))||e[t(566)](t(877))||(_0x2c0817["墙厚"]>0?a[t(523)]=!0:e[t(566)]("扣板")||e[t(566)]("压线")?a[t(523)]=!1:a.state=!0)
           }));
-          const _0x5840f6=_0x2c0817["折叠8扇"],_0x691f34=_0x2c0817["封边横"],_0xe8bf43=_0x2c0817["双开内右"]||0,_0x25b7c2=_0x1af72a&&Number(_0x1af72a.width)||0,_0x5522af=_0x1af72a&&Number(_0x1af72a["Wai"])||0;
+          const _0x5840f6=_0x2c0817["门洞宽"],_0x691f34=_0x2c0817["门洞高"],_0xe8bf43=_0x2c0817["亮窗总高"]||0,_0x25b7c2=_0x1af72a&&Number(_0x1af72a.width)||0,_0x5522af=_0x1af72a&&Number(_0x1af72a["height"])||0;
           let _0x12bc7a=_0x5840f6,_0xa523a9=_0x691f34,_0x74a236=_0xe8bf43;
           (0!==_0x25b7c2||0!==_0x5522af)&&(_0x12bc7a=_0x5840f6-_0x25b7c2,_0xe8bf43>_0x691f34?_0x74a236=_0xe8bf43-_0x5522af:_0xa523a9=_0x691f34-_0x5522af),0!==_0x39a09a&&(_0x12bc7a-=_0x39a09a),0!==_0x57d67d&&(_0xe8bf43>_0x691f34?_0x74a236-=_0x57d67d:_0xa523a9-=_0x57d67d);
           const _0x34d9dd={
-            h:_0xa523a9,w:_0x12bc7a,h1:_0x74a236,j:_0x2c0817["吊脚"]||0,t:_0x2c0817["墙厚"]||0,s:_0x2c0817["UpWall"]||0
-          };Object["导入上次订单"](_0x432374)["✅ 图片已下载，请手动分享"]((_0x4996b3=>{
+            h:_0xa523a9,w:_0x12bc7a,h1:_0x74a236,j:_0x2c0817["吊脚"]||0,t:_0x2c0817["墙厚"]||0,s:_0x2c0817["轨道长"]||0
+          };Object["keys"](_0x432374)["forEach"]((_0x4996b3=>{
             const _0x55665d=_0x46841d,_0x5a7128=_0x432374[_0x4996b3];
-            if(_0x5a7128["kou"])try{
-              let _0x546246=_0x5a7128["toFixed"];
+            if(_0x5a7128["state"])try{
+              let _0x546246=_0x5a7128["formula"];
               if(_0x546246){
-                if(_0x546246["60px"]("=")&&(_0x546246=_0x546246["门框宽"](1)),_0x546246["折叠5扇"](".result"))return void(_0x5a7128["windows"]=!0);
+                if(_0x546246["startsWith"]("=")&&(_0x546246=_0x546246["substring"](1)),_0x546246["includes"](".result"))return void(_0x5a7128["needsSecondPass"]=!0);
                 let _0x210f8b=_0x546246;
-                for(const[e,t]of Object["860px"](_0x34d9dd))_0x210f8b=_0x210f8b["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x34d9dd))_0x210f8b=_0x210f8b["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x247748=["v"];
                 for(const e of _0x247748)if(void 0!==_0x5a7128[e]){
                   const t=_0x5a7128[e],a=t<0?"("+t+")":t;
-                  _0x210f8b=_0x210f8b["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x210f8b=_0x210f8b["replace"](new RegExp(e,"g"),a)
                 }
-                const _0xcf90e1=eval(_0x210f8b),_0x13ecff=Math["删除失败"](_0xcf90e1);
-                _0x13ecff<0?(_0x5a7128["kou"]=!1,_0x5a7128["门玻璃高"]=0):_0x5a7128["门玻璃高"]=_0x13ecff
+                const _0xcf90e1=eval(_0x210f8b),_0x13ecff=Math["round"](_0xcf90e1);
+                _0x13ecff<0?(_0x5a7128["state"]=!1,_0x5a7128["result"]=0):_0x5a7128["result"]=_0x13ecff
               }
             }
             catch(_0x1eeddc){
-              _0x5a7128["门玻璃高"]="font"
+              _0x5a7128["result"]="error"
             }
-          })),Object["导入上次订单"](_0x432374).forEach((_0x1518b0=>{
+          })),Object["keys"](_0x432374).forEach((_0x1518b0=>{
             const _0x255602=_0x46841d,_0x31031d=_0x432374[_0x1518b0];
-            if(_0x31031d.state&&_0x31031d["windows"])try{
+            if(_0x31031d.state&&_0x31031d["needsSecondPass"])try{
               let _0x4c058e=_0x31031d.formula;
-              _0x4c058e.startsWith("=")&&(_0x4c058e=_0x4c058e["门框宽"](1));
+              _0x4c058e.startsWith("=")&&(_0x4c058e=_0x4c058e["substring"](1));
               let _0x3b60b4=_0x4c058e;
-              Object["导入上次订单"](_0x432374)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x432374)["forEach"]((e=>{
                 const t=_0x255602,a=e+t(708);
                 if(_0x3b60b4[t(566)](a)){
                   const e=a.split(".")[0],x=Object[t(1124)](_0x432374)[t(990)]((([a,x])=>{
@@ -9957,318 +9957,318 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x3b60b4=_0x3b60b4[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x34d9dd))_0x3b60b4=_0x3b60b4["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x34d9dd))_0x3b60b4=_0x3b60b4["replace"](new RegExp(e,"g"),t);
               const _0x57fb06=["v"];
               for(const e of _0x57fb06)if(void 0!==_0x31031d[e]){
                 const t=_0x31031d[e],a=t<0?"("+t+")":t;
-                _0x3b60b4=_0x3b60b4["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x3b60b4=_0x3b60b4["replace"](new RegExp(e,"g"),a)
               }
               const _0x3153a6=eval(_0x3b60b4),_0x57589c=Math.round(_0x3153a6);
-              _0x57589c<0?(_0x31031d["kou"]=!1,_0x31031d["门玻璃高"]=0):_0x31031d["门玻璃高"]=_0x57589c,delete _0x31031d["windows"]
+              _0x57589c<0?(_0x31031d["state"]=!1,_0x31031d["result"]=0):_0x31031d["result"]=_0x57589c,delete _0x31031d["needsSecondPass"]
             }
             catch(_0x52c4fa){
-              _0x31031d.result="font",_0x31031d["kou"]=!1
+              _0x31031d.result="error",_0x31031d["state"]=!1
             }
           }));
           const _0x2f045e={
-          };Object["导入上次订单"](_0x432374)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x432374)["forEach"]((e=>{
             const t=_0x46841d,a=_0x432374[e];
             !0===a[t(523)]&&(_0x2f045e[e]={
               materialName:a.materialName||"",result:a.result||0,quantity:a[t(650)]||0
             })
           }));
           let _0x3a3de5="",_0x286ba9="",_0x5692f6="",_0x26a75e="",_0x551056="",_0x169a2c=null;
-          if("#666"in _0x432374)try{
-            if(_0x26a75e=_0x2c0817["开向"].includes("双开")?_0x2c0817["开向"]["折叠5扇"]("左")?_0x432374["#666"].formulaID+"双开左"+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["煜宸门业"]:""):_0x2c0817["开向"].includes("右")?_0x432374["#666"]["业务员:"]+"Men"+(_0x2c0817["煜宸门业"]?"_"+_0x2c0817["煜宸门业"]:""):_0x432374["#666"].formulaID+"双开左"+(_0x2c0817["煜宸门业"]?"_"+_0x2c0817["煜宸门业"]:""):_0x432374["挖孔图"]["业务员:"]+_0x2c0817["开向"]+(_0x2c0817["煜宸门业"]?"_"+_0x2c0817["煜宸门业"]:""),(Number(null==_0x2c0817?void 0:_0x2c0817["smartdoor_disable_auto_markup"])||0)>0||_0x2c0817["开向"]==="form-label"||_0x2c0817["开向"]==="尚航逸门窗"||_0x2c0817["开向"]==="Workbook"||"双开内右"===_0x2c0817["开向"]||_0x2c0817["开向"]==="后框宽"||_0x2c0817["开向"]==="Dong"){
-              const e=await getImageWithMeta(_0x26a75e),t=e["门玻璃宽"]||"",a=e["middle"]||"";
-              if(a&&a["折叠5扇"]("_孔"))if(e["userAgent"]){
+          if("挖孔图"in _0x432374)try{
+            if(_0x26a75e=_0x2c0817["开向"].includes("双开")?_0x2c0817["开向"]["includes"]("左")?_0x432374["挖孔图"].formulaID+"双开左"+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["轨道种类"]:""):_0x2c0817["开向"].includes("右")?_0x432374["挖孔图"]["formulaID"]+"双开右"+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["轨道种类"]:""):_0x432374["挖孔图"].formulaID+"双开左"+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["轨道种类"]:""):_0x432374["挖孔图"]["formulaID"]+_0x2c0817["开向"]+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["轨道种类"]:""),(Number(null==_0x2c0817?void 0:_0x2c0817["封板高"])||0)>0||_0x2c0817["开向"]==="双开内开"||_0x2c0817["开向"]==="双开外开"||_0x2c0817["开向"]==="双开内左"||"双开内右"===_0x2c0817["开向"]||_0x2c0817["开向"]==="双开外左"||_0x2c0817["开向"]==="双开外右"){
+              const e=await getImageWithMeta(_0x26a75e),t=e["imageUrl"]||"",a=e["imageName"]||"";
+              if(a&&a["includes"]("_孔"))if(e["holeSize"]){
                 const{
                   w:a,h:x,d:_,r:l
                 }
-                =e["userAgent"],o=Number(null==_0x2c0817?void 0:_0x2c0817["封板高"])||0,c=Math.max(0,Number(_)-o),n=String((null==_0x2c0817?void 0:_0x2c0817["开向"])||""),d=n.includes("左"),r=n.includes("右");
+                =e["holeSize"],o=Number(null==_0x2c0817?void 0:_0x2c0817["封板高"])||0,c=Math.max(0,Number(_)-o),n=String((null==_0x2c0817?void 0:_0x2c0817["开向"])||""),d=n.includes("左"),r=n.includes("右");
                 let s="左";
                 1===Number(l)?d?s="右":r&&(s="左"):d?s="左":r&&(s="右");
                 const u="右"===s?"右":"左";
                 _0x169a2c={
                   w:x,h:a,d:c,direction:u
-                },_0x3a3de5=_0x5c8c94(_0x169a2c.h,_0x169a2c.w,_0x169a2c.d,_0x169a2c["el-switch"])||t,(_0x2c0817["开向"]==="form-label"||"双开外开"===_0x2c0817["开向"])&&(_0x551056=_0x5c8c94(_0x169a2c.h,_0x169a2c.w,_0x169a2c.d,"右"===u?"左":"右")||t)
+                },_0x3a3de5=_0x5c8c94(_0x169a2c.h,_0x169a2c.w,_0x169a2c.d,_0x169a2c["direction"])||t,(_0x2c0817["开向"]==="双开内开"||"双开外开"===_0x2c0817["开向"])&&(_0x551056=_0x5c8c94(_0x169a2c.h,_0x169a2c.w,_0x169a2c.d,"右"===u?"左":"右")||t)
               }
               else _0x3a3de5=t;
               else _0x3a3de5=t
             }
             else _0x3a3de5=await getImage(_0x26a75e)||"";
-            if(!_0x3a3de5&&ElementPlus.ElMessage["font"]("Gao"),_0x2fca47["折叠5扇"](_0x2d4eee))if(_0x169a2c){
-              const e="左"===_0x169a2c["el-switch"]?"右":"左";
+            if(!_0x3a3de5&&ElementPlus.ElMessage["error"]("获取开孔图片失败,请确认或联系管理员"),_0x2fca47["includes"](_0x2d4eee))if(_0x169a2c){
+              const e="左"===_0x169a2c["direction"]?"右":"左";
               _0x551056=_0x5c8c94(_0x169a2c.h,_0x169a2c.w,_0x169a2c.d,e)||""
             }
             else{
               let e=_0x2c0817["开向"];
-              e&&e["折叠5扇"]("左")?e=e["合页匹配失败"](/左/g,"右"):e&&e.includes("右")&&(e=e.replace(/右/g,"左"));
-              const t=_0x432374["#666"]["业务员:"]+e+(_0x2c0817["煜宸门业"]?"_"+_0x2c0817["煜宸门业"]:"");
+              e&&e["includes"]("左")?e=e["replace"](/左/g,"右"):e&&e.includes("右")&&(e=e.replace(/右/g,"左"));
+              const t=_0x432374["挖孔图"]["formulaID"]+e+(_0x2c0817["轨道种类"]?"_"+_0x2c0817["轨道种类"]:"");
               _0x551056=await getImage(t)||""
             }
-            _0x238851==="云打印失败"&&(_0x286ba9=await getImage(_0x432374["#666"].formulaID+"右固玻")||"",_0x5692f6=await getImage(_0x432374["#666"]["业务员:"]+"padStart")||"")
+            _0x238851==="diamond"&&(_0x286ba9=await getImage(_0x432374["挖孔图"].formulaID+"右固玻")||"",_0x5692f6=await getImage(_0x432374["挖孔图"]["formulaID"]+"左固玻")||"")
           }
           catch(_0x3906ee){
-            ElementPlus.ElMessage["font"]("Gao")
+            ElementPlus.ElMessage["error"]("获取开孔图片失败,请确认或联系管理员")
           }
-          if("无"!==(null==_0x2c0817?void 0:_0x2c0817["底玻"])&&_0x238851!=="云打印失败")if("parentSubsidiary"===_0x238851){
+          if("无"!==(null==_0x2c0817?void 0:_0x2c0817["底玻"])&&_0x238851!=="diamond")if("parentSubsidiary"===_0x238851){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("扣板厚:")&&!e["折叠5扇"]("亮窗"))),a=Object["860px"](_0x2f045e).find((([e])=>e["折叠5扇"]("后包加长")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("子门玻璃宽")&&!e["includes"]("亮窗"))),a=Object["entries"](_0x2f045e).find((([e])=>e["includes"]("子门玻璃高")&&!e["includes"]("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e["style"]=a["折叠5扇"]("单玻")?x.quantity*_0x2c0817["数量"]:x.quantity/2*_0x2c0817["数量"]
+              e["width"]=x["result"],e["quantity"]=a["includes"]("单玻")?x.quantity*_0x2c0817["数量"]:x.quantity/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x["门玻璃高"]
+              e["height"]=x["result"]
             }
-            e["已取消删除"]="底玻-"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["Cao"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),e["focus"]="",_0x85408.push(e);
+            e["glassName"]="底玻-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean).join("<br>"),e["doorImg"]="",_0x85408.push(e);
             let x={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };x["prototype"]=_0x2c0817["客户"];
-            const _=Object.entries(_0x2f045e).find((([e])=>e["折叠5扇"]("oldSheet")&&!e["折叠5扇"]("亮窗")));
+            };x["client"]=_0x2c0817["客户"];
+            const _=Object.entries(_0x2f045e).find((([e])=>e["includes"]("母门玻璃宽")&&!e["includes"]("亮窗")));
             if(_){
               const[e,t]=_;
-              x["localeCompare"]=t["门玻璃高"],x.quantity=e["折叠5扇"]("单玻")?t["style"]*_0x2c0817["数量"]:t.quantity/2*_0x2c0817["数量"]
+              x["width"]=t["result"],x.quantity=e["includes"]("单玻")?t["quantity"]*_0x2c0817["数量"]:t.quantity/2*_0x2c0817["数量"]
             }
-            const l=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("70px !important")&&!e.includes("亮窗")));
+            const l=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("母门玻璃高")&&!e.includes("亮窗")));
             if(l){
               const[e,t]=l;
-              x["Wai"]=t["门玻璃高"]
+              x["height"]=t["result"]
             }
-            x["已取消删除"]="鑫瑞门业"+_0x2c0817["底玻"],x["Dao"]=_0x2c0817["Cao"],x.OrderID=_0x2c0817["单号"]||"",x["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),x["focus"]=_0x3a3de5||"",_0x85408["12px"](x)
+            x["glassName"]="底玻-"+_0x2c0817["底玻"],x["thickness"]=_0x2c0817["玻璃厚"],x.OrderID=_0x2c0817["单号"]||"",x["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>"),x["doorImg"]=_0x3a3de5||"",_0x85408["push"](x)
           }
           else if("double"===_0x238851)if(_0x3a3de5){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e["折叠5扇"]("亮窗"))),a=Object["860px"](_0x2f045e).find((([e])=>e.includes("玻璃高")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗"))),a=Object["entries"](_0x2f045e).find((([e])=>e.includes("玻璃高")&&!e["includes"]("亮窗")));
             if(t){
               const[a,x]=t;
-              e.width=x["门玻璃高"],e.quantity=a["折叠5扇"]("单玻")?x.quantity*_0x2c0817["数量"]/2:x["style"]/4*_0x2c0817["数量"]
+              e.width=x["result"],e.quantity=a["includes"]("单玻")?x.quantity*_0x2c0817["数量"]/2:x["quantity"]/4*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x.result
+              e["height"]=x.result
             }
-            e["已取消删除"]="底玻-"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["Cao"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]].filter(Boolean).join("加价项目已存在！");
+            e["glassName"]="底玻-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]].filter(Boolean).join("<br>");
             const x=_0x2c0817["开向"];
-            x==="form-label"||x==="尚航逸门窗"?(_0x85408["12px"](Object["position"]({
+            x==="双开内开"||x==="双开外开"?(_0x85408["push"](Object["assign"]({
             },e,{
               doorImg:_0x3a3de5||""
-            })),_0x85408.push(Object["position"]({
+            })),_0x85408.push(Object["assign"]({
             },e,{
               doorImg:_0x551056||""
-            }))):["双开内左","后框宽","printProduct","双开外右"]["折叠5扇"](x)?(_0x85408.push(Object.assign({
+            }))):["双开内左","双开外左","双开内右","双开外右"]["includes"](x)?(_0x85408.push(Object.assign({
             },e,{
               doorImg:_0x3a3de5||""
-            })),_0x85408["12px"](Object.assign({
+            })),_0x85408["push"](Object.assign({
             },e,{
               doorImg:""
-            }))):_0x85408["12px"](Object.assign({
+            }))):_0x85408["push"](Object.assign({
             },e))
           }
           else{
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object.entries(_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e.includes("亮窗"))),a=Object.entries(_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("registrant")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object.entries(_0x2f045e)["find"]((([e])=>e["includes"]("玻璃宽")&&!e.includes("亮窗"))),a=Object.entries(_0x2f045e)["find"]((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e["style"]=a.includes("单玻")?x["style"]*_0x2c0817["数量"]:x["style"]/2*_0x2c0817["数量"]
+              e["width"]=x["result"],e["quantity"]=a.includes("单玻")?x["quantity"]*_0x2c0817["数量"]:x["quantity"]/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x.result
+              e["height"]=x.result
             }
-            e["已取消删除"]="鑫瑞门业"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["玻璃厚"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),e["focus"]="",_0x85408["12px"](e)
+            e["glassName"]="底玻-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>"),e["doorImg"]="",_0x85408["push"](e)
           }
           else{
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e["折叠5扇"]("亮窗"))),a=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e.includes("玻璃高")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗"))),a=Object["entries"](_0x2f045e)["find"]((([e])=>e.includes("玻璃高")&&!e["includes"]("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e["style"]=a.includes("单玻")?x["style"]*_0x2c0817["数量"]:x["style"]/2*_0x2c0817["数量"]
+              e["width"]=x["result"],e["quantity"]=a.includes("单玻")?x["quantity"]*_0x2c0817["数量"]:x["quantity"]/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x["门玻璃高"]
+              e["height"]=x["result"]
             }
-            e["已取消删除"]="底玻-"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["Cao"],e.OrderID=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]].filter(Boolean)["needsSecondPass"]("加价项目已存在！"),_0x2fca47["折叠5扇"](_0x2d4eee)&&_0x551056?e["focus"]=_0x551056:!_0x2fca47["折叠5扇"](_0x2d4eee)&&_0x3a3de5?e["focus"]=_0x3a3de5:e.doorImg="",_0x85408["12px"](e)
+            e["glassName"]="底玻-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e.OrderID=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]].filter(Boolean)["join"]("<br>"),_0x2fca47["includes"](_0x2d4eee)&&_0x551056?e["doorImg"]=_0x551056:!_0x2fca47["includes"](_0x2d4eee)&&_0x3a3de5?e["doorImg"]=_0x3a3de5:e.doorImg="",_0x85408["push"](e)
           }
-          if("无"!==(null==_0x2c0817?void 0:_0x2c0817["面玻"])&&_0x238851!=="云打印失败")if("parentSubsidiary"===_0x238851){
+          if("无"!==(null==_0x2c0817?void 0:_0x2c0817["面玻"])&&_0x238851!=="diamond")if("parentSubsidiary"===_0x238851){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
             };e.client=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("扣板厚:")&&!e["折叠5扇"]("亮窗"))),a=Object.entries(_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("后包加长")&&!e.includes("亮窗")));
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("子门玻璃宽")&&!e["includes"]("亮窗"))),a=Object.entries(_0x2f045e)["find"]((([e])=>e["includes"]("子门玻璃高")&&!e.includes("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e.quantity=a["折叠5扇"]("单玻")?x["style"]*_0x2c0817["数量"]:x["style"]/2*_0x2c0817["数量"]
+              e["width"]=x["result"],e.quantity=a["includes"]("单玻")?x["quantity"]*_0x2c0817["数量"]:x["quantity"]/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x["门玻璃高"]
+              e["height"]=x["result"]
             }
-            e["已取消删除"]="回执单号"+_0x2c0817["面玻"],e["Dao"]=_0x2c0817["Cao"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),e.doorImg="",_0x85408["12px"](e);
+            e["glassName"]="面玻-"+_0x2c0817["面玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>"),e.doorImg="",_0x85408["push"](e);
             let x={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };x["prototype"]=_0x2c0817["客户"];
-            const _=Object["860px"](_0x2f045e).find((([e])=>e["折叠5扇"]("oldSheet")&&!e.includes("亮窗")));
+            };x["client"]=_0x2c0817["客户"];
+            const _=Object["entries"](_0x2f045e).find((([e])=>e["includes"]("母门玻璃宽")&&!e.includes("亮窗")));
             if(_){
               const[e,t]=_;
-              x.width=t.result,x["style"]=e["折叠5扇"]("单玻")?t["style"]*_0x2c0817["数量"]:t["style"]/2*_0x2c0817["数量"]
+              x.width=t.result,x["quantity"]=e["includes"]("单玻")?t["quantity"]*_0x2c0817["数量"]:t["quantity"]/2*_0x2c0817["数量"]
             }
-            const l=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("70px !important")&&!e["折叠5扇"]("亮窗")));
+            const l=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("母门玻璃高")&&!e["includes"]("亮窗")));
             if(l){
               const[e,t]=l;
-              x.height=t["门玻璃高"]
+              x.height=t["result"]
             }
-            x.glassName="回执单号"+_0x2c0817["面玻"],x.thickness=_0x2c0817["玻璃厚"],x["<br/>轨道长:"]=_0x2c0817["单号"]||"",x["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]].filter(Boolean)["needsSecondPass"]("加价项目已存在！"),_0x3a3de5?x["focus"]=_0x3a3de5:x.doorImg="",_0x85408["12px"](x)
+            x.glassName="面玻-"+_0x2c0817["面玻"],x.thickness=_0x2c0817["玻璃厚"],x["OrderID"]=_0x2c0817["单号"]||"",x["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]].filter(Boolean)["join"]("<br>"),_0x3a3de5?x["doorImg"]=_0x3a3de5:x.doorImg="",_0x85408["push"](x)
           }
-          else if(_0x238851==="【Capacitor 热更新】开始执行 runManualUpdate")if(_0x3a3de5){
+          else if(_0x238851==="double")if(_0x3a3de5){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e.includes("回执单下载成功: ")&&!e["折叠5扇"]("亮窗"))),a=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("registrant")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e.includes("玻璃宽")&&!e["includes"]("亮窗"))),a=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")));
             if(t){
               const[a,x]=t;
-              e.width=x.result,e.quantity=a["折叠5扇"]("单玻")?x["style"]*_0x2c0817["数量"]/2:x["style"]/4*_0x2c0817["数量"]
+              e.width=x.result,e.quantity=a["includes"]("单玻")?x["quantity"]*_0x2c0817["数量"]/2:x["quantity"]/4*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x.result
+              e["height"]=x.result
             }
-            e["已取消删除"]="面玻-"+_0x2c0817["面玻"],e["Dao"]=_0x2c0817["Cao"],e.OrderID=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！");
+            e["glassName"]="面玻-"+_0x2c0817["面玻"],e["thickness"]=_0x2c0817["玻璃厚"],e.OrderID=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>");
             const x=_0x2c0817["开向"];
-            "双开内开"===x||x==="尚航逸门窗"?(_0x85408["12px"](Object["position"]({
+            "双开内开"===x||x==="双开外开"?(_0x85408["push"](Object["assign"]({
             },e,{
               doorImg:_0x3a3de5||""
-            })),_0x85408.push(Object["position"]({
+            })),_0x85408.push(Object["assign"]({
             },e,{
               doorImg:_0x551056||""
-            }))):["Workbook","后框宽","printProduct","双开外右"].includes(x)?(_0x85408["12px"](Object.assign({
+            }))):["双开内左","双开外左","双开内右","双开外右"].includes(x)?(_0x85408["push"](Object.assign({
             },e,{
               doorImg:_0x3a3de5||""
-            })),_0x85408["12px"](Object["position"]({
+            })),_0x85408["push"](Object["assign"]({
             },e,{
               doorImg:""
-            }))):_0x85408["12px"](Object["position"]({
+            }))):_0x85408["push"](Object["assign"]({
             },e))
           }
           else{
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
             };e.client=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e["折叠5扇"]("亮窗"))),a=Object["860px"](_0x2f045e).find((([e])=>e.includes("玻璃高")&&!e.includes("亮窗")));
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗"))),a=Object["entries"](_0x2f045e).find((([e])=>e.includes("玻璃高")&&!e.includes("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x.result,e["style"]=a.includes("单玻")?x.quantity*_0x2c0817["数量"]:x["style"]/2*_0x2c0817["数量"]
+              e["width"]=x.result,e["quantity"]=a.includes("单玻")?x.quantity*_0x2c0817["数量"]:x["quantity"]/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x["门玻璃高"]
+              e["height"]=x["result"]
             }
-            e["已取消删除"]="鑫瑞门业"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["玻璃厚"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),e["focus"]="",_0x85408["12px"](e)
+            e["glassName"]="底玻-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean).join("<br>"),e["doorImg"]="",_0x85408["push"](e)
           }
           else{
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e["折叠5扇"]("亮窗"))),a=Object.entries(_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("registrant")&&!e.includes("亮窗")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗"))),a=Object.entries(_0x2f045e)["find"]((([e])=>e["includes"]("玻璃高")&&!e.includes("亮窗")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e["style"]=a.includes("单玻")?x["style"]*_0x2c0817["数量"]:x["style"]/2*_0x2c0817["数量"]
+              e["width"]=x["result"],e["quantity"]=a.includes("单玻")?x["quantity"]*_0x2c0817["数量"]:x["quantity"]/2*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x["门玻璃高"]
+              e["height"]=x["result"]
             }
-            e["已取消删除"]="回执单号"+_0x2c0817["面玻"],e["Dao"]=_0x2c0817["玻璃厚"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e.remark=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),e["focus"]=_0x3a3de5||"",_0x85408["12px"](e)
+            e["glassName"]="面玻-"+_0x2c0817["面玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e.remark=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean).join("<br>"),e["doorImg"]=_0x3a3de5||"",_0x85408["push"](e)
           }
-          if(_0x2c0817["双开内右"]&&0!==_0x2c0817["亮窗总高"]&&_0x238851!=="云打印失败"&&("无"!==(null==_0x2c0817?void 0:_0x2c0817["面玻"])||"无"!==(null==_0x2c0817?void 0:_0x2c0817["底玻"]))){
+          if(_0x2c0817["亮窗总高"]&&0!==_0x2c0817["亮窗总高"]&&_0x238851!=="diamond"&&("无"!==(null==_0x2c0817?void 0:_0x2c0817["面玻"])||"无"!==(null==_0x2c0817?void 0:_0x2c0817["底玻"]))){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object.entries(_0x2f045e)["formulaID"]((([e])=>e.includes("亮窗玻璃宽"))),a=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e["折叠5扇"]("亮窗玻璃高")));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object.entries(_0x2f045e)["find"]((([e])=>e.includes("亮窗玻璃宽"))),a=Object["entries"](_0x2f045e)["find"]((([e])=>e["includes"]("亮窗玻璃高")));
             if(t){
               const[a,x]=t;
-              e["localeCompare"]=x["门玻璃高"],e["style"]=x["style"]*_0x2c0817["数量"]
+              e["width"]=x["result"],e["quantity"]=x["quantity"]*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e["Wai"]=x.result
+              e["height"]=x.result
             }
-            "无"!==_0x2c0817["底玻"]?e["已取消删除"]="亮窗玻璃-"+_0x2c0817["底玻"]:e.glassName="临泉县品匠移门"+_0x2c0817["面玻"],e.thickness=_0x2c0817["Cao"],e.OrderID=_0x2c0817["单号"]||"",e.remark=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]].filter(Boolean)["needsSecondPass"]("<br>"),e["focus"]="",_0x85408["12px"](e)
+            "无"!==_0x2c0817["底玻"]?e["glassName"]="亮窗玻璃-"+_0x2c0817["底玻"]:e.glassName="亮窗玻璃-"+_0x2c0817["面玻"],e.thickness=_0x2c0817["玻璃厚"],e.OrderID=_0x2c0817["单号"]||"",e.remark=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]].filter(Boolean)["join"]("<br>"),e["doorImg"]="",_0x85408["push"](e)
           }
           if("diamond"===_0x238851){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0x2c0817["客户"];
-            const t=Object["860px"](_0x2f045e)["formulaID"]((([e])=>"左固玻璃宽"==e)),a=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e=="amount"));
+            };e["client"]=_0x2c0817["客户"];
+            const t=Object["entries"](_0x2f045e)["find"]((([e])=>"左固玻璃宽"==e)),a=Object["entries"](_0x2f045e)["find"]((([e])=>e=="左固玻璃高"));
             if(t){
               const[a,x]=t;
-              e.width=x["门玻璃高"],e.quantity=1*_0x2c0817["数量"]
+              e.width=x["result"],e.quantity=1*_0x2c0817["数量"]
             }
             if(a){
               const[t,x]=a;
-              e.height=x["门玻璃高"]
+              e.height=x["result"]
             }
-            e["focus"]="",e["已取消删除"]="万鑫门业"+_0x2c0817["底玻"],e["Dao"]=_0x2c0817["Cao"],e["<br/>轨道长:"]=_0x2c0817["单号"]||"",e["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]].filter(Boolean)["needsSecondPass"]("<br>"),_0x5692f6?e["focus"]=_0x5692f6:e.doorImg="",_0x85408["12px"](e);
+            e["doorImg"]="",e["glassName"]="左固玻璃-"+_0x2c0817["底玻"],e["thickness"]=_0x2c0817["玻璃厚"],e["OrderID"]=_0x2c0817["单号"]||"",e["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]].filter(Boolean)["join"]("<br>"),_0x5692f6?e["doorImg"]=_0x5692f6:e.doorImg="",_0x85408["push"](e);
             let x={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };x["prototype"]=_0x2c0817["客户"];
-            const _=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e=="左固玻")),l=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e=="Shou"));
+            };x["client"]=_0x2c0817["客户"];
+            const _=Object["entries"](_0x2f045e)["find"]((([e])=>e=="右固玻璃宽")),l=Object["entries"](_0x2f045e)["find"]((([e])=>e=="右固玻璃高"));
             if(_){
               const[e,t]=_;
-              x["localeCompare"]=t.result,x["style"]=1*_0x2c0817["数量"]
+              x["width"]=t.result,x["quantity"]=1*_0x2c0817["数量"]
             }
             if(l){
               const[e,t]=l;
-              x["Wai"]=t["门玻璃高"]
+              x["height"]=t["result"]
             }
-            x["focus"]="",x["已取消删除"]="quantity"+_0x2c0817["底玻"],x["Dao"]=_0x2c0817["Cao"],x.OrderID=_0x2c0817["单号"]||"",x["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),x["focus"]=_0x286ba9||"",_0x85408["12px"](x);
+            x["doorImg"]="",x["glassName"]="右固玻璃-"+_0x2c0817["底玻"],x["thickness"]=_0x2c0817["玻璃厚"],x.OrderID=_0x2c0817["单号"]||"",x["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>"),x["doorImg"]=_0x286ba9||"",_0x85408["push"](x);
             let o={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
             };o.client=_0x2c0817["客户"];
-            const c=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e=="10px")),n=Object["860px"](_0x2f045e)["formulaID"]((([e])=>e=="皓雅门窗"));
+            const c=Object["entries"](_0x2f045e)["find"]((([e])=>e=="门玻璃宽")),n=Object["entries"](_0x2f045e)["find"]((([e])=>e=="门玻璃高"));
             if(c){
               const[e,t]=c;
-              o["localeCompare"]=t["门玻璃高"],o["style"]=1*_0x2c0817["数量"]
+              o["width"]=t["result"],o["quantity"]=1*_0x2c0817["数量"]
             }
             if(n){
               const[e,t]=n;
-              o.height=t["门玻璃高"]
+              o.height=t["result"]
             }
-            o["已取消删除"]="门玻璃-"+_0x2c0817["面玻"],o.thickness=_0x2c0817["玻璃厚"],o.OrderID=_0x2c0817["单号"]||"",o["日期: "]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),o["focus"]=_0x3a3de5||"",_0x85408["12px"](o)
+            o["glassName"]="门玻璃-"+_0x2c0817["面玻"],o.thickness=_0x2c0817["玻璃厚"],o.OrderID=_0x2c0817["单号"]||"",o["remark"]=_0xa370fc?"":[_0x2c0817["备注"],_0x2c0817["安装地址"]]["filter"](Boolean)["join"]("<br>"),o["doorImg"]=_0x3a3de5||"",_0x85408["push"](o)
           }
         }
         for(let _0x22350b=0;
-        _0x22350b<_0x5b10d7["el-popover"]["assistive-fullscreen-changed"].length;
+        _0x22350b<_0x5b10d7["value"]["diao_hui"].length;
         _0x22350b++){
-          const _0xae1cd3=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"][_0x22350b];
+          const _0xae1cd3=_0x5b10d7["value"]["diao_hui"][_0x22350b];
           if("无"===_0xae1cd3["底玻"]&&"无"===_0xae1cd3["面玻"])continue;
           const _0x4c173d=_0xae1cd3.formulaid,_0x109f50=_0x239303[_0x4c173d];
           if(!_0x109f50)continue;
           _0xae1cd3.id&&_0x1a364c[_0xae1cd3.id]&&(_0xae1cd3["单号"]=_0x1a364c[_0xae1cd3.id]);
-          const _0x342a31=JSON["values"](JSON.stringify(_0x109f50.diao)),_0x38dfd4="洞尺"===_0xae1cd3["洞尺"]?null==_0x109f50?void 0:_0x109f50["6LdJTqf"]:void 0,_0x35e1eb=_0xae1cd3["洞尺"]==="isArray"||_0xae1cd3["洞尺"]==="轨道种类"?null==_0x109f50?void 0:_0x109f50.TaoDong:void 0;
+          const _0x342a31=JSON["parse"](JSON.stringify(_0x109f50.diao)),_0x38dfd4="洞尺"===_0xae1cd3["洞尺"]?null==_0x109f50?void 0:_0x109f50["resetSize"]:void 0,_0x35e1eb=_0xae1cd3["洞尺"]==="单包洞尺"||_0xae1cd3["洞尺"]==="双包洞尺"?null==_0x109f50?void 0:_0x109f50.TaoDong:void 0;
           let _0x1f2948;
-          _0x35e1eb&&("单包洞尺"===_0xae1cd3["洞尺"]&&_0x35e1eb.SingleDong?_0x1f2948=_0x35e1eb["下载回执单"]:_0xae1cd3["洞尺"]==="轨道种类"&&_0x35e1eb.DubleDong&&(_0x1f2948=_0x35e1eb["border"]));
-          const _0x173dea=null==_0x109f50?void 0:_0x109f50["alert"],_0x53f04a=_0x173dea&&Number(_0x173dea["一固一活固玻璃宽"])||0,_0x4e4ee9=_0x173dea&&Number(_0x173dea.TrackIncrement)||0,_0x4df9d8=Number(_0xae1cd3["saved_password"])||0,_0xb9b416=2!==_0x4df9d8&&0!==_0x53f04a?_0x53f04a*(2-_0x4df9d8):0,_0x2247fa=2!==_0x4df9d8&&0!==_0x4e4ee9?_0x4e4ee9*(2-_0x4df9d8):0,_0x375ea7="3轨6扇"+(_0x22350b+1),_0x9dc6e4=_0xae1cd3["扇数"];
+          _0x35e1eb&&("单包洞尺"===_0xae1cd3["洞尺"]&&_0x35e1eb.SingleDong?_0x1f2948=_0x35e1eb["SingleDong"]:_0xae1cd3["洞尺"]==="双包洞尺"&&_0x35e1eb.DubleDong&&(_0x1f2948=_0x35e1eb["DubleDong"]));
+          const _0x173dea=null==_0x109f50?void 0:_0x109f50["widthIncrement"],_0x53f04a=_0x173dea&&Number(_0x173dea["SheetIncrement"])||0,_0x4e4ee9=_0x173dea&&Number(_0x173dea.TrackIncrement)||0,_0x4df9d8=Number(_0xae1cd3["边封数"])||0,_0xb9b416=2!==_0x4df9d8&&0!==_0x53f04a?_0x53f04a*(2-_0x4df9d8):0,_0x2247fa=2!==_0x4df9d8&&0!==_0x4e4ee9?_0x4e4ee9*(2-_0x4df9d8):0,_0x375ea7="diao"+(_0x22350b+1),_0x9dc6e4=_0xae1cd3["扇数"];
           if(!_0x9dc6e4)continue;
-          if(_0x9dc6e4["折叠5扇"]("活"))Object["导入上次订单"](_0x342a31)["✅ 图片已下载，请手动分享"]((e=>{
+          if(_0x9dc6e4["includes"]("活"))Object["keys"](_0x342a31)["forEach"]((e=>{
             const t=_0x46841d,a=_0x342a31[e];
             e[t(566)](_0x9dc6e4)&&e.includes(t(863))&&(a[t(523)]=!0),e.includes("玻璃高")&&a.track===_0xae1cd3[t(184)]&&e[t(566)](_0x9dc6e4)&&(a.state=!0),_0xae1cd3[t(335)]>0&&e[t(566)]("玻璃")&&(a[t(523)]=!0)
           }));
           else{
-            const e=_0xae1cd3["扇数"]+"玻璃",t=Object.keys(_0x342a31).some((t=>t["折叠5扇"](e)&&t["折叠5扇"]("单玻")));
+            const e=_0xae1cd3["扇数"]+"玻璃",t=Object.keys(_0x342a31).some((t=>t["includes"](e)&&t["includes"]("单玻")));
             let a=0,x=0,_=0;
-            if((0!==_0xb9b416||0!==_0x2247fa)&&2!==Number(_0xae1cd3["saved_password"])){
-              const e=_0x9dc6e4["13px"](/(\d+)扇/);
+            if((0!==_0xb9b416||0!==_0x2247fa)&&2!==Number(_0xae1cd3["边封数"])){
+              const e=_0x9dc6e4["match"](/(\d+)扇/);
               if(e){
                 const t=Number(e[1]);
                 0!==_0xb9b416&&(x=_0xb9b416/t),0!==_0x2247fa&&(_=_0x2247fa)
@@ -10284,41 +10284,41 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          const _0x38f724=_0xae1cd3["门洞宽"],_0x5767e6=_0xae1cd3["封边横"],_0x5575f7=_0xae1cd3["亮窗总高"]||0,_0x48acb0=_0x38dfd4&&Number(_0x38dfd4["localeCompare"])||0,_0xc8d6=_0x38dfd4&&Number(_0x38dfd4["Wai"])||0,_0x245788=_0x1f2948&&Number(_0x1f2948["宽减"])||0,_0x154391=_0x1f2948&&Number(_0x1f2948["高减"])||0;
+          const _0x38f724=_0xae1cd3["门洞宽"],_0x5767e6=_0xae1cd3["门洞高"],_0x5575f7=_0xae1cd3["亮窗总高"]||0,_0x48acb0=_0x38dfd4&&Number(_0x38dfd4["width"])||0,_0xc8d6=_0x38dfd4&&Number(_0x38dfd4["height"])||0,_0x245788=_0x1f2948&&Number(_0x1f2948["宽减"])||0,_0x154391=_0x1f2948&&Number(_0x1f2948["高减"])||0;
           let _0xa8064f=_0x38f724,_0x561cf3=_0x5767e6,_0x399711=_0x5575f7;
           (0!==_0x48acb0||0!==_0xc8d6)&&(_0xa8064f=_0x38f724-_0x48acb0,_0x5575f7>_0x5767e6?_0x399711=_0x5575f7-_0xc8d6:_0x561cf3=_0x5767e6-_0xc8d6),(0!==_0x245788||0!==_0x154391)&&(_0xa8064f-=_0x245788,_0x5575f7>_0x5767e6?_0x399711-=_0x154391:_0x561cf3-=_0x154391);
-          const _0x1e00de=null==_0x109f50?void 0:_0x109f50.swingWall,_0x50c744=String(_0xae1cd3["圣诺派门业"]||"")["打印成功"]();
+          const _0x1e00de=null==_0x109f50?void 0:_0x109f50.swingWall,_0x50c744=String(_0xae1cd3["单双丁"]||"")["trim"]();
           let _0x55129a=0,_0x471d12=0;
-          _0x1e00de&&_0x50c744&&"正常"!==_0x50c744&&(_0x50c744==="录入失败"?_0x55129a=Number(_0x1e00de["canShare"])||0:"双丁墙"===_0x50c744?_0x55129a=Number(_0x1e00de["doorframe"])||0:_0x50c744==="\"进行匹配计算，是否继续？"?_0x471d12=Number(_0x1e00de["declaration"])||0:_0x50c744==="left"?(_0x55129a=Number(_0x1e00de["canShare"])||0,_0x471d12=Number(_0x1e00de["declaration"])||0):"上丁加双丁"===_0x50c744&&(_0x55129a=Number(_0x1e00de["doorframe"])||0,_0x471d12=Number(_0x1e00de["declaration"])||0)),0!==_0x471d12&&(_0x5575f7>_0x5767e6?_0x399711-=_0x471d12:_0x561cf3-=_0x471d12),0!==_0x55129a&&(_0xa8064f-=_0x55129a);
+          _0x1e00de&&_0x50c744&&"正常"!==_0x50c744&&(_0x50c744==="单丁墙"?_0x55129a=Number(_0x1e00de["SingleWall"])||0:"双丁墙"===_0x50c744?_0x55129a=Number(_0x1e00de["DoubleWall"])||0:_0x50c744==="上丁墙"?_0x471d12=Number(_0x1e00de["UpWall"])||0:_0x50c744==="上丁加单丁"?(_0x55129a=Number(_0x1e00de["SingleWall"])||0,_0x471d12=Number(_0x1e00de["UpWall"])||0):"上丁加双丁"===_0x50c744&&(_0x55129a=Number(_0x1e00de["DoubleWall"])||0,_0x471d12=Number(_0x1e00de["UpWall"])||0)),0!==_0x471d12&&(_0x5575f7>_0x5767e6?_0x399711-=_0x471d12:_0x561cf3-=_0x471d12),0!==_0x55129a&&(_0xa8064f-=_0x55129a);
           const _0x27f836={
             h:_0x561cf3,w:_0xa8064f,h1:_0x399711,t:_0xae1cd3["墙厚"]||0
-          };Object["导入上次订单"](_0x342a31)["✅ 图片已下载，请手动分享"]((_0x2e12b4=>{
+          };Object["keys"](_0x342a31)["forEach"]((_0x2e12b4=>{
             const _0x9db357=_0x46841d,_0x4bdab6=_0x342a31[_0x2e12b4];
-            if(_0x4bdab6["kou"])try{
-              let _0x53ab7c=_0x4bdab6["toFixed"];
+            if(_0x4bdab6["state"])try{
+              let _0x53ab7c=_0x4bdab6["formula"];
               if(_0x53ab7c){
-                if(_0x53ab7c["60px"]("=")&&(_0x53ab7c=_0x53ab7c.substring(1)),_0x53ab7c["折叠5扇"]("请输入加价项目名称"))return void(_0x4bdab6["windows"]=!0);
+                if(_0x53ab7c["startsWith"]("=")&&(_0x53ab7c=_0x53ab7c.substring(1)),_0x53ab7c["includes"](".result"))return void(_0x4bdab6["needsSecondPass"]=!0);
                 let _0x5b95c5=_0x53ab7c;
-                for(const[e,t]of Object["860px"](_0x27f836))_0x5b95c5=_0x5b95c5["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x27f836))_0x5b95c5=_0x5b95c5["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x29ee9f=["v"];
                 for(const e of _0x29ee9f)if(void 0!==_0x4bdab6[e]){
                   const t=_0x4bdab6[e],a=t<0?"("+t+")":t;
-                  _0x5b95c5=_0x5b95c5["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x5b95c5=_0x5b95c5["replace"](new RegExp(e,"g"),a)
                 }
                 const _0x36c894=eval(_0x5b95c5),_0xa71ff8=Math.round(_0x36c894);
-                _0xa71ff8<0?(_0x4bdab6.state=!1,_0x4bdab6["门玻璃高"]=0):_0x4bdab6.result=_0xa71ff8
+                _0xa71ff8<0?(_0x4bdab6.state=!1,_0x4bdab6["result"]=0):_0x4bdab6.result=_0xa71ff8
               }
             }
             catch(_0x201959){
-              _0x4bdab6["门玻璃高"]="font"
+              _0x4bdab6["result"]="error"
             }
           })),Object.keys(_0x342a31).forEach((_0xda0bd7=>{
             const _0x553ee5=_0x46841d,_0x167a6f=_0x342a31[_0xda0bd7];
-            if(_0x167a6f["kou"]&&_0x167a6f["windows"])try{
+            if(_0x167a6f["state"]&&_0x167a6f["needsSecondPass"])try{
               let _0x2b2da7=_0x167a6f.formula;
-              _0x2b2da7.startsWith("=")&&(_0x2b2da7=_0x2b2da7["门框宽"](1));
+              _0x2b2da7.startsWith("=")&&(_0x2b2da7=_0x2b2da7["substring"](1));
               let _0x5f2f43=_0x2b2da7;
-              Object["导入上次订单"](_0x342a31)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x342a31)["forEach"]((e=>{
                 const t=_0x553ee5,a=e+".result";
                 if(_0x5f2f43.includes(a)){
                   const e=a[t(363)](".")[0],x=Object.entries(_0x342a31)[t(990)]((([a,x])=>{
@@ -10331,42 +10331,42 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x5f2f43=_0x5f2f43.replace(new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x27f836))_0x5f2f43=_0x5f2f43["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x27f836))_0x5f2f43=_0x5f2f43["replace"](new RegExp(e,"g"),t);
               const _0x622360=["v"];
               for(const e of _0x622360)if(void 0!==_0x167a6f[e]){
                 const t=_0x167a6f[e],a=t<0?"("+t+")":t;
-                _0x5f2f43=_0x5f2f43["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x5f2f43=_0x5f2f43["replace"](new RegExp(e,"g"),a)
               }
               const _0xc8bf24=eval(_0x5f2f43),_0x173001=Math.round(_0xc8bf24);
-              _0x173001<0?(_0x167a6f["kou"]=!1,_0x167a6f["门玻璃高"]=0):_0x167a6f["门玻璃高"]=_0x173001,delete _0x167a6f.needsSecondPass
+              _0x173001<0?(_0x167a6f["state"]=!1,_0x167a6f["result"]=0):_0x167a6f["result"]=_0x173001,delete _0x167a6f.needsSecondPass
             }
             catch(_0x5b4ace){
-              _0x167a6f.result="error",_0x167a6f["kou"]=!1
+              _0x167a6f.result="error",_0x167a6f["state"]=!1
             }
           }));
           const _0x13d99a={
-          };Object["导入上次订单"](_0x342a31)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x342a31)["forEach"]((e=>{
             const t=_0x46841d,a=_0x342a31[e];
             !0===a[t(523)]&&(_0x13d99a[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a[t(650)]||0
             })
           }));
           let _0x2e5408="",_0xac0011="",_0x51ee96="",_0x1d0204="";
-          if("无"!==(null==_0xae1cd3?void 0:_0xae1cd3["底玻"])&&_0xae1cd3["扇数"]!="/login"&&"双活"!=_0xae1cd3["扇数"]){
+          if("无"!==(null==_0xae1cd3?void 0:_0xae1cd3["底玻"])&&_0xae1cd3["扇数"]!="一固一活"&&"双活"!=_0xae1cd3["扇数"]){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0xae1cd3["客户"];
-            const t=Object["860px"](_0x13d99a).find((([e])=>e["折叠5扇"]("玻璃宽")&&!e.includes("亮窗")&&!e["折叠5扇"]("玻璃宽小"))),a=Object.entries(_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("createObjectURL")&&!e["折叠5扇"]("亮窗"))),x=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("玻璃高")&&!e["折叠5扇"]("亮窗")));
+            };e["client"]=_0xae1cd3["客户"];
+            const t=Object["entries"](_0x13d99a).find((([e])=>e["includes"]("玻璃宽")&&!e.includes("亮窗")&&!e["includes"]("玻璃宽小"))),a=Object.entries(_0x13d99a)["find"]((([e])=>e["includes"]("玻璃宽小")&&!e["includes"]("亮窗"))),x=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")));
             let _=0,l=0;
-            if("#666"in _0x342a31)if(a)ElementPlus.ElMessage["setItem"]("procedures_data");
+            if("挖孔图"in _0x342a31)if(a)ElementPlus.ElMessage["warning"]("带孔图不支持大小扇玻璃生成");
             else{
               try{
-                _0xac0011=_0x342a31["#666"]["业务员:"]+"左","一固一活"!=_0xae1cd3["扇数"]||_0xae1cd3["开向"]["折叠5扇"]("左")?_0x2e5408=await getImage(_0xac0011)||"":(_0xac0011="",_0x2e5408=""),_0x2e5408&&_0xae1cd3["开向"]["折叠5扇"]("左")&&(_=1),_0x2e5408&&(_0xae1cd3["扇数"]["折叠5扇"]("单轨2扇")||_0xae1cd3["扇数"]["折叠5扇"]("双活")||_0xae1cd3["扇数"].includes("info")||_0xae1cd3["扇数"]["折叠5扇"]("koubanPreviewContainer")||_0xae1cd3["扇数"].includes("3轨3扇")||_0xae1cd3["扇数"].includes("❌ 社交分享插件和Web Share API都不可用，使用下载备用方案")||_0xae1cd3["扇数"]["折叠5扇"]("type")||_0xae1cd3["扇数"]["折叠5扇"]("✅ 11. 系统分享调起成功")||_0xae1cd3["扇数"].includes("客户1"))&&(_=1),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"]("门扇宽")&&(_=2),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"](", 大小: ")&&(_=2)
+                _0xac0011=_0x342a31["挖孔图"]["formulaID"]+"左","一固一活"!=_0xae1cd3["扇数"]||_0xae1cd3["开向"]["includes"]("左")?_0x2e5408=await getImage(_0xac0011)||"":(_0xac0011="",_0x2e5408=""),_0x2e5408&&_0xae1cd3["开向"]["includes"]("左")&&(_=1),_0x2e5408&&(_0xae1cd3["扇数"]["includes"]("单轨2扇")||_0xae1cd3["扇数"]["includes"]("双活")||_0xae1cd3["扇数"].includes("2轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨3扇")||_0xae1cd3["扇数"].includes("3轨3扇")||_0xae1cd3["扇数"].includes("4轨4扇")||_0xae1cd3["扇数"]["includes"]("5轨5扇")||_0xae1cd3["扇数"]["includes"]("6轨6扇")||_0xae1cd3["扇数"].includes("3轨4扇"))&&(_=1),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("2轨4扇")&&(_=2),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("3轨6扇")&&(_=2)
               }
               catch(_0x1938ef){
               }
               try{
-                _0x1d0204=_0x342a31["挖孔图"].formulaID+"右",_0xae1cd3["扇数"]!="/login"||_0xae1cd3["开向"]["折叠5扇"]("右")?_0x51ee96=await getImage(_0x1d0204)||"":(_0x1d0204="",_0x51ee96=""),_0x51ee96&&_0xae1cd3["开向"].includes("右")&&(l=1),_0x51ee96&&(_0xae1cd3["扇数"]["折叠5扇"]("欧莱富移门")||_0xae1cd3["扇数"]["折叠5扇"]("双活")||_0xae1cd3["扇数"]["折叠5扇"]("2轨2扇")||_0xae1cd3["扇数"]["折叠5扇"]("koubanPreviewContainer")||_0xae1cd3["扇数"].includes("readAsDataURL")||_0xae1cd3["扇数"]["折叠5扇"]("❌ 社交分享插件和Web Share API都不可用，使用下载备用方案")||_0xae1cd3["扇数"].includes("type")||_0xae1cd3["扇数"].includes("客户1"))&&(l=1),_0x51ee96&&_0xae1cd3["扇数"]["折叠5扇"]("门扇宽")&&(l=2),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"]("3轨6扇")&&(l=2)
+                _0x1d0204=_0x342a31["挖孔图"].formulaID+"右",_0xae1cd3["扇数"]!="一固一活"||_0xae1cd3["开向"]["includes"]("右")?_0x51ee96=await getImage(_0x1d0204)||"":(_0x1d0204="",_0x51ee96=""),_0x51ee96&&_0xae1cd3["开向"].includes("右")&&(l=1),_0x51ee96&&(_0xae1cd3["扇数"]["includes"]("单轨2扇")||_0xae1cd3["扇数"]["includes"]("双活")||_0xae1cd3["扇数"]["includes"]("2轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨3扇")||_0xae1cd3["扇数"].includes("3轨3扇")||_0xae1cd3["扇数"]["includes"]("4轨4扇")||_0xae1cd3["扇数"].includes("5轨5扇")||_0xae1cd3["扇数"].includes("3轨4扇"))&&(l=1),_0x51ee96&&_0xae1cd3["扇数"]["includes"]("2轨4扇")&&(l=2),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("3轨6扇")&&(l=2)
               }
               catch(_0x3babaa){
               }
@@ -10374,70 +10374,70 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             let o=0;
             if(t){
               const[a,x]=t;
-              o=a["折叠5扇"]("单玻")?x["style"]*_0xae1cd3["数量"]-_-l:x["style"]/2*_0xae1cd3["数量"]-_-l,o>0&&(e.width=x["门玻璃高"],e.quantity=a.includes("单玻")?x["style"]*_0xae1cd3["数量"]-_-l:x["style"]/2*_0xae1cd3["数量"]-_-l)
+              o=a["includes"]("单玻")?x["quantity"]*_0xae1cd3["数量"]-_-l:x["quantity"]/2*_0xae1cd3["数量"]-_-l,o>0&&(e.width=x["result"],e.quantity=a.includes("单玻")?x["quantity"]*_0xae1cd3["数量"]-_-l:x["quantity"]/2*_0xae1cd3["数量"]-_-l)
             }
             if(x&&o>0){
               const[t,a]=x;
-              e.height=a["门玻璃高"]
+              e.height=a["result"]
             }
-            o>0&&(e.glassName="鑫瑞门业"+_0xae1cd3["底玻"],e["Dao"]=_0xae1cd3["Cao"],e.OrderID=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),_0x85408["12px"](e));
+            o>0&&(e.glassName="底玻-"+_0xae1cd3["底玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e.OrderID=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),_0x85408["push"](e));
             let c=0;
             if(a){
               const[e,t]=a;
-              if(c=e["折叠5扇"]("单玻")?t["style"]*_0xae1cd3["数量"]-_-l:t.quantity/2*_0xae1cd3["数量"]-_-l,c>0){
+              if(c=e["includes"]("单玻")?t["quantity"]*_0xae1cd3["数量"]-_-l:t.quantity/2*_0xae1cd3["数量"]-_-l,c>0){
                 let e={
                   OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-                };if(e["prototype"]=_0xae1cd3["客户"],e["localeCompare"]=t["门玻璃高"],e["style"]=c,x){
+                };if(e["client"]=_0xae1cd3["客户"],e["width"]=t["result"],e["quantity"]=c,x){
                   const[t,a]=x;
-                  e.height=a["门玻璃高"]
+                  e.height=a["result"]
                 }
-                e["已取消删除"]="鑫瑞门业"+_0xae1cd3["底玻"],e["Dao"]=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),_0x85408.push(e)
+                e["glassName"]="底玻-"+_0xae1cd3["底玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean).join("<br>"),_0x85408.push(e)
               }
             }
             if(_>0){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-              };if(e["prototype"]=_0xae1cd3["客户"],t){
+              };if(e["client"]=_0xae1cd3["客户"],t){
                 const[a,x]=t;
-                e["localeCompare"]=x.result,e["style"]=_
+                e["width"]=x.result,e["quantity"]=_
               }
               if(x){
                 const[t,a]=x;
-                e["Wai"]=a.result
+                e["height"]=a.result
               }
-              e["focus"]=_0x2e5408,e.glassName="鑫瑞门业"+_0xae1cd3["底玻"],e.thickness=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),_0x85408["12px"](e)
+              e["doorImg"]=_0x2e5408,e.glassName="底玻-"+_0xae1cd3["底玻"],e.thickness=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),_0x85408["push"](e)
             }
             if(l>0){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-              };if(e["prototype"]=_0xae1cd3["客户"],t){
+              };if(e["client"]=_0xae1cd3["客户"],t){
                 const[a,x]=t;
-                e["localeCompare"]=x["门玻璃高"],e["style"]=l
+                e["width"]=x["result"],e["quantity"]=l
               }
               if(x){
                 const[t,a]=x;
                 e.height=a.result
               }
-              e["focus"]=_0x51ee96,e["已取消删除"]="鑫瑞门业"+_0xae1cd3["底玻"],e["Dao"]=_0xae1cd3["玻璃厚"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),_0x85408["12px"](e)
+              e["doorImg"]=_0x51ee96,e["glassName"]="底玻-"+_0xae1cd3["底玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),_0x85408["push"](e)
             }
           }
           if(_0x2e5408="",_0xac0011="",_0x51ee96="",_0x1d0204="","无"!==(null==_0xae1cd3?void 0:_0xae1cd3["面玻"])){
             let e={
               OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-            };e["prototype"]=_0xae1cd3["客户"];
-            const t=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("玻璃宽")&&!e["折叠5扇"]("亮窗")&&!e["折叠5扇"]("固")&&!e["折叠5扇"]("createObjectURL"))),a=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("createObjectURL")&&!e.includes("亮窗")&&!e["折叠5扇"]("固"))),x=Object.entries(_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("玻璃高")&&!e["折叠5扇"]("亮窗")&&!e["折叠5扇"]("固")));
+            };e["client"]=_0xae1cd3["客户"];
+            const t=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗")&&!e["includes"]("固")&&!e["includes"]("玻璃宽小"))),a=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("玻璃宽小")&&!e.includes("亮窗")&&!e["includes"]("固"))),x=Object.entries(_0x13d99a)["find"]((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")&&!e["includes"]("固")));
             let _=null,l=null,o=null,c=null;
-            _0xae1cd3["扇数"]["折叠5扇"]("/login")&&(_=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("玻璃宽")&&!e["折叠5扇"]("亮窗")&&e["折叠5扇"]("右固玻璃"))),l=Object["860px"](_0x13d99a).find((([e])=>e["折叠5扇"]("registrant")&&!e["折叠5扇"]("亮窗")&&e["折叠5扇"](" 编辑标签 "))),o=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("回执单下载成功: ")&&!e["折叠5扇"]("亮窗")&&e["折叠5扇"]("一固一活门玻璃宽"))),c=Object.entries(_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("registrant")&&!e["折叠5扇"]("亮窗")&&e.includes("北京市丰台区"))));
+            _0xae1cd3["扇数"]["includes"]("一固一活")&&(_=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗")&&e["includes"]("一固一活固玻璃宽"))),l=Object["entries"](_0x13d99a).find((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")&&e["includes"]("一固一活固玻璃高"))),o=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("玻璃宽")&&!e["includes"]("亮窗")&&e["includes"]("一固一活门玻璃宽"))),c=Object.entries(_0x13d99a)["find"]((([e])=>e["includes"]("玻璃高")&&!e["includes"]("亮窗")&&e.includes("一固一活门玻璃高"))));
             let n=0,d=0;
-            if("挖孔图"in _0x342a31)if(a)ElementPlus.ElMessage["setItem"]("procedures_data");
+            if("挖孔图"in _0x342a31)if(a)ElementPlus.ElMessage["warning"]("带孔图不支持大小扇玻璃生成");
             else{
               try{
-                _0xac0011=_0x342a31["挖孔图"]["业务员:"]+"左",_0xae1cd3["扇数"]!="/login"||_0xae1cd3["开向"]["折叠5扇"]("左")?_0x2e5408=await getImage(_0xac0011)||"":(_0xac0011="",_0x2e5408=""),_0x2e5408&&_0xae1cd3["开向"]["折叠5扇"]("左")&&(n=1),_0x2e5408&&(_0xae1cd3["扇数"]["折叠5扇"]("双活")||_0xae1cd3["扇数"].includes("单轨2扇")||_0xae1cd3["扇数"]["折叠5扇"]("info")||_0xae1cd3["扇数"]["折叠5扇"]("koubanPreviewContainer")||_0xae1cd3["扇数"].includes("readAsDataURL")||_0xae1cd3["扇数"].includes("❌ 社交分享插件和Web Share API都不可用，使用下载备用方案")||_0xae1cd3["扇数"]["折叠5扇"]("type")||_0xae1cd3["扇数"]["折叠5扇"]("客户1"))&&(n=1),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"]("门扇宽")&&(n=2),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"](", 大小: ")&&(n=2)
+                _0xac0011=_0x342a31["挖孔图"]["formulaID"]+"左",_0xae1cd3["扇数"]!="一固一活"||_0xae1cd3["开向"]["includes"]("左")?_0x2e5408=await getImage(_0xac0011)||"":(_0xac0011="",_0x2e5408=""),_0x2e5408&&_0xae1cd3["开向"]["includes"]("左")&&(n=1),_0x2e5408&&(_0xae1cd3["扇数"]["includes"]("双活")||_0xae1cd3["扇数"].includes("单轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨3扇")||_0xae1cd3["扇数"].includes("3轨3扇")||_0xae1cd3["扇数"].includes("4轨4扇")||_0xae1cd3["扇数"]["includes"]("5轨5扇")||_0xae1cd3["扇数"]["includes"]("3轨4扇"))&&(n=1),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("2轨4扇")&&(n=2),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("3轨6扇")&&(n=2)
               }
               catch(_0x2d952d){
               }
               try{
-                _0x1d0204=_0x342a31["#666"]["业务员:"]+"右",_0xae1cd3["扇数"]!="/login"||_0xae1cd3["开向"]["折叠5扇"]("右")?_0x51ee96=await getImage(_0x1d0204)||"":(_0x1d0204="",_0x51ee96=""),_0x51ee96&&_0xae1cd3["开向"].includes("右")&&(d=1),_0x51ee96&&(_0xae1cd3["扇数"]["折叠5扇"]("双活")||_0xae1cd3["扇数"]["折叠5扇"]("欧莱富移门")||_0xae1cd3["扇数"]["折叠5扇"]("2轨2扇")||_0xae1cd3["扇数"]["折叠5扇"]("2轨3扇")||_0xae1cd3["扇数"].includes("readAsDataURL")||_0xae1cd3["扇数"]["折叠5扇"]("❌ 社交分享插件和Web Share API都不可用，使用下载备用方案")||_0xae1cd3["扇数"].includes("type")||_0xae1cd3["扇数"].includes("✅ 11. 系统分享调起成功")||_0xae1cd3["扇数"]["折叠5扇"]("客户1"))&&(d=1),_0x51ee96&&_0xae1cd3["扇数"]["折叠5扇"]("门扇宽")&&(d=2),_0x2e5408&&_0xae1cd3["扇数"]["折叠5扇"](", 大小: ")&&(d=2)
+                _0x1d0204=_0x342a31["挖孔图"]["formulaID"]+"右",_0xae1cd3["扇数"]!="一固一活"||_0xae1cd3["开向"]["includes"]("右")?_0x51ee96=await getImage(_0x1d0204)||"":(_0x1d0204="",_0x51ee96=""),_0x51ee96&&_0xae1cd3["开向"].includes("右")&&(d=1),_0x51ee96&&(_0xae1cd3["扇数"]["includes"]("双活")||_0xae1cd3["扇数"]["includes"]("单轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨2扇")||_0xae1cd3["扇数"]["includes"]("2轨3扇")||_0xae1cd3["扇数"].includes("3轨3扇")||_0xae1cd3["扇数"]["includes"]("4轨4扇")||_0xae1cd3["扇数"].includes("5轨5扇")||_0xae1cd3["扇数"].includes("6轨6扇")||_0xae1cd3["扇数"]["includes"]("3轨4扇"))&&(d=1),_0x51ee96&&_0xae1cd3["扇数"]["includes"]("2轨4扇")&&(d=2),_0x2e5408&&_0xae1cd3["扇数"]["includes"]("3轨6扇")&&(d=2)
               }
               catch(_0x12ee2e){
               }
@@ -10445,31 +10445,31 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             let r=0;
             if(t){
               const[a,x]=t;
-              r=a["折叠5扇"]("单玻")?x["style"]*_0xae1cd3["数量"]-n-d:x["style"]/2*_0xae1cd3["数量"]-n-d,r>0&&(e["localeCompare"]=x.result,e.quantity=a["折叠5扇"]("单玻")?x["style"]*_0xae1cd3["数量"]-n-d:x["style"]/2*_0xae1cd3["数量"]-n-d)
+              r=a["includes"]("单玻")?x["quantity"]*_0xae1cd3["数量"]-n-d:x["quantity"]/2*_0xae1cd3["数量"]-n-d,r>0&&(e["width"]=x.result,e.quantity=a["includes"]("单玻")?x["quantity"]*_0xae1cd3["数量"]-n-d:x["quantity"]/2*_0xae1cd3["数量"]-n-d)
             }
             if(x&&r>0){
               const[t,a]=x;
-              e["Wai"]=a["门玻璃高"]
+              e["height"]=a["result"]
             }
             let s=0;
-            _0xae1cd3["扇数"]=="/login"&&(_0xae1cd3["开向"].includes("左")&&(r=0,n=1,d=0,s=1),_0xae1cd3["开向"]["折叠5扇"]("右")&&(r=0,n=0,d=1,s=1)),r>0&&(e.glassName="回执单号"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),_0x85408["12px"](e));
+            _0xae1cd3["扇数"]=="一固一活"&&(_0xae1cd3["开向"].includes("左")&&(r=0,n=1,d=0,s=1),_0xae1cd3["开向"]["includes"]("右")&&(r=0,n=0,d=1,s=1)),r>0&&(e.glassName="面玻-"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),_0x85408["push"](e));
             let u=0;
             if(a){
               const[e,t]=a;
-              if(u=e["折叠5扇"]("单玻")?t.quantity*_0xae1cd3["数量"]-n-d:t["style"]/2*_0xae1cd3["数量"]-n-d,u>0){
+              if(u=e["includes"]("单玻")?t.quantity*_0xae1cd3["数量"]-n-d:t["quantity"]/2*_0xae1cd3["数量"]-n-d,u>0){
                 let e={
                   OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-                };if(e["prototype"]=_0xae1cd3["客户"],e["localeCompare"]=t["门玻璃高"],e["style"]=u,x){
+                };if(e["client"]=_0xae1cd3["客户"],e["width"]=t["result"],e["quantity"]=u,x){
                   const[t,a]=x;
-                  e["Wai"]=a["门玻璃高"]
+                  e["height"]=a["result"]
                 }
-                e["已取消删除"]="回执单号"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["玻璃厚"],e.OrderID=_0xae1cd3["单号"]||"",e["日期: "]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),_0x85408["12px"](e)
+                e["glassName"]="面玻-"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["玻璃厚"],e.OrderID=_0xae1cd3["单号"]||"",e["remark"]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean).join("<br>"),_0x85408["push"](e)
               }
             }
             if(s>0){
-              if(e["已取消删除"]="openImg"+_0xae1cd3["面玻"],e["Dao"]=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e["日期: "]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]].filter(Boolean)["needsSecondPass"]("加价项目已存在！"),0==n&&_){
+              if(e["glassName"]="固玻-"+_0xae1cd3["面玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e["remark"]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]].filter(Boolean)["join"]("<br>"),0==n&&_){
                 const[t,a]=_;
-                e["localeCompare"]=a["门玻璃高"],e["style"]=1
+                e["width"]=a["result"],e["quantity"]=1
               }
               if(0==n&&l){
                 const[t,a]=l;
@@ -10477,116 +10477,116 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
               if(0==d&&_){
                 const[t,a]=_;
-                e["localeCompare"]=a["门玻璃高"],e.quantity=1
+                e["width"]=a["result"],e.quantity=1
               }
               if(0==d&&l){
                 const[t,a]=l;
-                e["Wai"]=a["门玻璃高"]
+                e["height"]=a["result"]
               }
-              _0x85408["12px"](e)
+              _0x85408["push"](e)
             }
             if(n>0){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
               };if(e.client=_0xae1cd3["客户"],t){
                 const[a,x]=t;
-                e.width=x.result,e["style"]=n
+                e.width=x.result,e["quantity"]=n
               }
               if(x){
                 const[t,a]=x;
-                e["Wai"]=a["门玻璃高"]
+                e["height"]=a["result"]
               }
               if(o){
                 const[t,a]=o;
-                e.width=a.result,e["style"]=1
+                e.width=a.result,e["quantity"]=1
               }
               if(c){
                 const[t,a]=c;
-                e.height=a["门玻璃高"]
+                e.height=a["result"]
               }
-              e["focus"]=_0x2e5408,_0xae1cd3["扇数"]["折叠5扇"]("一固一活")?e["已取消删除"]="备注:"+_0xae1cd3["面玻"]:e["已取消删除"]="回执单号"+_0xae1cd3["面玻"],e["Dao"]=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),_0x85408["12px"](e)
+              e["doorImg"]=_0x2e5408,_0xae1cd3["扇数"]["includes"]("一固一活")?e["glassName"]="门玻-"+_0xae1cd3["面玻"]:e["glassName"]="面玻-"+_0xae1cd3["面玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e.remark=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean).join("<br>"),_0x85408["push"](e)
             }
             if(d>0){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-              };if(e["prototype"]=_0xae1cd3["客户"],t){
+              };if(e["client"]=_0xae1cd3["客户"],t){
                 const[a,x]=t;
-                e.width=x["门玻璃高"],e["style"]=d
+                e.width=x["result"],e["quantity"]=d
               }
               if(x){
                 const[t,a]=x;
-                e["Wai"]=a["门玻璃高"]
+                e["height"]=a["result"]
               }
               if(o){
                 const[t,a]=o;
-                e.width=a["门玻璃高"],e["style"]=1
+                e.width=a["result"],e["quantity"]=1
               }
               if(c){
                 const[t,a]=c;
-                e.height=a["门玻璃高"]
+                e.height=a["result"]
               }
-              e["focus"]=_0x51ee96,_0xae1cd3["扇数"]["折叠5扇"]("/login")?e["已取消删除"]="备注:"+_0xae1cd3["面玻"]:e["已取消删除"]="回执单号"+_0xae1cd3["面玻"],e["Dao"]=_0xae1cd3["Cao"],e["<br/>轨道长:"]=_0xae1cd3["单号"]||"",e["日期: "]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]].filter(Boolean)["needsSecondPass"]("加价项目已存在！"),_0x85408["12px"](e)
+              e["doorImg"]=_0x51ee96,_0xae1cd3["扇数"]["includes"]("一固一活")?e["glassName"]="门玻-"+_0xae1cd3["面玻"]:e["glassName"]="面玻-"+_0xae1cd3["面玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e["OrderID"]=_0xae1cd3["单号"]||"",e["remark"]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]].filter(Boolean)["join"]("<br>"),_0x85408["push"](e)
             }
           }
-          if(_0xae1cd3["双开内右"]&&0!==_0xae1cd3["双开内右"]){
-            if("无"!==(null==_0xae1cd3?void 0:_0xae1cd3["底玻"])&&!_0xae1cd3["扇数"]["折叠5扇"]("活")){
+          if(_0xae1cd3["亮窗总高"]&&0!==_0xae1cd3["亮窗总高"]){
+            if("无"!==(null==_0xae1cd3?void 0:_0xae1cd3["底玻"])&&!_0xae1cd3["扇数"]["includes"]("活")){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-              };e["prototype"]=_0xae1cd3["客户"];
-              const t=Object["860px"](_0x13d99a)["formulaID"]((([e])=>e["折叠5扇"]("自助下单"))),a=Object["860px"](_0x13d99a).find((([e])=>e.includes("assistiveFullscreen")));
+              };e["client"]=_0xae1cd3["客户"];
+              const t=Object["entries"](_0x13d99a)["find"]((([e])=>e["includes"]("亮窗玻璃宽"))),a=Object["entries"](_0x13d99a).find((([e])=>e.includes("亮窗玻璃高")));
               if(t){
                 const[a,x]=t;
-                e.width=x["门玻璃高"],e["style"]=x["style"]/2*_0xae1cd3["数量"]
+                e.width=x["result"],e["quantity"]=x["quantity"]/2*_0xae1cd3["数量"]
               }
               if(a){
                 const[t,x]=a;
-                e.height=x["门玻璃高"]
+                e.height=x["result"]
               }
-              e["已取消删除"]="forEach"+_0xae1cd3["底玻"],e["Dao"]=_0xae1cd3["Cao"],e.OrderID=_0xae1cd3["单号"]||"",e["日期: "]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),e["focus"]="",_0x85408["12px"](e)
+              e["glassName"]="亮窗底玻-"+_0xae1cd3["底玻"],e["thickness"]=_0xae1cd3["玻璃厚"],e.OrderID=_0xae1cd3["单号"]||"",e["remark"]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),e["doorImg"]="",_0x85408["push"](e)
             }
             if("无"!==(null==_0xae1cd3?void 0:_0xae1cd3["面玻"])){
               let e={
                 OrderID:"",client:"",glassName:"",width:0,height:0,thickness:0,quantity:0,doorImg:"",remark:""
-              };e["prototype"]=_0xae1cd3["客户"];
-              const t=Object["860px"](_0x13d99a).find((([e])=>e["折叠5扇"]("自助下单"))),a=Object.entries(_0x13d99a)["formulaID"]((([e])=>e.includes("assistiveFullscreen")));
+              };e["client"]=_0xae1cd3["客户"];
+              const t=Object["entries"](_0x13d99a).find((([e])=>e["includes"]("亮窗玻璃宽"))),a=Object.entries(_0x13d99a)["find"]((([e])=>e.includes("亮窗玻璃高")));
               if(t){
                 const[a,x]=t;
-                e["localeCompare"]=x["门玻璃高"];
-                let _=x["style"]/2*_0xae1cd3["数量"];
-                _<1&&(_=1),e["style"]=_
+                e["width"]=x["result"];
+                let _=x["quantity"]/2*_0xae1cd3["数量"];
+                _<1&&(_=1),e["quantity"]=_
               }
               if(a){
                 const[t,x]=a;
-                e["Wai"]=x["门玻璃高"]
+                e["height"]=x["result"]
               }
-              _0xae1cd3["扇数"]["折叠5扇"]("活")?e["已取消删除"]="亮窗玻璃-"+_0xae1cd3["面玻"]:e["已取消删除"]="title"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["Cao"],e.OrderID=_0xae1cd3["单号"]||"",e["日期: "]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),e["focus"]="",_0x85408["12px"](e)
+              _0xae1cd3["扇数"]["includes"]("活")?e["glassName"]="亮窗玻璃-"+_0xae1cd3["面玻"]:e["glassName"]="亮窗面璃-"+_0xae1cd3["面玻"],e.thickness=_0xae1cd3["玻璃厚"],e.OrderID=_0xae1cd3["单号"]||"",e["remark"]=_0xa370fc?"":[_0xae1cd3["备注"],_0xae1cd3["安装地址"]]["filter"](Boolean)["join"]("<br>"),e["doorImg"]="",_0x85408["push"](e)
             }
           }
         }
-        _0x85408=_0x85408["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>0!==Number(e["Dao"])));
-        const _0x595a1d=localStorage.getItem("filter")||"❌ 浏览器不支持剪贴板API";
-        _0x595a1d==="一固一活固玻璃高"&&_0x85408["100%"](((e,t)=>{
+        _0x85408=_0x85408["filter"]((e=>0!==Number(e["thickness"])));
+        const _0x595a1d=localStorage.getItem("smartdoor_sort_method")||"profile";
+        _0x595a1d==="order"&&_0x85408["sort"](((e,t)=>{
           const a=_0x46841d;
           return(parseInt(e.OrderID[a(363)]("-")[0])||0)-(parseInt(t.OrderID[a(363)]("-")[0])||0)
         })),_0x164736={
           date:_0x44ed1d(new Date),glassInfoList:_0x85408
         };const _0x4fdb6f=_0x164736,_0x187243=new Set;
-        _0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]&&Array["PDF导出成功"](_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""])&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["✅ 图片已下载，请手动分享"]((e=>{
+        _0x5b10d7["value"]["ping_hui"]&&Array["isArray"](_0x5b10d7["value"]["ping_hui"])&&_0x5b10d7["value"]["ping_hui"]["forEach"]((e=>{
           const t=_0x46841d;
           e&&e[t(580)]&&_0x187243[t(232)](e[t(580)])
-        })),_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]&&Array["PDF导出成功"](_0x5b10d7["el-popover"]["assistive-fullscreen-changed"])&&_0x5b10d7.value["assistive-fullscreen-changed"]["✅ 图片已下载，请手动分享"]((e=>{
+        })),_0x5b10d7["value"]["diao_hui"]&&Array["isArray"](_0x5b10d7["value"]["diao_hui"])&&_0x5b10d7.value["diao_hui"]["forEach"]((e=>{
           const t=_0x46841d;
           e&&e[t(580)]&&_0x187243[t(232)](e[t(580)])
         }));
         const _0x125da0=Array.from(_0x187243);
-        if(_0x18c875["el-popover"]=_0x125da0,_0x29dab2["el-popover"]=_0x85408,_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca["xlsx"]).length>0)return _0x164736;
+        if(_0x18c875["value"]=_0x125da0,_0x29dab2["value"]=_0x85408,_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca["receiptData1"]).length>0)return _0x164736;
         const _0x1982b4=await getUserData();
-        if(!_0x1982b4)return void ElementPlus.ElMessage["font"]("无法获取用户数据");
-        const _0x5855ec=null==(_f=null==(_e=null==_0x1982b4?void 0:_0x1982b4["4. Blob验证通过，类型: "])?void 0:_e["尺寸:"])?void 0:_f["M 0,0 L "],_0x3baae8=_0x20029b["折叠4扇"](_0x5855ec,_0x4fdb6f);
-        _0x3c8618.value=_0x3baae8[0]["导出为WPS PDF"],await Vue.nextTick(),_0xe9dd07["el-popover"]=_0x485486["el-popover"]?_0x485486["el-popover"]["本地打印..."]:0,_0x2911f9["el-popover"]=!0
+        if(!_0x1982b4)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x5855ec=null==(_f=null==(_e=null==_0x1982b4?void 0:_0x1982b4["registrant"])?void 0:_e["template"])?void 0:_f["glassHole"],_0x3baae8=_0x20029b["commentPreview"](_0x5855ec,_0x4fdb6f);
+        _0x3c8618.value=_0x3baae8[0]["outerHTML"],await Vue.nextTick(),_0xe9dd07["value"]=_0x485486["value"]?_0x485486["value"]["scrollWidth"]:0,_0x2911f9["value"]=!0
       }
       catch(_0x214602){
-        ElementPlus.ElMessage["font"]("Zuo")
+        ElementPlus.ElMessage["error"]("计算失败，请重试")
       }
       finally{
         _0x3fc4ad.close()
@@ -10594,51 +10594,51 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
     },_0x4f7790=async()=>{
       var _a,_b,_c,_d,_e,_f;
       const _0x59f9e4=_0x43b0d8;
-      _0x85a3a["el-popover"]=1,_0x107c5d["el-popover"]=!1;
-      const _0xd69f20=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"加载中...",background:"base64转换失败"
+      _0x85a3a["value"]=1,_0x107c5d["value"]=!1;
+      const _0xd69f20=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
       try{
-        const _0x23d729=[...(null==(_a=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"])?void 0:_a["validate"]((e=>e.formulaid)))||[],...(null==(_b=_0x5b10d7.value.ping_hui)?void 0:_b["validate"]((e=>e["F槽宽"])))||[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x5cd4bc=[...new Set(_0x23d729)],_0x44bad5=[...(null==(_c=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"])?void 0:_c["validate"]((e=>e.id)))||[],...(null==(_d=_0x5b10d7.value.ping_hui)?void 0:_d["validate"]((e=>e.id)))||[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x4fa870=[...new Set(_0x44bad5)],_0x2b3437={
+        const _0x23d729=[...(null==(_a=_0x5b10d7["value"]["diao_hui"])?void 0:_a["map"]((e=>e.formulaid)))||[],...(null==(_b=_0x5b10d7.value.ping_hui)?void 0:_b["map"]((e=>e["formulaid"])))||[]]["filter"](Boolean),_0x5cd4bc=[...new Set(_0x23d729)],_0x44bad5=[...(null==(_c=_0x5b10d7["value"]["diao_hui"])?void 0:_c["map"]((e=>e.id)))||[],...(null==(_d=_0x5b10d7.value.ping_hui)?void 0:_d["map"]((e=>e.id)))||[]]["filter"](Boolean),_0x4fa870=[...new Set(_0x44bad5)],_0x2b3437={
           formula:_0x5cd4bc,id:_0x4fa870
-        };if(!_0x23d729["glassInfoList"])return void ElementPlus.ElMessage.warning("clearTable");
+        };if(!_0x23d729["length"])return void ElementPlus.ElMessage.warning("没有找到移门型材数据");
         const _0x52b73f=await getUserData();
-        if(!_0x52b73f)return void ElementPlus.ElMessage["font"]("无法获取用户数据");
-        const _0x4caa42=_0x52b73f["hui_picture"]["4. Blob验证通过，类型: "],_0x43720b=_0x52b73f["hui_picture"].ds,_0x1c181d=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x4caa42+"writeBuffer"+_0x43720b,{
-          method:"300px",headers:{
-            "Content-Type":"product2"
+        if(!_0x52b73f)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x4caa42=_0x52b73f["userinfo"]["registrant"],_0x43720b=_0x52b73f["userinfo"].ds,_0x1c181d=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x4caa42+"&param3="+_0x43720b,{
+          method:"POST",headers:{
+            "Content-Type":"application/json"
           },body:JSON.stringify(_0x2b3437)
-        }),_0x3c63af=await _0x1c181d["savedAt"]();
-        if(200!==_0x3c63af["格亮窗"])return void ElementPlus.ElMessage["font"](_0x3c63af["-底:"]||"hui-container");
-        ElementPlus.ElMessage["error"]("获取公式成功");
-        const _0x1c75c1=_0x3c63af.data["&param3="],_0x49c003=_0x3c63af.data.orderNumbers;
-        Object["导入上次订单"](_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>delete _0x4d19f5[e]));
+        }),_0x3c63af=await _0x1c181d["json"]();
+        if(200!==_0x3c63af["code"])return void ElementPlus.ElMessage["error"](_0x3c63af["message"]||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x1c75c1=_0x3c63af.data["formulas"],_0x49c003=_0x3c63af.data.orderNumbers;
+        Object["keys"](_0x4d19f5)["forEach"]((e=>delete _0x4d19f5[e]));
         for(let _0x4c1bbd=0;
-        _0x4c1bbd<_0x5b10d7["el-popover"].ping_hui["glassInfoList"];
+        _0x4c1bbd<_0x5b10d7["value"].ping_hui["length"];
         _0x4c1bbd++){
-          const _0x2f4e51=_0x5b10d7["el-popover"].ping_hui[_0x4c1bbd],_0x29e662=_0x2f4e51["F槽宽"],_0x1338e5=_0x1c75c1[_0x29e662],_0x1d39cf=JSON["values"](JSON["Hui"](_0x1338e5.formulaType));
+          const _0x2f4e51=_0x5b10d7["value"].ping_hui[_0x4c1bbd],_0x29e662=_0x2f4e51["formulaid"],_0x1338e5=_0x1c75c1[_0x29e662],_0x1d39cf=JSON["parse"](JSON["stringify"](_0x1338e5.formulaType));
           if(!_0x1338e5)continue;
           _0x2f4e51.id&&_0x49c003[_0x2f4e51.id]&&(_0x2f4e51["单号"]=_0x49c003[_0x2f4e51.id]);
-          const _0x4128ff=JSON["values"](JSON.stringify(_0x1338e5["3轨6扇"])),_0x556241="洞尺"===_0x2f4e51["洞尺"]?null==_0x1338e5?void 0:_0x1338e5["6LdJTqf"]:void 0,_0x399fcc=Number(_0x2f4e51["边封数"])||0,_0x3d9067=null==_0x1338e5?void 0:_0x1338e5["charCodeAt"];
+          const _0x4128ff=JSON["parse"](JSON.stringify(_0x1338e5["diao"])),_0x556241="洞尺"===_0x2f4e51["洞尺"]?null==_0x1338e5?void 0:_0x1338e5["resetSize"]:void 0,_0x399fcc=Number(_0x2f4e51["边封数"])||0,_0x3d9067=null==_0x1338e5?void 0:_0x1338e5["swingWall"];
           let _0x48ea53=0,_0x4b54cc=0;
-          _0x3d9067&&null!=_0x2f4e51["saved_password"]&&2!==_0x399fcc&&(1===_0x399fcc&&(_0x48ea53=Number(_0x3d9067["canShare"])||0),4===_0x399fcc?(_0x48ea53=Number(_0x3d9067["canShare"])||0,_0x4b54cc=Number(_0x3d9067["declaration"])||0):0===_0x399fcc?_0x48ea53=Number(_0x3d9067["doorframe"])||0:5===_0x399fcc?(_0x48ea53=Number(_0x3d9067["doorframe"])||0,_0x4b54cc=Number(_0x3d9067["declaration"])||0):3===_0x399fcc&&(_0x4b54cc=Number(_0x3d9067["declaration"])||0));
-          const _0x329516="fixed"+(_0x4c1bbd+1),_0x3fa4ee=null==_0x1338e5?void 0:_0x1338e5.hinge;
+          _0x3d9067&&null!=_0x2f4e51["边封数"]&&2!==_0x399fcc&&(1===_0x399fcc&&(_0x48ea53=Number(_0x3d9067["SingleWall"])||0),4===_0x399fcc?(_0x48ea53=Number(_0x3d9067["SingleWall"])||0,_0x4b54cc=Number(_0x3d9067["UpWall"])||0):0===_0x399fcc?_0x48ea53=Number(_0x3d9067["DoubleWall"])||0:5===_0x399fcc?(_0x48ea53=Number(_0x3d9067["DoubleWall"])||0,_0x4b54cc=Number(_0x3d9067["UpWall"])||0):3===_0x399fcc&&(_0x4b54cc=Number(_0x3d9067["UpWall"])||0));
+          const _0x329516="ping"+(_0x4c1bbd+1),_0x3fa4ee=null==_0x1338e5?void 0:_0x1338e5.hinge;
           let _0x4d7a2c=0,_0x8b02b3=0;
-          if(_0x3fa4ee&&typeof _0x3fa4ee==="SingleWall"&&Object["导入上次订单"](_0x3fa4ee)["glassInfoList"]>0){
-            const t=String(_0x2f4e51["五金"]||""),a=t["折叠5扇"]("_")?t["确认修改"]("_"):t?[t]:[],x=a["validate"]((e=>e["打印成功"]())).filter((e=>e.includes("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox["粤诗丽门窗"]("showButton"+x.join("、")+'，将使用第一个"'+x[0]+"五金中检测到多个含\"合页\"的元素：","多个合页提示",{
-                confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+          if(_0x3fa4ee&&typeof _0x3fa4ee==="object"&&Object["keys"](_0x3fa4ee)["length"]>0){
+            const t=String(_0x2f4e51["五金"]||""),a=t["includes"]("_")?t["split"]("_"):t?[t]:[],x=a["map"]((e=>e["trim"]())).filter((e=>e.includes("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox["confirm"]("五金中检测到多个含\"合页\"的元素："+x.join("、")+'，将使用第一个"'+x[0]+"\"进行匹配计算，是否继续？","多个合页提示",{
+                confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
-              if(void 0!==_0x3fa4ee[t])_0x4d7a2c=-(Number(_0x3fa4ee[t]["加价项目-超墙厚"])||0),_0x8b02b3=-(Number(_0x3fa4ee[t]["光企减尺寸"])||0);
+              if(void 0!==_0x3fa4ee[t])_0x4d7a2c=-(Number(_0x3fa4ee[t]["上下方减尺"])||0),_0x8b02b3=-(Number(_0x3fa4ee[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox["粤诗丽门窗"]("润佳门窗"+t+'"在合页配置中未找到匹配，是否继续计算？'," 导出Excel ",{
+                await ElementPlus.ElMessageBox["confirm"]("五金中的\""+t+'"在合页配置中未找到匹配，是否继续计算？',"合页匹配失败",{
                   confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
@@ -10649,7 +10649,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           const _0x5a1484="无"===_0x2f4e51["底玻"]||"无"===_0x2f4e51["面玻"],_0x1b35b7="无"!==_0x2f4e51["底玻"]&&"无"!==_0x2f4e51["面玻"];
           if(_0x5a1484){
-            const e=Object["导入上次订单"](_0x4128ff);
+            const e=Object["keys"](_0x4128ff);
             e.forEach((t=>{
               const a=_0x59f9e4;
               if((t[a(566)](a(863))||t.includes(a(877)))&&!t.includes("单玻")){
@@ -10658,46 +10658,46 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x1b35b7&&Object.keys(_0x4128ff)["✅ 图片已下载，请手动分享"]((e=>{
+          _0x1b35b7&&Object.keys(_0x4128ff)["forEach"]((e=>{
             const t=_0x59f9e4;
             e[t(566)]("单玻")&&(_0x4128ff[e][t(523)]=!1),!e.includes("单玻")&&e[t(566)]("玻璃")&&(_0x4128ff[e].state=!0)
-          })),Object["导入上次订单"](_0x4128ff).forEach((e=>{
+          })),Object["keys"](_0x4128ff).forEach((e=>{
             const t=_0x59f9e4,a=_0x4128ff[e];
             e.includes("上下方")&&(a.v=(Number(a.v)||0)+_0x4d7a2c),e[t(566)](t(1152))&&!e[t(566)]("亮窗")&&(a.v=(Number(a.v)||0)+_0x8b02b3),e[t(566)](t(877))&&Number(_0x2f4e51["封板高"])>0&&!e.includes("亮窗")&&(a.v=Number(_0x2f4e51[t(946)])+a.v);
             e.includes("玻璃宽")||e[t(566)]("玻璃高")||(_0x2f4e51["墙厚"]>0?a[t(523)]=!0:e[t(566)]("扣板")||e.includes("压线")?a[t(523)]=!1:a.state=!0)
           }));
-          const _0x2270c4=_0x2f4e51["折叠8扇"],_0x1a893e=_0x2f4e51["封边横"],_0x4efa22=_0x2f4e51["双开内右"]||0,_0x13e8d2=_0x556241&&Number(_0x556241["localeCompare"])||0,_0x4cf1cf=_0x556241&&Number(_0x556241.height)||0;
+          const _0x2270c4=_0x2f4e51["门洞宽"],_0x1a893e=_0x2f4e51["门洞高"],_0x4efa22=_0x2f4e51["亮窗总高"]||0,_0x13e8d2=_0x556241&&Number(_0x556241["width"])||0,_0x4cf1cf=_0x556241&&Number(_0x556241.height)||0;
           let _0x3225fb=_0x2270c4,_0x319205=_0x1a893e,_0x297a26=_0x4efa22;
           (0!==_0x13e8d2||0!==_0x4cf1cf)&&(_0x3225fb=_0x2270c4-_0x13e8d2,_0x4efa22>_0x1a893e?_0x297a26=_0x4efa22-_0x4cf1cf:_0x319205=_0x1a893e-_0x4cf1cf),0!==_0x48ea53&&(_0x3225fb-=_0x48ea53),0!==_0x4b54cc&&(_0x4efa22>_0x1a893e?_0x297a26-=_0x4b54cc:_0x319205-=_0x4b54cc);
           const _0x40889f={
-            h:_0x319205,w:_0x3225fb,h1:_0x297a26,j:_0x2f4e51["吊脚"]||0,t:_0x2f4e51["墙厚"]||0,s:_0x2f4e51["UpWall"]||0
-          };Object.keys(_0x4128ff)["✅ 图片已下载，请手动分享"]((_0x3d594c=>{
+            h:_0x319205,w:_0x3225fb,h1:_0x297a26,j:_0x2f4e51["吊脚"]||0,t:_0x2f4e51["墙厚"]||0,s:_0x2f4e51["轨道长"]||0
+          };Object.keys(_0x4128ff)["forEach"]((_0x3d594c=>{
             const _0x1064a4=_0x59f9e4,_0xaee728=_0x4128ff[_0x3d594c];
-            if(_0xaee728["kou"])try{
-              let _0x33fa5a=_0xaee728["toFixed"];
+            if(_0xaee728["state"])try{
+              let _0x33fa5a=_0xaee728["formula"];
               if(_0x33fa5a){
-                if(_0x33fa5a["60px"]("=")&&(_0x33fa5a=_0x33fa5a.substring(1)),_0x33fa5a["折叠5扇"]("请输入加价项目名称"))return void(_0xaee728["windows"]=!0);
+                if(_0x33fa5a["startsWith"]("=")&&(_0x33fa5a=_0x33fa5a.substring(1)),_0x33fa5a["includes"](".result"))return void(_0xaee728["needsSecondPass"]=!0);
                 let _0x429349=_0x33fa5a;
-                for(const[e,t]of Object.entries(_0x40889f))_0x429349=_0x429349["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object.entries(_0x40889f))_0x429349=_0x429349["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x54fc49=["v"];
                 for(const e of _0x54fc49)if(void 0!==_0xaee728[e]){
                   const t=_0xaee728[e],a=t<0?"("+t+")":t;
-                  _0x429349=_0x429349["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x429349=_0x429349["replace"](new RegExp(e,"g"),a)
                 }
                 const _0x266f69=eval(_0x429349),_0x1500c8=Math.round(_0x266f69);
-                _0x1500c8<0?(_0xaee728["kou"]=!1,_0xaee728["门玻璃高"]=0):_0xaee728["门玻璃高"]=_0x1500c8
+                _0x1500c8<0?(_0xaee728["state"]=!1,_0xaee728["result"]=0):_0xaee728["result"]=_0x1500c8
               }
             }
             catch(_0x415b37){
-              _0xaee728["门玻璃高"]="font"
+              _0xaee728["result"]="error"
             }
-          })),Object["导入上次订单"](_0x4128ff)["✅ 图片已下载，请手动分享"]((_0x4cd274=>{
+          })),Object["keys"](_0x4128ff)["forEach"]((_0x4cd274=>{
             const _0x37300d=_0x59f9e4,_0x16de08=_0x4128ff[_0x4cd274];
             if(_0x16de08.state&&_0x16de08.needsSecondPass)try{
-              let _0x3a3ab3=_0x16de08["toFixed"];
-              _0x3a3ab3["60px"]("=")&&(_0x3a3ab3=_0x3a3ab3["门框宽"](1));
+              let _0x3a3ab3=_0x16de08["formula"];
+              _0x3a3ab3["startsWith"]("=")&&(_0x3a3ab3=_0x3a3ab3["substring"](1));
               let _0x43fe06=_0x3a3ab3;
-              Object["导入上次订单"](_0x4128ff)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x4128ff)["forEach"]((e=>{
                 const t=_0x37300d,a=e+t(708);
                 if(_0x43fe06[t(566)](a)){
                   const e=a[t(363)](".")[0],x=Object[t(1124)](_0x4128ff)[t(990)]((([a,x])=>a[t(566)](e)&&!0===x.state));
@@ -10707,21 +10707,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x43fe06=_0x43fe06[t(964)](new RegExp(a,"g"),l.result)
                 }
               }));
-              for(const[e,t]of Object.entries(_0x40889f))_0x43fe06=_0x43fe06["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object.entries(_0x40889f))_0x43fe06=_0x43fe06["replace"](new RegExp(e,"g"),t);
               const _0x2c0a79=["v"];
               for(const e of _0x2c0a79)if(void 0!==_0x16de08[e]){
                 const t=_0x16de08[e],a=t<0?"("+t+")":t;
-                _0x43fe06=_0x43fe06["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x43fe06=_0x43fe06["replace"](new RegExp(e,"g"),a)
               }
-              const _0x4743e0=eval(_0x43fe06),_0x105b6b=Math["删除失败"](_0x4743e0);
-              _0x105b6b<0?(_0x16de08["kou"]=!1,_0x16de08["门玻璃高"]=0):_0x16de08["门玻璃高"]=_0x105b6b,delete _0x16de08["windows"]
+              const _0x4743e0=eval(_0x43fe06),_0x105b6b=Math["round"](_0x4743e0);
+              _0x105b6b<0?(_0x16de08["state"]=!1,_0x16de08["result"]=0):_0x16de08["result"]=_0x105b6b,delete _0x16de08["needsSecondPass"]
             }
             catch(_0xefd0e5){
-              _0x16de08["门玻璃高"]="font",_0x16de08["kou"]=!1
+              _0x16de08["result"]="error",_0x16de08["state"]=!1
             }
           }));
           const _0x58f027={
-          };Object["导入上次订单"](_0x4128ff)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x4128ff)["forEach"]((e=>{
             const t=_0x59f9e4,a=_0x4128ff[e];
             !0===a.state&&(_0x58f027[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a.quantity||0
@@ -10731,93 +10731,93 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             client:"",door:"",qrcode:"",OrderID:"",lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",remark:""
           },_0x413ea2=["玻璃","门扇"];
           let _0x1973d4=0;
-          const _0x406fda=_0x413ea2["dispatchEvent"](((e,t)=>{
+          const _0x406fda=_0x413ea2["reduce"](((e,t)=>{
             const a=_0x59f9e4;
             return[...e,...Object.entries(_0x58f027)[a(990)]((([e])=>e[a(566)](t)))[a(562)]((([e,t])=>{
               const x=a;
               return("无"!==(null==_0x2f4e51?void 0:_0x2f4e51["底玻"])||"无"===(null==_0x2f4e51?void 0:_0x2f4e51["面玻"])||e[x(566)]("单玻"))&&("无"!==(null==_0x2f4e51?void 0:_0x2f4e51["面玻"])||"无"===(null==_0x2f4e51?void 0:_0x2f4e51["底玻"])||e[x(566)]("单玻"))?(_0x1973d4=t[x(650)]*_0x2f4e51["数量"],"parentSubsidiary"===_0x1d39cf&&(_0x1973d4=4*_0x2f4e51["数量"])):(_0x1973d4=t[x(650)]/2*_0x2f4e51["数量"],_0x1d39cf===x(847)&&(_0x1973d4=2*_0x2f4e51["数量"])),_0x1d39cf==x(986)&&(_0x1973d4=3*_0x2f4e51["数量"]),t[x(578)]+":"+t.result
             }))]
           }),[]);
-          _0xcfde65["<br>面板:"]=_0x406fda["needsSecondPass"]("加价项目已存在！")+"上丁墙"+_0x1973d4;
+          _0xcfde65["doorsheet"]=_0x406fda["join"]("<br>")+"<br>数量:"+_0x1973d4;
           let _0x4ca785="";
-          if(_0x2f4e51["开向"]&&_0x23e965["el-popover"]&&_0x23e965["el-popover"].directionImageMap){
+          if(_0x2f4e51["开向"]&&_0x23e965["value"]&&_0x23e965["value"].directionImageMap){
             const e=getOriginalOpenDirection(_0x2f4e51["开向"]);
-            _0x4ca785=_0x23e965.value["名甸门业"][""+e]||""
+            _0x4ca785=_0x23e965.value["directionImageMap"][""+e]||""
           }
-          if(_0xcfde65.lockImg=_0x4ca785,_0xcfde65["orderNumbers"]=[_0x2f4e51["型材"],_0x2f4e51["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),_0xcfde65.OrderID=_0x2f4e51["单号"]||"",_0xcfde65.qrcode=_0x2f4e51["单号"]||"",_0x2f4e51["图片ID"])try{
-            const e=await getImage(_0x2f4e51["token_expires_at"]);
-            e&&(_0xcfde65["focus"]=e)
+          if(_0xcfde65.lockImg=_0x4ca785,_0xcfde65["door"]=[_0x2f4e51["型材"],_0x2f4e51["颜色"]]["filter"](Boolean)["join"]("<br>"),_0xcfde65.OrderID=_0x2f4e51["单号"]||"",_0xcfde65.qrcode=_0x2f4e51["单号"]||"",_0x2f4e51["图片ID"])try{
+            const e=await getImage(_0x2f4e51["图片ID"]);
+            e&&(_0xcfde65["doorImg"]=e)
           }
           catch(_0x16ddaf){
           }
-          const _0x5a03ed=_0x2f4e51["圣诺派门业"]&&"正常"!==_0x2f4e51["圣诺派门业"]?_0x2f4e51["单双丁"]:null;
-          if(_0xcfde65["日期: "]=[_0x2f4e51["五金"]?_0x2f4e51["五金"]:null,_0x5a03ed,_0x2f4e51["备注"],_0x2f4e51["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),'""'!==_0x2f4e51["加价项目"]&&_0x2f4e51["加价项目"]!=="outerHTML"&&_0x2f4e51["加价项目"])try{
-            let e=_0x2f4e51["height"],t=[];
-            if(typeof e==="image/png")try{
+          const _0x5a03ed=_0x2f4e51["单双丁"]&&"正常"!==_0x2f4e51["单双丁"]?_0x2f4e51["单双丁"]:null;
+          if(_0xcfde65["remark"]=[_0x2f4e51["五金"]?_0x2f4e51["五金"]:null,_0x5a03ed,_0x2f4e51["备注"],_0x2f4e51["安装地址"]]["filter"](Boolean)["join"]("<br>"),'""'!==_0x2f4e51["加价项目"]&&_0x2f4e51["加价项目"]!=="null"&&_0x2f4e51["加价项目"])try{
+            let e=_0x2f4e51["加价项目原始数据"],t=[];
+            if(typeof e==="string")try{
               let a=0;
               const x=4;
               let _=e;
               for(;
               "string"==typeof _&&a<x;
-              )a++,_=JSON["values"](_);
+              )a++,_=JSON["parse"](_);
               "string"==typeof _||(t=_)
             }
             catch(_0x144500){
             }
-            if(!Array["PDF导出成功"](t)&&(t="object"==typeof t?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e["el-form"])))).map((e=>e["el-form"]))["needsSecondPass"]("-");
+            if(!Array["isArray"](t)&&(t="object"==typeof t?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e["name"])))).map((e=>e["name"]))["join"]("-");
               if(e){
                 let t="加配："+e;
-                _0xcfde65["日期: "]?_0xcfde65["日期: "]+="加价项目已存在！"+t:_0xcfde65["日期: "]=t
+                _0xcfde65["remark"]?_0xcfde65["remark"]+="<br>"+t:_0xcfde65["remark"]=t
               }
             }
           }
           catch(_0x5d9856){
           }
           _0xc8b731(_0xcfde65,_0x1338e5);
-          const _0x1ce412=[],_0x3edb61=[_0x2f4e51["门洞高"],_0x2f4e51["折叠8扇"],_0x2f4e51["墙厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e&&0!==e));
-          if(_0x3edb61["glassInfoList"]>0&&_0x1ce412.push(_0x3edb61["needsSecondPass"]("*")),_0x2f4e51["双开内右"]&&0!==_0x2f4e51["双开内右"]){
-            let e="Bao"+_0x2f4e51["双开内右"];
-            _0x1d39cf==="云打印失败"&&(e="*"+_0x2f4e51["双开内右"]),_0x1ce412["12px"](e)
+          const _0x1ce412=[],_0x3edb61=[_0x2f4e51["门洞高"],_0x2f4e51["门洞宽"],_0x2f4e51["墙厚"]]["filter"]((e=>e&&0!==e));
+          if(_0x3edb61["length"]>0&&_0x1ce412.push(_0x3edb61["join"]("*")),_0x2f4e51["亮窗总高"]&&0!==_0x2f4e51["亮窗总高"]){
+            let e="亮窗高："+_0x2f4e51["亮窗总高"];
+            _0x1d39cf==="diamond"&&(e="*"+_0x2f4e51["亮窗总高"]),_0x1ce412["push"](e)
           }
           if(_0x2f4e51["吊脚"]&&0!==_0x2f4e51["吊脚"]){
-            let e="双开内开"+_0x2f4e51["吊脚"];
-            _0x1ce412["12px"](e)
+            let e="吊脚："+_0x2f4e51["吊脚"];
+            _0x1ce412["push"](e)
           }
-          null!=_0x2f4e51["洞尺"]&&""!==String(_0x2f4e51["洞尺"])["打印成功"]()&&_0x1ce412.unshift(""+_0x2f4e51["洞尺"]);
-          const _0x473683=[_0x2f4e51["面玻"],_0x2f4e51["底玻"],_0x2f4e51["玻璃厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-          _0x473683["glassInfoList"]>0&&("无"===_0x2f4e51["底玻"]&&"无"!=_0x2f4e51["面玻"]?_0x1ce412["12px"]("开门红试用号"+_0x2f4e51["面玻"]+"*"+_0x2f4e51["Cao"]+"mm"):"无"===_0x2f4e51["底玻"]&&"无"==_0x2f4e51["面玻"]?_0x1ce412.push("无"):_0x1ce412["12px"](_0x2f4e51["面玻"]+"+"+_0x2f4e51["底玻"]+"*"+_0x2f4e51["玻璃厚"]+"mm")),_0xcfde65["前框宽"]=_0x1ce412.join("<br>")+"<br>"+(_0x2f4e51["套线种类"]?_0x2f4e51["恒业门窗"]+_0x2f4e51["开向"]:_0x2f4e51["开向"]),_0xcfde65.client=_0x2f4e51["客户"]||"",_0x4d19f5[_0x329516]={
+          null!=_0x2f4e51["洞尺"]&&""!==String(_0x2f4e51["洞尺"])["trim"]()&&_0x1ce412.unshift(""+_0x2f4e51["洞尺"]);
+          const _0x473683=[_0x2f4e51["面玻"],_0x2f4e51["底玻"],_0x2f4e51["玻璃厚"]]["filter"](Boolean);
+          _0x473683["length"]>0&&("无"===_0x2f4e51["底玻"]&&"无"!=_0x2f4e51["面玻"]?_0x1ce412["push"]("单玻*"+_0x2f4e51["面玻"]+"*"+_0x2f4e51["玻璃厚"]+"mm"):"无"===_0x2f4e51["底玻"]&&"无"==_0x2f4e51["面玻"]?_0x1ce412.push("无"):_0x1ce412["push"](_0x2f4e51["面玻"]+"+"+_0x2f4e51["底玻"]+"*"+_0x2f4e51["玻璃厚"]+"mm")),_0xcfde65["basicInfo"]=_0x1ce412.join("<br>")+"<br>"+(_0x2f4e51["套线种类"]?_0x2f4e51["套线种类"]+_0x2f4e51["开向"]:_0x2f4e51["开向"]),_0xcfde65.client=_0x2f4e51["客户"]||"",_0x4d19f5[_0x329516]={
             orderInfo:_0x2f4e51,calculationResults:_0x58f027,produce:{
               timestamp:Date.now(),data:_0xcfde65
             }
           }
         }
         for(let _0x1b670a=0;
-        _0x1b670a<_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"];
+        _0x1b670a<_0x5b10d7["value"]["diao_hui"]["length"];
         _0x1b670a++){
-          const _0x206283=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"][_0x1b670a],_0x549a5f=_0x206283["F槽宽"],_0x5f2859=_0x1c75c1[_0x549a5f];
+          const _0x206283=_0x5b10d7["value"]["diao_hui"][_0x1b670a],_0x549a5f=_0x206283["formulaid"],_0x5f2859=_0x1c75c1[_0x549a5f];
           if(!_0x5f2859)continue;
           _0x206283.id&&_0x49c003[_0x206283.id]&&(_0x206283["单号"]=_0x49c003[_0x206283.id]);
-          const _0x2e92e0=JSON["values"](JSON.stringify(_0x5f2859["3轨6扇"])),_0x325cc2="洞尺"===_0x206283["洞尺"]?null==_0x5f2859?void 0:_0x5f2859.resetSize:void 0,_0x349a9e="单包洞尺"===_0x206283["洞尺"]||_0x206283["洞尺"]==="轨道种类"?null==_0x5f2859?void 0:_0x5f2859["commentPreviewContainer"]:void 0;
+          const _0x2e92e0=JSON["parse"](JSON.stringify(_0x5f2859["diao"])),_0x325cc2="洞尺"===_0x206283["洞尺"]?null==_0x5f2859?void 0:_0x5f2859.resetSize:void 0,_0x349a9e="单包洞尺"===_0x206283["洞尺"]||_0x206283["洞尺"]==="双包洞尺"?null==_0x5f2859?void 0:_0x5f2859["TaoDong"]:void 0;
           let _0x5a5a21;
-          _0x349a9e&&(_0x206283["洞尺"]==="isArray"&&_0x349a9e["下载回执单"]?_0x5a5a21=_0x349a9e["下载回执单"]:_0x206283["洞尺"]==="轨道种类"&&_0x349a9e.DubleDong&&(_0x5a5a21=_0x349a9e.DubleDong));
-          const _0x238249=null==_0x5f2859?void 0:_0x5f2859.widthIncrement,_0x14b3c6=_0x238249&&Number(_0x238249["一固一活固玻璃宽"])||0,_0x57a18f=_0x238249&&Number(_0x238249.TrackIncrement)||0,_0x5c8496=Number(_0x206283["saved_password"])||0,_0x40aaec=2!==_0x5c8496&&0!==_0x14b3c6?_0x14b3c6*(2-_0x5c8496):0,_0xb6071d=2!==_0x5c8496&&0!==_0x57a18f?_0x57a18f*(2-_0x5c8496):0,_0x4aa697="3轨6扇"+(_0x1b670a+1),_0x4abf46=_0x206283["扇数"];
+          _0x349a9e&&(_0x206283["洞尺"]==="单包洞尺"&&_0x349a9e["SingleDong"]?_0x5a5a21=_0x349a9e["SingleDong"]:_0x206283["洞尺"]==="双包洞尺"&&_0x349a9e.DubleDong&&(_0x5a5a21=_0x349a9e.DubleDong));
+          const _0x238249=null==_0x5f2859?void 0:_0x5f2859.widthIncrement,_0x14b3c6=_0x238249&&Number(_0x238249["SheetIncrement"])||0,_0x57a18f=_0x238249&&Number(_0x238249.TrackIncrement)||0,_0x5c8496=Number(_0x206283["边封数"])||0,_0x40aaec=2!==_0x5c8496&&0!==_0x14b3c6?_0x14b3c6*(2-_0x5c8496):0,_0xb6071d=2!==_0x5c8496&&0!==_0x57a18f?_0x57a18f*(2-_0x5c8496):0,_0x4aa697="diao"+(_0x1b670a+1),_0x4abf46=_0x206283["扇数"];
           if(!_0x4abf46)continue;
-          if(_0x4abf46.includes("活"))Object["导入上次订单"](_0x2e92e0)["✅ 图片已下载，请手动分享"]((e=>{
+          if(_0x4abf46.includes("活"))Object["keys"](_0x2e92e0)["forEach"]((e=>{
             const t=_0x59f9e4,a=_0x2e92e0[e];
             e.includes(_0x4abf46)&&e.includes(t(863))&&(a[t(523)]=!0),e.includes("玻璃高")&&a.track===_0x206283["轨道种类"]&&e[t(566)](_0x4abf46)&&(a[t(523)]=!0),_0x206283[t(335)]>0&&e.includes("玻璃")&&(a[t(523)]=!0)
           }));
           else{
-            const e=_0x206283["扇数"]+"玻璃",t=Object["导入上次订单"](_0x2e92e0)["后框高"]((t=>t["折叠5扇"](e)&&t.includes("单玻")));
+            const e=_0x206283["扇数"]+"玻璃",t=Object["keys"](_0x2e92e0)["some"]((t=>t["includes"](e)&&t.includes("单玻")));
             let a=0,x=0,_=0;
-            if((0!==_0x40aaec||0!==_0xb6071d)&&2!==Number(_0x206283["saved_password"])){
-              const e=_0x4abf46["13px"](/(\d+)扇/);
+            if((0!==_0x40aaec||0!==_0xb6071d)&&2!==Number(_0x206283["边封数"])){
+              const e=_0x4abf46["match"](/(\d+)扇/);
               if(e){
                 const t=Number(e[1]);
                 0!==_0x40aaec&&(x=_0x40aaec/t),0!==_0xb6071d&&(_=_0xb6071d)
               }
             }
-            Object["导入上次订单"](_0x2e92e0).forEach((_=>{
+            Object["keys"](_0x2e92e0).forEach((_=>{
               const l=_0x59f9e4,o=_0x2e92e0[_],c="无"===_0x206283["底玻"]||"无"===_0x206283["面玻"],n=!_0x4abf46[l(566)]("活")&&c;
               if(t&&!c&&_[l(566)](e)&&_[l(566)]("单玻"))o[l(523)]=!1;
               else if(n&&t&&_[l(566)](e))o[l(523)]=_.includes("单玻");
@@ -10827,41 +10827,41 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          const _0x3a8289=_0x206283["折叠8扇"],_0x11f56e=_0x206283["门洞高"],_0x282301=_0x206283["双开内右"]||0,_0x2fb783=_0x325cc2&&Number(_0x325cc2["localeCompare"])||0,_0x47e44e=_0x325cc2&&Number(_0x325cc2["Wai"])||0,_0x336c40=_0x5a5a21&&Number(_0x5a5a21["宽减"])||0,_0x471097=_0x5a5a21&&Number(_0x5a5a21["高减"])||0;
+          const _0x3a8289=_0x206283["门洞宽"],_0x11f56e=_0x206283["门洞高"],_0x282301=_0x206283["亮窗总高"]||0,_0x2fb783=_0x325cc2&&Number(_0x325cc2["width"])||0,_0x47e44e=_0x325cc2&&Number(_0x325cc2["height"])||0,_0x336c40=_0x5a5a21&&Number(_0x5a5a21["宽减"])||0,_0x471097=_0x5a5a21&&Number(_0x5a5a21["高减"])||0;
           let _0x34e303=_0x3a8289,_0x21a4bf=_0x11f56e,_0xd071b5=_0x282301;
           (0!==_0x2fb783||0!==_0x47e44e)&&(_0x34e303=_0x3a8289-_0x2fb783,_0x282301>_0x11f56e?_0xd071b5=_0x282301-_0x47e44e:_0x21a4bf=_0x11f56e-_0x47e44e),(0!==_0x336c40||0!==_0x471097)&&(_0x34e303-=_0x336c40,_0x282301>_0x11f56e?_0xd071b5-=_0x471097:_0x21a4bf-=_0x471097);
-          const _0x299a7b=null==_0x5f2859?void 0:_0x5f2859["charCodeAt"],_0x51b39e=String(_0x206283["圣诺派门业"]||"")["打印成功"]();
+          const _0x299a7b=null==_0x5f2859?void 0:_0x5f2859["swingWall"],_0x51b39e=String(_0x206283["单双丁"]||"")["trim"]();
           let _0x510c13=0,_0x17376a=0;
-          _0x299a7b&&_0x51b39e&&"正常"!==_0x51b39e&&("单丁墙"===_0x51b39e?_0x510c13=Number(_0x299a7b["canShare"])||0:_0x51b39e==="stringify"?_0x510c13=Number(_0x299a7b["doorframe"])||0:_0x51b39e==="\"进行匹配计算，是否继续？"?_0x17376a=Number(_0x299a7b.UpWall)||0:"上丁加单丁"===_0x51b39e?(_0x510c13=Number(_0x299a7b["canShare"])||0,_0x17376a=Number(_0x299a7b["declaration"])||0):_0x51b39e===" L "&&(_0x510c13=Number(_0x299a7b["doorframe"])||0,_0x17376a=Number(_0x299a7b["declaration"])||0)),0!==_0x17376a&&(_0x282301>_0x11f56e?_0xd071b5-=_0x17376a:_0x21a4bf-=_0x17376a),0!==_0x510c13&&(_0x34e303-=_0x510c13);
+          _0x299a7b&&_0x51b39e&&"正常"!==_0x51b39e&&("单丁墙"===_0x51b39e?_0x510c13=Number(_0x299a7b["SingleWall"])||0:_0x51b39e==="双丁墙"?_0x510c13=Number(_0x299a7b["DoubleWall"])||0:_0x51b39e==="上丁墙"?_0x17376a=Number(_0x299a7b.UpWall)||0:"上丁加单丁"===_0x51b39e?(_0x510c13=Number(_0x299a7b["SingleWall"])||0,_0x17376a=Number(_0x299a7b["UpWall"])||0):_0x51b39e==="上丁加双丁"&&(_0x510c13=Number(_0x299a7b["DoubleWall"])||0,_0x17376a=Number(_0x299a7b["UpWall"])||0)),0!==_0x17376a&&(_0x282301>_0x11f56e?_0xd071b5-=_0x17376a:_0x21a4bf-=_0x17376a),0!==_0x510c13&&(_0x34e303-=_0x510c13);
           const _0x5e005c={
             h:_0x21a4bf,w:_0x34e303,h1:_0xd071b5,t:_0x206283["墙厚"]||0
-          };Object["导入上次订单"](_0x2e92e0).forEach((_0x435623=>{
+          };Object["keys"](_0x2e92e0).forEach((_0x435623=>{
             const _0x51b913=_0x59f9e4,_0x558a32=_0x2e92e0[_0x435623];
-            if(_0x558a32["kou"])try{
+            if(_0x558a32["state"])try{
               let _0x5bab69=_0x558a32.formula;
               if(_0x5bab69){
-                if(_0x5bab69.startsWith("=")&&(_0x5bab69=_0x5bab69["门框宽"](1)),_0x5bab69["折叠5扇"]("请输入加价项目名称"))return void(_0x558a32.needsSecondPass=!0);
+                if(_0x5bab69.startsWith("=")&&(_0x5bab69=_0x5bab69["substring"](1)),_0x5bab69["includes"](".result"))return void(_0x558a32.needsSecondPass=!0);
                 let _0x17e91c=_0x5bab69;
-                for(const[e,t]of Object["860px"](_0x5e005c))_0x17e91c=_0x17e91c["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x5e005c))_0x17e91c=_0x17e91c["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x5efcc0=["v"];
                 for(const e of _0x5efcc0)if(void 0!==_0x558a32[e]){
                   const t=_0x558a32[e],a=t<0?"("+t+")":t;
                   _0x17e91c=_0x17e91c.replace(new RegExp(e,"g"),a)
                 }
-                const _0x31693e=eval(_0x17e91c),_0x593fca=Math["删除失败"](_0x31693e);
-                _0x593fca<0?(_0x558a32["kou"]=!1,_0x558a32.result=0):_0x558a32.result=_0x593fca
+                const _0x31693e=eval(_0x17e91c),_0x593fca=Math["round"](_0x31693e);
+                _0x593fca<0?(_0x558a32["state"]=!1,_0x558a32.result=0):_0x558a32.result=_0x593fca
               }
             }
             catch(_0x1ea480){
-              _0x558a32["门玻璃高"]="font"
+              _0x558a32["result"]="error"
             }
-          })),Object["导入上次订单"](_0x2e92e0)["✅ 图片已下载，请手动分享"]((_0x4b8431=>{
+          })),Object["keys"](_0x2e92e0)["forEach"]((_0x4b8431=>{
             const _0x47dfef=_0x59f9e4,_0x20e89d=_0x2e92e0[_0x4b8431];
-            if(_0x20e89d["kou"]&&_0x20e89d["windows"])try{
-              let _0x98fa84=_0x20e89d["toFixed"];
-              _0x98fa84["60px"]("=")&&(_0x98fa84=_0x98fa84["门框宽"](1));
+            if(_0x20e89d["state"]&&_0x20e89d["needsSecondPass"])try{
+              let _0x98fa84=_0x20e89d["formula"];
+              _0x98fa84["startsWith"]("=")&&(_0x98fa84=_0x98fa84["substring"](1));
               let _0x52324f=_0x98fa84;
-              Object["导入上次订单"](_0x2e92e0)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x2e92e0)["forEach"]((e=>{
                 const t=_0x47dfef,a=e+t(708);
                 if(_0x52324f[t(566)](a)){
                   const e=a[t(363)](".")[0],x=Object[t(1124)](_0x2e92e0).filter((([a,x])=>{
@@ -10874,21 +10874,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x52324f=_0x52324f[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x5e005c))_0x52324f=_0x52324f["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x5e005c))_0x52324f=_0x52324f["replace"](new RegExp(e,"g"),t);
               const _0x2a8639=["v"];
               for(const e of _0x2a8639)if(void 0!==_0x20e89d[e]){
                 const t=_0x20e89d[e],a=t<0?"("+t+")":t;
                 _0x52324f=_0x52324f.replace(new RegExp(e,"g"),a)
               }
-              const _0x1ae07a=eval(_0x52324f),_0x41d36f=Math["删除失败"](_0x1ae07a);
-              _0x41d36f<0?(_0x20e89d["kou"]=!1,_0x20e89d["门玻璃高"]=0):_0x20e89d.result=_0x41d36f,delete _0x20e89d.needsSecondPass
+              const _0x1ae07a=eval(_0x52324f),_0x41d36f=Math["round"](_0x1ae07a);
+              _0x41d36f<0?(_0x20e89d["state"]=!1,_0x20e89d["result"]=0):_0x20e89d.result=_0x41d36f,delete _0x20e89d.needsSecondPass
             }
             catch(_0x39ffd7){
-              _0x20e89d["门玻璃高"]="font",_0x20e89d.state=!1
+              _0x20e89d["result"]="error",_0x20e89d.state=!1
             }
           }));
           const _0x20ce72={
-          };Object["导入上次订单"](_0x2e92e0)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x2e92e0)["forEach"]((e=>{
             const t=_0x59f9e4,a=_0x2e92e0[e];
             !0===a[t(523)]&&(_0x20ce72[e]={
               materialName:a[t(578)]||"",result:a.result||0,quantity:a[t(650)]||0
@@ -10898,7 +10898,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             client:"",door:"",qrcode:"",OrderID:"",lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",remark:""
           },_0x3fbf45=["玻璃"];
           let _0x4074bb=0;
-          const _0x868616=_0x3fbf45["dispatchEvent"](((e,t)=>{
+          const _0x868616=_0x3fbf45["reduce"](((e,t)=>{
             const a=_0x59f9e4;
             return[...e,...Object[a(1124)](_0x20ce72)[a(990)]((([e])=>e.includes(t)&&!e.includes("亮窗"))).map((([e,t])=>{
               const x=a;
@@ -10906,38 +10906,38 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }))]
           }),[]),_0x2b06b3=["亮窗玻璃"];
           let _0x5d2477=0;
-          const _0x253a53=_0x2b06b3["dispatchEvent"](((e,t)=>{
+          const _0x253a53=_0x2b06b3["reduce"](((e,t)=>{
             const a=_0x59f9e4;
             return[...e,...Object[a(1124)](_0x20ce72)[a(990)]((([e])=>e.includes(t)&&!e[a(566)]("压线")))[a(562)]((([e,t])=>{
               const x=a;
               return _0x5d2477="无"!==(null==_0x206283?void 0:_0x206283["底玻"])&&"无"!==(null==_0x206283?void 0:_0x206283["面玻"])||e[x(566)]("单玻")?t[x(650)]*_0x206283["数量"]:t[x(650)]/2*_0x206283["数量"],t[x(578)]+":"+t[x(1094)]
             }))]
           }),[]);
-          if(("一固一活"==_0x206283["扇数"]||"双活"==_0x206283["扇数"])&&(_0x4074bb=2*_0x206283["数量"]),_0x5d2477>0?(_0x5d2477<1&&(_0x5d2477=1),_0x4d28ce["<br>面板:"]=_0x868616["needsSecondPass"]("加价项目已存在！")+"上丁墙"+_0x4074bb+"<br>"+_0x253a53["needsSecondPass"]("加价项目已存在！")+"上丁墙"+_0x5d2477):_0x4d28ce["<br>面板:"]=_0x868616.join("加价项目已存在！")+"上丁墙"+_0x4074bb,_0x4d28ce["orderNumbers"]=[_0x206283["型材"],_0x206283["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("<br>"),_0x4d28ce.OrderID=_0x206283["单号"]||"",_0x4d28ce.qrcode=_0x206283["单号"]||"",_0x206283["图片ID"])try{
-            const e=await getImage(_0x206283["token_expires_at"]);
-            e&&(_0x4d28ce["focus"]=e)
+          if(("一固一活"==_0x206283["扇数"]||"双活"==_0x206283["扇数"])&&(_0x4074bb=2*_0x206283["数量"]),_0x5d2477>0?(_0x5d2477<1&&(_0x5d2477=1),_0x4d28ce["doorsheet"]=_0x868616["join"]("<br>")+"<br>数量:"+_0x4074bb+"<br>"+_0x253a53["join"]("<br>")+"<br>数量:"+_0x5d2477):_0x4d28ce["doorsheet"]=_0x868616.join("<br>")+"<br>数量:"+_0x4074bb,_0x4d28ce["door"]=[_0x206283["型材"],_0x206283["颜色"]]["filter"](Boolean)["join"]("<br>"),_0x4d28ce.OrderID=_0x206283["单号"]||"",_0x4d28ce.qrcode=_0x206283["单号"]||"",_0x206283["图片ID"])try{
+            const e=await getImage(_0x206283["图片ID"]);
+            e&&(_0x4d28ce["doorImg"]=e)
           }
           catch(_0x5782d3){
           }
-          const _0x171f73=_0x206283["单双丁"]&&"正常"!==_0x206283["单双丁"]?_0x206283["圣诺派门业"]:null;
-          if(_0x4d28ce["日期: "]=[_0x206283["五金"]?_0x206283["五金"]:null,_0x171f73,_0x206283["备注"],_0x206283["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),'""'!==_0x206283["findIndex"]&&"null"!==_0x206283["findIndex"]&&_0x206283["加价项目"])try{
-            let e=_0x206283["height"],t=[];
+          const _0x171f73=_0x206283["单双丁"]&&"正常"!==_0x206283["单双丁"]?_0x206283["单双丁"]:null;
+          if(_0x4d28ce["remark"]=[_0x206283["五金"]?_0x206283["五金"]:null,_0x171f73,_0x206283["备注"],_0x206283["安装地址"]]["filter"](Boolean).join("<br>"),'""'!==_0x206283["加价项目"]&&"null"!==_0x206283["加价项目"]&&_0x206283["加价项目"])try{
+            let e=_0x206283["加价项目原始数据"],t=[];
             if("string"==typeof e)try{
               let a=0;
               const x=4;
               let _=e;
               for(;
-              typeof _==="image/png"&&a<x;
+              typeof _==="string"&&a<x;
               )a++,_=JSON.parse(_);
               "string"==typeof _||(t=_)
             }
             catch(_0xfa52d4){
             }
-            if(!Array["PDF导出成功"](t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e["el-form"]))))["validate"]((e=>e.name))["needsSecondPass"]("-");
+            if(!Array["isArray"](t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e["name"]))))["map"]((e=>e.name))["join"]("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x4d28ce["日期: "]?_0x4d28ce["日期: "]+="加价项目已存在！"+t:_0x4d28ce["日期: "]=t
+                let t="加配："+e;
+                _0x4d28ce["remark"]?_0x4d28ce["remark"]+="<br>"+t:_0x4d28ce["remark"]=t
               }
             }
           }
@@ -10945,46 +10945,46 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           _0xc8b731(_0x4d28ce,_0x5f2859);
           let _0x41d0ae="";
-          _0x206283["开向"]&&_0x1be4d9.value&&_0x1be4d9["el-popover"]["名甸门业"]&&(_0x41d0ae=_0x1be4d9["el-popover"].directionImageMap[""+_0x206283["扇数"]+_0x206283["开向"]]||""),_0x4d28ce["单号已填入回执单"]=_0x41d0ae;
-          const _0x1ea3da=[],_0x3a8095=[_0x206283["封边横"],_0x206283["折叠8扇"],_0x206283["墙厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e&&0!==e));
-          if(_0x3a8095["glassInfoList"]>0&&_0x1ea3da["12px"](_0x3a8095.join("*")),_0x206283["双开内右"]&&0!==_0x206283["双开内右"]){
-            let e="亮窗高："+_0x206283["双开内右"];
-            _0x206283["2655"]&&0!==_0x206283["2655"]&&(e+="亮窗"+_0x206283["2655"]+"格"),_0x1ea3da["12px"](e)
+          _0x206283["开向"]&&_0x1be4d9.value&&_0x1be4d9["value"]["directionImageMap"]&&(_0x41d0ae=_0x1be4d9["value"].directionImageMap[""+_0x206283["扇数"]+_0x206283["开向"]]||""),_0x4d28ce["lockImg"]=_0x41d0ae;
+          const _0x1ea3da=[],_0x3a8095=[_0x206283["门洞高"],_0x206283["门洞宽"],_0x206283["墙厚"]]["filter"]((e=>e&&0!==e));
+          if(_0x3a8095["length"]>0&&_0x1ea3da["push"](_0x3a8095.join("*")),_0x206283["亮窗总高"]&&0!==_0x206283["亮窗总高"]){
+            let e="亮窗高："+_0x206283["亮窗总高"];
+            _0x206283["亮窗数量"]&&0!==_0x206283["亮窗数量"]&&(e+="亮窗"+_0x206283["亮窗数量"]+"格"),_0x1ea3da["push"](e)
           }
-          null!=_0x206283["洞尺"]&&""!==String(_0x206283["洞尺"]).trim()&&_0x1ea3da["then"](""+_0x206283["洞尺"]);
-          const _0x1c7225=[_0x206283["面玻"],_0x206283["底玻"],_0x206283["Cao"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-          _0x1c7225.length>0&&("无"===_0x206283["底玻"]&&"无"!==_0x206283["面玻"]?_0x1ea3da["12px"]("单玻*"+_0x206283["面玻"]+"*"+_0x206283["Cao"]+"mm"):"无"===_0x206283["面玻"]&&"无"==_0x206283["底玻"]?_0x1ea3da.push("primary"):_0x1ea3da["12px"](_0x206283["面玻"]+"+"+_0x206283["底玻"]+"*"+_0x206283["玻璃厚"]+"mm")),_0x4d28ce["前框宽"]=_0x1ea3da["needsSecondPass"]("加价项目已存在！")+("无"===_0x206283["面玻"]&&"无"===_0x206283["底玻"]?"":"加价项目已存在！"+_0x206283["开向"]+"加价项目已存在！"+_0x206283["扇数"]),_0x4d28ce.client=_0x206283["客户"]||"",_0x4d19f5[_0x4aa697]={
+          null!=_0x206283["洞尺"]&&""!==String(_0x206283["洞尺"]).trim()&&_0x1ea3da["unshift"](""+_0x206283["洞尺"]);
+          const _0x1c7225=[_0x206283["面玻"],_0x206283["底玻"],_0x206283["玻璃厚"]]["filter"](Boolean);
+          _0x1c7225.length>0&&("无"===_0x206283["底玻"]&&"无"!==_0x206283["面玻"]?_0x1ea3da["push"]("单玻*"+_0x206283["面玻"]+"*"+_0x206283["玻璃厚"]+"mm"):"无"===_0x206283["面玻"]&&"无"==_0x206283["底玻"]?_0x1ea3da.push("无玻璃"):_0x1ea3da["push"](_0x206283["面玻"]+"+"+_0x206283["底玻"]+"*"+_0x206283["玻璃厚"]+"mm")),_0x4d28ce["basicInfo"]=_0x1ea3da["join"]("<br>")+("无"===_0x206283["面玻"]&&"无"===_0x206283["底玻"]?"":"<br>"+_0x206283["开向"]+"<br>"+_0x206283["扇数"]),_0x4d28ce.client=_0x206283["客户"]||"",_0x4d19f5[_0x4aa697]={
             orderInfo:_0x206283,calculationResults:_0x20ce72,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x4d28ce
+              timestamp:Date["now"](),data:_0x4d28ce
             }
           }
         }
         const _0x10501e=new Set;
-        Object.values(_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>{
+        Object.values(_0x4d19f5)["forEach"]((e=>{
           const t=_0x59f9e4;
           e[t(835)]&&e[t(835)][t(580)]&&_0x10501e[t(232)](e.orderInfo[t(580)])
         }));
-        const _0x1d07b1=Array["imageurl"](_0x10501e);
-        _0x18c875["el-popover"]=_0x1d07b1;
-        const _0x10d9a0=localStorage.getItem("filter")||"❌ 浏览器不支持剪贴板API";
+        const _0x1d07b1=Array["from"](_0x10501e);
+        _0x18c875["value"]=_0x1d07b1;
+        const _0x10d9a0=localStorage.getItem("smartdoor_sort_method")||"profile";
         let _0x1b8d67;
-        _0x1b8d67=_0x10d9a0==="一固一活固玻璃高"?Object.entries(_0x4d19f5)["validate"]((([e,t])=>t.produce.data))["100%"](((e,t)=>{
+        _0x1b8d67=_0x10d9a0==="order"?Object.entries(_0x4d19f5)["map"]((([e,t])=>t.produce.data))["sort"](((e,t)=>{
           const a=_0x59f9e4;
           return(parseInt((e[a(496)]||e[a(999)]||"").split("-")[0])||0)-(parseInt((t.OrderID||t[a(999)]||"").split("-")[0])||0)
-        })):Object["860px"](_0x4d19f5)["100%"](((e,t)=>e[1]["浏览器不支持文件分享"]["扣板宽"]-t[1]["浏览器不支持文件分享"]["扣板宽"]))["validate"]((([e,t])=>t.produce["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]));
+        })):Object["entries"](_0x4d19f5)["sort"](((e,t)=>e[1]["produce"]["timestamp"]-t[1]["produce"]["timestamp"]))["map"]((([e,t])=>t.produce["data"]));
         const _0x4b1b22={
           produces:_0x1b8d67
-        };if(_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca["xlsx"])["glassInfoList"]>0)return _0x1b8d67;
+        };if(_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca["receiptData1"])["length"]>0)return _0x1b8d67;
         const _0x1e07f2=await getUserData();
-        if(!_0x1e07f2)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x1e0114=null==(_f=null==(_e=null==_0x1e07f2?void 0:_0x1e07f2.registrant)?void 0:_e.template)?void 0:_f["❌ Blob对象为null"],_0x38c1b3=_0x20029b["折叠4扇"](_0x1e0114,_0x4b1b22);
-        _0x3c8618["el-popover"]=_0x38c1b3[0].outerHTML,await Vue.nextTick(),_0xe9dd07["el-popover"]=_0x485486["el-popover"]?_0x485486["el-popover"]["本地打印..."]:0,_0x2911f9["el-popover"]=!0
+        if(!_0x1e07f2)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x1e0114=null==(_f=null==(_e=null==_0x1e07f2?void 0:_0x1e07f2.registrant)?void 0:_e.template)?void 0:_f["glass"],_0x38c1b3=_0x20029b["commentPreview"](_0x1e0114,_0x4b1b22);
+        _0x3c8618["value"]=_0x38c1b3[0].outerHTML,await Vue.nextTick(),_0xe9dd07["value"]=_0x485486["value"]?_0x485486["value"]["scrollWidth"]:0,_0x2911f9["value"]=!0
       }
       catch(_0x489877){
-        ElementPlus.ElMessage["font"]("Zuo")
+        ElementPlus.ElMessage["error"]("计算失败，请重试")
       }
       finally{
-        _0xd69f20["2.添加门类"]()
+        _0xd69f20["close"]()
       }
     },_0x1f0952=async e=>{
       await _0x32bd6f({
@@ -11001,15 +11001,15 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
         ping:ping=!0,diao:diao=!0,single:single=!1,singleRowData:singleRowData=null
       }
       =_0x8d3977;
-      _0x85a3a["el-popover"]=2;
-      const _0x28e4a9=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"lockway",background:"base64转换失败"
+      _0x85a3a["value"]=2;
+      const _0x28e4a9=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
       try{
         if(single&&singleRowData){
           const e={
-            ..._0x5b10d7["el-popover"]
-          };_0x5b10d7["el-popover"]={
+            ..._0x5b10d7["value"]
+          };_0x5b10d7["value"]={
             ping_hui:ping?[singleRowData]:[],diao_hui:diao?[singleRowData]:[]
           }
         }
@@ -11019,56 +11019,56 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             const x=t;
             return e[x(930)]!==a[x(930)]?e[x(930)][x(970)](a[x(930)]):(e["颜色"]||"")[x(970)](a["颜色"]||"")
           }))
-        };if(ping&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"];
-          _0x5b10d7["el-popover"].ping_hui=_0x5389cf([..._0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]]);
-          const t=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].length
+        };if(ping&&_0x5b10d7.value["ping_hui"]&&_0x5b10d7["value"]["ping_hui"]["length"]>0){
+          const e=_0x5b10d7["value"]["ping_hui"]["length"];
+          _0x5b10d7["value"].ping_hui=_0x5389cf([..._0x5b10d7["value"]["ping_hui"]]);
+          const t=_0x5b10d7["value"]["ping_hui"].length
         }
-        if(diao&&_0x5b10d7.value.diao_hui&&_0x5b10d7["el-popover"].diao_hui.length>0){
-          const e=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"];
-          _0x5b10d7["el-popover"]["assistive-fullscreen-changed"]=_0x5389cf([..._0x5b10d7["el-popover"]["assistive-fullscreen-changed"]]);
-          const t=_0x5b10d7.value.diao_hui["glassInfoList"]
+        if(diao&&_0x5b10d7.value.diao_hui&&_0x5b10d7["value"].diao_hui.length>0){
+          const e=_0x5b10d7["value"]["diao_hui"]["length"];
+          _0x5b10d7["value"]["diao_hui"]=_0x5389cf([..._0x5b10d7["value"]["diao_hui"]]);
+          const t=_0x5b10d7.value.diao_hui["length"]
         }
-        const _0x52518a=[...diao&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]?_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["validate"]((e=>e["F槽宽"])):[],...ping&&_0x5b10d7["el-popover"].ping_hui?_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["validate"]((e=>e["F槽宽"])):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x59caae=[...new Set(_0x52518a)],_0x45c995=[...diao&&_0x5b10d7["el-popover"].diao_hui?_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["validate"]((e=>e.id)):[],...ping&&_0x5b10d7["el-popover"].ping_hui?_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]["validate"]((e=>e.id)):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x2b0570=[...new Set(_0x45c995)],_0xe6f767={
+        const _0x52518a=[...diao&&_0x5b10d7["value"]["diao_hui"]?_0x5b10d7["value"]["diao_hui"]["map"]((e=>e["formulaid"])):[],...ping&&_0x5b10d7["value"].ping_hui?_0x5b10d7["value"]["ping_hui"]["map"]((e=>e["formulaid"])):[]]["filter"](Boolean),_0x59caae=[...new Set(_0x52518a)],_0x45c995=[...diao&&_0x5b10d7["value"].diao_hui?_0x5b10d7["value"]["diao_hui"]["map"]((e=>e.id)):[],...ping&&_0x5b10d7["value"].ping_hui?_0x5b10d7.value["ping_hui"]["map"]((e=>e.id)):[]]["filter"](Boolean),_0x2b0570=[...new Set(_0x45c995)],_0xe6f767={
           formula:_0x59caae,id:_0x2b0570
-        };if(!_0x52518a["glassInfoList"])return void ElementPlus.ElMessage.warning("加价项目原始数据");
+        };if(!_0x52518a["length"])return void ElementPlus.ElMessage.warning("没有找到型材数据");
         const _0x1f7c6b=await getUserData();
-        if(!_0x1f7c6b)return void ElementPlus.ElMessage.error("timestamp");
-        const _0x269d2a=_0x1f7c6b["hui_picture"].registrant,_0x4f3eef=_0x1f7c6b.userinfo["el-form"],_0x4990d9=_0x1f7c6b["hui_picture"].ds,_0x491a8e=single?"getDiaoFormulasSingle":" 亮窗数:",_0x330302=await fetch("编辑玻璃合片单"+_0x491a8e+"宏泰门业"+_0x269d2a+"writeBuffer"+_0x4990d9,{
-          method:"300px",headers:{
-            "Content-Type":"product2"
+        if(!_0x1f7c6b)return void ElementPlus.ElMessage.error("无法获取用户数据");
+        const _0x269d2a=_0x1f7c6b["userinfo"].registrant,_0x4f3eef=_0x1f7c6b.userinfo["name"],_0x4990d9=_0x1f7c6b["userinfo"].ds,_0x491a8e=single?"getDiaoFormulasSingle":"getDiaoFormulas",_0x330302=await fetch("https://www.samrtdoor.com.cn/1?param1="+_0x491a8e+"&param2="+_0x269d2a+"&param3="+_0x4990d9,{
+          method:"POST",headers:{
+            "Content-Type":"application/json"
           },body:JSON.stringify(_0xe6f767)
-        }),_0x1c673c=await _0x330302["savedAt"]();
-        if(200!==_0x1c673c.code)return void ElementPlus.ElMessage["font"](_0x1c673c["-底:"]||"hui-container");
-        ElementPlus.ElMessage["error"]("address");
-        const _0x2d51cc=_0x1c673c["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].formulas,_0x92afc6=_0x1c673c["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].orderNumbers;
-        if(Object.keys(_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>delete _0x4d19f5[e])),ping&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"]>0)for(let _0x2d6ece=0;
-        _0x2d6ece<_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"];
+        }),_0x1c673c=await _0x330302["json"]();
+        if(200!==_0x1c673c.code)return void ElementPlus.ElMessage["error"](_0x1c673c["message"]||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x2d51cc=_0x1c673c["data"].formulas,_0x92afc6=_0x1c673c["data"].orderNumbers;
+        if(Object.keys(_0x4d19f5)["forEach"]((e=>delete _0x4d19f5[e])),ping&&_0x5b10d7.value["ping_hui"]&&_0x5b10d7["value"]["ping_hui"]["length"]>0)for(let _0x2d6ece=0;
+        _0x2d6ece<_0x5b10d7["value"]["ping_hui"]["length"];
         _0x2d6ece++){
-          const _0x3879a6=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""][_0x2d6ece],_0x380690=_0x3879a6["F槽宽"],_0x4a216a=_0x2d51cc[_0x380690];
+          const _0x3879a6=_0x5b10d7["value"]["ping_hui"][_0x2d6ece],_0x380690=_0x3879a6["formulaid"],_0x4a216a=_0x2d51cc[_0x380690];
           if(!_0x4a216a)continue;
           _0x3879a6.id&&_0x92afc6[_0x3879a6.id]&&(_0x3879a6["单号"]=_0x92afc6[_0x3879a6.id]);
-          const _0x31280d=JSON.parse(JSON["Hui"](_0x4a216a["3轨6扇"])),_0x2a7fef=JSON["values"](JSON["Hui"](_0x4a216a["get"])),_0xbd37ff="洞尺"===_0x3879a6["洞尺"]?null==_0x4a216a?void 0:_0x4a216a.resetSize:void 0,_0xa151ae=Number(_0x3879a6["saved_password"])||0,_0x1b3677=null==_0x4a216a?void 0:_0x4a216a.swingWall;
+          const _0x31280d=JSON.parse(JSON["stringify"](_0x4a216a["diao"])),_0x2a7fef=JSON["parse"](JSON["stringify"](_0x4a216a["formulaType"])),_0xbd37ff="洞尺"===_0x3879a6["洞尺"]?null==_0x4a216a?void 0:_0x4a216a.resetSize:void 0,_0xa151ae=Number(_0x3879a6["边封数"])||0,_0x1b3677=null==_0x4a216a?void 0:_0x4a216a.swingWall;
           let _0x1c0337=0,_0x409f9f=0;
-          _0x1b3677&&null!=_0x3879a6["saved_password"]&&2!==_0xa151ae&&(1===_0xa151ae&&(_0x1c0337=Number(_0x1b3677["canShare"])||0),4===_0xa151ae?(_0x1c0337=Number(_0x1b3677.SingleWall)||0,_0x409f9f=Number(_0x1b3677["declaration"])||0):0===_0xa151ae?_0x1c0337=Number(_0x1b3677.DoubleWall)||0:5===_0xa151ae?(_0x1c0337=Number(_0x1b3677["doorframe"])||0,_0x409f9f=Number(_0x1b3677.UpWall)||0):3===_0xa151ae&&(_0x409f9f=Number(_0x1b3677["declaration"])||0));
-          const _0x5e7f2d="fixed"+(_0x2d6ece+1),_0xff11fc=null==_0x4a216a?void 0:_0x4a216a["复制扣板"];
+          _0x1b3677&&null!=_0x3879a6["边封数"]&&2!==_0xa151ae&&(1===_0xa151ae&&(_0x1c0337=Number(_0x1b3677["SingleWall"])||0),4===_0xa151ae?(_0x1c0337=Number(_0x1b3677.SingleWall)||0,_0x409f9f=Number(_0x1b3677["UpWall"])||0):0===_0xa151ae?_0x1c0337=Number(_0x1b3677.DoubleWall)||0:5===_0xa151ae?(_0x1c0337=Number(_0x1b3677["DoubleWall"])||0,_0x409f9f=Number(_0x1b3677.UpWall)||0):3===_0xa151ae&&(_0x409f9f=Number(_0x1b3677["UpWall"])||0));
+          const _0x5e7f2d="ping"+(_0x2d6ece+1),_0xff11fc=null==_0x4a216a?void 0:_0x4a216a["hinge"];
           let _0x251c8f=0,_0x57d640=0;
-          if(_0xff11fc&&"object"==typeof _0xff11fc&&Object.keys(_0xff11fc)["glassInfoList"]>0){
-            const t=String(_0x3879a6["五金"]||""),a=t["折叠5扇"]("_")?t["确认修改"]("_"):t?[t]:[],x=a["validate"]((e=>e.trim()))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox.confirm('五金中检测到多个含"合页"的元素：'+x["needsSecondPass"]("、")+'，将使用第一个"'+x[0]+"五金中检测到多个含\"合页\"的元素：","多个合页提示",{
-                confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+          if(_0xff11fc&&"object"==typeof _0xff11fc&&Object.keys(_0xff11fc)["length"]>0){
+            const t=String(_0x3879a6["五金"]||""),a=t["includes"]("_")?t["split"]("_"):t?[t]:[],x=a["map"]((e=>e.trim()))["filter"]((e=>e["includes"]("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox.confirm('五金中检测到多个含"合页"的元素：'+x["join"]("、")+'，将使用第一个"'+x[0]+"\"进行匹配计算，是否继续？","多个合页提示",{
+                confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
               if(void 0!==_0xff11fc[t])_0x251c8f=-(Number(_0xff11fc[t]["上下方减尺"])||0),_0x57d640=-(Number(_0xff11fc[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox["粤诗丽门窗"]("润佳门窗"+t+"alignment","合页匹配失败",{
-                  confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+                await ElementPlus.ElMessageBox["confirm"]("五金中的\""+t+"\"在合页配置中未找到匹配，是否继续计算？","合页匹配失败",{
+                  confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
               catch(e){
@@ -11079,7 +11079,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           const _0x82046a="无"===_0x3879a6["底玻"]||"无"===_0x3879a6["面玻"],_0x2c9e12="无"!==_0x3879a6["底玻"]&&"无"!==_0x3879a6["面玻"];
           if(_0x82046a){
             const e=Object.keys(_0x31280d);
-            e["✅ 图片已下载，请手动分享"]((t=>{
+            e["forEach"]((t=>{
               const a=_0x11f592;
               if((t[a(566)](a(863))||t[a(566)](a(877)))&&!t.includes("单玻")){
                 const x=t+"单玻";
@@ -11087,47 +11087,47 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x2c9e12&&Object["导入上次订单"](_0x31280d)["✅ 图片已下载，请手动分享"]((e=>{
+          _0x2c9e12&&Object["keys"](_0x31280d)["forEach"]((e=>{
             const t=_0x11f592;
             e[t(566)]("单玻")&&(_0x31280d[e][t(523)]=!1),!e.includes("单玻")&&e[t(566)]("玻璃")&&(_0x31280d[e][t(523)]=!0)
-          })),Object["导入上次订单"](_0x31280d)["✅ 图片已下载，请手动分享"]((e=>{
+          })),Object["keys"](_0x31280d)["forEach"]((e=>{
             const t=_0x11f592,a=_0x31280d[e];
             e[t(566)](t(266))&&(a.v=(Number(a.v)||0)+_0x251c8f),e[t(566)](t(1152))&&!e[t(566)]("亮窗")&&(a.v=(Number(a.v)||0)+_0x57d640),e[t(566)](t(877))&&Number(_0x3879a6["封板高"])>0&&!e[t(566)]("亮窗")&&(a.v=Number(_0x3879a6["封板高"])+a.v);
             e[t(566)](t(863))||e.includes(t(877))||(_0x3879a6["墙厚"]>0?a[t(523)]=!0:e[t(566)]("扣板")?a[t(523)]=!1:a[t(523)]=!0,e[t(566)]("封板")&&0==Number(_0x3879a6[t(946)])&&(a[t(523)]=!1),e[t(566)](t(946))&&Number(_0x3879a6[t(946)])>0&&(a[t(523)]=!0,a.v=Number(_0x3879a6[t(946)])-a.v))
           }));
-          const _0x489a0a=_0x3879a6["折叠8扇"],_0x1c3323=_0x3879a6["封边横"],_0x275e93=_0x3879a6["双开内右"]||0,_0x71231=_0xbd37ff&&Number(_0xbd37ff.width)||0,_0x5c2b8d=_0xbd37ff&&Number(_0xbd37ff["Wai"])||0;
+          const _0x489a0a=_0x3879a6["门洞宽"],_0x1c3323=_0x3879a6["门洞高"],_0x275e93=_0x3879a6["亮窗总高"]||0,_0x71231=_0xbd37ff&&Number(_0xbd37ff.width)||0,_0x5c2b8d=_0xbd37ff&&Number(_0xbd37ff["height"])||0;
           let _0x1fd069=_0x489a0a,_0x423ab7=_0x1c3323,_0x4cf9ec=_0x275e93;
           (0!==_0x71231||0!==_0x5c2b8d)&&(_0x1fd069=_0x489a0a-_0x71231,_0x275e93>_0x1c3323?_0x4cf9ec=_0x275e93-_0x5c2b8d:_0x423ab7=_0x1c3323-_0x5c2b8d),0!==_0x409f9f&&(_0x275e93>_0x1c3323?_0x4cf9ec-=_0x409f9f:_0x423ab7-=_0x409f9f),0!==_0x1c0337&&(_0x1fd069-=_0x1c0337);
           const _0x1efc33={
             h:_0x423ab7,w:_0x1fd069,h1:_0x4cf9ec,j:_0x3879a6["吊脚"]||0,t:_0x3879a6["墙厚"]||0,s:_0x3879a6["轨道长"]||0
           };let _0x4b4347=!1;
-          Object["导入上次订单"](_0x31280d)["✅ 图片已下载，请手动分享"]((_0x15dd81=>{
+          Object["keys"](_0x31280d)["forEach"]((_0x15dd81=>{
             const _0x298d6b=_0x11f592,_0x513cb3=_0x31280d[_0x15dd81];
-            if(_0x513cb3["kou"])try{
-              let _0x39dd8c=_0x513cb3["toFixed"];
+            if(_0x513cb3["state"])try{
+              let _0x39dd8c=_0x513cb3["formula"];
               if(_0x39dd8c){
-                if(_0x39dd8c.startsWith("=")&&(_0x39dd8c=_0x39dd8c.substring(1)),_0x39dd8c["折叠5扇"]("请输入加价项目名称"))return void(_0x513cb3["windows"]=!0);
+                if(_0x39dd8c.startsWith("=")&&(_0x39dd8c=_0x39dd8c.substring(1)),_0x39dd8c["includes"](".result"))return void(_0x513cb3["needsSecondPass"]=!0);
                 let _0x3fe20f=_0x39dd8c;
                 for(const[e,t]of Object.entries(_0x1efc33))_0x3fe20f=_0x3fe20f.replace(new RegExp("\\b"+e+"\\b","g"),t);
                 const _0xb294f0=["v"];
                 for(const e of _0xb294f0)if(void 0!==_0x513cb3[e]){
                   const t=_0x513cb3[e],a=t<0?"("+t+")":t;
-                  _0x3fe20f=_0x3fe20f["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x3fe20f=_0x3fe20f["replace"](new RegExp(e,"g"),a)
                 }
                 const _0xe0ea83=eval(_0x3fe20f),_0x1a50f8=Math.round(_0xe0ea83);
-                _0x1a50f8<0?(_0x513cb3.state=!1,_0x513cb3["门玻璃高"]=0,_0x15dd81["折叠5扇"]("顾轩门窗")&&(_0x4b4347=!0)):(_0x513cb3.result=_0x1a50f8,_0x4b4347&&(_0x15dd81["折叠5扇"]("扣板")||_0x15dd81["折叠5扇"]("扣板")||_0x15dd81.includes("压条"))&&(_0x513cb3.state=!1))
+                _0x1a50f8<0?(_0x513cb3.state=!1,_0x513cb3["result"]=0,_0x15dd81["includes"]("扣板厚")&&(_0x4b4347=!0)):(_0x513cb3.result=_0x1a50f8,_0x4b4347&&(_0x15dd81["includes"]("扣板")||_0x15dd81["includes"]("扣板")||_0x15dd81.includes("压条"))&&(_0x513cb3.state=!1))
               }
             }
             catch(_0x1cce55){
-              _0x513cb3["门玻璃高"]="font"
+              _0x513cb3["result"]="error"
             }
-          })),Object["导入上次订单"](_0x31280d)["✅ 图片已下载，请手动分享"]((_0xd66027=>{
+          })),Object["keys"](_0x31280d)["forEach"]((_0xd66027=>{
             const _0x419879=_0x11f592,_0x471dcf=_0x31280d[_0xd66027];
-            if(_0x471dcf["kou"]&&_0x471dcf["windows"])try{
-              let _0x482145=_0x471dcf["toFixed"];
-              _0x482145["60px"]("=")&&(_0x482145=_0x482145["门框宽"](1));
+            if(_0x471dcf["state"]&&_0x471dcf["needsSecondPass"])try{
+              let _0x482145=_0x471dcf["formula"];
+              _0x482145["startsWith"]("=")&&(_0x482145=_0x482145["substring"](1));
               let _0x865fce=_0x482145;
-              Object["导入上次订单"](_0x31280d)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x31280d)["forEach"]((e=>{
                 const t=_0x419879,a=e+t(708);
                 if(_0x865fce.includes(a)){
                   const e=a[t(363)](".")[0],x=Object.entries(_0x31280d)[t(990)]((([a,x])=>{
@@ -11140,21 +11140,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x865fce=_0x865fce[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x1efc33))_0x865fce=_0x865fce["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x1efc33))_0x865fce=_0x865fce["replace"](new RegExp(e,"g"),t);
               const _0x1ec4b4=["v"];
               for(const e of _0x1ec4b4)if(void 0!==_0x471dcf[e]){
                 const t=_0x471dcf[e],a=t<0?"("+t+")":t;
-                _0x865fce=_0x865fce["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x865fce=_0x865fce["replace"](new RegExp(e,"g"),a)
               }
-              const _0x35db51=eval(_0x865fce),_0x49e921=Math["删除失败"](_0x35db51);
-              _0x49e921<0?(_0x471dcf["kou"]=!1,_0x471dcf["门玻璃高"]=0):_0x471dcf["门玻璃高"]=_0x49e921,delete _0x471dcf.needsSecondPass
+              const _0x35db51=eval(_0x865fce),_0x49e921=Math["round"](_0x35db51);
+              _0x49e921<0?(_0x471dcf["state"]=!1,_0x471dcf["result"]=0):_0x471dcf["result"]=_0x49e921,delete _0x471dcf.needsSecondPass
             }
             catch(_0xa75b53){
-              _0x471dcf.result="error",_0x471dcf["kou"]=!1
+              _0x471dcf.result="error",_0x471dcf["state"]=!1
             }
           }));
           const _0x1d6087={
-          };Object.keys(_0x31280d)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object.keys(_0x31280d)["forEach"]((e=>{
             const t=_0x11f592,a=_0x31280d[e];
             !0===a.state&&(_0x1d6087[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a.quantity||0
@@ -11166,8 +11166,8 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           :{
             doorImg:"",door:"",qrcode:"",OrderID:"",maker:_0x4f3eef,lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",kou:"",remark:""
           };let _0x58306a=[""];
-          _0x58306a=_0x2a7fef=="云打印失败"?["套线种类","9.1 base64 转换成功","颜色已重置"]:["光企","方","封板高",_0x11f592(1e3),"target","龙骨竖","Liang","门扇宽","收口","光企减尺寸","封边竖","registrant","回执单下载成功: "];
-          const _0x23f107=_0x58306a["dispatchEvent"](((e,t)=>{
+          _0x58306a=_0x2a7fef=="diamond"?["左固玻璃","右固玻璃","门玻璃"]:["光企","方","封板高",_0x11f592(1e3),"龙骨横","龙骨竖","门扇高","门扇宽","收口","封边横","封边竖","玻璃高","玻璃宽"];
+          const _0x23f107=_0x58306a["reduce"](((e,t)=>{
             const a=_0x11f592;
             return[...e,...Object[a(1124)](_0x1d6087)[a(990)]((([e])=>e[a(566)](t)&&!e.includes("亮窗玻璃")))[a(562)]((([e,x])=>{
               const _=a;
@@ -11178,36 +11178,36 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return"玻璃高"===t?"<br>"+c:c
             }))]
           }),[]);
-          _0x551a25.doorsheet=_0x23f107.join("加价项目已存在！");
+          _0x551a25.doorsheet=_0x23f107.join("<br>");
           let _0x298841=[];
-          if(_0x2a7fef=="云打印失败"){
+          if(_0x2a7fef=="diamond"){
             const e=["左边","右边","斜长","竖框"];
-            _0x298841=e["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>Object["珊珊极简移门"].hasOwnProperty["https://v.douyin.com/EBMcTieRF9M/"](_0x1d6087,e)))["validate"]((e=>{
+            _0x298841=e["filter"]((e=>Object["prototype"].hasOwnProperty["call"](_0x1d6087,e)))["map"]((e=>{
               const t=_0x11f592,a=_0x1d6087[e];
               return _0x269d2a===t(222)?a[t(578)]+":<br>"+a.result+"*"+a[t(650)]*_0x3879a6["数量"]:a[t(578)]+":"+a.result+"*"+a[t(650)]*_0x3879a6["数量"]
             }))
           }
           else{
             const e=Object.entries(_0x1d6087),t=[],a=[];
-            e["✅ 图片已下载，请手动分享"]((([e,x])=>{
+            e["forEach"]((([e,x])=>{
               const _=_0x11f592;
               e[_(566)](_(542))?t[_(447)]([e,x]):e[_(566)]("门框宽")&&a[_(447)]([e,x])
-            })),_0x298841=[...t,...a]["validate"]((([e,t])=>{
+            })),_0x298841=[...t,...a]["map"]((([e,t])=>{
               const a=_0x11f592;
               return _0x269d2a===a(222)?t.materialName+a(584)+t[a(1094)]+"*"+t[a(650)]*_0x3879a6["数量"]:t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x3879a6["数量"]
             }))
           }
-          let _0x5eb8e2=Object["860px"](_0x1d6087)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["门板"]["后框高"]((t=>e["折叠5扇"](t))))).map((([e,t])=>{
+          let _0x5eb8e2=Object["entries"](_0x1d6087)["filter"]((([e])=>["门板"]["some"]((t=>e["includes"](t))))).map((([e,t])=>{
             const a=_0x11f592;
             return _0x269d2a===a(222)?t[a(578)]+":<br>"+t.result+"*"+t[a(650)]*_0x3879a6["数量"]:t[a(578)]+":"+t.result+"*"+t[a(650)]*_0x3879a6["数量"]
-          })),_0x2a8be0=Object["860px"](_0x1d6087)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["前框"].some((t=>e.includes(t)))))["validate"]((([e,t])=>{
+          })),_0x2a8be0=Object["entries"](_0x1d6087)["filter"]((([e])=>["前框"].some((t=>e.includes(t)))))["map"]((([e,t])=>{
             const a=_0x11f592;
             if(e.includes(a(261))){
               let e=(Number(t.result)||0)+(Number(_0x3879a6[a(637)])||0);
               return _0x269d2a===a(222)?t.materialName+a(584)+e+"*"+t[a(650)]*_0x3879a6["数量"]:t[a(578)]+":"+e+"*"+t[a(650)]*_0x3879a6["数量"]
             }
             return _0x269d2a===a(222)?t[a(578)]+a(584)+t.result+"*"+t[a(650)]*_0x3879a6["数量"]:t.materialName+":"+t[a(1094)]+"*"+t.quantity*_0x3879a6["数量"]
-          })),_0x2cf559=Object.entries(_0x1d6087).filter((([e])=>["后框"]["后框高"]((t=>e.includes(t)))))["validate"]((([e,t])=>{
+          })),_0x2cf559=Object.entries(_0x1d6087).filter((([e])=>["后框"]["some"]((t=>e.includes(t)))))["map"]((([e,t])=>{
             const a=_0x11f592;
             if(e[a(566)](a(667))){
               let e=(Number(t[a(1094)])||0)+(Number(_0x3879a6[a(301)])||0);
@@ -11215,72 +11215,72 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }
             return"杉杉铝木极简门"===_0x269d2a?t[a(578)]+a(584)+t[a(1094)]+"*"+t[a(650)]*_0x3879a6["数量"]:t.materialName+":"+t[a(1094)]+"*"+t.quantity*_0x3879a6["数量"]
           }));
-          const _0x32b04e=Object["860px"](_0x1d6087).filter((([e])=>["扣板","母门玻璃高","parentNode","压线"]["后框高"]((t=>e["折叠5扇"](t)))))["validate"]((([e,t])=>{
+          const _0x32b04e=Object["entries"](_0x1d6087).filter((([e])=>["扣板","上亮横","上亮窗玻璃","压线"]["some"]((t=>e["includes"](t)))))["map"]((([e,t])=>{
             const a=_0x11f592;
             let x=t[a(650)];
             return e[a(566)]("玻璃")&&("无"===_0x3879a6["底玻"]||"无"===_0x3879a6["面玻"])&&!e[a(566)]("单玻")&&(x=Math.round(t[a(650)]/2),"diamond"==_0x2a7fef&&(x=t.quantity)),_0x269d2a===a(222)?t[a(578)]+a(584)+t.result+"*"+x*_0x3879a6["数量"]:t[a(578)]+":"+t[a(1094)]+"*"+x*_0x3879a6["数量"]
           }));
-          _0x2a8be0["glassInfoList"]>0&&(_0x298841=_0x298841["3.保存回执单"](_0x2a8be0)),_0x2cf559["glassInfoList"]>0&&(_0x298841=_0x298841["3.保存回执单"](_0x2cf559)),_0x5eb8e2["glassInfoList"]>0&&(_0x298841=_0x298841["3.保存回执单"](_0x5eb8e2)),_0x551a25["Feng"]=_0x298841["needsSecondPass"]("加价项目已存在！"),_0x551a25["上丁加双丁"]=_0x32b04e["needsSecondPass"]("加价项目已存在！");
-          const _0x26a106=["扣板宽","下载图片失败","扣板厚"]["validate"]((e=>{
+          _0x2a8be0["length"]>0&&(_0x298841=_0x298841["concat"](_0x2a8be0)),_0x2cf559["length"]>0&&(_0x298841=_0x298841["concat"](_0x2cf559)),_0x5eb8e2["length"]>0&&(_0x298841=_0x298841["concat"](_0x5eb8e2)),_0x551a25["doorframe"]=_0x298841["join"]("<br>"),_0x551a25["windows"]=_0x32b04e["join"]("<br>");
+          const _0x26a106=["扣板宽","扣板高","扣板厚"]["map"]((e=>{
             const t=_0x11f592,a=Object.entries(_0x1d6087).find((([a])=>a[t(566)](e)));
             if(!a)return null;
             const[,x]=a,_=x[t(650)];
             return x[t(578)]+":"+x[t(1094)]+"*"+_*_0x3879a6["数量"]
-          })).filter(Boolean),_0x20e173=Object["860px"](_0x1d6087).filter((([e])=>e["折叠5扇"]("封板宽")&&!String(e)["31809646XAFfDS"]()["折叠5扇"]("生产单"))),_0x3dcf57=Object["860px"](_0x1d6087)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e["折叠5扇"]("smartdoor_disable_auto_markup")&&!String(e)["31809646XAFfDS"]()["折叠5扇"]("生产单")));
+          })).filter(Boolean),_0x20e173=Object["entries"](_0x1d6087).filter((([e])=>e["includes"]("封板宽")&&!String(e)["toLowerCase"]()["includes"]("copy"))),_0x3dcf57=Object["entries"](_0x1d6087)["filter"]((([e])=>e["includes"]("封板高")&&!String(e)["toLowerCase"]()["includes"]("copy")));
           if(_0x20e173.length>0&&_0x3dcf57.length>0&&_0x20e173.forEach((([e,t],a)=>{
             const x=_0x11f592,_=e.replace(x(1e3),x(946)),l=_0x3dcf57.find((([e])=>e===_));
             let o=null;
             o=l?l[1]:1===_0x3dcf57[x(1107)]?_0x3dcf57[0][1]:_0x3dcf57[a]?_0x3dcf57[a][1]:_0x3dcf57[0][1];
             const c=t[x(650)]*_0x3879a6["数量"];
             _0x26a106[x(447)](x(833)+t.result+"*"+o[x(1094)]+"*"+c)
-          })),_0x551a25["saved_username"]=_0x26a106["needsSecondPass"]("加价项目已存在！"),_0x743794["折叠5扇"](_0x269d2a)||"鸿程鑫派门窗"===_0x269d2a)_0x551a25.door=[_0x3879a6["型材"],_0x3879a6["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！");
+          })),_0x551a25["kou"]=_0x26a106["join"]("<br>"),_0x743794["includes"](_0x269d2a)||"鸿程鑫派门窗"===_0x269d2a)_0x551a25.door=[_0x3879a6["型材"],_0x3879a6["颜色"]]["filter"](Boolean)["join"]("<br>");
           else{
-            const e=[_0x3879a6["客户"]||"",_0x3879a6["型材"],_0x3879a6["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-            _0x551a25["orderNumbers"]=e["needsSecondPass"]("加价项目已存在！")
+            const e=[_0x3879a6["客户"]||"",_0x3879a6["型材"],_0x3879a6["颜色"]]["filter"](Boolean);
+            _0x551a25["door"]=e["join"]("<br>")
           }
-          if(_0x551a25.OrderID=_0x3879a6["单号"]||"",_0x551a25["玻璃已重置"]=_0x3879a6["单号"]||"",!_0x743794["折叠5扇"](_0x269d2a)&&_0x3879a6["token_expires_at"])try{
-            const e=await getImage(_0x3879a6["token_expires_at"]);
-            e&&(_0x551a25["focus"]=e)
+          if(_0x551a25.OrderID=_0x3879a6["单号"]||"",_0x551a25["qrcode"]=_0x3879a6["单号"]||"",!_0x743794["includes"](_0x269d2a)&&_0x3879a6["图片ID"])try{
+            const e=await getImage(_0x3879a6["图片ID"]);
+            e&&(_0x551a25["doorImg"]=e)
           }
           catch(_0x17fca6){
           }
-          if(_0x551a25.remark=[_0x3879a6["煜宸门业"]?_0x3879a6["煜宸门业"]:null,_0x3879a6["五金"]?_0x3879a6["五金"]:null,_0x3879a6["pdf"],_0x3879a6["备注"]].filter(Boolean)["needsSecondPass"]("加价项目已存在！"),'""'!==_0x3879a6["findIndex"]&&_0x3879a6["findIndex"]!=="outerHTML"&&_0x3879a6["加价项目"])try{
-            let e=_0x3879a6["height"],t=[];
+          if(_0x551a25.remark=[_0x3879a6["轨道种类"]?_0x3879a6["轨道种类"]:null,_0x3879a6["五金"]?_0x3879a6["五金"]:null,_0x3879a6["安装地址"],_0x3879a6["备注"]].filter(Boolean)["join"]("<br>"),'""'!==_0x3879a6["加价项目"]&&_0x3879a6["加价项目"]!=="null"&&_0x3879a6["加价项目"])try{
+            let e=_0x3879a6["加价项目原始数据"],t=[];
             if("string"==typeof e)try{
               let a=0;
               const x=4;
               let _=e;
               for(;
               "string"==typeof _&&a<x;
-              )a++,_=JSON["values"](_);
-              typeof _==="image/png"||(t=_)
+              )a++,_=JSON["parse"](_);
+              typeof _==="string"||(t=_)
             }
             catch(_0x52afdc){
             }
-            if(!Array["PDF导出成功"](t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e.name)))).map((e=>e["el-form"])).join("-");
+            if(!Array["isArray"](t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e.name)))).map((e=>e["name"])).join("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x551a25["日期: "]?_0x551a25["日期: "]+="加价项目已存在！"+t:_0x551a25.remark=t
+                let t="加配："+e;
+                _0x551a25["remark"]?_0x551a25["remark"]+="<br>"+t:_0x551a25.remark=t
               }
             }
           }
           catch(_0x203219){
           }
-          if(null!=_0x3879a6["saved_password"]&&2!==Number(_0x3879a6["saved_password"])){
-            const e=0===Number(_0x3879a6["saved_password"])?"stringify":1===Number(_0x3879a6["saved_password"])?"录入失败":3===Number(_0x3879a6["saved_password"])?"\"进行匹配计算，是否继续？":4===Number(_0x3879a6["saved_password"])?"left":5===Number(_0x3879a6["边封数"])?" L ":"";
-            e&&(_0x551a25["日期: "]?_0x551a25["日期: "]+="<br>"+e:_0x551a25["日期: "]=e)
+          if(null!=_0x3879a6["边封数"]&&2!==Number(_0x3879a6["边封数"])){
+            const e=0===Number(_0x3879a6["边封数"])?"双丁墙":1===Number(_0x3879a6["边封数"])?"单丁墙":3===Number(_0x3879a6["边封数"])?"上丁墙":4===Number(_0x3879a6["边封数"])?"上丁加单丁":5===Number(_0x3879a6["边封数"])?"上丁加双丁":"";
+            e&&(_0x551a25["remark"]?_0x551a25["remark"]+="<br>"+e:_0x551a25["remark"]=e)
           }
           const _0x231ba5=_0x3879a6["客户编号"];
           let _0x1bedd7=null;
-          if(_0x231ba5&&0!==_0x231ba5)if(_0x674470["爱德益钛镁合金厂"](_0x231ba5))_0x1bedd7=_0x674470["DoubleWall"](_0x231ba5);
+          if(_0x231ba5&&0!==_0x231ba5)if(_0x674470["has"](_0x231ba5))_0x1bedd7=_0x674470["get"](_0x231ba5);
           else try{
             const e=await getUserData();
             if(e){
-              const t=await fetch("11欧诺名门"+e["hui_picture"].ds+"writeBuffer"+_0x231ba5,{
-                method:"DoubleWall"
+              const t=await fetch("https://www.samrtdoor.com.cn/1?param1=getLatestClientsInfo&param2="+e["userinfo"].ds+"&param3="+_0x231ba5,{
+                method:"get"
               }),a=await t.json();
-              200===a["格亮窗"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].length>0?(_0x1bedd7=a.data[0],_0x674470["亮窗玻璃-"](_0x231ba5,_0x1bedd7)):_0x674470["亮窗玻璃-"](_0x231ba5,null)
+              200===a["code"]&&a["data"]&&a["data"].length>0?(_0x1bedd7=a.data[0],_0x674470["set"](_0x231ba5,_0x1bedd7)):_0x674470["set"](_0x231ba5,null)
             }
           }
           catch(_0x5a171c){
@@ -11288,58 +11288,58 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           if(_0x1bedd7&&_0x1bedd7["品牌"]&&null!==_0x1bedd7["品牌"]&&""!==_0x1bedd7["品牌"]&&" "!==_0x1bedd7["品牌"]){
             const e="品牌:"+_0x1bedd7["品牌"];
-            _0x551a25["日期: "]?_0x551a25["日期: "]+=" "+e:_0x551a25.remark=e
+            _0x551a25["remark"]?_0x551a25["remark"]+=" "+e:_0x551a25.remark=e
           }
           _0xc8b731(_0x551a25,_0x4a216a);
           let _0x4b926e="";
-          if(_0x3879a6["开向"]&&_0x23e965["el-popover"]&&_0x23e965["el-popover"]["名甸门业"]){
+          if(_0x3879a6["开向"]&&_0x23e965["value"]&&_0x23e965["value"]["directionImageMap"]){
             const e=getOriginalOpenDirection(_0x3879a6["开向"]);
             _0x4b926e=_0x23e965.value.directionImageMap[""+e]||""
           }
           _0x551a25.lockImg=_0x4b926e;
-          const _0x64c8a8=[],_0x2486bf=[_0x3879a6["封边横"],_0x3879a6["折叠8扇"],_0x3879a6["墙厚"]].filter((e=>e&&0!==e));
-          if(_0x2486bf["glassInfoList"]>0&&_0x64c8a8["12px"](_0x2486bf.join("*")),_0x3879a6["双开内右"]&&0!==_0x3879a6["亮窗总高"]){
-            let e="Bao"+_0x3879a6["亮窗总高"];
-            _0x2a7fef==="云打印失败"&&(e="*"+_0x3879a6["亮窗总高"]),_0x64c8a8["12px"](e)
+          const _0x64c8a8=[],_0x2486bf=[_0x3879a6["门洞高"],_0x3879a6["门洞宽"],_0x3879a6["墙厚"]].filter((e=>e&&0!==e));
+          if(_0x2486bf["length"]>0&&_0x64c8a8["push"](_0x2486bf.join("*")),_0x3879a6["亮窗总高"]&&0!==_0x3879a6["亮窗总高"]){
+            let e="亮窗高："+_0x3879a6["亮窗总高"];
+            _0x2a7fef==="diamond"&&(e="*"+_0x3879a6["亮窗总高"]),_0x64c8a8["push"](e)
           }
           if(_0x3879a6["吊脚"]&&0!==_0x3879a6["吊脚"]){
-            let e="双开内开"+_0x3879a6["吊脚"];
-            _0x64c8a8["12px"](e)
+            let e="吊脚："+_0x3879a6["吊脚"];
+            _0x64c8a8["push"](e)
           }
-          null!=_0x3879a6["洞尺"]&&""!==String(_0x3879a6["洞尺"]).trim()&&_0x64c8a8["then"](""+_0x3879a6["洞尺"]);
-          const _0x3cfa78=[_0x3879a6["面玻"],_0x3879a6["底玻"],_0x3879a6["Cao"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-          _0x3cfa78["glassInfoList"]>0&&("无"===_0x3879a6["底玻"]&&"无"!=_0x3879a6["面玻"]?_0x64c8a8["12px"](_0x3879a6["面玻"]+"已打开系统分享面板，可直接分享到微信"):"无"===_0x3879a6["底玻"]&&"无"==_0x3879a6["面玻"]?_0x64c8a8["12px"]("无玻璃"):_0x64c8a8["12px"](_0x3879a6["面玻"]+"+"+_0x3879a6["底玻"]+"*"+_0x3879a6["Cao"])),_0x551a25.basicInfo=_0x64c8a8["needsSecondPass"]("加价项目已存在！")+"<br>"+_0x3879a6["开向"],_0x3879a6["套线种类"]&&(_0x551a25["前框宽"]=_0x64c8a8["needsSecondPass"]("加价项目已存在！")+"加价项目已存在！"+_0x3879a6["恒业门窗"]+_0x3879a6["开向"]),_0x743794.includes(_0x269d2a)&&(_0x551a25["prototype"]=_0x3879a6["客户"]||""),_0x4d19f5[_0x5e7f2d]={
+          null!=_0x3879a6["洞尺"]&&""!==String(_0x3879a6["洞尺"]).trim()&&_0x64c8a8["unshift"](""+_0x3879a6["洞尺"]);
+          const _0x3cfa78=[_0x3879a6["面玻"],_0x3879a6["底玻"],_0x3879a6["玻璃厚"]]["filter"](Boolean);
+          _0x3cfa78["length"]>0&&("无"===_0x3879a6["底玻"]&&"无"!=_0x3879a6["面玻"]?_0x64c8a8["push"](_0x3879a6["面玻"]+"*单玻"):"无"===_0x3879a6["底玻"]&&"无"==_0x3879a6["面玻"]?_0x64c8a8["push"]("无玻璃"):_0x64c8a8["push"](_0x3879a6["面玻"]+"+"+_0x3879a6["底玻"]+"*"+_0x3879a6["玻璃厚"])),_0x551a25.basicInfo=_0x64c8a8["join"]("<br>")+"<br>"+_0x3879a6["开向"],_0x3879a6["套线种类"]&&(_0x551a25["basicInfo"]=_0x64c8a8["join"]("<br>")+"<br>"+_0x3879a6["套线种类"]+_0x3879a6["开向"]),_0x743794.includes(_0x269d2a)&&(_0x551a25["client"]=_0x3879a6["客户"]||""),_0x4d19f5[_0x5e7f2d]={
             orderInfo:_0x3879a6,calculationResults:_0x1d6087,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x551a25
+              timestamp:Date["now"](),data:_0x551a25
             }
           }
         }
-        if(diao&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0)for(let _0x2c9daf=0;
-        _0x2c9daf<_0x5b10d7["el-popover"]["assistive-fullscreen-changed"].length;
+        if(diao&&_0x5b10d7["value"]["diao_hui"]&&_0x5b10d7["value"]["diao_hui"]["length"]>0)for(let _0x2c9daf=0;
+        _0x2c9daf<_0x5b10d7["value"]["diao_hui"].length;
         _0x2c9daf++){
-          const _0xeb5988=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"][_0x2c9daf],_0x30b337=_0xeb5988["F槽宽"],_0x23ec7d=_0x2d51cc[_0x30b337];
+          const _0xeb5988=_0x5b10d7["value"]["diao_hui"][_0x2c9daf],_0x30b337=_0xeb5988["formulaid"],_0x23ec7d=_0x2d51cc[_0x30b337];
           if(!_0x23ec7d)continue;
           _0xeb5988.id&&_0x92afc6[_0xeb5988.id]&&(_0xeb5988["单号"]=_0x92afc6[_0xeb5988.id]);
-          const _0x37fd28=JSON["values"](JSON["Hui"](_0x23ec7d["3轨6扇"])),_0x4c81f6="洞尺"===_0xeb5988["洞尺"]?null==_0x23ec7d?void 0:_0x23ec7d.resetSize:void 0,_0x29afd9=_0xeb5988["洞尺"]==="isArray"||_0xeb5988["洞尺"]==="轨道种类"?null==_0x23ec7d?void 0:_0x23ec7d["commentPreviewContainer"]:void 0;
+          const _0x37fd28=JSON["parse"](JSON["stringify"](_0x23ec7d["diao"])),_0x4c81f6="洞尺"===_0xeb5988["洞尺"]?null==_0x23ec7d?void 0:_0x23ec7d.resetSize:void 0,_0x29afd9=_0xeb5988["洞尺"]==="单包洞尺"||_0xeb5988["洞尺"]==="双包洞尺"?null==_0x23ec7d?void 0:_0x23ec7d["TaoDong"]:void 0;
           let _0x2fd167;
-          _0x29afd9&&(_0xeb5988["洞尺"]==="isArray"&&_0x29afd9.SingleDong?_0x2fd167=_0x29afd9["下载回执单"]:_0xeb5988["洞尺"]==="轨道种类"&&_0x29afd9["border"]&&(_0x2fd167=_0x29afd9.DubleDong));
-          const _0x3e5dcb=null==_0x23ec7d?void 0:_0x23ec7d.widthIncrement,_0x17d746=_0x3e5dcb&&Number(_0x3e5dcb["一固一活固玻璃宽"])||0,_0xe3a1b3=_0x3e5dcb&&Number(_0x3e5dcb["el-autocomplete"])||0,_0x11c146=Number(_0xeb5988["边封数"])||0,_0x32de20=2!==_0x11c146&&0!==_0x17d746?_0x17d746*(2-_0x11c146):0,_0x36178e=2!==_0x11c146&&0!==_0xe3a1b3?_0xe3a1b3*(2-_0x11c146):0,_0xaa46de="3轨6扇"+(_0x2c9daf+1),_0xa4075a=_0xeb5988["扇数"];
+          _0x29afd9&&(_0xeb5988["洞尺"]==="单包洞尺"&&_0x29afd9.SingleDong?_0x2fd167=_0x29afd9["SingleDong"]:_0xeb5988["洞尺"]==="双包洞尺"&&_0x29afd9["DubleDong"]&&(_0x2fd167=_0x29afd9.DubleDong));
+          const _0x3e5dcb=null==_0x23ec7d?void 0:_0x23ec7d.widthIncrement,_0x17d746=_0x3e5dcb&&Number(_0x3e5dcb["SheetIncrement"])||0,_0xe3a1b3=_0x3e5dcb&&Number(_0x3e5dcb["TrackIncrement"])||0,_0x11c146=Number(_0xeb5988["边封数"])||0,_0x32de20=2!==_0x11c146&&0!==_0x17d746?_0x17d746*(2-_0x11c146):0,_0x36178e=2!==_0x11c146&&0!==_0xe3a1b3?_0xe3a1b3*(2-_0x11c146):0,_0xaa46de="diao"+(_0x2c9daf+1),_0xa4075a=_0xeb5988["扇数"];
           if(!_0xa4075a)continue;
-          if(_0xa4075a["折叠5扇"]("活"))Object.keys(_0x37fd28)["✅ 图片已下载，请手动分享"]((e=>{
+          if(_0xa4075a["includes"]("活"))Object.keys(_0x37fd28)["forEach"]((e=>{
             const t=_0x11f592,a=_0x37fd28[e];
             e.includes("活")&&!e[t(566)](t(877))&&(a[t(523)]=!0),e.includes(t(877))&&a[t(193)]===_0xeb5988[t(184)]&&e.includes(_0xa4075a)&&(a[t(523)]=!0),_0xeb5988["亮窗总高"]>0&&(e[t(566)]("玻璃")||e[t(566)]("亮窗"))&&(a[t(523)]=!0)
           }));
           else{
-            const e=_0xeb5988["扇数"]+"玻璃",t=Object["导入上次订单"](_0x37fd28)["后框高"]((t=>t["折叠5扇"](e)&&t.includes("单玻")));
+            const e=_0xeb5988["扇数"]+"玻璃",t=Object["keys"](_0x37fd28)["some"]((t=>t["includes"](e)&&t.includes("单玻")));
             let a=0,x=0,_=0;
             if((0!==_0x32de20||0!==_0x36178e)&&2!==Number(_0xeb5988["边封数"])){
-              const e=_0xa4075a["13px"](/(\d+)扇/);
+              const e=_0xa4075a["match"](/(\d+)扇/);
               if(e){
                 const t=Number(e[1]);
                 0!==_0x32de20&&(x=_0x32de20/t),0!==_0x36178e&&(_=_0x36178e)
               }
             }
-            Object["导入上次订单"](_0x37fd28)["✅ 图片已下载，请手动分享"]((l=>{
+            Object["keys"](_0x37fd28)["forEach"]((l=>{
               const o=_0x11f592,c=_0x37fd28[l],n="无"===_0xeb5988["底玻"]||"无"===_0xeb5988["面玻"],d=!_0xa4075a[o(566)]("活")&&n;
               if(t&&!n&&l[o(566)](e)&&l.includes("单玻"))return void(c.state=!1);
               if(d&&t&&l[o(566)](e))return void(c[o(523)]=l[o(566)]("单玻"));
@@ -11352,45 +11352,45 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               l[o(566)]("收口")&&_0xa4075a[o(566)]("4扇")&&!_0xa4075a.includes("折叠")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0xa4075a.includes("3扇")&&_0xa4075a.includes("折叠")&&!_0xeb5988["开向"][o(566)]("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0xa4075a[o(566)]("4扇")&&_0xa4075a[o(566)]("折叠")&&!_0xeb5988["开向"][o(566)]("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0xa4075a[o(566)]("5扇")&&_0xa4075a[o(566)]("折叠")&&!_0xeb5988["开向"].includes("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0xa4075a[o(566)]("6扇")&&_0xa4075a[o(566)]("折叠")&&!_0xeb5988["开向"][o(566)]("0")&&(c[o(523)]=!0),l.includes("收口")&&_0xa4075a[o(566)](o(604))&&(c[o(523)]=!0),l[o(566)]("收口")&&_0xa4075a[o(566)]("单轨2扇")&&(c.state=!0)
             }))
           }
-          const _0x16f3cb=_0xeb5988["折叠8扇"],_0x2e683f=_0xeb5988["门洞高"],_0x40b2bf=_0xeb5988["双开内右"]||0,_0x2375a3=_0x4c81f6&&Number(_0x4c81f6.width)||0,_0x1a73fc=_0x4c81f6&&Number(_0x4c81f6["Wai"])||0,_0x168ba8=_0x2fd167&&Number(_0x2fd167["宽减"])||0,_0x14f717=_0x2fd167&&Number(_0x2fd167["高减"])||0;
+          const _0x16f3cb=_0xeb5988["门洞宽"],_0x2e683f=_0xeb5988["门洞高"],_0x40b2bf=_0xeb5988["亮窗总高"]||0,_0x2375a3=_0x4c81f6&&Number(_0x4c81f6.width)||0,_0x1a73fc=_0x4c81f6&&Number(_0x4c81f6["height"])||0,_0x168ba8=_0x2fd167&&Number(_0x2fd167["宽减"])||0,_0x14f717=_0x2fd167&&Number(_0x2fd167["高减"])||0;
           let _0x13d9c9=_0x16f3cb,_0x16e84e=_0x2e683f,_0x4cc97e=_0x40b2bf;
           (0!==_0x2375a3||0!==_0x1a73fc)&&(_0x13d9c9=_0x16f3cb-_0x2375a3,_0x40b2bf>_0x2e683f?_0x4cc97e=_0x40b2bf-_0x1a73fc:_0x16e84e=_0x2e683f-_0x1a73fc),(0!==_0x168ba8||0!==_0x14f717)&&(_0x13d9c9-=_0x168ba8,_0x40b2bf>_0x2e683f?_0x4cc97e-=_0x14f717:_0x16e84e-=_0x14f717);
-          const _0x1383ba=null==_0x23ec7d?void 0:_0x23ec7d["charCodeAt"],_0x43179a=String(_0xeb5988["圣诺派门业"]||"")["打印成功"]();
+          const _0x1383ba=null==_0x23ec7d?void 0:_0x23ec7d["swingWall"],_0x43179a=String(_0xeb5988["单双丁"]||"")["trim"]();
           let _0x5e6d09=0,_0x386796=0;
-          _0x1383ba&&_0x43179a&&"正常"!==_0x43179a&&(_0x43179a==="录入失败"?_0x5e6d09=Number(_0x1383ba["canShare"])||0:_0x43179a==="stringify"?_0x5e6d09=Number(_0x1383ba["doorframe"])||0:_0x43179a==="\"进行匹配计算，是否继续？"?_0x386796=Number(_0x1383ba["declaration"])||0:_0x43179a==="left"?(_0x5e6d09=Number(_0x1383ba["canShare"])||0,_0x386796=Number(_0x1383ba.UpWall)||0):"上丁加双丁"===_0x43179a&&(_0x5e6d09=Number(_0x1383ba["doorframe"])||0,_0x386796=Number(_0x1383ba["declaration"])||0)),0!==_0x386796&&(_0x40b2bf>_0x2e683f?_0x4cc97e-=_0x386796:_0x16e84e-=_0x386796),0!==_0x5e6d09&&(_0x13d9c9-=_0x5e6d09);
+          _0x1383ba&&_0x43179a&&"正常"!==_0x43179a&&(_0x43179a==="单丁墙"?_0x5e6d09=Number(_0x1383ba["SingleWall"])||0:_0x43179a==="双丁墙"?_0x5e6d09=Number(_0x1383ba["DoubleWall"])||0:_0x43179a==="上丁墙"?_0x386796=Number(_0x1383ba["UpWall"])||0:_0x43179a==="上丁加单丁"?(_0x5e6d09=Number(_0x1383ba["SingleWall"])||0,_0x386796=Number(_0x1383ba.UpWall)||0):"上丁加双丁"===_0x43179a&&(_0x5e6d09=Number(_0x1383ba["DoubleWall"])||0,_0x386796=Number(_0x1383ba["UpWall"])||0)),0!==_0x386796&&(_0x40b2bf>_0x2e683f?_0x4cc97e-=_0x386796:_0x16e84e-=_0x386796),0!==_0x5e6d09&&(_0x13d9c9-=_0x5e6d09);
           const _0x1c2fee={
             h:_0x16e84e,w:_0x13d9c9,h1:_0x4cc97e,t:_0xeb5988["墙厚"]||0
           };let _0x2bbcdc=!1;
-          Object["导入上次订单"](_0x37fd28)["✅ 图片已下载，请手动分享"]((_0x1f29b4=>{
+          Object["keys"](_0x37fd28)["forEach"]((_0x1f29b4=>{
             const _0x1add4e=_0x11f592,_0x27b06=_0x37fd28[_0x1f29b4];
             if(_0x27b06.state){
               try{
-                let _0x6756f8=_0x27b06["toFixed"];
+                let _0x6756f8=_0x27b06["formula"];
                 if(_0x6756f8){
-                  if(_0x6756f8["60px"]("=")&&(_0x6756f8=_0x6756f8["门框宽"](1)),_0x6756f8.includes("请输入加价项目名称"))return void(_0x27b06["windows"]=!0);
+                  if(_0x6756f8["startsWith"]("=")&&(_0x6756f8=_0x6756f8["substring"](1)),_0x6756f8.includes(".result"))return void(_0x27b06["needsSecondPass"]=!0);
                   let _0x2f60f2=_0x6756f8;
-                  for(const[e,t]of Object["860px"](_0x1c2fee))_0x2f60f2=_0x2f60f2.replace(new RegExp("\\b"+e+"\\b","g"),t);
+                  for(const[e,t]of Object["entries"](_0x1c2fee))_0x2f60f2=_0x2f60f2.replace(new RegExp("\\b"+e+"\\b","g"),t);
                   const _0x255c0a=["v"];
                   for(const e of _0x255c0a)if(void 0!==_0x27b06[e]){
                     const t=_0x27b06[e],a=t<0?"("+t+")":t;
-                    _0x2f60f2=_0x2f60f2["合页匹配失败"](new RegExp(e,"g"),a)
+                    _0x2f60f2=_0x2f60f2["replace"](new RegExp(e,"g"),a)
                   }
                   const _0x508556=eval(_0x2f60f2),_0x53291d=Math.round(_0x508556);
-                  _0x1f29b4["折叠5扇"]("<br>•"),!0===_0x27b06["kou"]&&_0x53291d<1&&!_0x1f29b4["折叠5扇"]("滑")&&!_0x1f29b4.includes("单轨")?(_0x27b06["kou"]=!1,_0x27b06.result=0,_0x27b06["style"]=0,_0x1f29b4["折叠5扇"]("顾轩门窗")&&(_0x2bbcdc=!0)):(_0x27b06["门玻璃高"]=_0x53291d,_0x2bbcdc&&(_0x1f29b4.includes("扣板高")||_0x1f29b4["折叠5扇"]("BoLiKuan"))&&(_0x27b06["style"]=0,_0x27b06["kou"]=!1))
+                  _0x1f29b4["includes"]("扣板厚1"),!0===_0x27b06["state"]&&_0x53291d<1&&!_0x1f29b4["includes"]("滑")&&!_0x1f29b4.includes("单轨")?(_0x27b06["state"]=!1,_0x27b06.result=0,_0x27b06["quantity"]=0,_0x1f29b4["includes"]("扣板厚")&&(_0x2bbcdc=!0)):(_0x27b06["result"]=_0x53291d,_0x2bbcdc&&(_0x1f29b4.includes("扣板高")||_0x1f29b4["includes"]("扣板宽"))&&(_0x27b06["quantity"]=0,_0x27b06["state"]=!1))
                 }
               }
               catch(_0xa2bec9){
-                _0x27b06["门玻璃高"]="error"
+                _0x27b06["result"]="error"
               }
-              _0x1f29b4["折叠5扇"]("<br>•")
+              _0x1f29b4["includes"]("扣板厚1")
             }
-          })),Object.keys(_0x37fd28)["✅ 图片已下载，请手动分享"]((_0x2ac55f=>{
+          })),Object.keys(_0x37fd28)["forEach"]((_0x2ac55f=>{
             const _0x4f4dc2=_0x11f592,_0x4ece64=_0x37fd28[_0x2ac55f];
-            if(_0x4ece64["kou"]&&_0x4ece64["windows"])try{
-              let _0x43c00d=_0x4ece64["toFixed"];
-              _0x43c00d["60px"]("=")&&(_0x43c00d=_0x43c00d["门框宽"](1));
+            if(_0x4ece64["state"]&&_0x4ece64["needsSecondPass"])try{
+              let _0x43c00d=_0x4ece64["formula"];
+              _0x43c00d["startsWith"]("=")&&(_0x43c00d=_0x43c00d["substring"](1));
               let _0x33c558=_0x43c00d;
-              Object.keys(_0x37fd28)["✅ 图片已下载，请手动分享"]((e=>{
+              Object.keys(_0x37fd28)["forEach"]((e=>{
                 const t=_0x4f4dc2,a=e+t(708);
                 if(_0x33c558.includes(a)){
                   const e=a[t(363)](".")[0],x=Object[t(1124)](_0x37fd28)[t(990)]((([a,x])=>{
@@ -11403,32 +11403,32 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x33c558=_0x33c558.replace(new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x1c2fee))_0x33c558=_0x33c558["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x1c2fee))_0x33c558=_0x33c558["replace"](new RegExp(e,"g"),t);
               const _0x52994c=["v"];
               for(const e of _0x52994c)if(void 0!==_0x4ece64[e]){
                 const t=_0x4ece64[e],a=t<0?"("+t+")":t;
                 _0x33c558=_0x33c558.replace(new RegExp(e,"g"),a)
               }
-              const _0x2f7126=eval(_0x33c558),_0x363e8b=Math["删除失败"](_0x2f7126);
-              _0x363e8b<0||0==_0x363e8b?(_0x4ece64["kou"]=!1,_0x4ece64.result=0):_0x4ece64.result=_0x363e8b,delete _0x4ece64.needsSecondPass
+              const _0x2f7126=eval(_0x33c558),_0x363e8b=Math["round"](_0x2f7126);
+              _0x363e8b<0||0==_0x363e8b?(_0x4ece64["state"]=!1,_0x4ece64.result=0):_0x4ece64.result=_0x363e8b,delete _0x4ece64.needsSecondPass
             }
             catch(_0x2cc832){
-              _0x4ece64.result="error",_0x4ece64["kou"]=!1
+              _0x4ece64.result="error",_0x4ece64["state"]=!1
             }
           }));
           const _0x33f426={
-          };Object["导入上次订单"](_0x37fd28)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x37fd28)["forEach"]((e=>{
             const t=_0x11f592,a=_0x37fd28[e];
             !0===a[t(523)]&&(_0x33f426[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a.quantity||0
             })
           }));
-          const _0x500ef9=_0x743794["折叠5扇"](_0x269d2a)?{
+          const _0x500ef9=_0x743794["includes"](_0x269d2a)?{
             client:"",door:"",qrcode:"",OrderID:"",maker:_0x4f3eef,lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",kou:"",remark:""
           }
           :{
             doorImg:"",door:"",qrcode:"",OrderID:"",maker:_0x4f3eef,lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",kou:"",remark:""
-          },_0x4ec329=["光企","勾企","合页","锁","收口","方","封板高",_0x11f592(1e3),"纱网","registrant","回执单下载成功: "],_0xec16=_0x4ec329["dispatchEvent"](((e,t)=>{
+          },_0x4ec329=["光企","勾企","合页","锁","收口","方","封板高",_0x11f592(1e3),"纱网","玻璃高","玻璃宽"],_0xec16=_0x4ec329["reduce"](((e,t)=>{
             const a=_0x11f592;
             return[...e,...Object[a(1124)](_0x33f426)[a(990)]((([e])=>e.includes(t)&&!e[a(566)]("亮窗")))[a(562)]((([e,x])=>{
               const _=a;
@@ -11439,15 +11439,15 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return t===_(877)?"<br>"+c:c
             }))]
           }),[]);
-          _0x500ef9["<br>面板:"]=_0xec16["needsSecondPass"]("加价项目已存在！");
-          const _0x40b838=Object["860px"](_0x33f426)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["后框高"]((t=>e["折叠5扇"](t)))))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>!e["折叠5扇"]("企"))).filter((([e,t])=>{
+          _0x500ef9["doorsheet"]=_0xec16["join"]("<br>");
+          const _0x40b838=Object["entries"](_0x33f426)["filter"]((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["some"]((t=>e["includes"](t)))))["filter"]((([e])=>!e["includes"]("企"))).filter((([e,t])=>{
             const a=_0x11f592;
             return(!e[a(566)]("边封")||0!==_0xeb5988["边封数"])&&!(_0xeb5988[a(184)]&&_0xeb5988["轨道种类"][a(566)]("吊轨")&&e[a(566)]("下滑"))
-          })),_0x5c1310=_0x40b838["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e["折叠5扇"]("下滑"))),_0x1a0cf4=_0x5c1310["glassInfoList"]>1,_0x36a14d=(_0x1a0cf4?_0x40b838["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e,t])=>{
+          })),_0x5c1310=_0x40b838["filter"]((([e])=>e["includes"]("下滑"))),_0x1a0cf4=_0x5c1310["length"]>1,_0x36a14d=(_0x1a0cf4?_0x40b838["filter"]((([e,t])=>{
             var a;
             const x=_0x11f592;
             return!e[x(566)]("下滑")||(null==(a=t[x(578)])?void 0:a[x(566)](_0xeb5988[x(184)]))
-          })):_0x40b838)["validate"]((([e,t])=>{
+          })):_0x40b838)["map"]((([e,t])=>{
             var a;
             const x=_0x11f592;
             if(e[x(566)]("边封")&&void 0!==_0xeb5988[x(1064)]&&(t[x(650)]=_0xeb5988["边封数"]),e.includes("滑")&&void 0!==_0xeb5988[x(265)]&&_0xeb5988[x(265)]>0&&(t[x(1094)]=_0xeb5988[x(265)]),e[x(566)](x(962))&&void 0!==_0xeb5988[x(265)]&&_0xeb5988[x(265)]>0&&(t[x(1094)]=_0xeb5988[x(265)]),e[x(566)]("轨道盖板")&&void 0!==_0xeb5988["轨道长"]&&_0xeb5988["轨道长"]>0&&(t[x(1094)]=_0xeb5988["轨道长"]),e[x(566)]("下滑")){
@@ -11464,7 +11464,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return"杉杉铝木极简门"===_0x269d2a?e+x(584)+t.result+"*"+t[x(650)]*_0xeb5988["数量"]:e+":"+t[x(1094)]+"*"+t[x(650)]*_0xeb5988["数量"]
             }
             return _0x269d2a===x(222)?t[x(578)]+x(584)+t.result+"*"+t[x(650)]*_0xeb5988["数量"]:t.materialName+":"+t[x(1094)]+"*"+t[x(650)]*_0xeb5988["数量"]
-          })),_0x11442a=Object["860px"](_0x33f426)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e.includes("包宽")||e["折叠5扇"]("包高")))["profile"]((([e,t])=>{
+          })),_0x11442a=Object["entries"](_0x33f426)["filter"]((([e])=>e.includes("包宽")||e["includes"]("包高")))["flatMap"]((([e,t])=>{
             const a=_0x11f592;
             let x=t.result;
             if(e[a(566)]("包高")&&(Number(_0xeb5988[a(637)])>0||Number(_0xeb5988[a(301)])>0)){
@@ -11472,140 +11472,140 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return"杉杉铝木极简门"===_0x269d2a?[t[a(578)]+":<br>"+(x+_)+"*"+e,t[a(578)]+":<br>"+(x+l)+"*"+e]:[t[a(578)]+":"+(x+_)+"*"+e,t.materialName+":"+(x+l)+"*"+e]
             }
             return"杉杉铝木极简门"===_0x269d2a?t.materialName+a(584)+x+"*"+t[a(650)]*_0xeb5988["数量"]:t[a(578)]+":"+x+"*"+t.quantity*_0xeb5988["数量"]
-          })),_0x2fc3ef=Object["860px"](_0x33f426)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["中柱","commentPreview","槽","压线"]["后框高"]((t=>e["折叠5扇"](t)))))["validate"]((([e,t])=>{
+          })),_0x2fc3ef=Object["entries"](_0x33f426)["filter"]((([e])=>["中柱","亮窗玻璃","槽","压线"]["some"]((t=>e["includes"](t)))))["map"]((([e,t])=>{
             const a=_0x11f592;
             let x=t[a(650)];
             e[a(566)]("玻璃")&&("无"===_0xeb5988["底玻"]||"无"===_0xeb5988["面玻"])&&!e[a(566)]("单玻")&&(x=t[a(650)]/2),e.includes("玻璃")&&_0xeb5988["扇数"]===a(737)&&(x=1),e[a(566)]("玻璃")&&"双活"===_0xeb5988["扇数"]&&(x=2);
             let _=t[a(1094)];
             const l=x*_0xeb5988["数量"],o=l>0&&l<1?1:l;
             return"杉杉铝木极简门"===_0x269d2a?t.materialName+a(584)+_+"*"+o:t.materialName+":"+_+"*"+o
-          })),_0xb9d0e5=Object["860px"](_0x33f426)["formulaID"]((([e])=>e["折叠5扇"]("顾轩门窗"))),_0x28af38=_0xb9d0e5?_0xb9d0e5[1]["门玻璃高"]:0,_0x20c709=Object["860px"](_0x33f426).filter((([e])=>e["折叠5扇"]("扣板")&&!e["折叠5扇"]("扣板厚"))).map((([e,t])=>{
+          })),_0xb9d0e5=Object["entries"](_0x33f426)["find"]((([e])=>e["includes"]("扣板厚"))),_0x28af38=_0xb9d0e5?_0xb9d0e5[1]["result"]:0,_0x20c709=Object["entries"](_0x33f426).filter((([e])=>e["includes"]("扣板")&&!e["includes"]("扣板厚"))).map((([e,t])=>{
             const a=_0x11f592;
             let x=t[a(1094)],_=_0xeb5988["数量"];
             const l=_0x28af38;
             let o=t[a(650)]*_;
             return o>0&&o<1&&(o=1),l>0&&_0xeb5988["数量"]>1?_0x269d2a===a(222)?t[a(578)]+a(584)+x+a(1098)+l+"*"+o:t[a(578)]+":"+x+a(1098)+l+"*"+o:l>0?_0x269d2a===a(222)?t.materialName+a(584)+x+a(1098)+l+"*"+o:t[a(578)]+":"+x+a(1098)+l+"*"+o:"杉杉铝木极简门"===_0x269d2a?t[a(578)]+a(584)+x+"*"+l+"*"+o:t[a(578)]+":"+x+"*"+l+"*"+o
-          })),_0x24f575=Object["860px"](_0x33f426)["formulaID"]((([e])=>e["折叠5扇"]("BoLiKuan"))),_0xa0d6bc=Object.entries(_0x33f426)["formulaID"]((([e])=>e["折叠5扇"]("下载图片失败"))),_0x42aa0c=Object.entries(_0x33f426)["formulaID"]((([e])=>e["折叠5扇"](_0x11f592(1e3)))),_0x5beb22=Object["860px"](_0x33f426)["formulaID"]((([e])=>e.includes("smartdoor_disable_auto_markup"))),_0x218e0b=[..._0x2fc3ef,..._0x20c709];
-          _0x500ef9["上丁加双丁"]=_0x218e0b["needsSecondPass"]("加价项目已存在！");
+          })),_0x24f575=Object["entries"](_0x33f426)["find"]((([e])=>e["includes"]("扣板宽"))),_0xa0d6bc=Object.entries(_0x33f426)["find"]((([e])=>e["includes"]("扣板高"))),_0x42aa0c=Object.entries(_0x33f426)["find"]((([e])=>e["includes"](_0x11f592(1e3)))),_0x5beb22=Object["entries"](_0x33f426)["find"]((([e])=>e.includes("封板高"))),_0x218e0b=[..._0x2fc3ef,..._0x20c709];
+          _0x500ef9["windows"]=_0x218e0b["join"]("<br>");
           const _0x4a8c7e=[];
           if(_0x24f575){
-            let e=_0x24f575[1]["style"]*_0xeb5988["数量"];
-            e>0&&e<1&&(e=1),_0x4a8c7e["12px"]("喜迎门移门"+_0x24f575[1].result+"*"+e)
+            let e=_0x24f575[1]["quantity"]*_0xeb5988["数量"];
+            e>0&&e<1&&(e=1),_0x4a8c7e["push"]("扣板宽:"+_0x24f575[1].result+"*"+e)
           }
           if(_0xa0d6bc){
             let e=_0xa0d6bc[1].quantity*_0xeb5988["数量"];
-            e>0&&e<1&&(e=1),_0x4a8c7e["12px"]("Gou"+_0xa0d6bc[1]["门玻璃高"]+"*"+e)
+            e>0&&e<1&&(e=1),_0x4a8c7e["push"]("扣板高:"+_0xa0d6bc[1]["result"]+"*"+e)
           }
-          if(_0xb9d0e5&&_0x4a8c7e.push("#909399"+_0x28af38+"*"+_0xeb5988["数量"]),_0x42aa0c&&_0x5beb22){
-            let e=_0x42aa0c[1]["style"]*_0xeb5988["数量"];
-            e>0&&e<1&&(e=1),_0x4a8c7e["12px"]("toLocaleDateString"+_0x42aa0c[1]["门玻璃高"]+"*"+_0x5beb22[1]["门玻璃高"]+"*"+e)
+          if(_0xb9d0e5&&_0x4a8c7e.push("扣板厚:"+_0x28af38+"*"+_0xeb5988["数量"]),_0x42aa0c&&_0x5beb22){
+            let e=_0x42aa0c[1]["quantity"]*_0xeb5988["数量"];
+            e>0&&e<1&&(e=1),_0x4a8c7e["push"]("封板:"+_0x42aa0c[1]["result"]+"*"+_0x5beb22[1]["result"]+"*"+e)
           }
-          if(_0x500ef9.kou=_0x4a8c7e.join("加价项目已存在！"),_0x11442a["glassInfoList"]>0?_0x500ef9.doorframe=_0x36a14d.join("加价项目已存在！")+"<br>套线名："+_0xeb5988["恒业门窗"]+"加价项目已存在！"+_0x11442a["needsSecondPass"]("<br>"):_0x500ef9["Feng"]=_0x36a14d["needsSecondPass"]("加价项目已存在！"),_0x743794["折叠5扇"](_0x269d2a)||"鸿程鑫派门窗"===_0x269d2a)_0x500ef9["orderNumbers"]=[_0xeb5988["型材"],_0xeb5988["颜色"]].filter(Boolean)["needsSecondPass"]("<br>");
+          if(_0x500ef9.kou=_0x4a8c7e.join("<br>"),_0x11442a["length"]>0?_0x500ef9.doorframe=_0x36a14d.join("<br>")+"<br>套线名："+_0xeb5988["套线种类"]+"<br>"+_0x11442a["join"]("<br>"):_0x500ef9["doorframe"]=_0x36a14d["join"]("<br>"),_0x743794["includes"](_0x269d2a)||"鸿程鑫派门窗"===_0x269d2a)_0x500ef9["door"]=[_0xeb5988["型材"],_0xeb5988["颜色"]].filter(Boolean)["join"]("<br>");
           else{
-            const e=[_0xeb5988["客户"]||"",_0xeb5988["型材"],_0xeb5988["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-            _0x500ef9["orderNumbers"]=e.join("加价项目已存在！")
+            const e=[_0xeb5988["客户"]||"",_0xeb5988["型材"],_0xeb5988["颜色"]]["filter"](Boolean);
+            _0x500ef9["door"]=e.join("<br>")
           }
-          if(!_0x743794["折叠5扇"](_0x269d2a)&&_0xeb5988["图片ID"])try{
-            const e=await getImage(_0xeb5988["token_expires_at"]);
+          if(!_0x743794["includes"](_0x269d2a)&&_0xeb5988["图片ID"])try{
+            const e=await getImage(_0xeb5988["图片ID"]);
             e&&(_0x500ef9.doorImg=e)
           }
           catch(_0x1804a1){
           }
           _0x500ef9.OrderID=_0xeb5988["单号"]||"",_0x500ef9.qrcode=_0xeb5988["单号"]||"";
-          const _0x1bd3c3=_0xeb5988["圣诺派门业"]&&"正常"!==_0xeb5988["单双丁"]?_0xeb5988["单双丁"]:null;
-          if(_0x500ef9["日期: "]=[_0xeb5988["五金"]?_0xeb5988["五金"]:null,_0x1bd3c3,_0xeb5988["备注"],_0xeb5988["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),'""'!==_0xeb5988["findIndex"]&&_0xeb5988["findIndex"]!=="outerHTML"&&_0xeb5988["findIndex"])try{
-            let e=_0xeb5988["height"],t=[];
+          const _0x1bd3c3=_0xeb5988["单双丁"]&&"正常"!==_0xeb5988["单双丁"]?_0xeb5988["单双丁"]:null;
+          if(_0x500ef9["remark"]=[_0xeb5988["五金"]?_0xeb5988["五金"]:null,_0x1bd3c3,_0xeb5988["备注"],_0xeb5988["安装地址"]]["filter"](Boolean)["join"]("<br>"),'""'!==_0xeb5988["加价项目"]&&_0xeb5988["加价项目"]!=="null"&&_0xeb5988["加价项目"])try{
+            let e=_0xeb5988["加价项目原始数据"],t=[];
             if("string"==typeof e)try{
               let a=0;
               const x=4;
               let _=e;
               for(;
-              typeof _==="image/png"&&a<x;
-              )a++,_=JSON["values"](_);
-              typeof _==="image/png"||(t=_)
+              typeof _==="string"&&a<x;
+              )a++,_=JSON["parse"](_);
+              typeof _==="string"||(t=_)
             }
             catch(_0x5cc9b9){
             }
-            if(!Array.isArray(t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e["el-form"]))))["validate"]((e=>e.name))["needsSecondPass"]("-");
+            if(!Array.isArray(t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e["name"]))))["map"]((e=>e.name))["join"]("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x500ef9["日期: "]?_0x500ef9["日期: "]+="加价项目已存在！"+t:_0x500ef9["日期: "]=t
+                let t="加配："+e;
+                _0x500ef9["remark"]?_0x500ef9["remark"]+="<br>"+t:_0x500ef9["remark"]=t
               }
             }
           }
           catch(_0x274042){
           }
-          const _0xa796cb=_0xeb5988["GlassSize"];
+          const _0xa796cb=_0xeb5988["客户编号"];
           let _0x165443=null;
-          if(_0xa796cb&&0!==_0xa796cb)if(_0x674470["爱德益钛镁合金厂"](_0xa796cb))_0x165443=_0x674470.get(_0xa796cb);
+          if(_0xa796cb&&0!==_0xa796cb)if(_0x674470["has"](_0xa796cb))_0x165443=_0x674470.get(_0xa796cb);
           else try{
             const e=await getUserData();
             if(e){
-              const t=await fetch("11欧诺名门"+e["hui_picture"].ds+"writeBuffer"+_0xa796cb,{
-                method:"DoubleWall"
-              }),a=await t["savedAt"]();
-              200===a.code&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].length>0?(_0x165443=a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"][0],_0x674470.set(_0xa796cb,_0x165443)):_0x674470["亮窗玻璃-"](_0xa796cb,null)
+              const t=await fetch("https://www.samrtdoor.com.cn/1?param1=getLatestClientsInfo&param2="+e["userinfo"].ds+"&param3="+_0xa796cb,{
+                method:"get"
+              }),a=await t["json"]();
+              200===a.code&&a["data"]&&a["data"].length>0?(_0x165443=a["data"][0],_0x674470.set(_0xa796cb,_0x165443)):_0x674470["set"](_0xa796cb,null)
             }
           }
           catch(_0xe18843){
             _0x674470.set(_0xa796cb,null)
           }
           if(_0x165443&&_0x165443["品牌"]&&null!==_0x165443["品牌"]&&""!==_0x165443["品牌"]&&" "!==_0x165443["品牌"]){
-            const e="Kou"+_0x165443["品牌"];
-            _0x500ef9["日期: "]?_0x500ef9["日期: "]+=" "+e:_0x500ef9.remark=e
+            const e="品牌:"+_0x165443["品牌"];
+            _0x500ef9["remark"]?_0x500ef9["remark"]+=" "+e:_0x500ef9.remark=e
           }
           _0xc8b731(_0x500ef9,_0x23ec7d);
           let _0xc25845="";
-          _0xeb5988["开向"]&&_0x1be4d9["el-popover"]&&_0x1be4d9.value["名甸门业"]&&(_0xc25845=_0x1be4d9["el-popover"].directionImageMap[""+_0xeb5988["扇数"]+_0xeb5988["开向"]]||""),_0x500ef9["单号已填入回执单"]=_0xc25845;
-          const _0x14a59d=[],_0x4c055a=[_0xeb5988["封边横"],_0xeb5988["门洞宽"],_0xeb5988["墙厚"]].filter((e=>e&&0!==e));
-          if(_0x4c055a.length>0&&_0x14a59d["12px"](_0x4c055a.join("*")),_0xeb5988["双开内右"]&&0!==_0xeb5988["双开内右"]){
-            let e="Bao"+_0xeb5988["双开内右"];
-            _0xeb5988["2655"]&&0!==_0xeb5988["2655"]&&(e+="亮窗"+_0xeb5988["亮窗数量"]+"格"),_0x14a59d["12px"](e)
+          _0xeb5988["开向"]&&_0x1be4d9["value"]&&_0x1be4d9.value["directionImageMap"]&&(_0xc25845=_0x1be4d9["value"].directionImageMap[""+_0xeb5988["扇数"]+_0xeb5988["开向"]]||""),_0x500ef9["lockImg"]=_0xc25845;
+          const _0x14a59d=[],_0x4c055a=[_0xeb5988["门洞高"],_0xeb5988["门洞宽"],_0xeb5988["墙厚"]].filter((e=>e&&0!==e));
+          if(_0x4c055a.length>0&&_0x14a59d["push"](_0x4c055a.join("*")),_0xeb5988["亮窗总高"]&&0!==_0xeb5988["亮窗总高"]){
+            let e="亮窗高："+_0xeb5988["亮窗总高"];
+            _0xeb5988["亮窗数量"]&&0!==_0xeb5988["亮窗数量"]&&(e+="亮窗"+_0xeb5988["亮窗数量"]+"格"),_0x14a59d["push"](e)
           }
-          const _0x330e31=[_0xeb5988["面玻"],_0xeb5988["底玻"],_0xeb5988["Cao"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-          _0x330e31.length>0&&("无"===_0xeb5988["底玻"]&&"无"!=_0xeb5988["面玻"]?_0x14a59d.push(_0xeb5988["面玻"]+"已打开系统分享面板，可直接分享到微信"):"无"===_0xeb5988["底玻"]&&"无"==_0xeb5988["面玻"]?_0x14a59d.push("无"):_0x14a59d["12px"](_0xeb5988["面玻"]+"+"+_0xeb5988["底玻"]+"*"+_0xeb5988["Cao"])),null!=_0xeb5988["洞尺"]&&""!==String(_0xeb5988["洞尺"])["打印成功"]()&&_0x14a59d["then"](""+_0xeb5988["洞尺"]);
-          const _0x4241fd=(_0xeb5988["型材"]||"")["折叠5扇"]("pagesize")||(_0xeb5988["型材"]||"").includes("门套");
-          _0x500ef9.basicInfo=_0x4241fd?_0x14a59d["needsSecondPass"]("<br>")+"加价项目已存在！":_0x14a59d["needsSecondPass"]("加价项目已存在！")+"加价项目已存在！"+_0xeb5988["开向"]+"<br>"+_0xeb5988["扇数"],_0x743794["折叠5扇"](_0x269d2a)&&(_0x500ef9["prototype"]=_0xeb5988["客户"]||""),_0x4d19f5[_0xaa46de]={
+          const _0x330e31=[_0xeb5988["面玻"],_0xeb5988["底玻"],_0xeb5988["玻璃厚"]]["filter"](Boolean);
+          _0x330e31.length>0&&("无"===_0xeb5988["底玻"]&&"无"!=_0xeb5988["面玻"]?_0x14a59d.push(_0xeb5988["面玻"]+"*单玻"):"无"===_0xeb5988["底玻"]&&"无"==_0xeb5988["面玻"]?_0x14a59d.push("无"):_0x14a59d["push"](_0xeb5988["面玻"]+"+"+_0xeb5988["底玻"]+"*"+_0xeb5988["玻璃厚"])),null!=_0xeb5988["洞尺"]&&""!==String(_0xeb5988["洞尺"])["trim"]()&&_0x14a59d["unshift"](""+_0xeb5988["洞尺"]);
+          const _0x4241fd=(_0xeb5988["型材"]||"")["includes"]("哑口套")||(_0xeb5988["型材"]||"").includes("门套");
+          _0x500ef9.basicInfo=_0x4241fd?_0x14a59d["join"]("<br>")+"<br>":_0x14a59d["join"]("<br>")+"<br>"+_0xeb5988["开向"]+"<br>"+_0xeb5988["扇数"],_0x743794["includes"](_0x269d2a)&&(_0x500ef9["client"]=_0xeb5988["客户"]||""),_0x4d19f5[_0xaa46de]={
             orderInfo:_0xeb5988,calculationResults:_0x33f426,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x500ef9
+              timestamp:Date["now"](),data:_0x500ef9
             }
           }
         }
-        const _0xed5154=localStorage["<br>后"]("smartdoor_sort_method")||"❌ 浏览器不支持剪贴板API";
+        const _0xed5154=localStorage["getItem"]("smartdoor_sort_method")||"profile";
         let _0x39bda2;
-        _0x39bda2="order"===_0xed5154?Object["860px"](_0x4d19f5)["validate"]((([e,t])=>t["浏览器不支持文件分享"].data))["100%"](((e,t)=>{
+        _0x39bda2="order"===_0xed5154?Object["entries"](_0x4d19f5)["map"]((([e,t])=>t["produce"].data))["sort"](((e,t)=>{
           const a=_0x11f592;
           return(parseInt((e[a(496)]||e.orderID||"")[a(363)]("-")[0])||0)-(parseInt((t[a(496)]||t[a(999)]||"")[a(363)]("-")[0])||0)
-        })):Object["860px"](_0x4d19f5)["100%"](((e,t)=>e[1]["浏览器不支持文件分享"]["扣板宽"]-t[1]["浏览器不支持文件分享"]["扣板宽"]))["validate"]((([e,t])=>t["浏览器不支持文件分享"]["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]));
+        })):Object["entries"](_0x4d19f5)["sort"](((e,t)=>e[1]["produce"]["timestamp"]-t[1]["produce"]["timestamp"]))["map"]((([e,t])=>t["produce"]["data"]));
         const _0x314852={
           produces:_0x39bda2
         },_0x5cdf31="生产单",_0x30bb65=new Set;
-        Object.values(_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>{
+        Object.values(_0x4d19f5)["forEach"]((e=>{
           const t=_0x11f592;
           e[t(835)]&&e[t(835)][t(580)]&&_0x30bb65[t(232)](e[t(835)][t(580)])
         }));
-        const _0x2a6b8c=Array["imageurl"](_0x30bb65);
-        if(_0x18c875["el-popover"]=_0x2a6b8c,_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca["xlsx"]).length>0)return _0x39bda2;
+        const _0x2a6b8c=Array["from"](_0x30bb65);
+        if(_0x18c875["value"]=_0x2a6b8c,_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca["receiptData1"]).length>0)return _0x39bda2;
         const _0x48f7c0=await getUserData();
-        if(!_0x48f7c0)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x44bc03=null==(_b=null==(_a=null==_0x48f7c0?void 0:_0x48f7c0.registrant)?void 0:_a["尺寸:"])?void 0:_b["add-price-items"],_0x309f44=_0x20029b["折叠4扇"](_0x44bc03,_0x314852);
-        _0x3c8618["el-popover"]=_0x309f44[0]["导出为WPS PDF"],await Vue.nextTick(),_0xe9dd07["el-popover"]=_0x485486.value?_0x485486.value["本地打印..."]:0,_0x2911f9["el-popover"]=!0
+        if(!_0x48f7c0)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x44bc03=null==(_b=null==(_a=null==_0x48f7c0?void 0:_0x48f7c0.registrant)?void 0:_a["template"])?void 0:_b["product"],_0x309f44=_0x20029b["commentPreview"](_0x44bc03,_0x314852);
+        _0x3c8618["value"]=_0x309f44[0]["outerHTML"],await Vue.nextTick(),_0xe9dd07["value"]=_0x485486.value?_0x485486.value["scrollWidth"]:0,_0x2911f9["value"]=!0
       }
       catch(_0x59ce8f){
-        ElementPlus.ElMessage["font"]("Zuo")
+        ElementPlus.ElMessage["error"]("计算失败，请重试")
       }
       finally{
-        _0x28e4a9["2.添加门类"]()
+        _0x28e4a9["close"]()
       }
     },_0x320f0e=async(_0xbb047={
       ping:!0,diao:!0
     })=>{
       var _a,_b,_c,_d,_e,_f;
       const _0x5c0d14=_0x43b0d8;
-      _0x85a3a.value=_0x5cc934["el-popover"]?9:8;
-      const _0x35f92f=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"加载中...",background:"base64转换失败"
+      _0x85a3a.value=_0x5cc934["value"]?9:8;
+      const _0x35f92f=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
       try{
         const _0x2ddbe2=e=>{
@@ -11614,55 +11614,55 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             const x=t;
             return e[x(930)]!==a[x(930)]?e.formulaid[x(970)](a[x(930)]):(e["颜色"]||"").localeCompare(a["颜色"]||"")
           }))
-        };if(_0xbb047["fixed"]&&_0x5b10d7.value.ping_hui&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].length;
-          _0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]=_0x2ddbe2([..._0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]]);
-          const t=_0x5b10d7["el-popover"].ping_hui["glassInfoList"]
+        };if(_0xbb047["ping"]&&_0x5b10d7.value.ping_hui&&_0x5b10d7.value["ping_hui"]["length"]>0){
+          const e=_0x5b10d7["value"]["ping_hui"].length;
+          _0x5b10d7["value"]["ping_hui"]=_0x2ddbe2([..._0x5b10d7["value"]["ping_hui"]]);
+          const t=_0x5b10d7["value"].ping_hui["length"]
         }
-        if(_0xbb047["3轨6扇"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]&&_0x5b10d7.value["assistive-fullscreen-changed"]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"];
-          _0x5b10d7["el-popover"].diao_hui=_0x2ddbe2([..._0x5b10d7.value["assistive-fullscreen-changed"]]);
-          const t=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]
+        if(_0xbb047["diao"]&&_0x5b10d7["value"]["diao_hui"]&&_0x5b10d7.value["diao_hui"]["length"]>0){
+          const e=_0x5b10d7["value"]["diao_hui"]["length"];
+          _0x5b10d7["value"].diao_hui=_0x2ddbe2([..._0x5b10d7.value["diao_hui"]]);
+          const t=_0x5b10d7["value"]["diao_hui"]["length"]
         }
-        const _0x2bcf6c=[..._0xbb047["3轨6扇"]&&_0x5b10d7.value["assistive-fullscreen-changed"]?_0x5b10d7["el-popover"].diao_hui["validate"]((e=>e["F槽宽"])):[],..._0xbb047["fixed"]&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]?_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["validate"]((e=>e.formulaid)):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x9e8298=[...new Set(_0x2bcf6c)],_0x106824=[..._0xbb047["3轨6扇"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]?_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["validate"]((e=>e.id)):[],..._0xbb047["fixed"]&&_0x5b10d7["el-popover"].ping_hui?_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["validate"]((e=>e.id)):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x2e11ce=[...new Set(_0x106824)],_0x347c7d={
+        const _0x2bcf6c=[..._0xbb047["diao"]&&_0x5b10d7.value["diao_hui"]?_0x5b10d7["value"].diao_hui["map"]((e=>e["formulaid"])):[],..._0xbb047["ping"]&&_0x5b10d7.value["ping_hui"]?_0x5b10d7["value"]["ping_hui"]["map"]((e=>e.formulaid)):[]]["filter"](Boolean),_0x9e8298=[...new Set(_0x2bcf6c)],_0x106824=[..._0xbb047["diao"]&&_0x5b10d7["value"]["diao_hui"]?_0x5b10d7["value"]["diao_hui"]["map"]((e=>e.id)):[],..._0xbb047["ping"]&&_0x5b10d7["value"].ping_hui?_0x5b10d7["value"]["ping_hui"]["map"]((e=>e.id)):[]]["filter"](Boolean),_0x2e11ce=[...new Set(_0x106824)],_0x347c7d={
           formula:_0x9e8298,id:_0x2e11ce
         };if(!_0x2bcf6c.length)return void ElementPlus.ElMessage.warning("没有找到型材数据");
         const _0x139cf0=await getUserData();
-        if(!_0x139cf0)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x268723=_0x139cf0.userinfo["4. Blob验证通过，类型: "],_0x1be013=_0x139cf0["hui_picture"].ds,_0x2c527c=_0x139cf0["hui_picture"]["el-form"],_0x3d3709=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x268723+"writeBuffer"+_0x1be013,{
+        if(!_0x139cf0)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x268723=_0x139cf0.userinfo["registrant"],_0x1be013=_0x139cf0["userinfo"].ds,_0x2c527c=_0x139cf0["userinfo"]["name"],_0x3d3709=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x268723+"&param3="+_0x1be013,{
           method:"POST",headers:{
-            "Content-Type":"product2"
-          },body:JSON["Hui"](_0x347c7d)
+            "Content-Type":"application/json"
+          },body:JSON["stringify"](_0x347c7d)
         }),_0x41df5e=await _0x3d3709.json();
-        if(200!==_0x41df5e["格亮窗"])return void ElementPlus.ElMessage["font"](_0x41df5e["-底:"]||"hui-container");
-        ElementPlus.ElMessage["error"]("address");
-        const _0x40b925=_0x41df5e["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["&param3="],_0x2067b0=_0x41df5e["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["confirm"];
-        if(Object["导入上次订单"](_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>delete _0x4d19f5[e])),_0xbb047["fixed"]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7["el-popover"].ping_hui["glassInfoList"]>0)for(let _0x5059ab=0;
-        _0x5059ab<_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""].length;
+        if(200!==_0x41df5e["code"])return void ElementPlus.ElMessage["error"](_0x41df5e["message"]||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x40b925=_0x41df5e["data"]["formulas"],_0x2067b0=_0x41df5e["data"]["orderNumbers"];
+        if(Object["keys"](_0x4d19f5)["forEach"]((e=>delete _0x4d19f5[e])),_0xbb047["ping"]&&_0x5b10d7["value"]["ping_hui"]&&_0x5b10d7["value"].ping_hui["length"]>0)for(let _0x5059ab=0;
+        _0x5059ab<_0x5b10d7.value["ping_hui"].length;
         _0x5059ab++){
-          const _0x520f23=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""][_0x5059ab],_0x39fbf5=_0x520f23["F槽宽"],_0x2f6b93=_0x40b925[_0x39fbf5];
+          const _0x520f23=_0x5b10d7["value"]["ping_hui"][_0x5059ab],_0x39fbf5=_0x520f23["formulaid"],_0x2f6b93=_0x40b925[_0x39fbf5];
           if(!_0x2f6b93)continue;
           _0x520f23.id&&_0x2067b0[_0x520f23.id]&&(_0x520f23["单号"]=_0x2067b0[_0x520f23.id]);
-          const _0x497f7d=JSON["values"](JSON["Hui"](_0x2f6b93["3轨6扇"])),_0x3362f5=JSON["values"](JSON.stringify(_0x2f6b93.formulaType)),_0x1575dd="洞尺"===_0x520f23["洞尺"]?null==_0x2f6b93?void 0:_0x2f6b93["6LdJTqf"]:void 0,_0x5d8329=Number(_0x520f23["边封数"])||0,_0x505cfb=null==_0x2f6b93?void 0:_0x2f6b93["charCodeAt"];
+          const _0x497f7d=JSON["parse"](JSON["stringify"](_0x2f6b93["diao"])),_0x3362f5=JSON["parse"](JSON.stringify(_0x2f6b93.formulaType)),_0x1575dd="洞尺"===_0x520f23["洞尺"]?null==_0x2f6b93?void 0:_0x2f6b93["resetSize"]:void 0,_0x5d8329=Number(_0x520f23["边封数"])||0,_0x505cfb=null==_0x2f6b93?void 0:_0x2f6b93["swingWall"];
           let _0x24d4b1=0,_0x3e4d09=0;
-          _0x505cfb&&null!=_0x520f23["saved_password"]&&2!==_0x5d8329&&(1===_0x5d8329&&(_0x24d4b1=Number(_0x505cfb["canShare"])||0),4===_0x5d8329?(_0x24d4b1=Number(_0x505cfb["canShare"])||0,_0x3e4d09=Number(_0x505cfb["declaration"])||0):0===_0x5d8329?_0x24d4b1=Number(_0x505cfb["doorframe"])||0:5===_0x5d8329?(_0x24d4b1=Number(_0x505cfb["doorframe"])||0,_0x3e4d09=Number(_0x505cfb["declaration"])||0):3===_0x5d8329&&(_0x3e4d09=Number(_0x505cfb.UpWall)||0));
-          const _0x5347c2="fixed"+(_0x5059ab+1),_0x51330f=null==_0x2f6b93?void 0:_0x2f6b93["复制扣板"];
+          _0x505cfb&&null!=_0x520f23["边封数"]&&2!==_0x5d8329&&(1===_0x5d8329&&(_0x24d4b1=Number(_0x505cfb["SingleWall"])||0),4===_0x5d8329?(_0x24d4b1=Number(_0x505cfb["SingleWall"])||0,_0x3e4d09=Number(_0x505cfb["UpWall"])||0):0===_0x5d8329?_0x24d4b1=Number(_0x505cfb["DoubleWall"])||0:5===_0x5d8329?(_0x24d4b1=Number(_0x505cfb["DoubleWall"])||0,_0x3e4d09=Number(_0x505cfb["UpWall"])||0):3===_0x5d8329&&(_0x3e4d09=Number(_0x505cfb.UpWall)||0));
+          const _0x5347c2="ping"+(_0x5059ab+1),_0x51330f=null==_0x2f6b93?void 0:_0x2f6b93["hinge"];
           let _0x9f1096=0,_0x430435=0;
-          if(_0x51330f&&typeof _0x51330f==="SingleWall"&&Object["导入上次订单"](_0x51330f)["glassInfoList"]>0){
-            const t=String(_0x520f23["五金"]||""),a=t.includes("_")?t.split("_"):t?[t]:[],x=a["validate"]((e=>e["打印成功"]())).filter((e=>e["折叠5扇"]("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox["粤诗丽门窗"]("showButton"+x["needsSecondPass"]("、")+"orderID"+x[0]+'"进行匹配计算，是否继续？',"多个合页提示",{
-                confirmButtonText:"继续",cancelButtonText:"取消",type:"setItem"
+          if(_0x51330f&&typeof _0x51330f==="object"&&Object["keys"](_0x51330f)["length"]>0){
+            const t=String(_0x520f23["五金"]||""),a=t.includes("_")?t.split("_"):t?[t]:[],x=a["map"]((e=>e["trim"]())).filter((e=>e["includes"]("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox["confirm"]("五金中检测到多个含\"合页\"的元素："+x["join"]("、")+"，将使用第一个\""+x[0]+'"进行匹配计算，是否继续？',"多个合页提示",{
+                confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
-              if(void 0!==_0x51330f[t])_0x9f1096=-(Number(_0x51330f[t]["加价项目-超墙厚"])||0),_0x430435=-(Number(_0x51330f[t]["diao"])||0);
+              if(void 0!==_0x51330f[t])_0x9f1096=-(Number(_0x51330f[t]["上下方减尺"])||0),_0x430435=-(Number(_0x51330f[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox.confirm("润佳门窗"+t+"alignment"," 导出Excel ",{
+                await ElementPlus.ElMessageBox.confirm("五金中的\""+t+"\"在合页配置中未找到匹配，是否继续计算？","合页匹配失败",{
                   confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
@@ -11673,8 +11673,8 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           const _0x279065="无"===_0x520f23["底玻"]||"无"===_0x520f23["面玻"],_0x1df639="无"!==_0x520f23["底玻"]&&"无"!==_0x520f23["面玻"];
           if(_0x279065){
-            const e=Object["导入上次订单"](_0x497f7d);
-            e["✅ 图片已下载，请手动分享"]((t=>{
+            const e=Object["keys"](_0x497f7d);
+            e["forEach"]((t=>{
               const a=_0x5c0d14;
               if((t[a(566)](a(863))||t[a(566)](a(877)))&&!t.includes("单玻")){
                 const x=t+"单玻";
@@ -11682,47 +11682,47 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x1df639&&Object["导入上次订单"](_0x497f7d)["✅ 图片已下载，请手动分享"]((e=>{
+          _0x1df639&&Object["keys"](_0x497f7d)["forEach"]((e=>{
             const t=_0x5c0d14;
             e[t(566)]("单玻")&&(_0x497f7d[e][t(523)]=!1),!e.includes("单玻")&&e[t(566)]("玻璃")&&(_0x497f7d[e].state=!0)
-          })),Object.keys(_0x497f7d)["✅ 图片已下载，请手动分享"]((e=>{
+          })),Object.keys(_0x497f7d)["forEach"]((e=>{
             const t=_0x5c0d14,a=_0x497f7d[e];
             e[t(566)](t(266))&&(a.v=(Number(a.v)||0)+_0x9f1096),e[t(566)](t(1152))&&!e[t(566)]("亮窗")&&(a.v=(Number(a.v)||0)+_0x430435),e[t(566)]("玻璃高")&&Number(_0x520f23[t(946)])>0&&!e[t(566)]("亮窗")&&(a.v=Number(_0x520f23[t(946)])+a.v);
             e[t(566)](t(863))||e[t(566)](t(877))||(_0x520f23["墙厚"]>0?a.state=!0:e[t(566)]("扣板")||e.includes("压线")?a[t(523)]=!1:a[t(523)]=!0,e.includes("封板")&&0==Number(_0x520f23[t(946)])&&(a[t(523)]=!1),e[t(566)](t(946))&&Number(_0x520f23[t(946)])>0&&(a[t(523)]=!0,a.v=Number(_0x520f23[t(946)])-a.v))
           }));
-          const _0x389f10=_0x520f23["折叠8扇"],_0x2a4f64=_0x520f23["封边横"],_0x4c107e=_0x520f23["亮窗总高"]||0,_0x4c0f1b=_0x1575dd&&Number(_0x1575dd.width)||0,_0x582abe=_0x1575dd&&Number(_0x1575dd["Wai"])||0,_0x176f94=void 0,_0x255a74=_0x176f94&&Number(_0x176f94["宽减"])||0,_0x2f1a6a=_0x176f94&&Number(_0x176f94["高减"])||0;
+          const _0x389f10=_0x520f23["门洞宽"],_0x2a4f64=_0x520f23["门洞高"],_0x4c107e=_0x520f23["亮窗总高"]||0,_0x4c0f1b=_0x1575dd&&Number(_0x1575dd.width)||0,_0x582abe=_0x1575dd&&Number(_0x1575dd["height"])||0,_0x176f94=void 0,_0x255a74=_0x176f94&&Number(_0x176f94["宽减"])||0,_0x2f1a6a=_0x176f94&&Number(_0x176f94["高减"])||0;
           let _0x7d1f67=_0x389f10,_0x9267ce=_0x2a4f64,_0x1e14c3=_0x4c107e;
           (0!==_0x4c0f1b||0!==_0x582abe)&&(_0x7d1f67=_0x389f10-_0x4c0f1b,_0x4c107e>_0x2a4f64?_0x1e14c3=_0x4c107e-_0x582abe:_0x9267ce=_0x2a4f64-_0x582abe),(0!==_0x255a74||0!==_0x2f1a6a)&&(_0x7d1f67-=_0x255a74,_0x4c107e>_0x2a4f64?_0x1e14c3-=_0x2f1a6a:_0x9267ce-=_0x2f1a6a),0!==_0x24d4b1&&(_0x7d1f67-=_0x24d4b1),0!==_0x3e4d09&&(_0x4c107e>_0x2a4f64?_0x1e14c3-=_0x3e4d09:_0x9267ce-=_0x3e4d09);
           const _0x33dc31={
             h:_0x9267ce,w:_0x7d1f67,h1:_0x1e14c3,j:_0x520f23["吊脚"]||0,t:_0x520f23["墙厚"]||0,s:_0x520f23["轨道长"]||0
           };let _0x4ff8ca=!1;
-          Object["导入上次订单"](_0x497f7d)["✅ 图片已下载，请手动分享"]((_0x6fe4b0=>{
+          Object["keys"](_0x497f7d)["forEach"]((_0x6fe4b0=>{
             const _0x51a7c8=_0x5c0d14,_0x51b5e5=_0x497f7d[_0x6fe4b0];
-            if(_0x51b5e5["kou"])try{
-              let _0x1f6819=_0x51b5e5["toFixed"];
+            if(_0x51b5e5["state"])try{
+              let _0x1f6819=_0x51b5e5["formula"];
               if(_0x1f6819){
-                if(_0x1f6819["60px"]("=")&&(_0x1f6819=_0x1f6819["门框宽"](1)),_0x1f6819["折叠5扇"]("请输入加价项目名称"))return void(_0x51b5e5["windows"]=!0);
+                if(_0x1f6819["startsWith"]("=")&&(_0x1f6819=_0x1f6819["substring"](1)),_0x1f6819["includes"](".result"))return void(_0x51b5e5["needsSecondPass"]=!0);
                 let _0x4b0b32=_0x1f6819;
-                for(const[e,t]of Object["860px"](_0x33dc31))_0x4b0b32=_0x4b0b32["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x33dc31))_0x4b0b32=_0x4b0b32["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x4d439d=["v"];
                 for(const e of _0x4d439d)if(void 0!==_0x51b5e5[e]){
                   const t=_0x51b5e5[e],a=t<0?"("+t+")":t;
-                  _0x4b0b32=_0x4b0b32["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x4b0b32=_0x4b0b32["replace"](new RegExp(e,"g"),a)
                 }
-                const _0x36e001=eval(_0x4b0b32),_0x3bb690=Math["删除失败"](_0x36e001);
-                _0x3bb690<0?(_0x51b5e5["kou"]=!1,_0x51b5e5["门玻璃高"]=0,_0x6fe4b0["折叠5扇"]("顾轩门窗")&&(_0x4ff8ca=!0)):(_0x51b5e5["门玻璃高"]=_0x3bb690,_0x4ff8ca&&(_0x6fe4b0["折叠5扇"]("扣板")||_0x6fe4b0["折叠5扇"]("扣板")||_0x6fe4b0["折叠5扇"]("压条"))&&(_0x51b5e5.state=!1))
+                const _0x36e001=eval(_0x4b0b32),_0x3bb690=Math["round"](_0x36e001);
+                _0x3bb690<0?(_0x51b5e5["state"]=!1,_0x51b5e5["result"]=0,_0x6fe4b0["includes"]("扣板厚")&&(_0x4ff8ca=!0)):(_0x51b5e5["result"]=_0x3bb690,_0x4ff8ca&&(_0x6fe4b0["includes"]("扣板")||_0x6fe4b0["includes"]("扣板")||_0x6fe4b0["includes"]("压条"))&&(_0x51b5e5.state=!1))
               }
             }
             catch(_0x1b645a){
-              _0x51b5e5["门玻璃高"]="error"
+              _0x51b5e5["result"]="error"
             }
           })),Object.keys(_0x497f7d).forEach((_0xb70004=>{
             const _0x75c9e0=_0x5c0d14,_0x354b31=_0x497f7d[_0xb70004];
-            if(_0x354b31["kou"]&&_0x354b31["windows"])try{
+            if(_0x354b31["state"]&&_0x354b31["needsSecondPass"])try{
               let _0x53a15f=_0x354b31.formula;
-              _0x53a15f["60px"]("=")&&(_0x53a15f=_0x53a15f["门框宽"](1));
+              _0x53a15f["startsWith"]("=")&&(_0x53a15f=_0x53a15f["substring"](1));
               let _0x5c5f73=_0x53a15f;
-              Object.keys(_0x497f7d)["✅ 图片已下载，请手动分享"]((e=>{
+              Object.keys(_0x497f7d)["forEach"]((e=>{
                 const t=_0x75c9e0,a=e+t(708);
                 if(_0x5c5f73.includes(a)){
                   const e=a.split(".")[0],x=Object[t(1124)](_0x497f7d)[t(990)]((([a,x])=>{
@@ -11735,21 +11735,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x5c5f73=_0x5c5f73.replace(new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x33dc31))_0x5c5f73=_0x5c5f73["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x33dc31))_0x5c5f73=_0x5c5f73["replace"](new RegExp(e,"g"),t);
               const _0x30bb1d=["v"];
               for(const e of _0x30bb1d)if(void 0!==_0x354b31[e]){
                 const t=_0x354b31[e],a=t<0?"("+t+")":t;
                 _0x5c5f73=_0x5c5f73.replace(new RegExp(e,"g"),a)
               }
               const _0x5e03c0=eval(_0x5c5f73),_0x59b3cc=Math.round(_0x5e03c0);
-              _0x59b3cc<0?(_0x354b31["kou"]=!1,_0x354b31.result=0):_0x354b31["门玻璃高"]=_0x59b3cc,delete _0x354b31["windows"]
+              _0x59b3cc<0?(_0x354b31["state"]=!1,_0x354b31.result=0):_0x354b31["result"]=_0x59b3cc,delete _0x354b31["needsSecondPass"]
             }
             catch(_0x54f42d){
-              _0x354b31["门玻璃高"]="error",_0x354b31["kou"]=!1
+              _0x354b31["result"]="error",_0x354b31["state"]=!1
             }
           }));
           const _0x1f6573={
-          };Object["导入上次订单"](_0x497f7d)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x497f7d)["forEach"]((e=>{
             const t=_0x5c0d14,a=_0x497f7d[e];
             !0===a[t(523)]&&(_0x1f6573[e]={
               materialName:a[t(578)]||"",result:a.result||0,quantity:a.quantity||0
@@ -11761,8 +11761,8 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }
             ]
           };let _0x5c8510=[""];
-          _0x5c8510=_0x3362f5=="云打印失败"?["套线种类","9.1 base64 转换成功","颜色已重置"]:["光企","方","target","平开门","Liang","\" fill=\"white\" />\n      <g transform=\"translate(","收口","光企减尺寸","❌ html2canvas转换失败：canvas尺寸为0","玻璃高","玻璃宽"];
-          const _0x49bb10=_0x5c8510["dispatchEvent"](((e,t)=>{
+          _0x5c8510=_0x3362f5=="diamond"?["左固玻璃","右固玻璃","门玻璃"]:["光企","方","龙骨横","龙骨竖","门扇高","门扇宽","收口","封边横","封边竖","玻璃高","玻璃宽"];
+          const _0x49bb10=_0x5c8510["reduce"](((e,t)=>{
             const a=_0x5c0d14;
             return[...e,...Object[a(1124)](_0x1f6573)[a(990)]((([e])=>e[a(566)](t)&&!e[a(566)]("上亮玻璃")))[a(562)]((([e,x])=>{
               const _=a;
@@ -11772,30 +11772,30 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return"玻璃高"===t?_(1144)+o:o
             }))]
           }),[]);
-          _0x34f4ac["鑫隆迪门厂"][0]["<br>面板:"]=_0x49bb10["needsSecondPass"]("加价项目已存在！");
+          _0x34f4ac["oldSheet"][0]["doorsheet"]=_0x49bb10["join"]("<br>");
           let _0xdd5a55=[];
           if("diamond"==_0x3362f5){
             const e=["左边","右边","斜长","竖框"];
-            _0xdd5a55=e["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>Object.prototype.hasOwnProperty["https://v.douyin.com/EBMcTieRF9M/"](_0x1f6573,e)))["validate"]((e=>{
+            _0xdd5a55=e["filter"]((e=>Object.prototype.hasOwnProperty["call"](_0x1f6573,e)))["map"]((e=>{
               const t=_0x5c0d14,a=_0x1f6573[e];
               return a[t(578)]+":"+a[t(1094)]+"*"+a[t(650)]*_0x520f23["数量"]
             }))
           }
-          else _0xdd5a55=Object["860px"](_0x1f6573)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["门框"]["后框高"]((t=>e["折叠5扇"](t))))).map((([e,t])=>{
+          else _0xdd5a55=Object["entries"](_0x1f6573)["filter"]((([e])=>["门框"]["some"]((t=>e["includes"](t))))).map((([e,t])=>{
             const a=_0x5c0d14;
             return t[a(578)]+":"+t.result+"*"+t[a(650)]*_0x520f23["数量"]
           }));
-          let _0x29939e=Object["860px"](_0x1f6573)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["门板"]["后框高"]((t=>e["折叠5扇"](t))))).map((([e,t])=>{
+          let _0x29939e=Object["entries"](_0x1f6573)["filter"]((([e])=>["门板"]["some"]((t=>e["includes"](t))))).map((([e,t])=>{
             const a=_0x5c0d14;
             return t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x520f23["数量"]
-          })),_0x3fe548=Object["860px"](_0x1f6573)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["前框"]["后框高"]((t=>e.includes(t)))))["validate"]((([e,t])=>{
+          })),_0x3fe548=Object["entries"](_0x1f6573)["filter"]((([e])=>["前框"]["some"]((t=>e.includes(t)))))["map"]((([e,t])=>{
             const a=_0x5c0d14;
             if(e[a(566)]("前框高")){
               let e=t[a(1094)]+_0x520f23[a(637)];
               return t[a(578)]+":"+e+"*"+t.quantity*_0x520f23["数量"]
             }
             return t[a(578)]+":"+t.result+"*"+t.quantity*_0x520f23["数量"]
-          })),_0x19ab5f=Object["860px"](_0x1f6573)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["后框"]["后框高"]((t=>e["折叠5扇"](t)))))["validate"]((([e,t])=>{
+          })),_0x19ab5f=Object["entries"](_0x1f6573)["filter"]((([e])=>["后框"]["some"]((t=>e["includes"](t)))))["map"]((([e,t])=>{
             const a=_0x5c0d14;
             if(e[a(566)](a(667))){
               let e=t[a(1094)]+_0x520f23[a(301)];
@@ -11803,19 +11803,19 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }
             return t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x520f23["数量"]
           }));
-          const _0x3c04d6=Object.entries(_0x1f6573)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["扣板","母门玻璃高","压线","封板","上亮窗玻璃"].some((t=>e.includes(t)))))["validate"]((([e,t])=>{
+          const _0x3c04d6=Object.entries(_0x1f6573)["filter"]((([e])=>["扣板","上亮横","压线","封板","上亮窗玻璃"].some((t=>e.includes(t)))))["map"]((([e,t])=>{
             const a=_0x5c0d14;
             let x=t[a(650)];
             return e.includes("玻璃")&&("无"===_0x520f23["底玻"]||"无"===_0x520f23["面玻"])&&!e[a(566)]("单玻")&&(x=Math[a(172)](t[a(650)]/2),"diamond"==_0x3362f5&&(x=t[a(650)])),t[a(578)]+":"+t[a(1094)]+"*"+x*_0x520f23["数量"]
           }));
-          if(_0x3fe548["glassInfoList"]>0&&(_0xdd5a55=_0xdd5a55["3.保存回执单"](_0x3fe548)),_0x19ab5f["glassInfoList"]>0&&(_0xdd5a55=_0xdd5a55["3.保存回执单"](_0x19ab5f)),_0x29939e["glassInfoList"]>0&&(_0xdd5a55=_0xdd5a55.concat(_0x29939e)),_0x34f4ac.oldSheet[0].doorframe=_0xdd5a55.join("<br>"),_0x34f4ac["鑫隆迪门厂"][0].windows=_0x3c04d6["needsSecondPass"]("加价项目已存在！"),_0x34f4ac.client=_0x520f23["客户"]||"",_0x34f4ac["杉杉铝木极简门"]=_0x520f23["型材"],_0x34f4ac["玻璃已重置"]=_0x520f23["单号"],_0x34f4ac["DubleDong"]=_0x520f23["单号"],_0x34f4ac["\" viewBox=\"0 0 "]=_0x520f23["颜色"],_0x34f4ac["❌ 9.1 base64 转换失败"]=_0x520f23["pdf"],_0x34f4ac["style"]=null!=(_a=_0x520f23["数量"])?_a:"",_0x520f23["图片ID"])try{
-            const e=await getImage(_0x520f23["token_expires_at"]);
-            e&&(_0x34f4ac.oldSheet[0].doorImg=e,_0x34f4ac["focus"]=e)
+          if(_0x3fe548["length"]>0&&(_0xdd5a55=_0xdd5a55["concat"](_0x3fe548)),_0x19ab5f["length"]>0&&(_0xdd5a55=_0xdd5a55["concat"](_0x19ab5f)),_0x29939e["length"]>0&&(_0xdd5a55=_0xdd5a55.concat(_0x29939e)),_0x34f4ac.oldSheet[0].doorframe=_0xdd5a55.join("<br>"),_0x34f4ac["oldSheet"][0].windows=_0x3c04d6["join"]("<br>"),_0x34f4ac.client=_0x520f23["客户"]||"",_0x34f4ac["material"]=_0x520f23["型材"],_0x34f4ac["qrcode"]=_0x520f23["单号"],_0x34f4ac["orderID"]=_0x520f23["单号"],_0x34f4ac["color"]=_0x520f23["颜色"],_0x34f4ac["address"]=_0x520f23["安装地址"],_0x34f4ac["quantity"]=null!=(_a=_0x520f23["数量"])?_a:"",_0x520f23["图片ID"])try{
+            const e=await getImage(_0x520f23["图片ID"]);
+            e&&(_0x34f4ac.oldSheet[0].doorImg=e,_0x34f4ac["doorImg"]=e)
           }
           catch(_0x433493){
           }
-          const _0x4a9562=_0x520f23["圣诺派门业"]&&"正常"!==_0x520f23["圣诺派门业"]?_0x520f23["单双丁"]:null;
-          if(_0x34f4ac["日期: "]=[_0x520f23["五金"]?_0x520f23["五金"]:null,_0x4a9562,_0x520f23["备注"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("-"),'""'!==_0x520f23["加价项目"]&&_0x520f23["加价项目"]!=="outerHTML"&&_0x520f23["findIndex"])try{
+          const _0x4a9562=_0x520f23["单双丁"]&&"正常"!==_0x520f23["单双丁"]?_0x520f23["单双丁"]:null;
+          if(_0x34f4ac["remark"]=[_0x520f23["五金"]?_0x520f23["五金"]:null,_0x4a9562,_0x520f23["备注"]]["filter"](Boolean)["join"]("-"),'""'!==_0x520f23["加价项目"]&&_0x520f23["加价项目"]!=="null"&&_0x520f23["加价项目"])try{
             let e=_0x520f23["加价项目原始数据"],t=[];
             if("string"==typeof e)try{
               let a=0;
@@ -11823,87 +11823,87 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               let _=e;
               for(;
               "string"==typeof _&&a<x;
-              )a++,_=JSON["values"](_);
-              typeof _==="image/png"||(t=_)
+              )a++,_=JSON["parse"](_);
+              typeof _==="string"||(t=_)
             }
             catch(_0x16c96f){
             }
-            if(!Array["PDF导出成功"](t)&&(t="object"==typeof t?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e.name))))["validate"]((e=>e["el-form"]))["needsSecondPass"]("-");
+            if(!Array["isArray"](t)&&(t="object"==typeof t?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e.name))))["map"]((e=>e["name"]))["join"]("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x34f4ac.remark?_0x34f4ac["日期: "]+=" "+t:_0x34f4ac["日期: "]=t
+                let t="加配："+e;
+                _0x34f4ac.remark?_0x34f4ac["remark"]+=" "+t:_0x34f4ac["remark"]=t
               }
             }
           }
           catch(_0x2d9c84){
           }
           if(null!=_0x520f23["边封数"]&&2!==Number(_0x520f23["边封数"])){
-            const e=0===Number(_0x520f23["边封数"])?"stringify":1===Number(_0x520f23["saved_password"])?"录入失败":3===Number(_0x520f23["边封数"])?"\"进行匹配计算，是否继续？":4===Number(_0x520f23["边封数"])?"left":5===Number(_0x520f23["saved_password"])?"上丁加双丁":"";
-            e&&(_0x34f4ac["日期: "]?_0x34f4ac.remark+="-"+e:_0x34f4ac["日期: "]=e)
+            const e=0===Number(_0x520f23["边封数"])?"双丁墙":1===Number(_0x520f23["边封数"])?"单丁墙":3===Number(_0x520f23["边封数"])?"上丁墙":4===Number(_0x520f23["边封数"])?"上丁加单丁":5===Number(_0x520f23["边封数"])?"上丁加双丁":"";
+            e&&(_0x34f4ac["remark"]?_0x34f4ac.remark+="-"+e:_0x34f4ac["remark"]=e)
           }
-          const _0x9bd328=_0x520f23["GlassSize"];
+          const _0x9bd328=_0x520f23["客户编号"];
           let _0x1ff29a=null;
-          if(_0x9bd328&&0!==_0x9bd328)if(_0x674470.has(_0x9bd328))_0x1ff29a=_0x674470["DoubleWall"](_0x9bd328);
+          if(_0x9bd328&&0!==_0x9bd328)if(_0x674470.has(_0x9bd328))_0x1ff29a=_0x674470["get"](_0x9bd328);
           else try{
             const e=await getUserData();
             if(e){
-              const t=await fetch("11欧诺名门"+e.userinfo.ds+"writeBuffer"+_0x9bd328,{
+              const t=await fetch("https://www.samrtdoor.com.cn/1?param1=getLatestClientsInfo&param2="+e.userinfo.ds+"&param3="+_0x9bd328,{
                 method:"get"
               }),a=await t.json();
-              200===a.code&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["glassInfoList"]>0?(_0x1ff29a=a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"][0],_0x674470["亮窗玻璃-"](_0x9bd328,_0x1ff29a)):_0x674470["亮窗玻璃-"](_0x9bd328,null)
+              200===a.code&&a["data"]&&a["data"]["length"]>0?(_0x1ff29a=a["data"][0],_0x674470["set"](_0x9bd328,_0x1ff29a)):_0x674470["set"](_0x9bd328,null)
             }
           }
           catch(_0x3fb8cc){
-            _0x674470["亮窗玻璃-"](_0x9bd328,null)
+            _0x674470["set"](_0x9bd328,null)
           }
           if(_0x1ff29a&&_0x1ff29a["品牌"]&&null!==_0x1ff29a["品牌"]&&""!==_0x1ff29a["品牌"]&&" "!==_0x1ff29a["品牌"]){
-            const e="Kou"+_0x1ff29a["品牌"];
-            _0x34f4ac["日期: "]?_0x34f4ac["日期: "]+=" "+e:_0x34f4ac.remark=e
+            const e="品牌:"+_0x1ff29a["品牌"];
+            _0x34f4ac["remark"]?_0x34f4ac["remark"]+=" "+e:_0x34f4ac.remark=e
           }
           _0xc8b731(_0x34f4ac,_0x2f6b93);
           let _0x5e8096="";
-          if(_0x520f23["开向"]&&_0x23e965["el-popover"]&&_0x23e965["el-popover"]["名甸门业"]){
+          if(_0x520f23["开向"]&&_0x23e965["value"]&&_0x23e965["value"]["directionImageMap"]){
             const e=getOriginalOpenDirection(_0x520f23["开向"]);
-            _0x5e8096=_0x23e965["el-popover"]["名甸门业"][""+e]||""
+            _0x5e8096=_0x23e965["value"]["directionImageMap"][""+e]||""
           }
-          _0x34f4ac["单号已填入回执单"]=_0x5e8096;
-          const _0x3bf479=[],_0x504e5b=[_0x520f23["门洞高"],_0x520f23["折叠8扇"],_0x520f23["墙厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e&&0!==e));
-          if(_0x504e5b.length>0&&_0x3bf479["12px"](_0x504e5b.join("*")),_0x520f23["双开内右"]&&0!==_0x520f23["双开内右"]){
-            let e="Bao"+_0x520f23["双开内右"];
-            _0x3362f5==="云打印失败"&&(e="*"+_0x520f23["双开内右"]),_0x3bf479["12px"](e)
+          _0x34f4ac["lockImg"]=_0x5e8096;
+          const _0x3bf479=[],_0x504e5b=[_0x520f23["门洞高"],_0x520f23["门洞宽"],_0x520f23["墙厚"]]["filter"]((e=>e&&0!==e));
+          if(_0x504e5b.length>0&&_0x3bf479["push"](_0x504e5b.join("*")),_0x520f23["亮窗总高"]&&0!==_0x520f23["亮窗总高"]){
+            let e="亮窗高："+_0x520f23["亮窗总高"];
+            _0x3362f5==="diamond"&&(e="*"+_0x520f23["亮窗总高"]),_0x3bf479["push"](e)
           }
           if(_0x520f23["吊脚"]&&0!==_0x520f23["吊脚"]){
             let e="吊脚："+_0x520f23["吊脚"];
-            _0x3bf479["12px"](e)
+            _0x3bf479["push"](e)
           }
-          const _0x151b33=[_0x520f23["面玻"],_0x520f23["底玻"],_0x520f23["Cao"]].filter(Boolean);
-          _0x151b33["glassInfoList"]>0&&("无"===_0x520f23["底玻"]&&"无"!=_0x520f23["面玻"]?_0x34f4ac["❌ Blob对象为null"]=_0x520f23["面玻"]+"*单玻":"无"===_0x520f23["底玻"]&&"无"==_0x520f23["面玻"]?_0x34f4ac.glass="无":_0x34f4ac["❌ Blob对象为null"]=_0x520f23["面玻"]+"+"+_0x520f23["底玻"]+"*"+_0x520f23["玻璃厚"]),null!=_0x520f23["洞尺"]&&""!==String(_0x520f23["洞尺"])["打印成功"]()&&_0x3bf479["then"](""+_0x520f23["洞尺"]),_0x34f4ac["编辑生产单"]=_0x3bf479,_0x34f4ac["✅ 已切换到新版本，应用即将重启/重载"]=_0x520f23["开向"],_0x520f23["套线种类"]&&(_0x34f4ac["✅ 已切换到新版本，应用即将重启/重载"]=_0x520f23["套线种类"]+_0x520f23["开向"]),_0x4d19f5[_0x5347c2]={
+          const _0x151b33=[_0x520f23["面玻"],_0x520f23["底玻"],_0x520f23["玻璃厚"]].filter(Boolean);
+          _0x151b33["length"]>0&&("无"===_0x520f23["底玻"]&&"无"!=_0x520f23["面玻"]?_0x34f4ac["glass"]=_0x520f23["面玻"]+"*单玻":"无"===_0x520f23["底玻"]&&"无"==_0x520f23["面玻"]?_0x34f4ac.glass="无":_0x34f4ac["glass"]=_0x520f23["面玻"]+"+"+_0x520f23["底玻"]+"*"+_0x520f23["玻璃厚"]),null!=_0x520f23["洞尺"]&&""!==String(_0x520f23["洞尺"])["trim"]()&&_0x3bf479["unshift"](""+_0x520f23["洞尺"]),_0x34f4ac["size"]=_0x3bf479,_0x34f4ac["lockway"]=_0x520f23["开向"],_0x520f23["套线种类"]&&(_0x34f4ac["lockway"]=_0x520f23["套线种类"]+_0x520f23["开向"]),_0x4d19f5[_0x5347c2]={
             orderInfo:_0x520f23,calculationResults:_0x1f6573,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x34f4ac
+              timestamp:Date["now"](),data:_0x34f4ac
             }
           }
         }
-        if(_0xbb047["3轨6扇"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0)for(let _0x51d8ec=0;
-        _0x51d8ec<_0x5b10d7.value["assistive-fullscreen-changed"]["glassInfoList"];
+        if(_0xbb047["diao"]&&_0x5b10d7["value"]["diao_hui"]&&_0x5b10d7["value"]["diao_hui"]["length"]>0)for(let _0x51d8ec=0;
+        _0x51d8ec<_0x5b10d7.value["diao_hui"]["length"];
         _0x51d8ec++){
-          const _0x1f4aae=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"][_0x51d8ec],_0x3dbbd2=_0x1f4aae.formulaid,_0x3ff6a8=_0x40b925[_0x3dbbd2];
+          const _0x1f4aae=_0x5b10d7["value"]["diao_hui"][_0x51d8ec],_0x3dbbd2=_0x1f4aae.formulaid,_0x3ff6a8=_0x40b925[_0x3dbbd2];
           if(!_0x3ff6a8)continue;
           _0x1f4aae.id&&_0x2067b0[_0x1f4aae.id]&&(_0x1f4aae["单号"]=_0x2067b0[_0x1f4aae.id]);
-          const _0x7da398=JSON["values"](JSON["Hui"](_0x3ff6a8["3轨6扇"])),_0x7cb8a8="洞尺"===_0x1f4aae["洞尺"]?null==_0x3ff6a8?void 0:_0x3ff6a8.resetSize:void 0,_0x284939="单包洞尺"===_0x1f4aae["洞尺"]||"双包洞尺"===_0x1f4aae["洞尺"]?null==_0x3ff6a8?void 0:_0x3ff6a8.TaoDong:void 0;
+          const _0x7da398=JSON["parse"](JSON["stringify"](_0x3ff6a8["diao"])),_0x7cb8a8="洞尺"===_0x1f4aae["洞尺"]?null==_0x3ff6a8?void 0:_0x3ff6a8.resetSize:void 0,_0x284939="单包洞尺"===_0x1f4aae["洞尺"]||"双包洞尺"===_0x1f4aae["洞尺"]?null==_0x3ff6a8?void 0:_0x3ff6a8.TaoDong:void 0;
           let _0x2d8927;
-          _0x284939&&(_0x1f4aae["洞尺"]==="isArray"&&_0x284939["下载回执单"]?_0x2d8927=_0x284939.SingleDong:_0x1f4aae["洞尺"]==="轨道种类"&&_0x284939["border"]&&(_0x2d8927=_0x284939["border"]));
-          const _0x3d096f=null==_0x3ff6a8?void 0:_0x3ff6a8["alert"],_0x2b27d4=_0x3d096f&&Number(_0x3d096f.SheetIncrement)||0,_0x2f8692=_0x3d096f&&Number(_0x3d096f["el-autocomplete"])||0,_0x48fa83=Number(_0x1f4aae["边封数"])||0,_0x43ce78=2!==_0x48fa83&&0!==_0x2b27d4?_0x2b27d4*(2-_0x48fa83):0,_0x357f65=2!==_0x48fa83&&0!==_0x2f8692?_0x2f8692*(2-_0x48fa83):0,_0x5efaf0="3轨6扇"+(_0x51d8ec+1),_0x39b6d4=_0x1f4aae["扇数"];
+          _0x284939&&(_0x1f4aae["洞尺"]==="单包洞尺"&&_0x284939["SingleDong"]?_0x2d8927=_0x284939.SingleDong:_0x1f4aae["洞尺"]==="双包洞尺"&&_0x284939["DubleDong"]&&(_0x2d8927=_0x284939["DubleDong"]));
+          const _0x3d096f=null==_0x3ff6a8?void 0:_0x3ff6a8["widthIncrement"],_0x2b27d4=_0x3d096f&&Number(_0x3d096f.SheetIncrement)||0,_0x2f8692=_0x3d096f&&Number(_0x3d096f["TrackIncrement"])||0,_0x48fa83=Number(_0x1f4aae["边封数"])||0,_0x43ce78=2!==_0x48fa83&&0!==_0x2b27d4?_0x2b27d4*(2-_0x48fa83):0,_0x357f65=2!==_0x48fa83&&0!==_0x2f8692?_0x2f8692*(2-_0x48fa83):0,_0x5efaf0="diao"+(_0x51d8ec+1),_0x39b6d4=_0x1f4aae["扇数"];
           if(!_0x39b6d4)continue;
-          if(_0x39b6d4.includes("活"))Object["导入上次订单"](_0x7da398)["✅ 图片已下载，请手动分享"]((e=>{
+          if(_0x39b6d4.includes("活"))Object["keys"](_0x7da398)["forEach"]((e=>{
             const t=_0x5c0d14,a=_0x7da398[e];
             e.includes("活")&&!e.includes(t(877))&&(a[t(523)]=!0),e[t(566)](t(877))&&a.track===_0x1f4aae[t(184)]&&e[t(566)](_0x39b6d4)&&(a.state=!0),_0x1f4aae["亮窗总高"]>0&&e.includes("玻璃")&&(a.state=!0)
           }));
           else{
-            const e=_0x1f4aae["扇数"]+"玻璃",t=Object["导入上次订单"](_0x7da398)["后框高"]((t=>t["折叠5扇"](e)&&t.includes("单玻")));
+            const e=_0x1f4aae["扇数"]+"玻璃",t=Object["keys"](_0x7da398)["some"]((t=>t["includes"](e)&&t.includes("单玻")));
             let a=0,x=0,_=0;
-            if((0!==_0x43ce78||0!==_0x357f65)&&2!==Number(_0x1f4aae["saved_password"])){
-              const e=_0x39b6d4["13px"](/(\d+)扇/);
+            if((0!==_0x43ce78||0!==_0x357f65)&&2!==Number(_0x1f4aae["边封数"])){
+              const e=_0x39b6d4["match"](/(\d+)扇/);
               if(e){
                 const t=Number(e[1]);
                 0!==_0x43ce78&&(x=_0x43ce78/t),0!==_0x357f65&&(_=_0x357f65)
@@ -11922,40 +11922,40 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               l[o(566)]("收口")&&_0x39b6d4[o(566)]("4扇")&&!_0x39b6d4[o(566)]("折叠")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x39b6d4[o(566)]("3扇")&&_0x39b6d4[o(566)]("折叠")&&!_0x1f4aae["开向"][o(566)]("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x39b6d4.includes("4扇")&&_0x39b6d4[o(566)]("折叠")&&!_0x1f4aae["开向"][o(566)]("0")&&(c.state=!0),l[o(566)]("收口")&&_0x39b6d4.includes("5扇")&&_0x39b6d4[o(566)]("折叠")&&!_0x1f4aae["开向"].includes("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x39b6d4[o(566)]("6扇")&&_0x39b6d4[o(566)]("折叠")&&!_0x1f4aae["开向"][o(566)]("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x39b6d4[o(566)](o(604))&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x39b6d4[o(566)](o(976))&&(c.state=!0)
             }))
           }
-          const _0x187617=_0x1f4aae["门洞宽"],_0x30b2be=_0x1f4aae["封边横"],_0x57f64b=_0x1f4aae["亮窗总高"]||0,_0x4e4e77=_0x7cb8a8&&Number(_0x7cb8a8["localeCompare"])||0,_0x36c1d4=_0x7cb8a8&&Number(_0x7cb8a8.height)||0,_0x567a57=_0x2d8927&&Number(_0x2d8927["宽减"])||0,_0x5ad93e=_0x2d8927&&Number(_0x2d8927["高减"])||0;
+          const _0x187617=_0x1f4aae["门洞宽"],_0x30b2be=_0x1f4aae["门洞高"],_0x57f64b=_0x1f4aae["亮窗总高"]||0,_0x4e4e77=_0x7cb8a8&&Number(_0x7cb8a8["width"])||0,_0x36c1d4=_0x7cb8a8&&Number(_0x7cb8a8.height)||0,_0x567a57=_0x2d8927&&Number(_0x2d8927["宽减"])||0,_0x5ad93e=_0x2d8927&&Number(_0x2d8927["高减"])||0;
           let _0x49c130=_0x187617,_0x340878=_0x30b2be,_0x301235=_0x57f64b;
           (0!==_0x4e4e77||0!==_0x36c1d4)&&(_0x49c130=_0x187617-_0x4e4e77,_0x57f64b>_0x30b2be?_0x301235=_0x57f64b-_0x36c1d4:_0x340878=_0x30b2be-_0x36c1d4),(0!==_0x567a57||0!==_0x5ad93e)&&(_0x49c130-=_0x567a57,_0x57f64b>_0x30b2be?_0x301235-=_0x5ad93e:_0x340878-=_0x5ad93e);
-          const _0x2efb32=null==_0x3ff6a8?void 0:_0x3ff6a8["charCodeAt"],_0x3d936e=String(_0x1f4aae["圣诺派门业"]||"")["打印成功"]();
+          const _0x2efb32=null==_0x3ff6a8?void 0:_0x3ff6a8["swingWall"],_0x3d936e=String(_0x1f4aae["单双丁"]||"")["trim"]();
           let _0x2a36cc=0,_0x9b1a00=0;
-          _0x2efb32&&_0x3d936e&&"正常"!==_0x3d936e&&(_0x3d936e==="录入失败"?_0x2a36cc=Number(_0x2efb32.SingleWall)||0:"双丁墙"===_0x3d936e?_0x2a36cc=Number(_0x2efb32["doorframe"])||0:_0x3d936e==="\"进行匹配计算，是否继续？"?_0x9b1a00=Number(_0x2efb32["declaration"])||0:_0x3d936e==="left"?(_0x2a36cc=Number(_0x2efb32["canShare"])||0,_0x9b1a00=Number(_0x2efb32["declaration"])||0):_0x3d936e===" L "&&(_0x2a36cc=Number(_0x2efb32["doorframe"])||0,_0x9b1a00=Number(_0x2efb32.UpWall)||0)),0!==_0x9b1a00&&(_0x57f64b>_0x30b2be?_0x301235-=_0x9b1a00:_0x340878-=_0x9b1a00),0!==_0x2a36cc&&(_0x49c130-=_0x2a36cc);
+          _0x2efb32&&_0x3d936e&&"正常"!==_0x3d936e&&(_0x3d936e==="单丁墙"?_0x2a36cc=Number(_0x2efb32.SingleWall)||0:"双丁墙"===_0x3d936e?_0x2a36cc=Number(_0x2efb32["DoubleWall"])||0:_0x3d936e==="上丁墙"?_0x9b1a00=Number(_0x2efb32["UpWall"])||0:_0x3d936e==="上丁加单丁"?(_0x2a36cc=Number(_0x2efb32["SingleWall"])||0,_0x9b1a00=Number(_0x2efb32["UpWall"])||0):_0x3d936e==="上丁加双丁"&&(_0x2a36cc=Number(_0x2efb32["DoubleWall"])||0,_0x9b1a00=Number(_0x2efb32.UpWall)||0)),0!==_0x9b1a00&&(_0x57f64b>_0x30b2be?_0x301235-=_0x9b1a00:_0x340878-=_0x9b1a00),0!==_0x2a36cc&&(_0x49c130-=_0x2a36cc);
           const _0xabd12={
             h:_0x340878,w:_0x49c130,h1:_0x301235,t:_0x1f4aae["墙厚"]||0
           };let _0x385601=!1;
-          Object["导入上次订单"](_0x7da398).forEach((_0x3d0967=>{
+          Object["keys"](_0x7da398).forEach((_0x3d0967=>{
             const _0x2b3230=_0x5c0d14,_0x1f076b=_0x7da398[_0x3d0967];
-            if(_0x1f076b["kou"])try{
-              let _0x5c7495=_0x1f076b["toFixed"];
+            if(_0x1f076b["state"])try{
+              let _0x5c7495=_0x1f076b["formula"];
               if(_0x5c7495){
-                if(_0x5c7495.startsWith("=")&&(_0x5c7495=_0x5c7495["门框宽"](1)),_0x5c7495["折叠5扇"]("请输入加价项目名称"))return void(_0x1f076b["windows"]=!0);
+                if(_0x5c7495.startsWith("=")&&(_0x5c7495=_0x5c7495["substring"](1)),_0x5c7495["includes"](".result"))return void(_0x1f076b["needsSecondPass"]=!0);
                 let _0x324f70=_0x5c7495;
-                for(const[e,t]of Object["860px"](_0xabd12))_0x324f70=_0x324f70.replace(new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0xabd12))_0x324f70=_0x324f70.replace(new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x4896a9=["v"];
                 for(const e of _0x4896a9)if(void 0!==_0x1f076b[e]){
                   const t=_0x1f076b[e],a=t<0?"("+t+")":t;
                   _0x324f70=_0x324f70.replace(new RegExp(e,"g"),a)
                 }
-                const _0x502c49=eval(_0x324f70),_0x21b760=Math["删除失败"](_0x502c49);
-                _0x21b760<0&&!_0x3d0967["折叠5扇"]("滑")&&!_0x3d0967["折叠5扇"]("单轨")?(_0x1f076b["kou"]=!1,_0x1f076b.result=0,_0x1f076b["style"]=0,_0x3d0967.includes("顾轩门窗")&&(_0x385601=!0)):(_0x1f076b.result=_0x21b760,_0x385601&&(_0x3d0967["折叠5扇"]("下载图片失败")||_0x3d0967["折叠5扇"]("BoLiKuan"))&&(_0x1f076b["style"]=0,_0x1f076b["kou"]=!1))
+                const _0x502c49=eval(_0x324f70),_0x21b760=Math["round"](_0x502c49);
+                _0x21b760<0&&!_0x3d0967["includes"]("滑")&&!_0x3d0967["includes"]("单轨")?(_0x1f076b["state"]=!1,_0x1f076b.result=0,_0x1f076b["quantity"]=0,_0x3d0967.includes("扣板厚")&&(_0x385601=!0)):(_0x1f076b.result=_0x21b760,_0x385601&&(_0x3d0967["includes"]("扣板高")||_0x3d0967["includes"]("扣板宽"))&&(_0x1f076b["quantity"]=0,_0x1f076b["state"]=!1))
               }
             }
             catch(_0x1694dd){
-              _0x1f076b["门玻璃高"]="font"
+              _0x1f076b["result"]="error"
             }
-          })),Object.keys(_0x7da398)["✅ 图片已下载，请手动分享"]((_0x1d019b=>{
+          })),Object.keys(_0x7da398)["forEach"]((_0x1d019b=>{
             const _0x1c1da4=_0x5c0d14,_0x5ab33e=_0x7da398[_0x1d019b];
-            if(_0x5ab33e["kou"]&&_0x5ab33e["windows"])try{
-              let _0x4fdb1a=_0x5ab33e["toFixed"];
-              _0x4fdb1a.startsWith("=")&&(_0x4fdb1a=_0x4fdb1a["门框宽"](1));
+            if(_0x5ab33e["state"]&&_0x5ab33e["needsSecondPass"])try{
+              let _0x4fdb1a=_0x5ab33e["formula"];
+              _0x4fdb1a.startsWith("=")&&(_0x4fdb1a=_0x4fdb1a["substring"](1));
               let _0x2f1b63=_0x4fdb1a;
               Object.keys(_0x7da398).forEach((e=>{
                 const t=_0x1c1da4,a=e+t(708);
@@ -11970,21 +11970,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x2f1b63=_0x2f1b63[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0xabd12))_0x2f1b63=_0x2f1b63["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0xabd12))_0x2f1b63=_0x2f1b63["replace"](new RegExp(e,"g"),t);
               const _0x4af54e=["v"];
               for(const e of _0x4af54e)if(void 0!==_0x5ab33e[e]){
                 const t=_0x5ab33e[e],a=t<0?"("+t+")":t;
-                _0x2f1b63=_0x2f1b63["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x2f1b63=_0x2f1b63["replace"](new RegExp(e,"g"),a)
               }
               const _0x10c7b4=eval(_0x2f1b63),_0x217e83=Math.round(_0x10c7b4);
-              _0x217e83<0||0==_0x217e83?(_0x5ab33e["kou"]=!1,_0x5ab33e.result=0):_0x5ab33e.result=_0x217e83,delete _0x5ab33e["windows"]
+              _0x217e83<0||0==_0x217e83?(_0x5ab33e["state"]=!1,_0x5ab33e.result=0):_0x5ab33e.result=_0x217e83,delete _0x5ab33e["needsSecondPass"]
             }
             catch(_0x5f062a){
-              _0x5ab33e.result="font",_0x5ab33e.state=!1
+              _0x5ab33e.result="error",_0x5ab33e.state=!1
             }
           }));
           const _0x27f541={
-          };Object["导入上次订单"](_0x7da398)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x7da398)["forEach"]((e=>{
             const t=_0x5c0d14,a=_0x7da398[e];
             !0===a[t(523)]&&(_0x27f541[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a[t(650)]||0
@@ -11995,7 +11995,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               doorsheet:"",doorframe:"",windows:"",doorImg:""
             }
             ]
-          },_0x5da60f=["光企","勾企","合页","锁","收口","方","纱网","registrant","回执单下载成功: "],_0x29264b=_0x5da60f["dispatchEvent"](((e,t)=>{
+          },_0x5da60f=["光企","勾企","合页","锁","收口","方","纱网","玻璃高","玻璃宽"],_0x29264b=_0x5da60f["reduce"](((e,t)=>{
             const a=_0x5c0d14;
             return[...e,...Object.entries(_0x27f541)[a(990)]((([e])=>e[a(566)](t)&&!e[a(566)]("亮窗")))[a(562)]((([e,x])=>{
               const _=a;
@@ -12005,15 +12005,15 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return t===_(877)?"<br>"+o:o
             }))]
           }),[]);
-          _0x192067["鑫隆迪门厂"][0]["<br>面板:"]=_0x29264b["needsSecondPass"]("加价项目已存在！");
-          const _0x42cf1=Object.entries(_0x27f541).filter((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["后框高"]((t=>e["折叠5扇"](t)))))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>!e["折叠5扇"]("企")))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e,t])=>{
+          _0x192067["oldSheet"][0]["doorsheet"]=_0x29264b["join"]("<br>");
+          const _0x42cf1=Object.entries(_0x27f541).filter((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["some"]((t=>e["includes"](t)))))["filter"]((([e])=>!e["includes"]("企")))["filter"]((([e,t])=>{
             const a=_0x5c0d14;
             return(!e[a(566)]("边封")||0!==_0x1f4aae[a(1064)])&&!(_0x1f4aae[a(184)]&&_0x1f4aae[a(184)][a(566)]("吊轨")&&e[a(566)]("下滑"))
-          })),_0x2d97de=_0x42cf1["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e.includes("下滑"))),_0x43519a=_0x2d97de["glassInfoList"]>1,_0x5d7b3d=(_0x43519a?_0x42cf1.filter((([e,t])=>{
+          })),_0x2d97de=_0x42cf1["filter"]((([e])=>e.includes("下滑"))),_0x43519a=_0x2d97de["length"]>1,_0x5d7b3d=(_0x43519a?_0x42cf1.filter((([e,t])=>{
             var a;
             const x=_0x5c0d14;
             return!e.includes("下滑")||(null==(a=t[x(578)])?void 0:a[x(566)](_0x1f4aae[x(184)]))
-          })):_0x42cf1)["validate"]((([e,t])=>{
+          })):_0x42cf1)["map"]((([e,t])=>{
             var a;
             const x=_0x5c0d14;
             if(e[x(566)]("边封")&&void 0!==_0x1f4aae["边封数"]&&(t.quantity=_0x1f4aae["边封数"]),e[x(566)]("滑")&&void 0!==_0x1f4aae[x(265)]&&_0x1f4aae[x(265)]>0&&(t[x(1094)]=_0x1f4aae[x(265)]),e.includes(x(962))&&void 0!==_0x1f4aae[x(265)]&&_0x1f4aae[x(265)]>0&&(t[x(1094)]=_0x1f4aae[x(265)]),e.includes(x(177))&&void 0!==_0x1f4aae["轨道长"]&&_0x1f4aae[x(265)]>0&&(t[x(1094)]=_0x1f4aae[x(265)]),e.includes("下滑")){
@@ -12027,7 +12027,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return(t.materialName[x(566)]("上轨")?t[x(578)][x(964)]("上轨",_0x1f4aae["轨道种类"]):_0x1f4aae[x(184)]+"-"+t[x(578)])+":"+t[x(1094)]+"*"+t.quantity*_0x1f4aae["数量"]
             }
             return t[x(578)]+":"+t[x(1094)]+"*"+t[x(650)]*_0x1f4aae["数量"]
-          })),_0x5bff58=Object["860px"](_0x27f541).filter((([e])=>e["折叠5扇"]("包宽")||e["折叠5扇"]("包高"))).flatMap((([e,t])=>{
+          })),_0x5bff58=Object["entries"](_0x27f541).filter((([e])=>e["includes"]("包宽")||e["includes"]("包高"))).flatMap((([e,t])=>{
             const a=_0x5c0d14;
             let x=t[a(1094)];
             if(e.includes("包高")&&(Number(_0x1f4aae[a(637)])>0||Number(_0x1f4aae[a(301)])>0)){
@@ -12036,17 +12036,17 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             }
             return t.materialName+":"+x+"*"+t.quantity*_0x1f4aae["数量"]
           }));
-          if(_0x1f4aae["双开内右"]>_0x1f4aae["封边横"]){
-            const e=Object["860px"](_0x27f541)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["中柱","commentPreview","压线"]["后框高"]((t=>e["折叠5扇"](t)))))["validate"]((([e,t])=>{
+          if(_0x1f4aae["亮窗总高"]>_0x1f4aae["门洞高"]){
+            const e=Object["entries"](_0x27f541)["filter"]((([e])=>["中柱","亮窗玻璃","压线"]["some"]((t=>e["includes"](t)))))["map"]((([e,t])=>{
               const a=_0x5c0d14,x=e[a(566)](a(1019))&&"无"===_0x1f4aae["底玻"]?_0x1f4aae["数量"]/2:_0x1f4aae["数量"],_=t[a(650)]*x>0&&t[a(650)]*x<1?1:t[a(650)]*x;
               return t.materialName+":"+t[a(1094)]+"*"+_
             }));
-            _0x192067["鑫隆迪门厂"][0]["上丁加双丁"]=Array.isArray(e)?e.join("加价项目已存在！"):e||""
+            _0x192067["oldSheet"][0]["windows"]=Array.isArray(e)?e.join("<br>"):e||""
           }
-          const _0x28ef2e=["槽","smartdoor_disable_auto_markup",_0x5c0d14(1e3)],_0x594ff8=Object["860px"](_0x27f541)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>_0x28ef2e.some((t=>{
+          const _0x28ef2e=["槽","封板高",_0x5c0d14(1e3)],_0x594ff8=Object["entries"](_0x27f541)["filter"]((([e])=>_0x28ef2e.some((t=>{
             const a=null!=t?t:"";
             return""!==a&&e.includes(a)
-          }))&&!e["折叠5扇"]("亮窗玻璃")))["validate"]((([e,t])=>{
+          }))&&!e["includes"]("亮窗玻璃")))["map"]((([e,t])=>{
             const a=_0x5c0d14,x=_0x28ef2e[a(935)]((t=>{
               const a=null!=t?t:"";
               return""!==a&&e.includes(a)
@@ -12057,7 +12057,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             return{
               priority:x,isGlass:e[a(566)]("玻璃"),text:t[a(578)]+":"+_+"*"+c
             }
-          })).sort(((e,t)=>e["两高两宽"]-t["两高两宽"])),_0x2e36e0=_0x594ff8.filter((e=>!e.isGlass))["validate"]((e=>e["select"])),_0xded2fb=_0x594ff8["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["trim"]))["validate"]((e=>e.text)),_0x29359f=Object["860px"](_0x27f541)["formulaID"]((([e])=>e["折叠5扇"]("顾轩门窗"))),_0x46f5d7=_0x29359f?_0x29359f[1]["门玻璃高"]:0,_0x40b30a=Object["860px"](_0x27f541)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e.includes("扣板")&&!e["折叠5扇"]("顾轩门窗")))["validate"]((([e,t])=>{
+          })).sort(((e,t)=>e["priority"]-t["priority"])),_0x2e36e0=_0x594ff8.filter((e=>!e.isGlass))["map"]((e=>e["text"])),_0xded2fb=_0x594ff8["filter"]((e=>e["isGlass"]))["map"]((e=>e.text)),_0x29359f=Object["entries"](_0x27f541)["find"]((([e])=>e["includes"]("扣板厚"))),_0x46f5d7=_0x29359f?_0x29359f[1]["result"]:0,_0x40b30a=Object["entries"](_0x27f541)["filter"]((([e])=>e.includes("扣板")&&!e["includes"]("扣板厚")))["map"]((([e,t])=>{
             const a=_0x5c0d14;
             let x=t[a(1094)],_=_0x1f4aae["数量"];
             const l=_0x46f5d7;
@@ -12065,53 +12065,53 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             return o>0&&o<1&&(o=1),l>0&&_0x1f4aae["数量"]>1?"杉杉铝木极简门"===_0x268723?t.materialName+":"+x+"*"+l+"*"+o:t[a(578)]+":"+x+"*"+l+"*"+o:l>0||_0x268723===a(222)?t[a(578)]+":"+x+"*"+l+"*"+o:t.materialName+":"+x+"*"+l+"*"+o
           }));
           {
-            const e=[..._0x2e36e0,..._0x40b30a,..._0xded2fb]["needsSecondPass"]("<br>");
-            _0x192067["鑫隆迪门厂"][0]["上丁加双丁"]=[_0x192067.oldSheet[0]["上丁加双丁"]||"",e]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！")
+            const e=[..._0x2e36e0,..._0x40b30a,..._0xded2fb]["join"]("<br>");
+            _0x192067["oldSheet"][0]["windows"]=[_0x192067.oldSheet[0]["windows"]||"",e]["filter"](Boolean).join("<br>")
           }
-          if(_0x5bff58["glassInfoList"]>0?_0x192067["鑫隆迪门厂"][0].doorframe=_0x5d7b3d["needsSecondPass"]("<br>")+"<br>套线名："+_0x1f4aae["恒业门窗"]+"<br>"+_0x5bff58["needsSecondPass"]("加价项目已存在！"):_0x192067.oldSheet[0]["Feng"]=_0x5d7b3d["needsSecondPass"]("<br>"),_0x192067["prototype"]=_0x1f4aae["客户"]||"",_0x192067["杉杉铝木极简门"]=_0x1f4aae["型材"],_0x192067["玻璃已重置"]=_0x1f4aae["单号"],_0x192067["DubleDong"]=_0x1f4aae["单号"],_0x192067.color=_0x1f4aae["颜色"],_0x192067["❌ 9.1 base64 转换失败"]=_0x1f4aae["pdf"],_0x192067["style"]=null!=(_b=_0x1f4aae["数量"])?_b:"",_0x1f4aae["token_expires_at"])try{
+          if(_0x5bff58["length"]>0?_0x192067["oldSheet"][0].doorframe=_0x5d7b3d["join"]("<br>")+"<br>套线名："+_0x1f4aae["套线种类"]+"<br>"+_0x5bff58["join"]("<br>"):_0x192067.oldSheet[0]["doorframe"]=_0x5d7b3d["join"]("<br>"),_0x192067["client"]=_0x1f4aae["客户"]||"",_0x192067["material"]=_0x1f4aae["型材"],_0x192067["qrcode"]=_0x1f4aae["单号"],_0x192067["orderID"]=_0x1f4aae["单号"],_0x192067.color=_0x1f4aae["颜色"],_0x192067["address"]=_0x1f4aae["安装地址"],_0x192067["quantity"]=null!=(_b=_0x1f4aae["数量"])?_b:"",_0x1f4aae["图片ID"])try{
             const e=await getImage(_0x1f4aae["图片ID"]);
-            e&&(_0x192067["鑫隆迪门厂"][0]["focus"]=e,_0x192067["focus"]=e)
+            e&&(_0x192067["oldSheet"][0]["doorImg"]=e,_0x192067["doorImg"]=e)
           }
           catch(_0x59be9f){
           }
-          const _0x443415=_0x1f4aae["单双丁"]&&"正常"!==_0x1f4aae["圣诺派门业"]?_0x1f4aae["圣诺派门业"]:null;
-          if(_0x192067.remark=[_0x1f4aae["五金"]?_0x1f4aae["五金"]:null,_0x443415,_0x1f4aae["备注"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("-"),'""'!==_0x1f4aae["加价项目"]&&"null"!==_0x1f4aae["findIndex"]&&_0x1f4aae["findIndex"])try{
+          const _0x443415=_0x1f4aae["单双丁"]&&"正常"!==_0x1f4aae["单双丁"]?_0x1f4aae["单双丁"]:null;
+          if(_0x192067.remark=[_0x1f4aae["五金"]?_0x1f4aae["五金"]:null,_0x443415,_0x1f4aae["备注"]]["filter"](Boolean)["join"]("-"),'""'!==_0x1f4aae["加价项目"]&&"null"!==_0x1f4aae["加价项目"]&&_0x1f4aae["加价项目"])try{
             let e=_0x1f4aae["加价项目原始数据"],t=[];
-            if(typeof e==="image/png")try{
+            if(typeof e==="string")try{
               let a=0;
               const x=4;
               let _=e;
               for(;
-              typeof _==="image/png"&&a<x;
-              )a++,_=JSON["values"](_);
+              typeof _==="string"&&a<x;
+              )a++,_=JSON["parse"](_);
               "string"==typeof _||(t=_)
             }
             catch(_0x1218b5){
             }
-            if(!Array.isArray(t)&&(t=typeof t==="SingleWall"?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e["el-form"]))))["validate"]((e=>e["el-form"]))["needsSecondPass"]("-");
+            if(!Array.isArray(t)&&(t=typeof t==="object"?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e["name"]))))["map"]((e=>e["name"]))["join"]("-");
               if(e){
                 let t="加配："+e;
-                _0x192067["日期: "]?_0x192067.remark+=" "+t:_0x192067.remark=t
+                _0x192067["remark"]?_0x192067.remark+=" "+t:_0x192067.remark=t
               }
             }
           }
           catch(_0x3d9bf6){
           }
-          if(null!=_0x1f4aae["saved_password"]&&2!==Number(_0x1f4aae["saved_password"])){
-            const e=0===Number(_0x1f4aae["saved_password"])?"stringify":1===Number(_0x1f4aae["边封数"])?"录入失败":3===Number(_0x1f4aae["saved_password"])?"\"进行匹配计算，是否继续？":4===Number(_0x1f4aae["saved_password"])?"上丁加单丁":5===Number(_0x1f4aae["边封数"])?"上丁加双丁":"";
-            e&&(_0x192067["日期: "]?_0x192067["日期: "]+="-"+e:_0x192067["日期: "]=e)
+          if(null!=_0x1f4aae["边封数"]&&2!==Number(_0x1f4aae["边封数"])){
+            const e=0===Number(_0x1f4aae["边封数"])?"双丁墙":1===Number(_0x1f4aae["边封数"])?"单丁墙":3===Number(_0x1f4aae["边封数"])?"上丁墙":4===Number(_0x1f4aae["边封数"])?"上丁加单丁":5===Number(_0x1f4aae["边封数"])?"上丁加双丁":"";
+            e&&(_0x192067["remark"]?_0x192067["remark"]+="-"+e:_0x192067["remark"]=e)
           }
-          const _0x5477f2=_0x1f4aae["GlassSize"];
+          const _0x5477f2=_0x1f4aae["客户编号"];
           let _0x2da140=null;
-          if(_0x5477f2&&0!==_0x5477f2)if(_0x674470.has(_0x5477f2))_0x2da140=_0x674470["DoubleWall"](_0x5477f2);
+          if(_0x5477f2&&0!==_0x5477f2)if(_0x674470.has(_0x5477f2))_0x2da140=_0x674470["get"](_0x5477f2);
           else try{
             const e=await getUserData();
             if(e){
-              const t=await fetch("https://www.samrtdoor.com.cn/1?param1=getLatestClientsInfo&param2="+e["hui_picture"].ds+"writeBuffer"+_0x5477f2,{
-                method:"DoubleWall"
-              }),a=await t["savedAt"]();
-              200===a["格亮窗"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]&&a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["glassInfoList"]>0?(_0x2da140=a["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"][0],_0x674470.set(_0x5477f2,_0x2da140)):_0x674470["亮窗玻璃-"](_0x5477f2,null)
+              const t=await fetch("https://www.samrtdoor.com.cn/1?param1=getLatestClientsInfo&param2="+e["userinfo"].ds+"&param3="+_0x5477f2,{
+                method:"get"
+              }),a=await t["json"]();
+              200===a["code"]&&a["data"]&&a["data"]["length"]>0?(_0x2da140=a["data"][0],_0x674470.set(_0x5477f2,_0x2da140)):_0x674470["set"](_0x5477f2,null)
             }
           }
           catch(_0x323caa){
@@ -12119,44 +12119,44 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           if(_0x2da140&&_0x2da140["品牌"]&&null!==_0x2da140["品牌"]&&""!==_0x2da140["品牌"]&&" "!==_0x2da140["品牌"]){
             const e="品牌:"+_0x2da140["品牌"];
-            _0x192067["日期: "]?_0x192067.remark+=" "+e:_0x192067["日期: "]=e
+            _0x192067["remark"]?_0x192067.remark+=" "+e:_0x192067["remark"]=e
           }
           _0xc8b731(_0x192067,_0x3ff6a8);
           let _0x21a2b9="";
-          _0x1f4aae["开向"]&&_0x1be4d9["el-popover"]&&_0x1be4d9["el-popover"].directionImageMap&&(_0x21a2b9=_0x1be4d9["el-popover"]["名甸门业"][""+_0x1f4aae["扇数"]+_0x1f4aae["开向"]]||""),_0x192067["单号已填入回执单"]=_0x21a2b9;
-          const _0x57ce3c=[],_0x2a9cac=[_0x1f4aae["封边横"],_0x1f4aae["折叠8扇"],_0x1f4aae["墙厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e&&0!==e));
-          if(_0x2a9cac["glassInfoList"]>0&&_0x57ce3c["12px"](_0x2a9cac.join("*")),_0x1f4aae["双开内右"]&&0!==_0x1f4aae["双开内右"]){
-            let e="总高"+_0x1f4aae["双开内右"];
-            _0x1f4aae["2655"]&&0!==_0x1f4aae["2655"]&&(e+="*"+_0x1f4aae["2655"]+"格"),_0x57ce3c.push(e)
+          _0x1f4aae["开向"]&&_0x1be4d9["value"]&&_0x1be4d9["value"].directionImageMap&&(_0x21a2b9=_0x1be4d9["value"]["directionImageMap"][""+_0x1f4aae["扇数"]+_0x1f4aae["开向"]]||""),_0x192067["lockImg"]=_0x21a2b9;
+          const _0x57ce3c=[],_0x2a9cac=[_0x1f4aae["门洞高"],_0x1f4aae["门洞宽"],_0x1f4aae["墙厚"]]["filter"]((e=>e&&0!==e));
+          if(_0x2a9cac["length"]>0&&_0x57ce3c["push"](_0x2a9cac.join("*")),_0x1f4aae["亮窗总高"]&&0!==_0x1f4aae["亮窗总高"]){
+            let e="总高"+_0x1f4aae["亮窗总高"];
+            _0x1f4aae["亮窗数量"]&&0!==_0x1f4aae["亮窗数量"]&&(e+="*"+_0x1f4aae["亮窗数量"]+"格"),_0x57ce3c.push(e)
           }
-          null!=_0x1f4aae["洞尺"]&&""!==String(_0x1f4aae["洞尺"])["打印成功"]()&&_0x57ce3c["then"](""+_0x1f4aae["洞尺"]),_0x192067["编辑生产单"]=_0x57ce3c;
-          const _0x1c434c=[_0x1f4aae["面玻"],_0x1f4aae["底玻"],_0x1f4aae["Cao"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-          _0x1c434c["glassInfoList"]>0&&("无"===_0x1f4aae["底玻"]&&"无"!=_0x1f4aae["面玻"]?_0x192067["❌ Blob对象为null"]=_0x1f4aae["面玻"]+"已打开系统分享面板，可直接分享到微信":"无"===_0x1f4aae["底玻"]&&"无"==_0x1f4aae["面玻"]?_0x192067["❌ Blob对象为null"]="无":_0x192067.glass="面:"+_0x1f4aae["面玻"]+"swingWall"+_0x1f4aae["底玻"]),_0x192067["✅ 已切换到新版本，应用即将重启/重载"]=(_0x1f4aae["型材"]||"")["折叠5扇"]("哑口套")||(_0x1f4aae["型材"]||"")["折叠5扇"]("门套")?"":_0x1f4aae["开向"]+_0x1f4aae["扇数"],_0x4d19f5[_0x5efaf0]={
+          null!=_0x1f4aae["洞尺"]&&""!==String(_0x1f4aae["洞尺"])["trim"]()&&_0x57ce3c["unshift"](""+_0x1f4aae["洞尺"]),_0x192067["size"]=_0x57ce3c;
+          const _0x1c434c=[_0x1f4aae["面玻"],_0x1f4aae["底玻"],_0x1f4aae["玻璃厚"]]["filter"](Boolean);
+          _0x1c434c["length"]>0&&("无"===_0x1f4aae["底玻"]&&"无"!=_0x1f4aae["面玻"]?_0x192067["glass"]=_0x1f4aae["面玻"]+"*单玻":"无"===_0x1f4aae["底玻"]&&"无"==_0x1f4aae["面玻"]?_0x192067["glass"]="无":_0x192067.glass="面:"+_0x1f4aae["面玻"]+"-底:"+_0x1f4aae["底玻"]),_0x192067["lockway"]=(_0x1f4aae["型材"]||"")["includes"]("哑口套")||(_0x1f4aae["型材"]||"")["includes"]("门套")?"":_0x1f4aae["开向"]+_0x1f4aae["扇数"],_0x4d19f5[_0x5efaf0]={
             orderInfo:_0x1f4aae,calculationResults:_0x27f541,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x192067
+              timestamp:Date["now"](),data:_0x192067
             }
           }
         }
-        const _0x33a94c=localStorage["<br>后"]("filter")||"❌ 浏览器不支持剪贴板API";
+        const _0x33a94c=localStorage["getItem"]("smartdoor_sort_method")||"profile";
         let _0x2078af;
-        _0x2078af=_0x33a94c==="一固一活固玻璃高"?Object["860px"](_0x4d19f5).map((([e,t])=>t["浏览器不支持文件分享"]["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]))["100%"](((e,t)=>{
+        _0x2078af=_0x33a94c==="order"?Object["entries"](_0x4d19f5).map((([e,t])=>t["produce"]["data"]))["sort"](((e,t)=>{
           const a=_0x5c0d14;
           return(parseInt((e[a(496)]||e[a(999)]||"")[a(363)]("-")[0])||0)-(parseInt((t[a(496)]||t[a(999)]||"").split("-")[0])||0)
-        })):Object.entries(_0x4d19f5)["100%"](((e,t)=>e[1]["浏览器不支持文件分享"]["扣板宽"]-t[1]["浏览器不支持文件分享"]["扣板宽"])).map((([e,t])=>t.produce["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]));
-        const _0x175a7b=_0x5cc934["el-popover"]?_0x1ebfe1(_0x2078af):_0x2078af,_0x4d5373="0.0.1",_0x5bcd82=new Set;
-        Object["frameWidth"](_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>{
+        })):Object.entries(_0x4d19f5)["sort"](((e,t)=>e[1]["produce"]["timestamp"]-t[1]["produce"]["timestamp"])).map((([e,t])=>t.produce["data"]));
+        const _0x175a7b=_0x5cc934["value"]?_0x1ebfe1(_0x2078af):_0x2078af,_0x4d5373="生产单",_0x5bcd82=new Set;
+        Object["values"](_0x4d19f5)["forEach"]((e=>{
           const t=_0x5c0d14;
           e[t(835)]&&e[t(835)][t(580)]&&_0x5bcd82[t(232)](e[t(835)][t(580)])
         }));
-        const _0x27bf92=Array["imageurl"](_0x5bcd82);
-        if(_0x18c875["el-popover"]=_0x27bf92,_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca["xlsx"])["glassInfoList"]>0)return _0x175a7b;
+        const _0x27bf92=Array["from"](_0x5bcd82);
+        if(_0x18c875["value"]=_0x27bf92,_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca["receiptData1"])["length"]>0)return _0x175a7b;
         const _0x5af8f5=await getUserData();
-        if(!_0x5af8f5)return void ElementPlus.ElMessage["font"]("无法获取用户数据");
-        const _0x38c25e=_0x5cc934["el-popover"]?null==(_d=null==(_c=null==_0x5af8f5?void 0:_0x5af8f5["4. Blob验证通过，类型: "])?void 0:_c.template)?void 0:_d["click"]:null==(_f=null==(_e=null==_0x5af8f5?void 0:_0x5af8f5["4. Blob验证通过，类型: "])?void 0:_e["尺寸:"])?void 0:_f.product2,_0x413dba=_0x20029b["折叠4扇"](_0x38c25e,_0x175a7b);
-        _0x3054e4.value=_0x175a7b,_0x3c8618.value=_0x413dba[0]["导出为WPS PDF"],await Vue.nextTick(),_0xe9dd07.value=_0x485486["el-popover"]?_0x485486.value["本地打印..."]:0,_0x2911f9["el-popover"]=!0
+        if(!_0x5af8f5)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x38c25e=_0x5cc934["value"]?null==(_d=null==(_c=null==_0x5af8f5?void 0:_0x5af8f5["registrant"])?void 0:_c.template)?void 0:_d["product3"]:null==(_f=null==(_e=null==_0x5af8f5?void 0:_0x5af8f5["registrant"])?void 0:_e["template"])?void 0:_f.product2,_0x413dba=_0x20029b["commentPreview"](_0x38c25e,_0x175a7b);
+        _0x3054e4.value=_0x175a7b,_0x3c8618.value=_0x413dba[0]["outerHTML"],await Vue.nextTick(),_0xe9dd07.value=_0x485486["value"]?_0x485486.value["scrollWidth"]:0,_0x2911f9["value"]=!0
       }
       catch(_0xe44be9){
-        ElementPlus.ElMessage["font"]("计算失败，请重试")
+        ElementPlus.ElMessage["error"]("计算失败，请重试")
       }
       finally{
         _0x35f92f.close()
@@ -12166,9 +12166,9 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
     })=>{
       var _a,_b;
       const _0x34750c=_0x43b0d8;
-      _0x85a3a["el-popover"]=2;
-      const _0xb519f1=ElementPlus.ElLoading["Documents"]({
-        lock:!0,text:"lockway",background:"base64转换失败"
+      _0x85a3a["value"]=2;
+      const _0xb519f1=ElementPlus.ElLoading["service"]({
+        lock:!0,text:"加载中...",background:"rgba(0, 0, 0, 0.7)"
       });
       try{
         const _0x26e24a=e=>{
@@ -12177,55 +12177,55 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
             const x=t;
             return e.formulaid!==a[x(930)]?e[x(930)].localeCompare(a[x(930)]):(e["颜色"]||"")[x(970)](a["颜色"]||"")
           }))
-        };if(_0x154432["fixed"]&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7["el-popover"].ping_hui["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"];
-          _0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]=_0x26e24a([..._0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]]);
-          const t=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].length
+        };if(_0x154432["ping"]&&_0x5b10d7.value["ping_hui"]&&_0x5b10d7["value"].ping_hui["length"]>0){
+          const e=_0x5b10d7["value"]["ping_hui"]["length"];
+          _0x5b10d7.value["ping_hui"]=_0x26e24a([..._0x5b10d7["value"]["ping_hui"]]);
+          const t=_0x5b10d7["value"]["ping_hui"].length
         }
-        if(_0x154432.diao&&_0x5b10d7["el-popover"].diao_hui&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0){
-          const e=_0x5b10d7["el-popover"].diao_hui["glassInfoList"];
-          _0x5b10d7["el-popover"]["assistive-fullscreen-changed"]=_0x26e24a([..._0x5b10d7["el-popover"].diao_hui]);
-          const t=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"].length
+        if(_0x154432.diao&&_0x5b10d7["value"].diao_hui&&_0x5b10d7["value"]["diao_hui"]["length"]>0){
+          const e=_0x5b10d7["value"].diao_hui["length"];
+          _0x5b10d7["value"]["diao_hui"]=_0x26e24a([..._0x5b10d7["value"].diao_hui]);
+          const t=_0x5b10d7["value"]["diao_hui"].length
         }
-        const _0x292a51=[..._0x154432["3轨6扇"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]?_0x5b10d7["el-popover"]["assistive-fullscreen-changed"].map((e=>e["F槽宽"])):[],..._0x154432.ping&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]?_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].map((e=>e["F槽宽"])):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x5da70d=[...new Set(_0x292a51)],_0x153383=[..._0x154432["3轨6扇"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]?_0x5b10d7.value.diao_hui["validate"]((e=>e.id)):[],..._0x154432["fixed"]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]?_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""].map((e=>e.id)):[]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean),_0x4811e0=[...new Set(_0x153383)],_0x577840={
+        const _0x292a51=[..._0x154432["diao"]&&_0x5b10d7["value"]["diao_hui"]?_0x5b10d7["value"]["diao_hui"].map((e=>e["formulaid"])):[],..._0x154432.ping&&_0x5b10d7["value"]["ping_hui"]?_0x5b10d7["value"]["ping_hui"].map((e=>e["formulaid"])):[]]["filter"](Boolean),_0x5da70d=[...new Set(_0x292a51)],_0x153383=[..._0x154432["diao"]&&_0x5b10d7["value"]["diao_hui"]?_0x5b10d7.value.diao_hui["map"]((e=>e.id)):[],..._0x154432["ping"]&&_0x5b10d7["value"]["ping_hui"]?_0x5b10d7["value"]["ping_hui"].map((e=>e.id)):[]]["filter"](Boolean),_0x4811e0=[...new Set(_0x153383)],_0x577840={
           formula:_0x5da70d,id:_0x4811e0
-        };if(!_0x292a51.length)return void ElementPlus.ElMessage["setItem"]("没有找到型材数据");
+        };if(!_0x292a51.length)return void ElementPlus.ElMessage["warning"]("没有找到型材数据");
         const _0x2adddf=await getUserData();
-        if(!_0x2adddf)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x246642=_0x2adddf["hui_picture"].registrant,_0x12e1af=_0x2adddf["hui_picture"].ds,_0x2717f8=await fetch("addImage"+_0x246642+"writeBuffer"+_0x12e1af,{
-          method:"300px",headers:{
-            "Content-Type":"product2"
-          },body:JSON["Hui"](_0x577840)
-        }),_0x2e4ce0=await _0x2717f8["savedAt"]();
-        if(200!==_0x2e4ce0.code)return void ElementPlus.ElMessage["font"](_0x2e4ce0["-底:"]||"hui-container");
-        ElementPlus.ElMessage["error"]("获取公式成功");
-        const _0x4a35ce=_0x2e4ce0["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]["&param3="],_0x33437c=_0x2e4ce0["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"].orderNumbers;
-        if(Object.keys(_0x4d19f5).forEach((e=>delete _0x4d19f5[e])),_0x154432["fixed"]&&_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""]&&_0x5b10d7.value["\" text-anchor=\"middle\" font-size=\""]["glassInfoList"]>0)for(let _0x36f420=0;
-        _0x36f420<_0x5b10d7["el-popover"].ping_hui["glassInfoList"];
+        if(!_0x2adddf)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x246642=_0x2adddf["userinfo"].registrant,_0x12e1af=_0x2adddf["userinfo"].ds,_0x2717f8=await fetch("https://www.samrtdoor.com.cn/1?param1=getDiaoFormulas&param2="+_0x246642+"&param3="+_0x12e1af,{
+          method:"POST",headers:{
+            "Content-Type":"application/json"
+          },body:JSON["stringify"](_0x577840)
+        }),_0x2e4ce0=await _0x2717f8["json"]();
+        if(200!==_0x2e4ce0.code)return void ElementPlus.ElMessage["error"](_0x2e4ce0["message"]||"获取公式失败");
+        ElementPlus.ElMessage["success"]("获取公式成功");
+        const _0x4a35ce=_0x2e4ce0["data"]["formulas"],_0x33437c=_0x2e4ce0["data"].orderNumbers;
+        if(Object.keys(_0x4d19f5).forEach((e=>delete _0x4d19f5[e])),_0x154432["ping"]&&_0x5b10d7["value"]["ping_hui"]&&_0x5b10d7.value["ping_hui"]["length"]>0)for(let _0x36f420=0;
+        _0x36f420<_0x5b10d7["value"].ping_hui["length"];
         _0x36f420++){
-          const _0x55a27e=_0x5b10d7["el-popover"]["\" text-anchor=\"middle\" font-size=\""][_0x36f420],_0x130c96=_0x55a27e["F槽宽"],_0x534147=_0x4a35ce[_0x130c96];
+          const _0x55a27e=_0x5b10d7["value"]["ping_hui"][_0x36f420],_0x130c96=_0x55a27e["formulaid"],_0x534147=_0x4a35ce[_0x130c96];
           if(!_0x534147)continue;
           _0x55a27e.id&&_0x33437c[_0x55a27e.id]&&(_0x55a27e["单号"]=_0x33437c[_0x55a27e.id]);
-          const _0x1bc7b7=JSON["values"](JSON["Hui"](_0x534147["3轨6扇"])),_0x4633d4="洞尺"===_0x55a27e["洞尺"]?null==_0x534147?void 0:_0x534147["6LdJTqf"]:void 0,_0x122568=Number(_0x55a27e["saved_password"])||0,_0x345119=null==_0x534147?void 0:_0x534147["charCodeAt"];
+          const _0x1bc7b7=JSON["parse"](JSON["stringify"](_0x534147["diao"])),_0x4633d4="洞尺"===_0x55a27e["洞尺"]?null==_0x534147?void 0:_0x534147["resetSize"]:void 0,_0x122568=Number(_0x55a27e["边封数"])||0,_0x345119=null==_0x534147?void 0:_0x534147["swingWall"];
           let _0x3937e8=0,_0x5f4c8e=0;
-          _0x345119&&null!=_0x55a27e["边封数"]&&2!==_0x122568&&(1===_0x122568&&(_0x3937e8=Number(_0x345119["canShare"])||0),4===_0x122568?(_0x3937e8=Number(_0x345119["canShare"])||0,_0x5f4c8e=Number(_0x345119.UpWall)||0):0===_0x122568?_0x3937e8=Number(_0x345119["doorframe"])||0:5===_0x122568?(_0x3937e8=Number(_0x345119["doorframe"])||0,_0x5f4c8e=Number(_0x345119["declaration"])||0):3===_0x122568&&(_0x5f4c8e=Number(_0x345119["declaration"])||0));
-          const _0x3a3280="fixed"+(_0x36f420+1),_0x5e88c9=null==_0x534147?void 0:_0x534147.hinge;
+          _0x345119&&null!=_0x55a27e["边封数"]&&2!==_0x122568&&(1===_0x122568&&(_0x3937e8=Number(_0x345119["SingleWall"])||0),4===_0x122568?(_0x3937e8=Number(_0x345119["SingleWall"])||0,_0x5f4c8e=Number(_0x345119.UpWall)||0):0===_0x122568?_0x3937e8=Number(_0x345119["DoubleWall"])||0:5===_0x122568?(_0x3937e8=Number(_0x345119["DoubleWall"])||0,_0x5f4c8e=Number(_0x345119["UpWall"])||0):3===_0x122568&&(_0x5f4c8e=Number(_0x345119["UpWall"])||0));
+          const _0x3a3280="ping"+(_0x36f420+1),_0x5e88c9=null==_0x534147?void 0:_0x534147.hinge;
           let _0x17bf14=0,_0x3f1170=0;
-          if(_0x5e88c9&&typeof _0x5e88c9==="SingleWall"&&Object["导入上次订单"](_0x5e88c9)["glassInfoList"]>0){
-            const t=String(_0x55a27e["五金"]||""),a=t.includes("_")?t["确认修改"]("_"):t?[t]:[],x=a["validate"]((e=>e.trim()))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e["折叠5扇"]("合页")));
-            if(x["glassInfoList"]>1)try{
-              await ElementPlus.ElMessageBox["粤诗丽门窗"]('五金中检测到多个含"合页"的元素：'+x.join("、")+'，将使用第一个"'+x[0]+"五金中检测到多个含\"合页\"的元素：","多个合页提示",{
+          if(_0x5e88c9&&typeof _0x5e88c9==="object"&&Object["keys"](_0x5e88c9)["length"]>0){
+            const t=String(_0x55a27e["五金"]||""),a=t.includes("_")?t["split"]("_"):t?[t]:[],x=a["map"]((e=>e.trim()))["filter"]((e=>e["includes"]("合页")));
+            if(x["length"]>1)try{
+              await ElementPlus.ElMessageBox["confirm"]('五金中检测到多个含"合页"的元素：'+x.join("、")+'，将使用第一个"'+x[0]+"\"进行匹配计算，是否继续？","多个合页提示",{
                 confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
               })
             }
             catch(e){
               return
             }
-            if(x["glassInfoList"]>0){
+            if(x["length"]>0){
               const t=x[0];
               if(void 0!==_0x5e88c9[t])_0x17bf14=-(Number(_0x5e88c9[t]["上下方减尺"])||0),_0x3f1170=-(Number(_0x5e88c9[t]["光企减尺寸"])||0);
               else try{
-                await ElementPlus.ElMessageBox["粤诗丽门窗"]('五金中的"'+t+"alignment","合页匹配失败",{
+                await ElementPlus.ElMessageBox["confirm"]('五金中的"'+t+"\"在合页配置中未找到匹配，是否继续计算？","合页匹配失败",{
                   confirmButtonText:"继续",cancelButtonText:"取消",type:"warning"
                 })
               }
@@ -12236,8 +12236,8 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           const _0x463226="无"===_0x55a27e["底玻"]||"无"===_0x55a27e["面玻"],_0x1dab4a="无"!==_0x55a27e["底玻"]&&"无"!==_0x55a27e["面玻"];
           if(_0x463226){
-            const e=Object["导入上次订单"](_0x1bc7b7);
-            e["✅ 图片已下载，请手动分享"]((t=>{
+            const e=Object["keys"](_0x1bc7b7);
+            e["forEach"]((t=>{
               const a=_0x34750c;
               if((t[a(566)](a(863))||t[a(566)](a(877)))&&!t[a(566)]("单玻")){
                 const x=t+"单玻";
@@ -12245,46 +12245,46 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
             }))
           }
-          _0x1dab4a&&Object["导入上次订单"](_0x1bc7b7).forEach((e=>{
+          _0x1dab4a&&Object["keys"](_0x1bc7b7).forEach((e=>{
             const t=_0x34750c;
             e.includes("单玻")&&(_0x1bc7b7[e].state=!1),!e[t(566)]("单玻")&&e[t(566)]("玻璃")&&(_0x1bc7b7[e][t(523)]=!0)
-          })),Object["导入上次订单"](_0x1bc7b7).forEach((e=>{
+          })),Object["keys"](_0x1bc7b7).forEach((e=>{
             const t=_0x34750c,a=_0x1bc7b7[e];
             e.includes(t(266))&&(a.v=(Number(a.v)||0)+_0x17bf14),e[t(566)]("光企高")&&!e[t(566)]("亮窗")&&(a.v=(Number(a.v)||0)+_0x3f1170),e[t(566)](t(877))&&Number(_0x55a27e[t(946)])>0&&!e.includes("亮窗")&&(a.v=Number(_0x55a27e[t(946)])+a.v);
             e[t(566)](t(863))||e[t(566)]("玻璃高")||(_0x55a27e["墙厚"]>0?a[t(523)]=!0:e[t(566)]("扣板")||e[t(566)]("压线")?a[t(523)]=!1:a[t(523)]=!0,e[t(566)]("封板")&&0==Number(_0x55a27e[t(946)])&&(a[t(523)]=!1),e[t(566)]("封板高")&&Number(_0x55a27e[t(946)])>0&&(a.state=!0,a.v=Number(_0x55a27e["封板高"])-a.v))
           }));
-          const _0x167892=_0x55a27e["折叠8扇"],_0x243b92=_0x55a27e["封边横"],_0x133898=_0x55a27e["双开内右"]||0,_0x219c1f=_0x4633d4&&Number(_0x4633d4["localeCompare"])||0,_0x2fe3d5=_0x4633d4&&Number(_0x4633d4["Wai"])||0;
+          const _0x167892=_0x55a27e["门洞宽"],_0x243b92=_0x55a27e["门洞高"],_0x133898=_0x55a27e["亮窗总高"]||0,_0x219c1f=_0x4633d4&&Number(_0x4633d4["width"])||0,_0x2fe3d5=_0x4633d4&&Number(_0x4633d4["height"])||0;
           let _0x45c60a=_0x167892,_0x358c9d=_0x243b92,_0x5acf77=_0x133898;
           (0!==_0x219c1f||0!==_0x2fe3d5)&&(_0x45c60a=_0x167892-_0x219c1f,_0x133898>_0x243b92?_0x5acf77=_0x133898-_0x2fe3d5:_0x358c9d=_0x243b92-_0x2fe3d5),0!==_0x3937e8&&(_0x45c60a-=_0x3937e8),0!==_0x5f4c8e&&(_0x133898>_0x243b92?_0x5acf77-=_0x5f4c8e:_0x358c9d-=_0x5f4c8e);
           const _0x4481c2={
-            h:_0x358c9d,w:_0x45c60a,h1:_0x5acf77,j:_0x55a27e["吊脚"]||0,t:_0x55a27e["墙厚"]||0,s:_0x55a27e["UpWall"]||0
-          };Object.keys(_0x1bc7b7)["✅ 图片已下载，请手动分享"]((_0x1c05ea=>{
+            h:_0x358c9d,w:_0x45c60a,h1:_0x5acf77,j:_0x55a27e["吊脚"]||0,t:_0x55a27e["墙厚"]||0,s:_0x55a27e["轨道长"]||0
+          };Object.keys(_0x1bc7b7)["forEach"]((_0x1c05ea=>{
             const _0x27dfc5=_0x34750c,_0x50a3fc=_0x1bc7b7[_0x1c05ea];
             if(_0x50a3fc.state)try{
-              let _0x1c3684=_0x50a3fc["toFixed"];
+              let _0x1c3684=_0x50a3fc["formula"];
               if(_0x1c3684){
-                if(_0x1c3684["60px"]("=")&&(_0x1c3684=_0x1c3684["门框宽"](1)),_0x1c3684["折叠5扇"]("请输入加价项目名称"))return void(_0x50a3fc.needsSecondPass=!0);
+                if(_0x1c3684["startsWith"]("=")&&(_0x1c3684=_0x1c3684["substring"](1)),_0x1c3684["includes"](".result"))return void(_0x50a3fc.needsSecondPass=!0);
                 let _0x3cca2c=_0x1c3684;
-                for(const[e,t]of Object["860px"](_0x4481c2))_0x3cca2c=_0x3cca2c.replace(new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x4481c2))_0x3cca2c=_0x3cca2c.replace(new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x257361=["v"];
                 for(const e of _0x257361)if(void 0!==_0x50a3fc[e]){
                   const t=_0x50a3fc[e],a=t<0?"("+t+")":t;
-                  _0x3cca2c=_0x3cca2c["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x3cca2c=_0x3cca2c["replace"](new RegExp(e,"g"),a)
                 }
-                const _0x45048e=eval(_0x3cca2c),_0x271699=Math["删除失败"](_0x45048e);
-                _0x271699<0?(_0x50a3fc.state=!1,_0x50a3fc["门玻璃高"]=0):_0x50a3fc["门玻璃高"]=_0x271699
+                const _0x45048e=eval(_0x3cca2c),_0x271699=Math["round"](_0x45048e);
+                _0x271699<0?(_0x50a3fc.state=!1,_0x50a3fc["result"]=0):_0x50a3fc["result"]=_0x271699
               }
             }
             catch(_0x285f76){
-              _0x50a3fc["门玻璃高"]="error"
+              _0x50a3fc["result"]="error"
             }
-          })),Object["导入上次订单"](_0x1bc7b7)["✅ 图片已下载，请手动分享"]((_0x681e72=>{
+          })),Object["keys"](_0x1bc7b7)["forEach"]((_0x681e72=>{
             const _0x19e58d=_0x34750c,_0x422279=_0x1bc7b7[_0x681e72];
-            if(_0x422279["kou"]&&_0x422279["windows"])try{
-              let _0x527422=_0x422279["toFixed"];
-              _0x527422["60px"]("=")&&(_0x527422=_0x527422["门框宽"](1));
+            if(_0x422279["state"]&&_0x422279["needsSecondPass"])try{
+              let _0x527422=_0x422279["formula"];
+              _0x527422["startsWith"]("=")&&(_0x527422=_0x527422["substring"](1));
               let _0x155e87=_0x527422;
-              Object["导入上次订单"](_0x1bc7b7).forEach((e=>{
+              Object["keys"](_0x1bc7b7).forEach((e=>{
                 const t=_0x19e58d,a=e+t(708);
                 if(_0x155e87[t(566)](a)){
                   const e=a.split(".")[0],x=Object.entries(_0x1bc7b7)[t(990)]((([a,x])=>a[t(566)](e)&&!0===x.state));
@@ -12294,21 +12294,21 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x155e87=_0x155e87.replace(new RegExp(a,"g"),l.result)
                 }
               }));
-              for(const[e,t]of Object.entries(_0x4481c2))_0x155e87=_0x155e87["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object.entries(_0x4481c2))_0x155e87=_0x155e87["replace"](new RegExp(e,"g"),t);
               const _0x311266=["v"];
               for(const e of _0x311266)if(void 0!==_0x422279[e]){
                 const t=_0x422279[e],a=t<0?"("+t+")":t;
-                _0x155e87=_0x155e87["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x155e87=_0x155e87["replace"](new RegExp(e,"g"),a)
               }
-              const _0x56a699=eval(_0x155e87),_0x257f72=Math["删除失败"](_0x56a699);
-              _0x257f72<0?(_0x422279.state=!1,_0x422279["门玻璃高"]=0):_0x422279.result=_0x257f72,delete _0x422279["windows"]
+              const _0x56a699=eval(_0x155e87),_0x257f72=Math["round"](_0x56a699);
+              _0x257f72<0?(_0x422279.state=!1,_0x422279["result"]=0):_0x422279.result=_0x257f72,delete _0x422279["needsSecondPass"]
             }
             catch(_0x4c3d98){
-              _0x422279.result="font",_0x422279["kou"]=!1
+              _0x422279.result="error",_0x422279["state"]=!1
             }
           }));
           const _0x159dca={
-          };Object["导入上次订单"](_0x1bc7b7)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x1bc7b7)["forEach"]((e=>{
             const t=_0x34750c,a=_0x1bc7b7[e];
             !0===a[t(523)]&&(_0x159dca[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a[t(650)]||0
@@ -12316,13 +12316,13 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }));
           const _0x4495e3={
             OrderID:"",client:"",goods:"",color:"",lockway:"",doorSize:"",glassSize:"",thickness:"",sheetHeigth:"",sheetWidth:"",frameHeigth:"",frameWidth:"",kouWidth:"",kouHeigth:"",kouThickness:"",remark:""
-          };if(_0x4495e3["<br/>轨道长:"]=_0x55a27e["单号"],_0x4495e3["prototype"]=_0x55a27e["客户"],_0x4495e3["query"]=_0x55a27e["型材"],_0x4495e3["\" viewBox=\"0 0 "]=_0x55a27e["颜色"],_0x4495e3.lockway=_0x55a27e["开向"],_0x4495e3.thickness=_0x55a27e["墙厚"],_0x4495e3.doorSize=_0x55a27e["封边横"]+"x"+_0x55a27e["折叠8扇"],_0x55a27e["吊脚"]>0?_0x4495e3["newFinanceSystem"]=_0x4495e3["newFinanceSystem"]+"x"+_0x55a27e["吊脚"]:_0x55a27e["亮窗总高"]>0&&(_0x4495e3["newFinanceSystem"]=_0x4495e3["newFinanceSystem"]+"x"+_0x55a27e["双开内右"]),_0x55a27e["数量"]>1&&(_0x4495e3.doorSize=_0x4495e3["newFinanceSystem"]+"<br>数量:"+_0x55a27e["数量"]),null!=_0x55a27e["洞尺"]&&""!==String(_0x55a27e["洞尺"])["打印成功"]()&&(_0x4495e3["newFinanceSystem"]=_0x55a27e["洞尺"]+"加价项目已存在！"+_0x4495e3.doorSize),_0x246642=="华顺门业"&&_0x55a27e["图片ID"])try{
-            const e=await getImage(_0x55a27e["token_expires_at"]);
+          };if(_0x4495e3["OrderID"]=_0x55a27e["单号"],_0x4495e3["client"]=_0x55a27e["客户"],_0x4495e3["goods"]=_0x55a27e["型材"],_0x4495e3["color"]=_0x55a27e["颜色"],_0x4495e3.lockway=_0x55a27e["开向"],_0x4495e3.thickness=_0x55a27e["墙厚"],_0x4495e3.doorSize=_0x55a27e["门洞高"]+"x"+_0x55a27e["门洞宽"],_0x55a27e["吊脚"]>0?_0x4495e3["doorSize"]=_0x4495e3["doorSize"]+"x"+_0x55a27e["吊脚"]:_0x55a27e["亮窗总高"]>0&&(_0x4495e3["doorSize"]=_0x4495e3["doorSize"]+"x"+_0x55a27e["亮窗总高"]),_0x55a27e["数量"]>1&&(_0x4495e3.doorSize=_0x4495e3["doorSize"]+"<br>数量:"+_0x55a27e["数量"]),null!=_0x55a27e["洞尺"]&&""!==String(_0x55a27e["洞尺"])["trim"]()&&(_0x4495e3["doorSize"]=_0x55a27e["洞尺"]+"<br>"+_0x4495e3.doorSize),_0x246642=="晟斐门窗厂"&&_0x55a27e["图片ID"])try{
+            const e=await getImage(_0x55a27e["图片ID"]);
             e&&(_0x4495e3.kouWidth=e)
           }
           catch(_0x17f264){
           }
-          const _0x1389a5=["生产天数","元/米","玻璃","production-data","下载完成，versionInfo=","html","location","封板","下载图片失败","BoLiKuan","顾轩门窗","立泰金属制品有限公司","<br/>墙厚:","玻璃高","回执单下载成功: "];
+          const _0x1389a5=["门框高","门框宽","玻璃","前框高","后框高","前框宽","后框宽","封板","扣板高","扣板宽","扣板厚","光企高","上下方","玻璃高","玻璃宽"];
           let _0x15f561=0,_0x7c7a57=0,_0x55389d=0,_0x41a723=0,_0x4ad4a0=0;
           _0x1389a5.forEach((async e=>{
             const t=_0x34750c;
@@ -12334,63 +12334,63 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               }
               e===_(667)&&l&&(_0x4ad4a0=l),e===_(1057)&&l&&(_0x4495e3.frameWidth="前"+l),e===_(1148)&&l&&(_0x4495e3.frameWidth=_0x4495e3.frameWidth+_(494)+l),"晟斐门窗厂"==_0x246642?_0x4495e3.kouHeigth=_0x55a27e[_(1003)]:("扣板高"===e&&l&&(_0x4495e3[_(871)]=l),e===_(654)&&l&&(_0x4495e3[_(526)]=l)),e===_(388)&&l&&(_0x4495e3[_(677)]=l)
             }))
-          })),_0x4495e3["双丁墙"]=_0x15f561+"x"+_0x7c7a57,Number(_0x55389d)>0&&(_0x4495e3["profile2"]=_0x4495e3["profile2"]+"<br>封板宽"+_0x55389d),Number(_0x41a723)>0&&(_0x4495e3["右固玻璃高"]=_0x4495e3["右固玻璃高"]+"toString"+_0x41a723),Number(_0x4ad4a0)>0&&(_0x4495e3["平开门算料完成"]=_0x4495e3["平开门算料完成"]+" 口袋门"+_0x4ad4a0);
-          const _0x2592bc=_0x55a27e["圣诺派门业"]&&"正常"!==_0x55a27e["圣诺派门业"]?_0x55a27e["单双丁"]:null;
-          if(_0x4495e3["日期: "]=[_0x55a27e["五金"]?_0x55a27e["五金"]:null,_0x2592bc,_0x55a27e["备注"],_0x55a27e["pdf"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean).join("加价项目已存在！"),'""'!==_0x55a27e["findIndex"]&&"null"!==_0x55a27e["加价项目"]&&_0x55a27e["findIndex"])try{
-            let e=_0x55a27e["height"],t=[];
-            if(typeof e==="image/png")try{
+          })),_0x4495e3["glassSize"]=_0x15f561+"x"+_0x7c7a57,Number(_0x55389d)>0&&(_0x4495e3["sheetWidth"]=_0x4495e3["sheetWidth"]+"<br>封板宽"+_0x55389d),Number(_0x41a723)>0&&(_0x4495e3["sheetHeight"]=_0x4495e3["sheetHeight"]+"<br>封板高"+_0x41a723),Number(_0x4ad4a0)>0&&(_0x4495e3["frameHeigth"]=_0x4495e3["frameHeigth"]+"<br>后"+_0x4ad4a0);
+          const _0x2592bc=_0x55a27e["单双丁"]&&"正常"!==_0x55a27e["单双丁"]?_0x55a27e["单双丁"]:null;
+          if(_0x4495e3["remark"]=[_0x55a27e["五金"]?_0x55a27e["五金"]:null,_0x2592bc,_0x55a27e["备注"],_0x55a27e["安装地址"]]["filter"](Boolean).join("<br>"),'""'!==_0x55a27e["加价项目"]&&"null"!==_0x55a27e["加价项目"]&&_0x55a27e["加价项目"])try{
+            let e=_0x55a27e["加价项目原始数据"],t=[];
+            if(typeof e==="string")try{
               let a=0;
               const x=4;
               let _=e;
               for(;
-              typeof _==="image/png"&&a<x;
-              )a++,_=JSON["values"](_);
-              typeof _==="image/png"||(t=_)
+              typeof _==="string"&&a<x;
+              )a++,_=JSON["parse"](_);
+              typeof _==="string"||(t=_)
             }
             catch(_0x561264){
             }
-            if(!Array["PDF导出成功"](t)&&(t="object"==typeof t?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e.name))))["validate"]((e=>e["el-form"])).join("-");
+            if(!Array["isArray"](t)&&(t="object"==typeof t?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e.name))))["map"]((e=>e["name"])).join("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x4495e3["日期: "]?_0x4495e3["日期: "]+="加价项目已存在！"+t:_0x4495e3["日期: "]=t
+                let t="加配："+e;
+                _0x4495e3["remark"]?_0x4495e3["remark"]+="<br>"+t:_0x4495e3["remark"]=t
               }
             }
           }
           catch(_0x138824){
           }
-          _0x246642=="华顺门业"&&(_0x4495e3["日期: "]=_0x55a27e["备注"]),_0xc8b731(_0x4495e3,_0x534147),_0x4d19f5[_0x3a3280]={
+          _0x246642=="晟斐门窗厂"&&(_0x4495e3["remark"]=_0x55a27e["备注"]),_0xc8b731(_0x4495e3,_0x534147),_0x4d19f5[_0x3a3280]={
             orderInfo:_0x55a27e,calculationResults:_0x159dca,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x4495e3
+              timestamp:Date["now"](),data:_0x4495e3
             }
           }
         }
-        if(_0x154432.diao&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]&&_0x5b10d7["el-popover"]["assistive-fullscreen-changed"]["glassInfoList"]>0)for(let _0x49c493=0;
-        _0x49c493<_0x5b10d7["el-popover"]["assistive-fullscreen-changed"].length;
+        if(_0x154432.diao&&_0x5b10d7["value"]["diao_hui"]&&_0x5b10d7["value"]["diao_hui"]["length"]>0)for(let _0x49c493=0;
+        _0x49c493<_0x5b10d7["value"]["diao_hui"].length;
         _0x49c493++){
-          const _0x19d928=_0x5b10d7["el-popover"]["assistive-fullscreen-changed"][_0x49c493],_0x941177=_0x19d928["F槽宽"],_0x10d37f=_0x4a35ce[_0x941177];
+          const _0x19d928=_0x5b10d7["value"]["diao_hui"][_0x49c493],_0x941177=_0x19d928["formulaid"],_0x10d37f=_0x4a35ce[_0x941177];
           if(!_0x10d37f)continue;
           _0x19d928.id&&_0x33437c[_0x19d928.id]&&(_0x19d928["单号"]=_0x33437c[_0x19d928.id]);
-          const _0x3556ef=JSON["values"](JSON["Hui"](_0x10d37f["3轨6扇"])),_0x5dcc62="洞尺"===_0x19d928["洞尺"]?null==_0x10d37f?void 0:_0x10d37f.resetSize:void 0,_0x381767="单包洞尺"===_0x19d928["洞尺"]||_0x19d928["洞尺"]==="轨道种类"?null==_0x10d37f?void 0:_0x10d37f.TaoDong:void 0;
+          const _0x3556ef=JSON["parse"](JSON["stringify"](_0x10d37f["diao"])),_0x5dcc62="洞尺"===_0x19d928["洞尺"]?null==_0x10d37f?void 0:_0x10d37f.resetSize:void 0,_0x381767="单包洞尺"===_0x19d928["洞尺"]||_0x19d928["洞尺"]==="双包洞尺"?null==_0x10d37f?void 0:_0x10d37f.TaoDong:void 0;
           let _0x40cda8;
-          _0x381767&&(_0x19d928["洞尺"]==="isArray"&&_0x381767["下载回执单"]?_0x40cda8=_0x381767.SingleDong:"双包洞尺"===_0x19d928["洞尺"]&&_0x381767["border"]&&(_0x40cda8=_0x381767.DubleDong));
-          const _0x2258da=null==_0x10d37f?void 0:_0x10d37f["alert"],_0x5f3410=_0x2258da&&Number(_0x2258da["一固一活固玻璃宽"])||0,_0x2e6b18=_0x2258da&&Number(_0x2258da["el-autocomplete"])||0,_0x5b719c=Number(_0x19d928["saved_password"])||0,_0x12cf4b=2!==_0x5b719c&&0!==_0x5f3410?_0x5f3410*(2-_0x5b719c):0,_0xe85bd7=2!==_0x5b719c&&0!==_0x2e6b18?_0x2e6b18*(2-_0x5b719c):0,_0x50d18b="3轨6扇"+(_0x49c493+1),_0x3d2437=_0x19d928["扇数"];
+          _0x381767&&(_0x19d928["洞尺"]==="单包洞尺"&&_0x381767["SingleDong"]?_0x40cda8=_0x381767.SingleDong:"双包洞尺"===_0x19d928["洞尺"]&&_0x381767["DubleDong"]&&(_0x40cda8=_0x381767.DubleDong));
+          const _0x2258da=null==_0x10d37f?void 0:_0x10d37f["widthIncrement"],_0x5f3410=_0x2258da&&Number(_0x2258da["SheetIncrement"])||0,_0x2e6b18=_0x2258da&&Number(_0x2258da["TrackIncrement"])||0,_0x5b719c=Number(_0x19d928["边封数"])||0,_0x12cf4b=2!==_0x5b719c&&0!==_0x5f3410?_0x5f3410*(2-_0x5b719c):0,_0xe85bd7=2!==_0x5b719c&&0!==_0x2e6b18?_0x2e6b18*(2-_0x5b719c):0,_0x50d18b="diao"+(_0x49c493+1),_0x3d2437=_0x19d928["扇数"];
           if(!_0x3d2437)continue;
-          if(_0x3d2437["折叠5扇"]("活"))Object.keys(_0x3556ef).forEach((e=>{
+          if(_0x3d2437["includes"]("活"))Object.keys(_0x3556ef).forEach((e=>{
             const t=_0x34750c,a=_0x3556ef[e];
             e[t(566)]("活")&&!e[t(566)](t(877))&&(a[t(523)]=!0),e[t(566)](t(877))&&a[t(193)]===_0x19d928["轨道种类"]&&e[t(566)](_0x3d2437)&&(a.state=!0),_0x19d928[t(335)]>0&&e[t(566)]("玻璃")&&(a[t(523)]=!0)
           }));
           else{
-            const e=_0x19d928["扇数"]+"玻璃",t=Object["导入上次订单"](_0x3556ef)["后框高"]((t=>t["折叠5扇"](e)&&t["折叠5扇"]("单玻")));
+            const e=_0x19d928["扇数"]+"玻璃",t=Object["keys"](_0x3556ef)["some"]((t=>t["includes"](e)&&t["includes"]("单玻")));
             let a=0,x=0,_=0;
-            if((0!==_0x12cf4b||0!==_0xe85bd7)&&2!==Number(_0x19d928["saved_password"])){
-              const e=_0x3d2437["13px"](/(\d+)扇/);
+            if((0!==_0x12cf4b||0!==_0xe85bd7)&&2!==Number(_0x19d928["边封数"])){
+              const e=_0x3d2437["match"](/(\d+)扇/);
               if(e){
                 const t=Number(e[1]);
                 0!==_0x12cf4b&&(x=_0x12cf4b/t),0!==_0xe85bd7&&(_=_0xe85bd7)
               }
             }
-            Object.keys(_0x3556ef)["✅ 图片已下载，请手动分享"]((l=>{
+            Object.keys(_0x3556ef)["forEach"]((l=>{
               const o=_0x34750c,c=_0x3556ef[l],n="无"===_0x19d928["底玻"]||"无"===_0x19d928["面玻"],d=!_0x3d2437[o(566)]("活")&&n;
               if(t&&!n&&l[o(566)](e)&&l.includes("单玻"))return void(c[o(523)]=!1);
               if(d&&t&&l[o(566)](e))return void(c.state=l[o(566)]("单玻"));
@@ -12403,38 +12403,38 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               l[o(566)]("收口")&&_0x3d2437[o(566)]("4扇")&&!_0x3d2437[o(566)]("折叠")&&(c[o(523)]=!0),l.includes("收口")&&_0x3d2437.includes("3扇")&&_0x3d2437[o(566)]("折叠")&&!_0x19d928["开向"].includes("0")&&(c[o(523)]=!0),l[o(566)]("收口")&&_0x3d2437[o(566)]("4扇")&&_0x3d2437[o(566)]("折叠")&&!_0x19d928["开向"].includes("0")&&(c[o(523)]=!0),l.includes("收口")&&_0x3d2437.includes("5扇")&&_0x3d2437[o(566)]("折叠")&&!_0x19d928["开向"].includes("0")&&(c.state=!0),l[o(566)]("收口")&&_0x3d2437.includes("6扇")&&_0x3d2437.includes("折叠")&&!_0x19d928["开向"].includes("0")&&(c.state=!0),l[o(566)]("收口")&&_0x3d2437[o(566)]("2轨3扇")&&(c[o(523)]=!0)
             }))
           }
-          const _0x126dad=_0x19d928["折叠8扇"],_0x563ae8=_0x19d928["门洞高"],_0x81aebb=_0x19d928["亮窗总高"]||0,_0x49dbc5=_0x5dcc62&&Number(_0x5dcc62["localeCompare"])||0,_0x49f8f8=_0x5dcc62&&Number(_0x5dcc62.height)||0,_0x57a446=_0x40cda8&&Number(_0x40cda8["宽减"])||0,_0x3f661f=_0x40cda8&&Number(_0x40cda8["高减"])||0;
+          const _0x126dad=_0x19d928["门洞宽"],_0x563ae8=_0x19d928["门洞高"],_0x81aebb=_0x19d928["亮窗总高"]||0,_0x49dbc5=_0x5dcc62&&Number(_0x5dcc62["width"])||0,_0x49f8f8=_0x5dcc62&&Number(_0x5dcc62.height)||0,_0x57a446=_0x40cda8&&Number(_0x40cda8["宽减"])||0,_0x3f661f=_0x40cda8&&Number(_0x40cda8["高减"])||0;
           let _0x1b9031=_0x126dad,_0x1f8d3c=_0x563ae8,_0x5573e6=_0x81aebb;
           (0!==_0x49dbc5||0!==_0x49f8f8)&&(_0x1b9031=_0x126dad-_0x49dbc5,_0x81aebb>_0x563ae8?_0x5573e6=_0x81aebb-_0x49f8f8:_0x1f8d3c=_0x563ae8-_0x49f8f8),(0!==_0x57a446||0!==_0x3f661f)&&(_0x1b9031-=_0x57a446,_0x81aebb>_0x563ae8?_0x5573e6-=_0x3f661f:_0x1f8d3c-=_0x3f661f);
           const _0x2d4913={
             h:_0x1f8d3c,w:_0x1b9031,h1:_0x5573e6,t:_0x19d928["墙厚"]||0
-          };Object.keys(_0x3556ef)["✅ 图片已下载，请手动分享"]((_0x2e61b8=>{
+          };Object.keys(_0x3556ef)["forEach"]((_0x2e61b8=>{
             const _0x239ee7=_0x34750c,_0x4092f6=_0x3556ef[_0x2e61b8];
-            if(_0x4092f6["kou"])try{
-              let _0x523ea6=_0x4092f6["toFixed"];
+            if(_0x4092f6["state"])try{
+              let _0x523ea6=_0x4092f6["formula"];
               if(_0x523ea6){
-                if(_0x523ea6["60px"]("=")&&(_0x523ea6=_0x523ea6["门框宽"](1)),_0x523ea6["折叠5扇"](".result"))return void(_0x4092f6["windows"]=!0);
+                if(_0x523ea6["startsWith"]("=")&&(_0x523ea6=_0x523ea6["substring"](1)),_0x523ea6["includes"](".result"))return void(_0x4092f6["needsSecondPass"]=!0);
                 let _0x32699e=_0x523ea6;
-                for(const[e,t]of Object["860px"](_0x2d4913))_0x32699e=_0x32699e["合页匹配失败"](new RegExp("\\b"+e+"\\b","g"),t);
+                for(const[e,t]of Object["entries"](_0x2d4913))_0x32699e=_0x32699e["replace"](new RegExp("\\b"+e+"\\b","g"),t);
                 const _0x33eb57=["v"];
                 for(const e of _0x33eb57)if(void 0!==_0x4092f6[e]){
                   const t=_0x4092f6[e],a=t<0?"("+t+")":t;
-                  _0x32699e=_0x32699e["合页匹配失败"](new RegExp(e,"g"),a)
+                  _0x32699e=_0x32699e["replace"](new RegExp(e,"g"),a)
                 }
-                const _0xf3fa81=eval(_0x32699e),_0x199630=Math["删除失败"](_0xf3fa81);
-                _0x199630<0?(_0x4092f6["kou"]=!1,_0x4092f6["门玻璃高"]=0):_0x4092f6.result=_0x199630
+                const _0xf3fa81=eval(_0x32699e),_0x199630=Math["round"](_0xf3fa81);
+                _0x199630<0?(_0x4092f6["state"]=!1,_0x4092f6["result"]=0):_0x4092f6.result=_0x199630
               }
             }
             catch(_0x4c9533){
               _0x4092f6.result="error"
             }
-          })),Object["导入上次订单"](_0x3556ef)["✅ 图片已下载，请手动分享"]((_0x515bb1=>{
+          })),Object["keys"](_0x3556ef)["forEach"]((_0x515bb1=>{
             const _0x23fe4b=_0x34750c,_0x4e85d7=_0x3556ef[_0x515bb1];
-            if(_0x4e85d7["kou"]&&_0x4e85d7["windows"])try{
+            if(_0x4e85d7["state"]&&_0x4e85d7["needsSecondPass"])try{
               let _0x1e53d9=_0x4e85d7.formula;
-              _0x1e53d9["60px"]("=")&&(_0x1e53d9=_0x1e53d9["门框宽"](1));
+              _0x1e53d9["startsWith"]("=")&&(_0x1e53d9=_0x1e53d9["substring"](1));
               let _0x4ca8ce=_0x1e53d9;
-              Object["导入上次订单"](_0x3556ef)["✅ 图片已下载，请手动分享"]((e=>{
+              Object["keys"](_0x3556ef)["forEach"]((e=>{
                 const t=_0x23fe4b,a=e+t(708);
                 if(_0x4ca8ce[t(566)](a)){
                   const e=a[t(363)](".")[0],x=Object[t(1124)](_0x3556ef)[t(990)]((([a,x])=>{
@@ -12447,32 +12447,32 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
                   _0x4ca8ce=_0x4ca8ce[t(964)](new RegExp(a,"g"),l[t(1094)])
                 }
               }));
-              for(const[e,t]of Object["860px"](_0x2d4913))_0x4ca8ce=_0x4ca8ce["合页匹配失败"](new RegExp(e,"g"),t);
+              for(const[e,t]of Object["entries"](_0x2d4913))_0x4ca8ce=_0x4ca8ce["replace"](new RegExp(e,"g"),t);
               const _0x3d1092=["v"];
               for(const e of _0x3d1092)if(void 0!==_0x4e85d7[e]){
                 const t=_0x4e85d7[e],a=t<0?"("+t+")":t;
-                _0x4ca8ce=_0x4ca8ce["合页匹配失败"](new RegExp(e,"g"),a)
+                _0x4ca8ce=_0x4ca8ce["replace"](new RegExp(e,"g"),a)
               }
-              const _0x36c4b4=eval(_0x4ca8ce),_0x31f931=Math["删除失败"](_0x36c4b4);
-              _0x31f931<0?(_0x4e85d7["kou"]=!1,_0x4e85d7["门玻璃高"]=0):_0x4e85d7["门玻璃高"]=_0x31f931,delete _0x4e85d7["windows"]
+              const _0x36c4b4=eval(_0x4ca8ce),_0x31f931=Math["round"](_0x36c4b4);
+              _0x31f931<0?(_0x4e85d7["state"]=!1,_0x4e85d7["result"]=0):_0x4e85d7["result"]=_0x31f931,delete _0x4e85d7["needsSecondPass"]
             }
             catch(_0x52c4c6){
-              _0x4e85d7["门玻璃高"]="font",_0x4e85d7.state=!1
+              _0x4e85d7["result"]="error",_0x4e85d7.state=!1
             }
           }));
           const _0x4cd8ac={
-          };Object["导入上次订单"](_0x3556ef)["✅ 图片已下载，请手动分享"]((e=>{
+          };Object["keys"](_0x3556ef)["forEach"]((e=>{
             const t=_0x34750c,a=_0x3556ef[e];
             !0===a[t(523)]&&(_0x4cd8ac[e]={
               materialName:a[t(578)]||"",result:a[t(1094)]||0,quantity:a[t(650)]||0
             })
           }));
-          const _0x1239ce=_0x743794["折叠5扇"](_0x246642)?{
+          const _0x1239ce=_0x743794["includes"](_0x246642)?{
             client:"",door:"",qrcode:"",OrderID:"",lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",kou:"",remark:""
           }
           :{
             doorImg:"",door:"",qrcode:"",OrderID:"",lockImg:"",basicInfo:"",doorsheet:"",doorframe:"",casing:"",windows:"",kou:"",remark:""
-          },_0x5ac473=["光企","勾企","合页","锁","收口","方","纱网","registrant","玻璃宽"],_0xff22c7=_0x5ac473["dispatchEvent"](((e,t)=>{
+          },_0x5ac473=["光企","勾企","合页","锁","收口","方","纱网","玻璃高","玻璃宽"],_0xff22c7=_0x5ac473["reduce"](((e,t)=>{
             const a=_0x34750c;
             return[...e,...Object.entries(_0x4cd8ac)[a(990)]((([e])=>e[a(566)](t)&&!e[a(566)]("亮窗")))[a(562)]((([e,x])=>{
               const _=a;
@@ -12480,11 +12480,11 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return(t===_(863)||"玻璃高"===t)&&("无"===_0x19d928["底玻"]||"无"===_0x19d928["面玻"])&&!e[_(566)]("单玻")&&(l=x[_(650)]/2),(t===_(863)||t===_(877))&&_0x19d928["扇数"]===_(737)&&(l=1),(t===_(863)||t===_(877))&&"双活"===_0x19d928["扇数"]&&(l=2),x[_(578)]+":"+x.result+"*"+l*_0x19d928["数量"]
             }))]
           }),[]);
-          _0x1239ce.doorsheet=_0xff22c7.join("加价项目已存在！");
-          const _0x1598e4=Object.entries(_0x4cd8ac).filter((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["后框高"]((t=>e["折叠5扇"](t)))))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>!e["折叠5扇"]("企")))["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e,t])=>{
+          _0x1239ce.doorsheet=_0xff22c7.join("<br>");
+          const _0x1598e4=Object.entries(_0x4cd8ac).filter((([e])=>["边封","下轨","上轨","滑","固定","移动","上横","盖板"]["some"]((t=>e["includes"](t)))))["filter"]((([e])=>!e["includes"]("企")))["filter"]((([e,t])=>{
             const a=_0x34750c;
             return(!e[a(566)]("边封")||0!==_0x19d928[a(1064)])&&!(_0x19d928[a(184)]&&_0x19d928[a(184)][a(566)]("吊轨")&&e.includes("下滑"))
-          }))["validate"]((([e,t])=>{
+          }))["map"]((([e,t])=>{
             const a=_0x34750c;
             if(e[a(566)]("边封")&&void 0!==_0x19d928[a(1064)]&&(t[a(650)]=_0x19d928["边封数"]),e[a(566)]("滑")&&void 0!==_0x19d928[a(265)]&&_0x19d928[a(265)]>0&&(t[a(1094)]=_0x19d928[a(265)]),e[a(566)]("下滑"))return""+_0x19d928[a(184)]+t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x19d928["数量"];
             if(e[a(566)]("下轨"))return""+_0x19d928[a(184)]+t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x19d928["数量"];
@@ -12495,7 +12495,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return(t.materialName[a(566)]("上轨")?t[a(578)].replace("上轨",_0x19d928["轨道种类"]):_0x19d928[a(184)]+"-"+t.materialName)+":"+t[a(1094)]+"*"+t[a(650)]*_0x19d928["数量"]
             }
             return t[a(578)]+":"+t[a(1094)]+"*"+t[a(650)]*_0x19d928["数量"]
-          })),_0x37ba1f=Object.entries(_0x4cd8ac)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e.includes("包宽")||e["折叠5扇"]("包高")))["profile"]((([e,t])=>{
+          })),_0x37ba1f=Object.entries(_0x4cd8ac)["filter"]((([e])=>e.includes("包宽")||e["includes"]("包高")))["flatMap"]((([e,t])=>{
             const a=_0x34750c;
             let x=t[a(1094)];
             if(e[a(566)]("包高")&&(Number(_0x19d928[a(637)])>0||Number(_0x19d928[a(301)])>0)){
@@ -12503,50 +12503,50 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
               return[t.materialName+":"+(x+_)+"*"+e,t[a(578)]+":"+(x+l)+"*"+e]
             }
             return t[a(578)]+":"+x+"*"+t[a(650)]*_0x19d928["数量"]
-          })),_0x35fcb4=Object["860px"](_0x4cd8ac)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>["中柱","commentPreview","槽","压线"]["后框高"]((t=>e.includes(t)))))["validate"]((([e,t])=>{
+          })),_0x35fcb4=Object["entries"](_0x4cd8ac)["filter"]((([e])=>["中柱","亮窗玻璃","槽","压线"]["some"]((t=>e.includes(t)))))["map"]((([e,t])=>{
             const a=_0x34750c;
             let x=t.result;
             return t[a(578)]+":"+x+"*"+(t[a(650)]*_0x19d928["数量"]>0&&t[a(650)]*_0x19d928["数量"]<1?1:t.quantity*_0x19d928["数量"])
-          })),_0x3fe165=Object["860px"](_0x4cd8ac)["formulaID"]((([e])=>e["折叠5扇"]("扣板厚"))),_0x37a345=_0x3fe165?_0x3fe165[1]["门玻璃高"]:0,_0x186288=Object["860px"](_0x4cd8ac)["\">\n      <rect x=\"0\" y=\"0\" width=\""]((([e])=>e["折叠5扇"]("扣板")&&!e["折叠5扇"]("扣板厚")))["validate"]((([e,t])=>{
+          })),_0x3fe165=Object["entries"](_0x4cd8ac)["find"]((([e])=>e["includes"]("扣板厚"))),_0x37a345=_0x3fe165?_0x3fe165[1]["result"]:0,_0x186288=Object["entries"](_0x4cd8ac)["filter"]((([e])=>e["includes"]("扣板")&&!e["includes"]("扣板厚")))["map"]((([e,t])=>{
             const a=_0x34750c;
             let x=t[a(1094)],_=_0x19d928["数量"];
             const l=_0x37a345;
             let o=t.quantity*_;
             return o>0&&o<1&&(o=1),l>0&&_0x19d928["数量"]>1?_0x246642===a(222)?t[a(578)]+a(584)+x+a(1098)+l+"*"+o:t[a(578)]+":"+x+a(1098)+l+"*"+o:l>0?_0x246642===a(222)?t.materialName+a(584)+x+"*<br>"+l+"*"+o:t.materialName+":"+x+a(1098)+l+"*"+o:_0x246642===a(222)?t[a(578)]+":<br>"+x+"*"+l+"*"+o:t[a(578)]+":"+x+"*"+l+"*"+o
           }));
-          _0x1239ce.windows=[..._0x35fcb4,..._0x186288]["needsSecondPass"]("<br>");
-          const _0x49131f=Object.entries(_0x4cd8ac)["formulaID"]((([e])=>e.includes("BoLiKuan"))),_0x388ed5=Object["860px"](_0x4cd8ac)["formulaID"]((([e])=>e["折叠5扇"]("扣板高"))),_0x2bf086=[];
-          if(_0x49131f&&_0x2bf086.push("扣板宽:"+_0x49131f[1].result+"*"+_0x19d928["数量"]),_0x388ed5&&_0x2bf086.push("Gou"+_0x388ed5[1]["门玻璃高"]+"*"+_0x19d928["数量"]),_0x3fe165&&_0x2bf086.push("#909399"+_0x37a345+"*"+_0x19d928["数量"]),_0x1239ce["saved_username"]=_0x2bf086["needsSecondPass"]("<br>"),_0x37ba1f["glassInfoList"]>0?_0x1239ce["Feng"]=_0x1598e4["needsSecondPass"]("<br>")+"<br>套线名："+_0x19d928["套线种类"]+"<br>"+_0x37ba1f.join("加价项目已存在！"):_0x1239ce["Feng"]=_0x1598e4["needsSecondPass"]("<br>"),_0x743794.includes(_0x246642))_0x1239ce.door=[_0x19d928["型材"],_0x19d928["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！");
+          _0x1239ce.windows=[..._0x35fcb4,..._0x186288]["join"]("<br>");
+          const _0x49131f=Object.entries(_0x4cd8ac)["find"]((([e])=>e.includes("扣板宽"))),_0x388ed5=Object["entries"](_0x4cd8ac)["find"]((([e])=>e["includes"]("扣板高"))),_0x2bf086=[];
+          if(_0x49131f&&_0x2bf086.push("扣板宽:"+_0x49131f[1].result+"*"+_0x19d928["数量"]),_0x388ed5&&_0x2bf086.push("扣板高:"+_0x388ed5[1]["result"]+"*"+_0x19d928["数量"]),_0x3fe165&&_0x2bf086.push("扣板厚:"+_0x37a345+"*"+_0x19d928["数量"]),_0x1239ce["kou"]=_0x2bf086["join"]("<br>"),_0x37ba1f["length"]>0?_0x1239ce["doorframe"]=_0x1598e4["join"]("<br>")+"<br>套线名："+_0x19d928["套线种类"]+"<br>"+_0x37ba1f.join("<br>"):_0x1239ce["doorframe"]=_0x1598e4["join"]("<br>"),_0x743794.includes(_0x246642))_0x1239ce.door=[_0x19d928["型材"],_0x19d928["颜色"]]["filter"](Boolean)["join"]("<br>");
           else{
-            const e=[_0x19d928["客户"]||"",_0x19d928["型材"],_0x19d928["颜色"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean);
-            _0x1239ce["orderNumbers"]=e["needsSecondPass"]("加价项目已存在！")
+            const e=[_0x19d928["客户"]||"",_0x19d928["型材"],_0x19d928["颜色"]]["filter"](Boolean);
+            _0x1239ce["door"]=e["join"]("<br>")
           }
-          if(!_0x743794["折叠5扇"](_0x246642)&&_0x19d928["token_expires_at"])try{
-            const e=await getImage(_0x19d928["token_expires_at"]);
+          if(!_0x743794["includes"](_0x246642)&&_0x19d928["图片ID"])try{
+            const e=await getImage(_0x19d928["图片ID"]);
             e&&(_0x1239ce.doorImg=e)
           }
           catch(_0x4fa8db){
           }
-          _0x1239ce.OrderID=_0x19d928["单号"]||"",_0x1239ce["玻璃已重置"]=_0x19d928["单号"]||"";
-          const _0x5885f5=_0x19d928["圣诺派门业"]&&"正常"!==_0x19d928["单双丁"]?_0x19d928["圣诺派门业"]:null;
-          if(_0x1239ce["日期: "]=[_0x19d928["五金"]?_0x19d928["五金"]:null,_0x5885f5,_0x19d928["备注"],_0x19d928["安装地址"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""](Boolean)["needsSecondPass"]("加价项目已存在！"),'""'!==_0x19d928["加价项目"]&&_0x19d928["findIndex"]!=="outerHTML"&&_0x19d928["findIndex"])try{
+          _0x1239ce.OrderID=_0x19d928["单号"]||"",_0x1239ce["qrcode"]=_0x19d928["单号"]||"";
+          const _0x5885f5=_0x19d928["单双丁"]&&"正常"!==_0x19d928["单双丁"]?_0x19d928["单双丁"]:null;
+          if(_0x1239ce["remark"]=[_0x19d928["五金"]?_0x19d928["五金"]:null,_0x5885f5,_0x19d928["备注"],_0x19d928["安装地址"]]["filter"](Boolean)["join"]("<br>"),'""'!==_0x19d928["加价项目"]&&_0x19d928["加价项目"]!=="null"&&_0x19d928["加价项目"])try{
             let e=_0x19d928["加价项目原始数据"],t=[];
-            if(typeof e==="image/png")try{
+            if(typeof e==="string")try{
               let a=0;
               const x=4;
               let _=e;
               for(;
-              typeof _==="image/png"&&a<x;
+              typeof _==="string"&&a<x;
               )a++,_=JSON.parse(_);
               "string"==typeof _||(t=_)
             }
             catch(_0x21b491){
             }
-            if(!Array["PDF导出成功"](t)&&(t="object"==typeof t?[t]:[]),t&&t["glassInfoList"]>0){
-              let e=t["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>isNaN(Number(e.name))))["validate"]((e=>e["el-form"]))["needsSecondPass"]("-");
+            if(!Array["isArray"](t)&&(t="object"==typeof t?[t]:[]),t&&t["length"]>0){
+              let e=t["filter"]((e=>isNaN(Number(e.name))))["map"]((e=>e["name"]))["join"]("-");
               if(e){
-                let t="7. 创建ClipboardItem..."+e;
-                _0x1239ce["日期: "]?_0x1239ce["日期: "]+="加价项目已存在！"+t:_0x1239ce["日期: "]=t
+                let t="加配："+e;
+                _0x1239ce["remark"]?_0x1239ce["remark"]+="<br>"+t:_0x1239ce["remark"]=t
               }
             }
           }
@@ -12554,44 +12554,44 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
           }
           _0xc8b731(_0x1239ce,_0x10d37f);
           let _0x169ee3="";
-          _0x19d928["开向"]&&_0x1be4d9["el-popover"]&&_0x1be4d9.value["名甸门业"]&&(_0x169ee3=_0x1be4d9["el-popover"]["名甸门业"][""+_0x19d928["扇数"]+_0x19d928["开向"]]||""),_0x1239ce["单号已填入回执单"]=_0x169ee3;
-          const _0x4eaab8=[],_0x51e5be=[_0x19d928["门洞高"],_0x19d928["折叠8扇"],_0x19d928["墙厚"]]["\">\n      <rect x=\"0\" y=\"0\" width=\""]((e=>e&&0!==e));
-          if(_0x51e5be["glassInfoList"]>0&&_0x4eaab8["12px"](_0x51e5be.join("*")),_0x19d928["双开内右"]&&0!==_0x19d928["双开内右"]){
-            let e="Bao"+_0x19d928["双开内右"];
-            _0x19d928["2655"]&&0!==_0x19d928["2655"]&&(e+="亮窗"+_0x19d928["2655"]+"格"),_0x4eaab8["12px"](e)
+          _0x19d928["开向"]&&_0x1be4d9["value"]&&_0x1be4d9.value["directionImageMap"]&&(_0x169ee3=_0x1be4d9["value"]["directionImageMap"][""+_0x19d928["扇数"]+_0x19d928["开向"]]||""),_0x1239ce["lockImg"]=_0x169ee3;
+          const _0x4eaab8=[],_0x51e5be=[_0x19d928["门洞高"],_0x19d928["门洞宽"],_0x19d928["墙厚"]]["filter"]((e=>e&&0!==e));
+          if(_0x51e5be["length"]>0&&_0x4eaab8["push"](_0x51e5be.join("*")),_0x19d928["亮窗总高"]&&0!==_0x19d928["亮窗总高"]){
+            let e="亮窗高："+_0x19d928["亮窗总高"];
+            _0x19d928["亮窗数量"]&&0!==_0x19d928["亮窗数量"]&&(e+="亮窗"+_0x19d928["亮窗数量"]+"格"),_0x4eaab8["push"](e)
           }
-          const _0x27eefc=[_0x19d928["面玻"],_0x19d928["底玻"],_0x19d928["Cao"]].filter(Boolean);
-          _0x27eefc.length>0&&("无"===_0x19d928["底玻"]&&"无"!=_0x19d928["面玻"]?_0x4eaab8["12px"](_0x19d928["面玻"]+"*单玻"):"无"===_0x19d928["底玻"]&&"无"==_0x19d928["面玻"]?_0x4eaab8["12px"]("无"):_0x4eaab8.push(_0x19d928["面玻"]+"+"+_0x19d928["底玻"]+"*"+_0x19d928["Cao"])),null!=_0x19d928["洞尺"]&&""!==String(_0x19d928["洞尺"])["打印成功"]()&&_0x4eaab8.unshift(""+_0x19d928["洞尺"]),_0x1239ce["前框宽"]=_0x4eaab8["needsSecondPass"]("加价项目已存在！")+"加价项目已存在！"+_0x19d928["开向"]+"加价项目已存在！"+_0x19d928["扇数"],_0x743794["折叠5扇"](_0x246642)&&(_0x1239ce["prototype"]=_0x19d928["客户"]||""),_0x4d19f5[_0x50d18b]={
+          const _0x27eefc=[_0x19d928["面玻"],_0x19d928["底玻"],_0x19d928["玻璃厚"]].filter(Boolean);
+          _0x27eefc.length>0&&("无"===_0x19d928["底玻"]&&"无"!=_0x19d928["面玻"]?_0x4eaab8["push"](_0x19d928["面玻"]+"*单玻"):"无"===_0x19d928["底玻"]&&"无"==_0x19d928["面玻"]?_0x4eaab8["push"]("无"):_0x4eaab8.push(_0x19d928["面玻"]+"+"+_0x19d928["底玻"]+"*"+_0x19d928["玻璃厚"])),null!=_0x19d928["洞尺"]&&""!==String(_0x19d928["洞尺"])["trim"]()&&_0x4eaab8.unshift(""+_0x19d928["洞尺"]),_0x1239ce["basicInfo"]=_0x4eaab8["join"]("<br>")+"<br>"+_0x19d928["开向"]+"<br>"+_0x19d928["扇数"],_0x743794["includes"](_0x246642)&&(_0x1239ce["client"]=_0x19d928["客户"]||""),_0x4d19f5[_0x50d18b]={
             orderInfo:_0x19d928,calculationResults:_0x4cd8ac,produce:{
-              timestamp:Date["单包洞尺"](),data:_0x1239ce
+              timestamp:Date["now"](),data:_0x1239ce
             }
           }
         }
-        const _0x5e003f=localStorage["<br>后"]("filter")||"❌ 浏览器不支持剪贴板API";
+        const _0x5e003f=localStorage["getItem"]("smartdoor_sort_method")||"profile";
         let _0x3a843b;
-        _0x3a843b=_0x5e003f==="一固一活固玻璃高"?Object["860px"](_0x4d19f5)["validate"]((([e,t])=>t["浏览器不支持文件分享"]["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]))["100%"](((e,t)=>{
+        _0x3a843b=_0x5e003f==="order"?Object["entries"](_0x4d19f5)["map"]((([e,t])=>t["produce"]["data"]))["sort"](((e,t)=>{
           const a=_0x34750c;
           return(parseInt((e[a(496)]||e[a(999)]||"")[a(363)]("-")[0])||0)-(parseInt((t[a(496)]||t[a(999)]||"")[a(363)]("-")[0])||0)
-        })):Object["860px"](_0x4d19f5).sort(((e,t)=>e[1]["浏览器不支持文件分享"]["扣板宽"]-t[1]["浏览器不支持文件分享"]["扣板宽"])).map((([e,t])=>t["浏览器不支持文件分享"]["。\n如需彻底删除，请手动运行卸载器或删除安装目录。"]));
+        })):Object["entries"](_0x4d19f5).sort(((e,t)=>e[1]["produce"]["timestamp"]-t[1]["produce"]["timestamp"])).map((([e,t])=>t["produce"]["data"]));
         const _0x45a3ab={
           produces:_0x3a843b
-        },_0x4c22a1="0.0.1",_0x21651c=new Set;
-        Object["frameWidth"](_0x4d19f5)["✅ 图片已下载，请手动分享"]((e=>{
+        },_0x4c22a1="生产单",_0x21651c=new Set;
+        Object["values"](_0x4d19f5)["forEach"]((e=>{
           const t=_0x34750c;
           e[t(835)]&&e.orderInfo["回执单号"]&&_0x21651c[t(232)](e[t(835)][t(580)])
         }));
-        const _0x597340=Array["imageurl"](_0x21651c);
-        if(_0x18c875["el-popover"]=_0x597340,_0x5c66ca["xlsx"]&&Object["导入上次订单"](_0x5c66ca["xlsx"])["glassInfoList"]>0)return _0x3a843b;
+        const _0x597340=Array["from"](_0x21651c);
+        if(_0x18c875["value"]=_0x597340,_0x5c66ca["receiptData1"]&&Object["keys"](_0x5c66ca["receiptData1"])["length"]>0)return _0x3a843b;
         const _0x42cd34=await getUserData();
-        if(!_0x42cd34)return void ElementPlus.ElMessage["font"]("timestamp");
-        const _0x3faa6f=null==(_b=null==(_a=null==_0x42cd34?void 0:_0x42cd34["4. Blob验证通过，类型: "])?void 0:_a.template)?void 0:_b["排序方式"],_0x4b967c=_0x20029b["折叠4扇"](_0x3faa6f,_0x45a3ab);
-        _0x3c8618.value=_0x4b967c[0]["导出为WPS PDF"],await Vue.nextTick(),_0xe9dd07["el-popover"]=_0x485486["el-popover"]?_0x485486.value["本地打印..."]:0,_0x2911f9["el-popover"]=!0
+        if(!_0x42cd34)return void ElementPlus.ElMessage["error"]("无法获取用户数据");
+        const _0x3faa6f=null==(_b=null==(_a=null==_0x42cd34?void 0:_0x42cd34["registrant"])?void 0:_a.template)?void 0:_b["product1"],_0x4b967c=_0x20029b["commentPreview"](_0x3faa6f,_0x45a3ab);
+        _0x3c8618.value=_0x4b967c[0]["outerHTML"],await Vue.nextTick(),_0xe9dd07["value"]=_0x485486["value"]?_0x485486.value["scrollWidth"]:0,_0x2911f9["value"]=!0
       }
       catch(_0x107b3b){
-        ElementPlus.ElMessage.error("Zuo")
+        ElementPlus.ElMessage.error("计算失败，请重试")
       }
       finally{
-        _0xb519f1["2.添加门类"]()
+        _0xb519f1["close"]()
       }
     },_0x26495d=async e=>{
       const t=_0x43b0d8,a=await getPrinterSetting();
@@ -12841,7 +12841,7 @@ const TRIAL_ACCOUNT_NAME="form-item",TRIAL_DEVICE_LICENSE_CACHE_TTL_MS=108e5,_0x
         _0x20029b[b(351)](g,w),_0x2911f9.value=!1
       }))
     },_0x43542e=()=>{
-      window["some"].reload()
+      window["location"].reload()
     };return _0x382f8a({
       showContainer:_0x446f82,calculateReceipt:_0x32bd6f,calculateReceiptOld:_0x320f0e,exportKouBan:_0x2b92dc,generateKouBanPreview:_0xb16ece,copyKouBan:_0x1831f6,lableForMaterial:_0xff5572,calculateReceiptForCustomed:_0x15ef6c,calculateGlass:_0x4f7790,copyglass:_0x32252d,Glasslist:_0x509b06,lable:_0x17d664,lableForProduct:_0x2e25b8,getPrinter:_0x26495d,updateProgress:_0x2c301e,openSuanliaoShenQi:_0x23c3e2,handleSuanliaoCalculate:_0x16babf
     }),(e,t)=>{
@@ -13422,7 +13422,7 @@ var _0x3256f6=_0x2f4d;
   }
 }
 ();
-const _0x306d52=_0x1c627c(_0x3c40f9,[["__scopeId","10FbFtgS"]]);
+const _0x306d52=_0x1c627c(_0x3c40f9,[["__scopeId",_0x3256f6(156)]]);
 function _0x196b(){
   var e=["mta1odC4nJfSCuPAy1u","mJK1nJKZnxDOvxLKsq","mtG3mJi4mtr1Aef1AxO","mM1TthLjza","mJrIwvDbtKK","otKXmJyWExb3CNvt","mty4mtKYsg9Uzgzh","nZa3nJq4vuPiEhvv","zgf0ys12lwy3zJG2y2vK","mJaZmtq3sK1gtwzw","odHUCKnmBva","mtbgyKz0z1m"];
   return(_0x196b=function(){

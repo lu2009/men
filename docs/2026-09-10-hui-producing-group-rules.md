@@ -14,7 +14,8 @@
 > 另外：`Hui.formatted.js` 会把 `.join`/`.push` 等方法名替换成随机字典字符串，**取真值必须用原始 chunk
 > `legacy/js/Hui-d088417c.js`**（工具 `/tmp/huidrive/orig.py`）。
 
-> 数据来源：`legacy/js/Hui-d088417c.js`（权威 minified；`Hui.formatted.js` 是可读参考但方法名/键名被污染，勿直接采信）、`legacy/hui-stringmaps.json`（静态串表，运行时偏移 +497）。
+> 数据来源：`legacy/js/Hui-d088417c.js`（权威 minified；`Hui.formatted.js` 是可读参考，**2026-09-16 起已用正确串表重建**，行号与当年一致）。
+> ~~`legacy/hui-stringmaps.json`~~ **已删除**（未旋转的错版，值 99.9% 错位）—— 当年写本节时只能靠运行时解码器求值就是因为它不可信。
 > 目的：供 Rust + Vue3 重构版按原版语义实现「生产单/生产单定制/玻璃合片」各列的部件归属。
 
 ---
@@ -277,7 +278,7 @@ product1 的 `kouWidth / kouHeigth / kouThickness` 列即由此而来（其他�
 
 ## 8. 各模板「列内容」精确拼接规则（运行时解码提取，2026-09-10）
 
-> 本节规则全部由**运行时解码器**求得真值（静态 `hui-stringmaps.json` 是未旋转错版，`Bao`/`双开内右` 等污染值不可信）。
+> 本节规则全部由**运行时解码器**求得真值（静态 `hui-stringmaps.json` 是未旋转错版、**已于 2026-09-16 删除**，`Bao`/`双开内右` 等污染值不可信）。
 > 解码器链：`_0x11f592`/`_0x59f9e4`/`_0x43b0d8`/`_0x3a973c` → `_0x250a`；base64 表 `_0x1ee4`（1010 项，offset 292692）；旋转 IIFE offset 290755 **转 497 次**。
 > 校验位：`_0x250a(711)`='Hui'、`(329)`='开门红试用号'、`(1022)`='directionImageMap'、`(374)`='lockImg'、`(691)`='value'、`(423)`='join'、`(447)`='push'、`(990)`='filter'、`(566)`='includes'、`(1144)`='<br>'。
 >

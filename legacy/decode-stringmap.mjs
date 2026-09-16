@@ -4,10 +4,9 @@
 // 要逐字核对原版语义就必须先把 token 解回字符串。仓库里的 `hui-stringmaps.json`
 // **是错的**（数组未做旋转，值全部错位），不要再用它。
 //
-// ⚠️ 同理，`legacy/js/Hui.formatted.js` 是用那份**错表**生成的 —— 它的**结构/行号**
-// 仍可用（文档里的 @偏移/行号引用都是它），但**里面的字符串一个都不能信**
-// （同一个 token 会被解成 "无"/"左"/"右"/"Cloud" 之类毫不相干的串，据此读逻辑会读错）。
-// 要核对字符串，用 `node legacy/deobfuscate-hui.mjs` 生成的 `legacy/js/Hui.deobfuscated.js`。
+// ⚠️ 那份错表已删除，它生成的 `Hui.formatted.js` 也已用 `legacy/deobfuscate-hui.mjs` 重建
+// （正确字符串、行号不变）。本脚本现在只在需要拿「单一 token 的取值」时用，整文件反混淆走
+// `node legacy/deobfuscate-hui.mjs`。`legacy/diao-stringmaps.json` 那份是**对的**，可继续用。
 //
 // 用法：
 //   node legacy/decode-stringmap.mjs legacy/js/Hui-d088417c.js /tmp/hui-map.json
