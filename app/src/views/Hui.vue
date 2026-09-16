@@ -3881,19 +3881,18 @@ function holeKeyOf(direction: string): string {
 /**
  * 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。
  *
- * ⚠️ 同一个 direction 可能有多条：「生成挖孔图」一次写两张 ——
- *   `(锁向,           mirrored=false)`  ← 显式指定的那张
- *   `(左右互换(锁向),  mirrored=true )`  ← 画对面方向时顺带写进来的
- * 所以画两次（比如锁向先 `左锁内开`、再 `左锁外开`）后，`左锁内开` 会同时有
- * `(false, 左凹槽图)` 和 `(true, 右凹槽图)` 两条。原先 `.find()` 取 id 最小的那条，
- * **纯看入库顺序**；这里改为优先取显式指定的 `mirrored=false`，都没有才退而取任意一条。
+ * 只按 `direction` 精确取，**找不到就是空、绝不换方向**。
+ * `mirrored` 在这里不参与 —— 哪个方向配哪张图是画图时定的（见 `GlassDraw` 的键规则），
+ * 取图端不该再替它做判断。
+ *
+ * 注：同一 direction 理论上可能有多条（把互为左右的两个锁向都画过时，各自都会给对方
+ * 写一条 `mirrored=true` 的），此时取 id 靠前的那条。实际数据里每个方向基本只有 1 条。
  */
 function holeImageByKey(l: Line, key: string): string {
   if (!key) return ''
   const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
   if (!imgs) return ''
-  const rows = imgs.filter((i) => i.direction === key)
-  return (rows.find((i) => !i.mirrored) || rows[0])?.data_url || ''
+  return imgs.find((i) => i.direction === key)?.data_url || ''
 }
 
 /**
