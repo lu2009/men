@@ -1468,48 +1468,148 @@ const isAutoCmMarkup = (item: MarkupItem): boolean => {
   return !!a && AUTO_CM_KINDS.includes(a.kind) && item.unit === '元/公分'
 }
 
-/** 单条加价项金额：自动加价按阈值与实际尺寸动态计算，普通项按单位公式。 */
-function markupAmount(item: MarkupItem, l: Line): number {
+/**
+ * 单条加价项：算出 **金额** 与 **明细文本**。
+ *
+ * ⚠️ 平开与吊趟是**两套**分支，旧版各写了一份，不能共用（这是本次拆分的唯一原因）：
+ *   - 平开 `wt`  `Hui.formatted.js:1256-1307`
+ *   - 吊趟 `ft`  `Hui.formatted.js:4170-4204`
+ * 三处实质差异（金额会不同）：
+ *   ① `元/方`：平开有「超平米」特判 → `(平方数 − N)`；**吊趟没有**，就是 `price × 平方数`
+ *   ② `元/米`：平开**只有名字含「门套」才算**，长度 `(2×max(门洞高,亮窗总高)+门洞宽)/1000`；
+ *              **吊趟不判门套**，长度恒为 `门洞宽/1000`
+ *   ③ `元/公分`：平开只有 超高/超宽/超墙厚；**吊趟多一个「轨道超长」**，且结果 `Math.round` 取整
+ *
+ * ⚠️ 两处**原版就有的怪癖，照抄**：
+ *   - 平开的基准量 `o`、吊趟的 `c` 都是**循环外变量**（`:1259` / `:4173`），
+ *     `元/公分` 项的名字若不含任何已知前缀，会**沿用上一条算出来的值**；平开 `元/米` 不含「门套」时
+ *     连 `o` 也一并沿用。这里用 `carry` 复刻同一行为。
+ *   - 吊趟 `超宽N` 的基准是 `Math.max(门洞宽)`（单参数取 max，等于原值），照抄。
+ */
+type MarkupDetail = { amount: number; text: string }
+
+/** 平开 `wt`（`Hui.formatted.js:1256-1307`）。 */
+function markupDetailPing(item: MarkupItem, l: Line, carry: { v: number }): MarkupDetail {
   const p = item.price || 0
-  const q = l.quantity || 1
+  const q = l.quantity || 0
   const w = l.door_width || 0
   const h = Math.max(l.door_height || 0, l.light_window_height || 0)
   const t = l.wall_thickness || 0
   const sq = l.square || 0
+  const name = item.name
+  let r = 0
+  let s = ''
 
-  const auto = isAutoCmMarkup(item) ? parseAutoMarkup(item.name) : null
-  if (auto) {
-    const th = auto.threshold
-    switch (auto.kind) {
-      case '超宽':
-        return l.price_type === '套' && w > th ? ((w - th) / 10) * p * q : 0
-      case '超高':
-        return l.price_type === '套' && h > th ? ((h - th) / 10) * p * q : 0
-      case '超墙厚':
-        return t > th ? ((t - th) / 10) * p * q : 0
-      case '轨道超长':
-        // 直接用阈值数字 / 10（非「实际−N」）
-        return (th / 10) * p * q
-      case '超平米':
-        return sq > th ? (sq - th) * p * q : 0
+  if (item.unit === '元/套' || item.unit === '元/支') {
+    // 文案条件原版是 `r>0||r<0`（等价于 r!==0，且 -0 走 else）
+    r = p * q
+    s = r > 0 || r < 0 ? `${name} ${p}${item.unit}*${q}=${r}元` : `${name} `
+  } else if (item.unit === '元/方') {
+    try {
+      if (name.includes('超平米')) {
+        carry.v = Number((sq - Number(name.replace(/超平米/g, ''))).toFixed(3))
+        r = p * carry.v * q
+        s = r > 0 ? `超平米: ${p}${item.unit}*${carry.v}平方*${q}=${r}元` : `${name} `
+      } else {
+        r = Number((p * sq).toFixed(3))
+        s = r > 0 ? `${name} ${p}${item.unit}*${sq}=${r}元` : `${name} `
+      }
+    } catch {
+      message.error('计算金额失败')
     }
+  } else if (item.unit === '元/米') {
+    try {
+      // 不含「门套」时 r/s 保持初值，**carry 也保持上一轮的值**（原版如此）
+      if (name.includes('门套')) {
+        carry.v = (2 * h + w) / 1e3
+        r = Number((p * carry.v * q).toFixed(3))
+        s = r > 0 ? `${name} ${p}${item.unit}*${carry.v}米*${q}=${r}元` : `${name} `
+      }
+    } catch {
+      message.error('计算金额失败')
+    }
+  } else if (item.unit === '元/公分') {
+    try {
+      let x = ''
+      if (name.includes('超高')) {
+        carry.v = (h - Number(name.replace(/超高/g, ''))) / 10
+        x = '超高:'
+      } else if (name.includes('超宽')) {
+        carry.v = (w - Number(name.replace(/超宽/g, ''))) / 10
+        x = '超宽:'
+      } else if (name.includes('超墙厚')) {
+        carry.v = (t - Number(name.replace(/超墙厚/g, ''))) / 10
+        x = '超墙厚:'
+      }
+      r = p * carry.v * q
+      s = r > 0 ? `${x} ${p}${item.unit}*${carry.v}公分*${q}=${r}元` : `${x} `
+    } catch {
+      message.error('计算金额失败')
+    }
+  } else if (item.unit === '无') {
+    r = p * q
+    if (q > 1) s = `${name} ${p}*${q}=${r}元`
+    else if (q === 1) s = `${name} ${p}元`
   }
+  return { amount: r, text: s }
+}
 
-  switch (item.unit) {
-    case '元/方':
-      return sq * p
-    case '元/米': {
-      // 原版 `wt`（@50868）：**只有名字含「门套」的元/米项才计算**，其余 r 保持 0；
-      //   长度（米）= (2 × max(门洞高, 亮窗总高) + 门洞宽) / 1000
-      if (!item.name.includes('门套')) return 0
-      return ((2 * h + w) / 1000) * p * q
+/** 吊趟 `ft`（`Hui.formatted.js:4170-4204`）。 */
+function markupDetailDiao(item: MarkupItem, l: Line, carry: { v: number }): MarkupDetail {
+  const p = item.price || 0
+  const q = l.quantity || 0
+  const w = l.door_width || 0
+  const h = Math.max(l.door_height || 0, l.light_window_height || 0)
+  const t = l.wall_thickness || 0
+  const sq = l.square || 0
+  const name = item.name
+  let d = 0
+  let s = ''
+
+  if (item.unit === '元/套' || item.unit === '元/支') {
+    d = p * q
+    s = d !== 0 ? `${name} ${p}${item.unit}*${q}=${d}元` : `${name} `
+  } else if (item.unit === '元/方') {
+    // 吊趟**没有**「超平米」特判
+    d = Number((p * sq).toFixed(3))
+    s = d > 0 ? `${name} ${p}${item.unit}*${sq}=${d}元` : `${name} `
+  } else if (item.unit === '元/公分') {
+    try {
+      let x = ''
+      if (name.includes('超高')) {
+        carry.v = (h - Number(name.replace(/超高/g, ''))) / 10
+        x = '超高:'
+      } else if (name.includes('超宽')) {
+        // 原版是 `Math.max(门洞宽)`（单参数，等于原值）
+        carry.v = (Math.max(w) - Number(name.replace(/超宽/g, ''))) / 10
+        x = '超宽:'
+      } else if (name.includes('超墙厚')) {
+        carry.v = (t - Number(name.replace(/超墙厚/g, ''))) / 10
+        x = '超墙厚:'
+      } else if (name.includes('轨道超长')) {
+        carry.v = Number(name.replace(/轨道超长/g, '')) / 10
+        x = '轨道超长:'
+      }
+      d = Math.round(p * carry.v * q)
+      s = d > 0 ? `${x} ${p}${item.unit}*${carry.v}公分*${q}=${d}元` : `${name} `
+    } catch {
+      message.error('计算金额失败')
     }
-    case '元/公分':
-      // 无「超*」前缀时按门洞高为基准、阈值 0
-      return (h / 10) * p * q
-    default: // 元/套、元/支、无
-      return p * q
+  } else if (item.unit === '元/米') {
+    // 吊趟不判「门套」，长度恒为 门洞宽/1000
+    carry.v = w / 1e3
+    d = Number((p * carry.v * q).toFixed(3))
+    s = d > 0 ? `${name} ${p}${item.unit}*${carry.v}米*${q}=${d}元` : `${name} `
+  } else if (item.unit === '无') {
+    d = p * q
+    s = `${name} ${d}元`
   }
+  return { amount: d, text: s }
+}
+
+/** 按行类型分发到平开 / 吊趟两套分支。`carry` 由调用方在**一次重算内**贯穿整行（复刻原版的循环外变量）。 */
+function markupDetail(item: MarkupItem, l: Line, carry: { v: number }): MarkupDetail {
+  return l.line_type === 'diao' ? markupDetailDiao(item, l, carry) : markupDetailPing(item, l, carry)
 }
 
 /**
@@ -1554,9 +1654,11 @@ function recalcMarkup(l: Line): number {
   // 故这里把落选的自动项（超宽/超高/超墙厚 + 元/公分）直接剔除。
   let total = 0
   const kept: MarkupItem[] = []
+  // `carry` 贯穿整行 —— 复刻原版把基准量声明在**循环外**（平开 `o` @:1259 / 吊趟 `c` @:4173）
+  const carry = { v: 0 }
   for (const item of l.markup) {
     if (isAutoCmMarkup(item) && !winners.has(item)) continue
-    item.amount = round2(markupAmount(item, l))
+    item.amount = round2(markupDetail(item, l, carry).amount)
     total += item.amount
     kept.push(item)
   }
@@ -2203,14 +2305,18 @@ function markupSelectCell(l: Line) {
       const idx = markupCatalog.value.findIndex((c) => c.name === m.name)
       return idx >= 0 ? `${idx}_${m.name}` : `x_${m.name}__${m.price}__${m.unit}`
     })
-  const detail = (l.markup ?? []).filter((m) => m && (m.name || (m.amount ?? 0) > 0))
+  // 明细多行：原版把 `wt`/`ft` 产出的文本按 `\n` 渲染成 `.expression-line`（`Hui.formatted.js:2515`），
+  // 内容是**带算式的文本**（如 `超宽: 5元/公分*3.5公分*2=35元`），不是「名称 ¥金额」。
+  // 文本可现算（与金额同源、同一批分支），故不必落库。
+  const carry = { v: 0 }
+  const lines = (l.markup ?? []).filter((m) => m && m.name).map((m) => markupDetail(m, l, carry).text)
   return h('div', { style: 'display:flex;flex-direction:column;gap:2px;min-width:0' }, [
     h(NSelect, {
       size: 'small',
       multiple: true,
       options: opts,
       value: selected,
-      placeholder: '加价…',
+      placeholder: '请选择加价项目',
       style: { width: '150px' },
       onUpdateValue: (vals: (string | number)[]) => {
         const names = vals.map((v) => String(v))
@@ -2224,8 +2330,8 @@ function markupSelectCell(l: Line) {
         lineRefresh(l)
       },
     }),
-    ...detail.map((m) =>
-      h('span', { style: 'font-size:11px;color:#606266;white-space:nowrap' }, `${m.name} ¥${(m.amount ?? 0).toFixed(0)}`),
+    ...lines.map((t) =>
+      h('div', { class: 'expression-line', style: 'font-size:11px;color:#606266;white-space:nowrap' }, t),
     ),
     h(
       NButton,
