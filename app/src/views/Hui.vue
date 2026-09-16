@@ -3266,9 +3266,23 @@ async function calcSingleRow(l: Line) {
   }
 }
 
+/**
+ * 门花图格。
+ *
+ * ⚠️ **两个分支的 `key` 不能省**（踩过一次）：
+ * 两个分支都是同层同类型的 `div`，子节点又都是无 key 的 `NButton` 数组 —— Vue 走
+ * `patchUnkeyedChildren`，第 1 个子节点「旧=「文字」按钮 / 新=「×」删除按钮」**类型相同**，
+ * 于是**原地复用同一个 DOM 元素**（只是把 props 换成「删除门图」）。
+ * 而 naive-ui 的 `FocusTrap` 关闭时会 `lastFocusedElement.focus()` —— 那个"上次聚焦的元素"
+ * 正是「文字」按钮。结果：**文字传图按 Enter 之后，焦点悄悄落到了"删除"按钮上**，
+ * 再来一次 Enter（键重复/再按一下）就弹出「删除门图」。
+ * 实测复现：一次 Enter keydown 之后即出现 `["门图名字 …", "删除门图 …"]` 两个弹窗，
+ * 焦点 trace 由 INPUT → BUTTON(取消) → BUTTON(×)。
+ * 给两个分支不同 key，Vue 就会卸载旧的、挂新的，DOM 不再被复用。
+ */
 function doorImgCell(l: Line) {
   if (l.image_url) {
-    return h('div', { style: 'position:relative;display:inline-block' }, [
+    return h('div', { key: 'door-img', style: 'position:relative;display:inline-block' }, [
       h('img', {
         src: l.image_url,
         style: 'display:block;width:76px;height:52px;object-fit:contain;border:1px solid #dcdfe6;border-radius:3px;cursor:zoom-in;background:#fff',
@@ -3287,6 +3301,7 @@ function doorImgCell(l: Line) {
   return h(
     'div',
     {
+      key: 'door-img-empty',
       style:
         'display:flex;align-items:center;justify-content:center;gap:2px;width:76px;height:52px;border:1px dashed #c0c4cc;border-radius:3px;background:#fafafa;cursor:pointer',
       onClick: (e: MouseEvent) => e.stopPropagation(),
