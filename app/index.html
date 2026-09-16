@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>智能门窗</title>
+    <!--
+      print-lock.css 必须用 `link rel=stylesheet media=print` 引入 —— 旧版 index.html 里这行
+      上面自己标了「正确写法」四个字（legacy/index.html:16-17）。
+
+      原因：hiprint 的打印流程只从页面里的 `link[media=print][href*=print-lock]` 收集样式塞进
+      打印 iframe（hiwprint 里的 `$('link[media=print]').each(...)`；print2 云打印更直接：没有就
+      throw「请在 入口文件(index.html) 中引入 print-lock.css」）。
+      用 JS `import('...print-lock.css')` 只会得到一个 style 标签，hiprint 找不到 ——
+      实打 iframe 里会一个样式表都没有（单元格垂直居中 / 内边距 / 表头加粗 / 边框色全丢，
+      变成「预览有、实打没有」）。
+
+      文件是 vue-plugin-hiprint@0.0.60 的 dist/print-lock.css 副本（在 public/ 下）；
+      升级该包时要同步这个文件。
+    -->
+    <link rel="stylesheet" type="text/css" media="print" href="/print-lock.css" />
   </head>
   <body>
     <div id="app"></div>
