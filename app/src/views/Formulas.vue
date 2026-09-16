@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, type Ref } from 'vue'
-import { NButton, NSpace, useDialog, useMessage } from 'naive-ui'
+import { NButton, NSpace, NTooltip, useDialog, useMessage } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { api } from '../api/client'
 import type { FormulaDto, FormulaImageDto, FormulaInput } from '../api/types'
@@ -327,6 +327,20 @@ function rowBg(color?: string): string {
 function placeholderText(name: string): string {
   const v = placeholders[name]
   return v === undefined ? '请输入计算结果' : String(v)
+}
+
+// 原版 `_0x301055`（轨道/套线/下轨名 输入框的 blur）：公式没命名就提示，否则把名字写回部件的 `track`。
+// 我们是 `:value` + `@update:value` 直接改 `row.def.track`（def 就是部件本体），等价。
+// `onInput` 照抄原版 `String(v ?? '').replace(/\s/g,'')`：名字里不允许空白。
+function onTrackInput(row: { def: { track: string } }, v: string) {
+  row.def.track = String(v ?? '').replace(/\s/g, '')
+}
+function onTrackBlur() {
+  if (!formulaName.value.trim()) {
+    message.warning('请填写公式名称')
+    return
+  }
+  refreshPlaceholders()
 }
 
 function refreshPlaceholders() {
@@ -1008,32 +1022,59 @@ onMounted(() => {
         <n-button size="small" @click="lightWindowModal = true">亮窗示意图</n-button>
       </div>
 
-      <!-- 部件表 -->
+      <!-- 部件表。结构与类名照抄原版（旧版是 el-table，列宽固定像素；
+           四个类的样式来自 legacy/css/Diao-15870f7d.css 的 [data-v-6ed0eb3d] 作用域）。 -->
       <table class="parts-table">
         <thead>
           <tr>
-            <th style="width: 40%">材料名</th>
-            <th style="width: 12%">数量</th>
-            <th style="width: 18%">计算结果</th>
-            <th style="width: 12%">操作</th>
+            <th>材料名</th>
+            <th>数量</th>
+            <th>计算结果</th>
+            <th>操作</th>
             <th>公式类别</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="row in filteredRows" :key="row.name" :style="{ background: rowBg(row.def.color) }">
+            <!-- 材料名格（原版 @236617-237600）：`glass-inputs-container2` >(`glass-input-group` > tooltip+输入框)；
+                 部件带 `title` 时，再跟一个 `glass-input-label`(如「套线名称: 」) + 第二个输入框填
+                 套线名/轨道名/下轨名。tooltip 内容是 `row.name.split('_')[0]` —— 列窄、名字会被截断，靠它看全。 -->
             <td>
-              <n-input
-                v-model:value="row.def.materialName"
-                size="small"
-                @blur="refreshPlaceholders"
-              />
-              <div v-if="row.def.title" class="sub-label">{{ row.def.title }}</div>
-              <div v-if="row.def.title">
-                <n-input v-model:value="row.def.track" size="small" />
+              <div class="glass-inputs-container2">
+                <div class="glass-input-group">
+                  <n-tooltip
+                    :content="(row.name || '无公式类别').split('_')[0]"
+                    placement="top"
+                    :delay="100"
+                    :duration="100"
+                  >
+                    <template #trigger>
+                      <n-input
+                        class="formula-input"
+                        size="small"
+                        v-model:value="row.def.materialName"
+                        @blur="refreshPlaceholders"
+                      />
+                    </template>
+                  </n-tooltip>
+                </div>
+                <template v-if="row.def.title">
+                  <div class="glass-input-label">{{ row.def.title }}</div>
+                  <div class="glass-input-group">
+                    <n-input
+                      class="formula-input"
+                      size="small"
+                      :value="row.def.track"
+                      @update:value="(v: string) => onTrackInput(row, v)"
+                      @blur="onTrackBlur()"
+                    />
+                  </div>
+                </template>
               </div>
             </td>
             <td>
               <n-input
+                class="formula-input"
                 :value="countText[row.name]"
                 size="small"
                 @update:value="(v: string) => (countText[row.name] = v)"
@@ -1041,26 +1082,36 @@ onMounted(() => {
               />
             </td>
             <td>
-              <n-input
-                :value="resultText[row.name]"
-                :placeholder="placeholderText(row.name)"
-                size="small"
-                @update:value="(v: string) => (resultText[row.name] = v)"
-                @blur="resultBlur(row.name)"
-              />
+              <n-tooltip
+                :content="(row.name || '无公式类别').split('_')[0]"
+                placement="top"
+                :delay="100"
+                :duration="100"
+              >
+                <template #trigger>
+                  <n-input
+                    class="formula-input"
+                    :value="resultText[row.name]"
+                    :placeholder="placeholderText(row.name)"
+                    size="small"
+                    @update:value="(v: string) => (resultText[row.name] = v)"
+                    @blur="resultBlur(row.name)"
+                  />
+                </template>
+              </n-tooltip>
             </td>
             <td>
-              <n-space :size="4">
-                <n-button size="tiny" quaternary type="primary" @click="copyRow(row.name)">
-                  复制
-                </n-button>
+              <!-- 旧版操作列：`div` `display:flex; justify-content:space-around` + 三个 `el-button link`
+                   （查看3D 条件 / 删除 / 复制）。我们没有 3D，故只有后两个；顺序照旧版是**删除在前**。 -->
+              <div style="display: flex; justify-content: space-around">
                 <n-popconfirm @positive-click="deleteRow(row.name)">
                   <template #trigger>
-                    <n-button size="tiny" quaternary type="error">删除</n-button>
+                    <n-button size="small" text type="primary">删除</n-button>
                   </template>
                   确定删除该行吗?
                 </n-popconfirm>
-              </n-space>
+                <n-button size="small" text type="primary" @click="copyRow(row.name)">复制</n-button>
+              </div>
             </td>
             <td class="cat-cell">{{ row.name }}</td>
           </tr>
@@ -1506,10 +1557,43 @@ onMounted(() => {
   font-weight: 600;
   text-align: center;
 }
-.sub-label {
-  font-size: 12px;
-  color: #666;
-  margin-top: 2px;
+/* ===== 部件表：列宽固定 + 旧版四个类（照抄 legacy/css/Diao-15870f7d.css 的 [data-v-6ed0eb3d]）=====
+   旧版是 el-table：列宽 材料名100 / 数量30 / 计算结果65 / 操作80或120 / 公式类别120，
+   输入框统一 60px 宽、28px 粗体居中；窄列靠 `el-table .cell{overflow:hidden}` 裁掉两侧，
+   因为文字居中，数字仍看得见。 */
+.parts-table {
+  table-layout: fixed;
+}
+.parts-table td {
+  overflow: hidden;
+}
+.glass-inputs-container2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+  width: 100%;
+}
+.glass-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.glass-input-label {
+  font-size: 11px;
+  white-space: nowrap;
+  color: #1302fa;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+/* ⚠️ 旧版这条写的是 `width:60px; font-size:28px; font-weight:700; text-align:center`，
+   但**实测两者都不生效**：`.formula-input` 所在的 el-input 根元素会被 flex 拉伸
+   （实测 176px，不是 60px），而 `font-size:28px` 够不到内层 `<input>`（EP 自己给它定了 16px）。
+   所以只保留肉眼可见的那一条 `text-align:center`，别照抄那两个无效声明。
+   （验证方式：用 legacy/vendor 的 vue + element-plus + legacy/css/Diao-15870f7d.css
+     把这张表单独渲染出来实测 —— 列宽实测 336/101/218/403/403，声明的 100/30/65/120/120 全被拉伸。） */
+.formula-input {
+  text-align: center;
 }
 .cat-cell {
   color: #888;
