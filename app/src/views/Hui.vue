@@ -5571,20 +5571,17 @@ onMounted(async () => {
   overflow: auto;
   max-height: 70vh;
 }
-.production-host :deep(table) {
-  width: 100%;
-  border-collapse: collapse;
-}
-.production-host :deep(td) {
-  border: 1px solid #d9d9d9;
-  padding: 4px 6px;
-  vertical-align: top;
-  white-space: pre-wrap;
-}
-.production-host :deep(img) {
-  max-width: 80px;
-  max-height: 80px;
-}
+/*
+ * ⚠️ 这里**故意不给预览内容加任何样式**。
+ * 预览就是 hiprint 真渲染（与打印同一套核心），样式一律由 `print-lock.css` 决定，
+ * 这样「预览」和「实打」才一致。
+ *
+ * 曾经加过 `:deep(td) { border/padding/vertical-align: top/white-space }` 和
+ * `:deep(img) { max-width: 80px }` —— 它们的**特异性 (0,2,1) 高于** hiprint 的
+ * `.hiprint-printElement-tableTarget td` (0,1,1)，会把 hiprint 的
+ * `vertical-align: middle` 盖成 `top`，导致预览里所有单据的单元格**变成上对齐**（实打仍是居中，
+ * 于是"预览 ≠ 实打"）。要调预览外观，请改模板 JSON 或 print-lock.css，别在这里加覆盖。
+ */
 .footer {
   display: flex;
   justify-content: flex-end;
