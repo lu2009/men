@@ -2951,13 +2951,25 @@ function applyPartState(parts: PartsMap, l: Line, engine: EngineId = 'B'): void 
   }
 }
 
-/** 影响算料结果的行字段（缓存签名用）。任一变化都要重算。 */
+/**
+ * 影响算料结果的行字段（缓存签名用）。任一变化都要重算。
+ *
+ * ⚠️ **凡是 `computePartsUncached` / `dimsOf` 链路读到的行字段，都必须列在这里**，
+ * 漏一个就会出现「改了字段但算料结果不变、连点『算料』也救不回来」（缓存命中的是旧值）。
+ * 已实测确认漏过并补上的：
+ *   - `hole_size`（洞尺）—— `holeDeduction` 按它取公式 `resetSize` 的减尺去改 w/h
+ *   - `double_ding`（单/双丁墙体）—— `swingWallDeduction` 按它取公式 `swingWall` 的减尺
+ *   - `mother_door_width`—— `dimsOf` 的 `s`（子母门公式要用）
+ *   - `light_window_count`—— `applyPartState` 按它定亮窗部件的 state
+ */
 function partsSig(l: Line): string {
   return [
     l.formula_id, l.line_type, String(formulaOf(l)?.formula_type ?? ''), l.door_width, l.door_height, l.light_window_height, l.wall_thickness,
     l.jiao, l.track_length, l.bottom_glass, l.face_glass, l.glass_thickness, l.fans, l.direction,
     l.track, l.casing, l.edge_seal_count, l.seal_board_height, l.front_casing_add, l.back_casing_add,
     l.hardware, l.quantity,
+    // ↓ 这四个原先漏了（洞尺填了不生效就是这么来的）
+    l.hole_size, l.double_ding, l.mother_door_width, l.light_window_count,
   ].join('|')
 }
 // 算料结果缓存：一张单据页会被 17 个模板各取一次数据，逐次重算会明显卡（尤其行多时）。
