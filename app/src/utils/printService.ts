@@ -8,6 +8,15 @@
 //
 // 引擎按需动态加载（import() 分包），避免 hiprint 及其依赖拖累首屏体积。
 import { api } from '../api/client'
+// hiprint 的打印流程（`$el.hiwprint`）**只会**从页面里的
+// `<link media="print" href="*print-lock.css">` 收集样式塞进打印 iframe：
+//     $('link[media=print]').each(el => { if (el.href 含 'print-lock.css') a += '<link …>' })
+// 而我们是 `import('…print-lock.css')` 引的（Vite 注入成 `<style>`，没有那个 `<link>`），
+// 于是 **实打 iframe 里一个样式表都没有** —— 单元格 vertical-align / 内边距 / 表头加粗 /
+// 边框色全丢，变成「预览有、实打没有」。
+// 用 hiprint 自己的扩展点 `styleHandler`（`print(data, options, ext)` 的第三个参数）把 CSS
+// 原文直接塞进 iframe 的 head：dev 与构建都成立，也不受资源哈希改名影响。
+import printLockCssText from 'vue-plugin-hiprint/dist/print-lock.css?raw'
 
 export type PrintData = Record<string, unknown>
 
@@ -62,6 +71,8 @@ export async function printByJson(templateJson: unknown, data: PrintPayload): Pr
   const hiprint = await loadHiprint()
   const tpl = new hiprint.PrintTemplate({ template: templateJson as Record<string, unknown> })
   tpl.print(data, {}, {
+    // ⚠️ 必须给：否则实打 iframe 里没有任何 hiprint 样式（见文件头注释）
+    styleHandler: () => `<style>${printLockCssText}</style>`,
     callback: () => {
       // 打印窗口关闭后无额外清理。
     },
