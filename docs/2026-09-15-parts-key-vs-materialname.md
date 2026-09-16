@@ -78,7 +78,9 @@ Object.entries(_0x1d6087)
 ## 2. 工具：正确的字符串表还原器
 
 ⚠️ **`legacy/hui-stringmaps.json` 是错的**（字符串数组没做旋转，值全部错位：
-`566` 本该是 `includes` 却存成 `折叠5扇`）。本轮改用新写的 `legacy/decode-stringmap.mjs`：
+`566` 本该是 `includes` 却存成 `折叠5扇`；35609 条里 35573 条对不上）。
+**已于 2026-09-16 删除**，它生成的 `Hui.formatted.js` 也已用 `legacy/deobfuscate-hui.mjs` 重建（行号不变）。
+本节记的 `legacy/decode-stringmap.mjs` 仍可用于**单个 token 抽查**：
 
 ```bash
 node legacy/decode-stringmap.mjs legacy/js/Hui-d088417c.js /tmp/hui-map.json
