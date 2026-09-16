@@ -1611,18 +1611,24 @@ function minSquareOf(l: Line): number {
 }
 
 /**
- * 平方数 = `max(单樘面积, 下限) × 数量`，下限 = 自定义方数(>-1) 否则 公式的最低平方数。
+ * 平方数 = 每樘方数 × 数量。每樘方数：
+ *   自定义方数 > -1  →  取自定义方数（**覆盖**，可升可降）
+ *   否则             →  `max(单樘面积, 公式的最低平方数)`
  *
- * ⚠️ `自定义方数` 是**每樘的下限、不是覆盖** —— 原版 `gt`（`Hui.formatted.js:1314-1331`）把
- * 它赋给 `l`，再走 `Math.max(面积, l)`，调用方 `平方数 = gt(行) * 数量`（`:1478`）。
- * 所以它**只会把面积抬上去、不会压下来**，而且乘数量的是外层。
- * 我们原先写成 `if (custom_square > -1) return custom_square`（当总额直接返回）—— 那是照着
- * `docs/2026-09-10-template-field-audit.md` §46.5 里那句**写错的总结**（「完全覆盖」）实现的；
- * 同一节上方贴的解码代码其实是对的（`l = 自定义方数` → `Math.max`）。现已按代码改回。
+ * ⚠️ **这里有意偏离旧版**（用户 2026-09-16 拍板：「业务上真要手动改小」）。
+ *
+ * 旧版 `gt`（`Hui.formatted.js:1314-1331`）是 `l = 自定义方数` → `Math.max(面积, l)`，
+ * 调用方 `平方数 = gt(行) * 数量`（`:1478`）—— 即自定义方数只是**每樘下限**，
+ * 填得比面积小就抬不动，等于白填。我们照旧版实现过（`556ed7eb`），实测确实如此：
+ * 面积 2.0 填 1 → 平方数仍是 2.0，表格不变、只有弹窗里的数字变了。
+ * 老板要的是「手改小」，所以改成**覆盖**：填多少就是多少（含低于面积、低于最低平方数）。
+ *
+ * 清空输入框（空 → -1）即回到自动。除此之外与旧版一致：仍是**每樘**值，外层乘数量。
  */
 function computeSquare(l: Line): number {
-  const floor = (l.custom_square ?? -1) > -1 ? l.custom_square : minSquareOf(l)
-  return round2(Math.max(singleArea(l), floor) * (l.quantity || 1))
+  const custom = l.custom_square ?? -1
+  const per = custom > -1 ? custom : Math.max(singleArea(l), minSquareOf(l))
+  return round2(per * (l.quantity || 1))
 }
 
 /**
@@ -3516,11 +3522,13 @@ function copyRow(l: Line) {
 // 修改平方数（平方单元格右键，仿旧版）
 const squareDialog = ref(false)
 const squareTarget = ref<Line | null>(null)
-const squareInput = ref(-1)
+// 空 = 未填（旧版输入框初值就是空串 `Mt=Vue.ref("")`，`Hui.formatted.js:4386`）。
+// 确认时为空 → 回到「自动」（custom_square = -1）。
+const squareInput = ref<number | null>(null)
 
 function openSquareDialog(l: Line) {
   squareTarget.value = l
-  squareInput.value = l.custom_square >= 0 ? l.custom_square : -1
+  squareInput.value = l.custom_square >= 0 ? l.custom_square : null
   squareDialog.value = true
 }
 
