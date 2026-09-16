@@ -3858,17 +3858,42 @@ async function loadFormulaImages(fid: number | null) {
     formulaImages.value[fid] = []
   }
 }
-function holeImageOf(l: Line): string {
+/**
+ * 平开「挖孔图」取图键（原版 @418159 `_0x26a75e` 的键构造，逐字对照）：
+ * ```
+ * 开向.includes('双开') ? (开向.includes('左') ? '双开左'
+ *                       : 开向.includes('右') ? '双开右'
+ *                       :                       '双开左')
+ *                      : 开向
+ * ```
+ * ⚠️ **双开族的图键不是开向本身** —— 画图端（Glass_draw 锁向下拉）只提供 `双开左`/`双开右`，
+ * 而汇算行开向是 `双开内开`/`双开外开`/`双开内左`/`双开外左`/`双开内右`/`双开外右`。
+ * 不做这层映射 ⇒ 双开门**六种开向全部取不到图**（内开/外开都白）。
+ * 原版还会在 `轨道种类` 非空时追加 `_{轨道种类}`；新系统公式图按 (formula_id, direction) 存、
+ * 无轨道种类维度，故不追加。
+ */
+function holeKeyOf(direction: string): string {
+  if (!direction) return ''
+  if (!direction.includes('双开')) return direction
+  return direction.includes('右') ? '双开右' : '双开左'
+}
+
+/** 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。 */
+function holeImageByKey(l: Line, key: string): string {
+  if (!key) return ''
   const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
   if (!imgs) return ''
-  return imgs.find((i) => i.direction === l.direction)?.data_url || ''
+  return imgs.find((i) => i.direction === key)?.data_url || ''
+}
+
+/** 平开行的挖孔图（原版 `_0x3a3de5`）。 */
+function holeImageOf(l: Line): string {
+  return holeImageByKey(l, holeKeyOf(l.direction))
 }
 
 /** 按固定方向键取挖孔图（原版吊趟把图存在 `{formulaID}左` / `{formulaID}右` 下）。 */
 function holeImgByDir(l: Line, dir: '左' | '右'): string {
-  const imgs = l.formula_id != null ? formulaImages.value[l.formula_id] : undefined
-  if (!imgs) return ''
-  return imgs.find((i) => i.direction === dir)?.data_url || ''
+  return holeImageByKey(l, dir)
 }
 
 /**
@@ -4167,9 +4192,12 @@ function glassInfoProduces(): Record<string, unknown>[] {
     // B4 钻石：三行，部件按**精确名**取
     if (ft === 'diamond') {
       const exact = (n: string) => parts.find((p) => pk(p) === n)
+      // 图：左固玻璃 = `{formulaID}左固玻` 图（原版 `_0x5692f6`）、右固玻璃 = `{formulaID}右固玻`
+      // （原版 `_0x286ba9`）、门玻璃 = 行挖孔图（原版 `_0x3a3de5`）。**不是三行都用行挖孔图**
+      // —— `左固玻`/`右固玻` 正是画图端锁向下拉里的两个键。
       for (const [kw, kh, name, dimg] of [
-        ['左固玻璃宽', '左固玻璃高', `左固玻璃-${l.bottom_glass}`, img],
-        ['右固玻璃宽', '右固玻璃高', `右固玻璃-${l.bottom_glass}`, img],
+        ['左固玻璃宽', '左固玻璃高', `左固玻璃-${l.bottom_glass}`, holeImageByKey(l, '左固玻')],
+        ['右固玻璃宽', '右固玻璃高', `右固玻璃-${l.bottom_glass}`, holeImageByKey(l, '右固玻')],
         ['门玻璃宽', '门玻璃高', `门玻璃-${l.face_glass}`, img],
       ] as [string, string, string, string][]) {
         const w = exact(kw)
