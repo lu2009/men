@@ -3878,6 +3878,22 @@ function holeKeyOf(direction: string): string {
   return direction.includes('右') ? '双开右' : '双开左'
 }
 
+/**
+ * 内开 ↔ 外开 的「同一张图」兄弟方向。
+ *
+ * 旧版开孔图**不区分内开/外开**：左锁内开 与 左锁外开 用同一张图、右锁内开 与 右锁外开 同一张，
+ * 内左/外左、内右/外右 同理（原版把键交给 `param1=getimage` 由服务端归一，前端看到的取图结果
+ * 就是「按 左/右 + 锁位 命中，内开外开共用」）。我们这边公式图是按方向存的，
+ * 所以先精确命中、命中不到再退到内/外互换的兄弟方向。**只作兜底** ——
+ * 两方向都有图时仍各用各的，行为不劣化。
+ */
+function inOutSibling(direction: string): string {
+  if (!direction) return ''
+  if (direction.includes('内')) return direction.replace('内', '外')
+  if (direction.includes('外')) return direction.replace('外', '内')
+  return ''
+}
+
 /** 按**图键**取公式挖孔图（键 = `holeKeyOf(开向)` / `左`.`右` / `左固玻`.`右固玻`）。 */
 function holeImageByKey(l: Line, key: string): string {
   if (!key) return ''
@@ -3886,9 +3902,12 @@ function holeImageByKey(l: Line, key: string): string {
   return imgs.find((i) => i.direction === key)?.data_url || ''
 }
 
-/** 平开行的挖孔图（原版 `_0x3a3de5`）。 */
+/** 平开行的挖孔图（原版 `_0x3a3de5`）：先按 `holeKeyOf(开向)`，未命中再退到内/外互换的兄弟方向。 */
 function holeImageOf(l: Line): string {
-  return holeImageByKey(l, holeKeyOf(l.direction))
+  return (
+    holeImageByKey(l, holeKeyOf(l.direction)) ||
+    holeImageByKey(l, holeKeyOf(inOutSibling(l.direction)))
+  )
 }
 
 /** 按固定方向键取挖孔图（原版吊趟把图存在 `{formulaID}左` / `{formulaID}右` 下）。 */
