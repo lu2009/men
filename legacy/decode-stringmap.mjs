@@ -1,12 +1,15 @@
 // 还原 legacy/js/*.js 里的「字符串表」（javascript-obfuscator 的 base64 + 数组旋转方案）。
 //
 // 为什么需要它：旧版 chunk 把中文/英文串都换成了 `_0x5c0d14(995)` 这种 token，
-// 要逐字核对原版语义就必须先把 token 解回字符串。仓库里的 `hui-stringmaps.json`
-// **是错的**（数组未做旋转，值全部错位），不要再用它。
+// 要逐字核对原版语义就必须先把 token 解回字符串。
 //
-// ⚠️ 那份错表已删除，它生成的 `Hui.formatted.js` 也已用 `legacy/deobfuscate-hui.mjs` 重建
-// （正确字符串、行号不变）。本脚本现在只在需要拿「单一 token 的取值」时用，整文件反混淆走
-// `node legacy/deobfuscate-hui.mjs`。`legacy/diao-stringmaps.json` 那份是**对的**，可继续用。
+// ⚠️ 不要用 `legacy/hui-stringmaps.json` —— **已于 2026-09-16 删除**。它只做了 base64、
+// 没做数组旋转，值 99.9% 错位（35609 条里 35573 条对不上），照着读会读出「像那么回事但全错」
+// 的代码。它生成的 `Hui.formatted.js` 也已用 `legacy/deobfuscate-hui.mjs` 重建（行号不变）。
+//
+// 分工：**整文件反混淆**走 `node legacy/deobfuscate-hui.mjs`；
+// 本脚本只在要拿「单个 token 的取值」做抽查时用。
+// `legacy/diao-stringmaps.json` 那份是**对的**（`deobfuscate-diao.js` 在用），没问题。
 //
 // 用法：
 //   node legacy/decode-stringmap.mjs legacy/js/Hui-d088417c.js /tmp/hui-map.json
