@@ -383,10 +383,15 @@
     <!-- 修改平方数（平方单元格右键，仿旧版） -->
     <n-modal v-model:show="squareDialog" preset="dialog" title="修改平方数" positive-text="确定" negative-text="取消"
       @positive-click="confirmSquare" @negative-click="squareDialog = false">
+      <!-- 原版这个弹窗里**只有一个数字输入框**（`:2733-2747`，placeholder「请输入平方数」，回车=确认），
+           没有我们原先加的那两行提示。 -->
       <div class="square-dialog">
-        <p>当前行自动平方：{{ squareTarget ? squareTarget.square.toFixed(2) : '' }} ㎡</p>
-        <n-input-number v-model:value="squareInput" :show-button="false" placeholder="填数字覆盖；-1=恢复自动" style="width: 100%" />
-        <p class="hint">-1 表示按门洞宽×高自动计算。</p>
+        <n-input-number
+          v-model:value="squareInput"
+          :show-button="false"
+          placeholder="请输入平方数"
+          style="width: 100%"
+        />
       </div>
     </n-modal>
 
@@ -1605,11 +1610,19 @@ function minSquareOf(l: Line): number {
   return n
 }
 
-/** 平方数：自定义方数(>-1) 优先；否则 max(单樘面积, 最小平方) × 数量。 */
+/**
+ * 平方数 = `max(单樘面积, 下限) × 数量`，下限 = 自定义方数(>-1) 否则 公式的最低平方数。
+ *
+ * ⚠️ `自定义方数` 是**每樘的下限、不是覆盖** —— 原版 `gt`（`Hui.formatted.js:1314-1331`）把
+ * 它赋给 `l`，再走 `Math.max(面积, l)`，调用方 `平方数 = gt(行) * 数量`（`:1478`）。
+ * 所以它**只会把面积抬上去、不会压下来**，而且乘数量的是外层。
+ * 我们原先写成 `if (custom_square > -1) return custom_square`（当总额直接返回）—— 那是照着
+ * `docs/2026-09-10-template-field-audit.md` §46.5 里那句**写错的总结**（「完全覆盖」）实现的；
+ * 同一节上方贴的解码代码其实是对的（`l = 自定义方数` → `Math.max`）。现已按代码改回。
+ */
 function computeSquare(l: Line): number {
-  if ((l.custom_square ?? -1) > -1) return l.custom_square
-  const min = minSquareOf(l)
-  return round2(Math.max(singleArea(l), min) * (l.quantity || 1))
+  const floor = (l.custom_square ?? -1) > -1 ? l.custom_square : minSquareOf(l)
+  return round2(Math.max(singleArea(l), floor) * (l.quantity || 1))
 }
 
 /**
