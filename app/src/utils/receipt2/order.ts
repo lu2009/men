@@ -28,9 +28,14 @@ function toReceipt2Line(row: Record<string, unknown>): Receipt2Line {
 /**
  * `PrintContext` → 收据单2 的订单模型。
  *
- * `brandSuffix` 对应旧版 `customerInfo.brand` 末尾拼的那个词（`V(801)`），默认「回执单」。
+ * ⚠️ **`brandSuffix` 默认「收据单」，不是「回执单」。**
+ * 旧版 `customerInfo.brand` 先拼成 `(品牌||门店||"客户") + "回执单"`（`dr[801]`），
+ * 但走收据单2 的那条路（Home 的 `pi`）会再替换一次：
+ * `brand.replace(dr[801], dr[777])`，即把末尾的「回执单」换成「收据单」。
+ *
+ * 所以收据单2 上显示的是「XX收据单」。用默认值「回执单」会差一个字。
  */
-export function buildReceipt2Order(ctx: PrintContext, brandSuffix = '回执单'): Receipt2Order {
+export function buildReceipt2Order(ctx: PrintContext, brandSuffix = '收据单'): Receipt2Order {
   const data = createPrintPayloads(ctx).receiptPrintData(brandSuffix)
 
   return {
