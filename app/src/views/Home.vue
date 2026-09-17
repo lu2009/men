@@ -18,6 +18,13 @@
         >
           打印选中订单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openReceipt2"
+        >
+          收据单2{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
         <span class="grow-spacer" />
@@ -130,6 +137,9 @@
     <!-- 打印选项抽屉（§4.2 打印选中订单） -->
     <PrintDrawer v-model:show="printShow" :orders="printOrders" />
 
+    <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
+    <Receipt2Drawer v-model:show="receipt2Show" :orders="receipt2Orders" />
+
     <!-- 经营看板（§1.2 DashboardBigScreen，数据全部来自前端订单列表） -->
     <DashboardBigScreen v-model:show="dashboardShow" :orders="dashboardOrders" />
   </div>
@@ -161,6 +171,7 @@ import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
+import Receipt2Drawer from '../components/Receipt2Drawer.vue'
 import type { OrderDto, OrderFinance, OrderHeadInput, OrderLineDto, OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
@@ -465,6 +476,8 @@ async function onFinanceSaved() {
 // ---------------------------------------------------------------------------
 const printShow = ref(false)
 const printOrders = ref<OrderDto[]>([])
+const receipt2Show = ref(false)
+const receipt2Orders = ref<OrderDto[]>([])
 
 async function openPrint() {
   const ids = checkedRowKeys.value.map((k) => Number(k))
@@ -480,6 +493,27 @@ async function openPrint() {
     return
   }
   printShow.value = true
+}
+
+/**
+ * 收据单2（旧版 `ic=12` 的那张自绘单据）。
+ *
+ * 与「打印选中订单」共用同一套选中订单与明细兜底逻辑，只是走另一条渲染/打印链路：
+ * 收据单2 不经过 hiprint，是自带样式的自绘单据。
+ */
+async function openReceipt2() {
+  const ids = checkedRowKeys.value.map((k) => Number(k))
+  if (!ids.length) {
+    message.warning('请先勾选要打单的订单')
+    return
+  }
+  try {
+    receipt2Orders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
+  } catch (e) {
+    message.error((e as Error).message || '读取订单明细失败')
+    return
+  }
+  receipt2Show.value = true
 }
 
 // ---------------------------------------------------------------------------

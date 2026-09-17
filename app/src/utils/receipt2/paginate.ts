@@ -11,13 +11,14 @@
 import type {
   ColumnWidths,
   FontSettings,
-  PaperPresetKey,
   PaperSettings,
   Receipt2Line,
   Receipt2Order,
 } from './types'
-import { PAPER_PRESETS } from './defaults'
 import { css } from './css'
+// 纸型反查预设 key 有两处需要（设置弹窗高亮 + 这里的 penalty 分派），
+// 实现收在 `sanitize.ts` 一份，本模块只做转发，避免两份慢慢漂开。
+import { findPaperPresetKey } from './sanitize'
 import {
   renderFooter,
   renderHeaderInfo,
@@ -43,24 +44,9 @@ export interface Receipt2RenderContext extends RenderContext {
 // 纸型 → penalty
 // ------------------------------------------------------------------ //
 
-/** 旧版 `Q`（`:307`）：`Math.abs(e - t) <= o`，`o` 默认 2 —— 即 **2mm 容差**。 */
-const PAPER_MATCH_TOLERANCE_MM = 2
-
-/**
- * 纸型反查预设 key（旧版 `:682-691` 的匿名函数）。
- *
- * 按 `PAPER_PRESETS` 的**声明顺序**取第一个满足「方向相同 + 宽高各在 2mm 内」的预设，
- * 找不到返回 `'custom'`。方向也参与比较，所以 210×140 横向不会匹配 140×210 纵向。
- */
-export function findPaperPresetKey(paper: PaperSettings): PaperPresetKey | 'custom' {
-  const hit = PAPER_PRESETS.find(
-    (p) =>
-      p.settings.orientation === paper.orientation &&
-      Math.abs(p.settings.widthMm - paper.widthMm) <= PAPER_MATCH_TOLERANCE_MM &&
-      Math.abs(p.settings.heightMm - paper.heightMm) <= PAPER_MATCH_TOLERANCE_MM,
-  )
-  return hit ? hit.key : 'custom'
-}
+// 纸型反查预设 key 的实现在 `sanitize.ts`（旧版 `:682-691` + `Q` :307，2mm 容差），
+// 这里 re-export 保持 `paginate.ts` 的对外面不变。
+export { findPaperPresetKey }
 
 /**
  * 纸型修正量 penalty（旧版 `:667-692` 的 switch）。
