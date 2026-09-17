@@ -1,6 +1,21 @@
-import { createDefaultConfig } from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/defaults.ts'
-import { buildMeasureTable, waitForImages } from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/paginate.ts'
-import { renderPage } from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/html.ts'
+
+
+// —— 自带打包 ——
+// 原本这里直接 `import ... from '.../*.ts'`，但 Node 的 ESM 解析不了 TS 内部的无扩展名导入
+// （`./defaults`）。之前能跑是因为 /tmp 里有预打的 bundle，那是临时产物、仓库里存不住。
+// 现在脚本自己在开头调一次 esbuild 打包，于是能长期留在仓库里、可重跑。
+import { createRequire } from 'node:module'
+const _ROOT = '/Users/aaa/Desktop/door-main'
+const _req = createRequire(_ROOT + '/app/')
+const { build: _build } = _req(_ROOT + '/app/node_modules/esbuild')
+const _OUT = _ROOT + '/app/node_modules/.cache/gs2-logiccheck2-bundle.mjs'
+await _build({
+  entryPoints: ['/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/index.ts'],
+  bundle: true, format: 'esm', platform: 'neutral',
+  outfile: _OUT, logLevel: 'warning',
+})
+const _m = await import(_OUT)
+const { createDefaultConfig, buildMeasureTable, waitForImages, renderPage } = _m
 
 const def = createDefaultConfig()
 let results = []
