@@ -1,0 +1,72 @@
+
+  * { box-sizing: border-box; }
+  .receipt2-root { color: #000; background: #fff; font-family: "Microsoft YaHei", "PingFang SC", sans-serif; }
+  .receipt2-page {
+    width: 148mm; height: 210mm;
+    padding: 4mm 4mm 3mm; background: #fff;
+    display: flex; flex-direction: column; overflow: hidden;
+    page-break-after: always;
+  }
+  .receipt2-page:last-child { page-break-after: auto; }
+  .receipt2-header {
+    display: grid; grid-template-columns: 1fr 2fr 1fr;
+    align-items: start; margin-bottom: 2mm; flex-shrink: 0;
+  }
+  .receipt2-order { font-size: 13px; padding-top: 1mm; }
+  .receipt2-title { text-align: center; font-size: 30px; font-weight: 700; letter-spacing: 0.5px; line-height: 1.05; }
+  .receipt2-header-left { display: flex; align-items: flex-start; justify-content: flex-start; gap: 2mm; }
+  .receipt2-header-right { display: flex; align-items: flex-start; justify-content: flex-end; gap: 2mm; }
+  .receipt2-date { font-size: 13px; padding-top: 1mm; white-space: nowrap; }
+  .receipt2-qrcode { width: 18mm; height: 18mm; object-fit: contain; border: 1px solid #bbb; }
+  .receipt2-qrcode-empty { border-style: dashed; }
+  .receipt2-meta-row {
+    display: grid; grid-template-columns: 1.2fr 1.5fr 1.7fr 0.8fr;
+    gap: 1.5mm; margin-bottom: 1.5mm; font-size: 18px; line-height: 1.2; flex-shrink: 0;
+  }
+  .receipt2-meta-row span { overflow: hidden; white-space: nowrap; display: flex; align-items: center; }
+  .receipt2-meta-row span:nth-child(3) { padding-left: 6mm; }
+  .receipt2-table {
+    width: 100%; border-collapse: collapse; table-layout: fixed;
+    font-size: 15px; margin-bottom: 1.5mm;
+  }
+  .receipt2-table th, .receipt2-table td {
+    border: 1px solid #000; padding: 1mm 0.8mm;
+    vertical-align: top; line-height: 1.18; word-break: break-all;
+  }
+  .receipt2-table th { text-align: center; font-weight: 600; }
+  .receipt2-table td { text-align: left; }
+  .receipt2-table .cell-multi { white-space: pre-line; }
+  .receipt2-table th:nth-child(1), .receipt2-table td:nth-child(1) { width: 13.2%; }
+  .receipt2-table th:nth-child(2), .receipt2-table td:nth-child(2) { width: 4.2%; text-align: center; }
+  .receipt2-table th:nth-child(3), .receipt2-table td:nth-child(3) { width: 6.6%; text-align: center; }
+  .receipt2-table th:nth-child(4), .receipt2-table td:nth-child(4) { width: 12.1%; }
+  .receipt2-table th:nth-child(5), .receipt2-table td:nth-child(5) { width: 13.6%; }
+  .receipt2-table th:nth-child(6), .receipt2-table td:nth-child(6) { width: 4%; text-align: center; }
+  .receipt2-table th:nth-child(7), .receipt2-table td:nth-child(7) { width: 4.4%; text-align: center; }
+  .receipt2-table th:nth-child(8), .receipt2-table td:nth-child(8) { width: 5.4%; text-align: center; }
+  .receipt2-table th:nth-child(9), .receipt2-table td:nth-child(9) { width: 22.8%; }
+  .receipt2-table th:nth-child(10), .receipt2-table td:nth-child(10) { width: 13.5%; }
+  .empty-row { text-align: center !important; vertical-align: middle !important; color: #666; }
+  .receipt2-amounts {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    margin-bottom: 1.2mm; color: #d9001b; font-size: 20px; line-height: 1; flex-shrink: 0;
+  }
+  .receipt2-amounts span { white-space: nowrap; }
+  .receipt2-declaration {
+    border-top: 1px dashed #999; padding-top: 1.2mm;
+    white-space: pre-line; line-height: 1.16; font-size: 15px; flex: 1; overflow: hidden;
+  }
+  @page { size: 148mm 210mm; margin: 0; }
+  @media print {
+    html, body { margin: 0 !important; padding: 0 !important; background: #fff; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    
+    .receipt2-table { border-collapse: collapse !important; }
+    .receipt2-table th, .receipt2-table td { border: 1px solid #000 !important; }
+  }
+  @media screen {
+    .receipt2-root { background: #c0c0c0; padding: 12mm; display: flex; flex-direction: column; align-items: center; gap: 8mm; min-width: fit-content; }
+    .receipt2-page { position: relative; box-shadow: 0 3px 14px rgba(0,0,0,0.28); }
+    [data-r2-el] { cursor: pointer; transition: outline 0.15s; border-radius: 2px; position: relative; z-index: 5; }
+    [data-r2-el]:hover { outline: 2px dashed #409eff; outline-offset: 1px; z-index: 10; }
+  }

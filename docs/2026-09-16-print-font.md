@@ -90,7 +90,14 @@ _i = () => Xn.value.printFromContainer(ao.value)
 Ri = contentEditable 就地改文字（不是编辑模板）
 ```
 
-**「字体调节」调的是一套完整配置**：
+> ⚠️ **【2026-09-17 更正】下面这段模型是错的 —— 它属于「合格标签」，不是「收据单2」。**
+> 逐字核实：`globalFont` / `fontFamily` / `fontColor` / `fontWeight` / `lineHeight` / `paddingMm` /
+> `tableConfig` 在收据单2 组件里**出现次数全部为 0**。那套带 `paper:{…,paddingMm:2}`、
+> `globalFont`、`fields[]` 的配置来自 `LabelPrintManager`（合格标签，纸型 70×90 —— 正是本文
+> 那句「标签是 70×90」的来源）。当年把两个组件记混了。
+> 收据单2 的真实模型见 `docs/2026-09-17-receipt2-analysis.md`。以下原文保留只为留痕。
+
+**「字体调节」调的是一套完整配置**（❌ 实为合格标签的模型）：
 
 ```js
 {
@@ -102,18 +109,11 @@ Ri = contentEditable 就地改文字（不是编辑模板）
 }
 ```
 
-字号分五类，各带范围：
+字号分五类，各带范围（❌ 实为**六类**，漏了 `metaFontSize` 基础信息字体）：
 
 ```
 标题字体 headerFontSize 14–36 ｜ 表格字体 tableFontSize 8–18 ｜ 金额字体 amountFontSize 16–40
 说明字体 declarationFontSize 8–18 ｜ 编号日期字体 orderDateFontSize 8–18
-```
-
-渲染方式是**手拼 HTML 字符串**，字号字体直接进内联样式：
-
-```js
-c  = "...;border-collapse:collapse;table-layout:fixed;font-size:" + tableConfig.tableFontSize + "..."
-c += "<thead><tr>" ...
 ```
 
 ### ③ 关键结论：收据单2 **不是** hiprint 模板
