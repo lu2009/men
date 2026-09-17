@@ -3,19 +3,26 @@
 // ⚠️ `a()` 是**函数**、每次调用产出一个**全新对象**（含全新的 `columns` 数组）。
 // 旧版三个 ref 各持一份（`i` 生效 / `c` 打印设置草稿 / `s` 布局编辑草稿，GS:102-104），
 // 全靠这一点断引用。新版保持函数形态（`createDefaultConfig()`），**不要**改成共享常量。
+//
+// ⚠️ 纸张与打印份数**与 PS2 逐字段相同**（§2.1）—— 它们的实现已上移到
+// `../docsheet/defaults.ts`，这里只做转出。本单据独有的是 `table.title`（「玻璃合片单」）
+// 与那 8 列（PS2 是 9 列，键/标签/宽/字号/行高全改）。
 
-import type {
-  ColumnConfig,
-  ColumnKey,
-  GlassSheet2Config,
-  Orientation,
-  PaperConfig,
-  PrintConfig,
-  TableConfig,
-} from './types'
+import { createDefaultPaper, createDefaultPrint } from '../docsheet/defaults'
+import type { ColumnConfig, ColumnKey, GlassSheet2Config, TableConfig } from './types'
 
-/** 边距默认值 mm（GS:15）。`sanitize.ts` 的回落值也是它 —— 两处共用一个常量。 */
-export const DEFAULT_PADDING_MM = 3
+// 与单据无关的默认值 / UI 控件参数 —— 原样转出，保持本模块的对外 API 不变。
+export {
+  DEFAULT_PADDING_MM,
+  createDefaultPaper,
+  createDefaultPrint,
+  PAPER_UI_RANGES,
+  TABLE_UI_RANGES,
+  COLUMN_UI_RANGES,
+  COPIES_RANGE,
+  ORIENTATION_OPTIONS,
+  PAPER_PRESETS,
+} from '../docsheet/defaults'
 
 /**
  * 默认 8 列（GS:23-94，**逐字段照抄**）。
@@ -23,6 +30,7 @@ export const DEFAULT_PADDING_MM = 3
  * ⚠️ `key` 与 `label` **故意错位**（§2.4）：`door`→「门类」、`order`→「单号」、
  * `lockImg`→「方向」、`doorsheet`→「玻璃尺寸」。**别"修正"**。
  * 默认可见列总宽 = 230mm（纸宽 297 − 2×3 = 291 可用），**不必相等**（§2.4 / §13 未确认 1）。
+ * PS2 是 9 列、合计 266mm —— 两边都「列宽之和 ≠ 可用宽」，`table-layout:fixed` 自行分配。
  */
 export const DEFAULT_COLUMN_KEYS: ColumnKey[] = [
   'client',
@@ -61,11 +69,6 @@ export const DEFAULT_COLUMN_LABELS: Record<ColumnKey, string> = {
   remark: '备注',
 }
 
-/** 纸张默认值（GS:12-17）：A4 横向。 */
-export function createDefaultPaper(): PaperConfig {
-  return { widthMm: 297, heightMm: 210, paddingMm: DEFAULT_PADDING_MM, orientation: 'landscape' }
-}
-
 /** 表格默认值（GS:18-96）。 */
 export function createDefaultTable(): TableConfig {
   return {
@@ -74,11 +77,6 @@ export function createDefaultTable(): TableConfig {
     headerFontSize: 13.5,
     columns: createDefaultColumns(),
   }
-}
-
-/** 打印默认值（GS:97）。 */
-export function createDefaultPrint(): PrintConfig {
-  return { copies: 1 }
 }
 
 /**
@@ -90,46 +88,3 @@ export function createDefaultPrint(): PrintConfig {
 export function createDefaultConfig(): GlassSheet2Config {
   return { paper: createDefaultPaper(), table: createDefaultTable(), print: createDefaultPrint() }
 }
-
-// ------------------------------------------------------------------ //
-// UI 范围（布局编辑器 / 打印设置弹窗的控件参数，§7.3 / §8）
-// ------------------------------------------------------------------ //
-
-/** 布局编辑器「纸张」区块的 `el-input-number` 范围（GS:1419-1470）。 */
-export const PAPER_UI_RANGES = {
-  widthMm: { min: 100, max: 420, step: 1 },
-  heightMm: { min: 100, max: 297, step: 1 },
-  paddingMm: { min: 0, max: 20, step: 0.5 },
-} as const
-
-/** 布局编辑器「表格全局」区块（GS:1471-1500）。标题输入框 `style="width:160px"`。 */
-export const TABLE_UI_RANGES = {
-  headerFontSize: { min: 7, max: 28, step: 0.5 },
-} as const
-
-/** 布局编辑器「各列设置」表格的每列控件范围（GS:1700-1745）。列宽 `controls-position:"right"`。 */
-export const COLUMN_UI_RANGES = {
-  widthMm: { min: 10, max: 120, step: 1 },
-  fontSize: { min: 7, max: 28, step: 0.5 },
-  rowHeightMm: { min: 3, max: 20, step: 0.5 },
-} as const
-
-/** 打印份数范围（GS:752-762 的 clamp **与** UI 的 `el-input-number` 都是 1–99）。 */
-export const COPIES_RANGE = { min: 1, max: 99, step: 1 } as const
-
-/** 打印设置弹窗的方向下拉选项（GS:675）：`横向`=landscape、`纵向`=portrait。 */
-export const ORIENTATION_OPTIONS: { value: Orientation; label: string }[] = [
-  { value: 'landscape', label: '横向' },
-  { value: 'portrait', label: '纵向' },
-]
-
-/**
- * 打印设置弹窗的 3 个「常用尺寸」预设（GS:676）。
- *
- * ⚠️ 只有 3 个（收据单是 8 个），且**不联动 `orientation`** —— 只写宽高两个数。
- */
-export const PAPER_PRESETS: { label: string; widthMm: number; heightMm: number }[] = [
-  { label: 'A4', widthMm: 297, heightMm: 210 },
-  { label: 'A5', widthMm: 210, heightMm: 148 },
-  { label: 'B5', widthMm: 257, heightMm: 182 },
-]

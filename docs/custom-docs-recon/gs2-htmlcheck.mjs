@@ -1,6 +1,22 @@
 // 玻璃合片单 HTML 结构比对 —— 期望串**逐字抄自逆向报告 §3**（不是抄自实现）。
-import { createDefaultConfig } from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/defaults.ts'
-import {
+
+// —— 自带打包 ——
+// 原本这里直接 `import ... from '.../*.ts'`，但 Node 的 ESM 解析不了 TS 内部的无扩展名导入
+// （`./defaults`）。抽底座后 `html.ts`/`defaults.ts` 新增了运行期依赖（`../docsheet/*`、`./profile`），
+// 这条路径就走不通了。改成与 `gs2-logiccheck.mjs` 同款的「脚本自己先 esbuild 打一次包」。
+// ⚠️ **断言部分一个字没动**，只换了加载方式。
+import { createRequire } from 'node:module'
+const _ROOT = '/Users/aaa/Desktop/door-main'
+const _req = createRequire(_ROOT + '/app/')
+const { build: _build } = _req(_ROOT + '/app/node_modules/esbuild')
+const _OUT = _ROOT + '/app/node_modules/.cache/gs2-htmlcheck-bundle.mjs'
+await _build({
+  entryPoints: ['/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/index.ts'],
+  bundle: true, format: 'esm', platform: 'neutral',
+  outfile: _OUT, logLevel: 'warning',
+})
+const _m = await import(_OUT)
+const {
   buildDocumentHtml,
   buildRootHtml,
   escapeHtml,
@@ -11,8 +27,9 @@ import {
   renderCell,
   renderPreviewTable,
   createQrSvgProvider,
-} from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/html.ts'
-import { css } from '/Users/aaa/Desktop/door-main/app/src/utils/glasssheet2/css.ts'
+  createDefaultConfig,
+  css,
+} = _m
 
 const cfg = createDefaultConfig()
 const D = escapeHtml
