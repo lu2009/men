@@ -1,0 +1,23 @@
+
+.gs-root { background:#fff; color:#111; width:297mm; }
+.gs2-title { text-align:center; font-size:7mm; line-height:8mm; font-weight:500; margin-bottom:0.5mm; }
+.gs2-page-num { position:absolute; top:3mm; right:3mm; font-size:9pt; color:#666; }
+.gs2-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+.gs2-table th, .gs2-table td { border:0.2mm solid #444444; vertical-align:top; padding:1mm 1.2mm; word-break:break-all; }
+.gs2-table th { text-align:center; font-weight:600; background:#fff; font-size:13.5pt; }
+.gs2-line { line-height:inherit; }
+.gs2-qr { width:17mm; height:17mm; display:block; margin:0 auto 0.8mm; }
+.gs2-order { text-align:center; line-height:1.4; }
+.gs2-lock-img, .gs2-door-img { width:100%; height:100%; display:block; margin:0 auto; object-fit:contain; }
+@page { size: 297mm 210mm; margin: 0; }
+@media screen {
+  .gs-root { background:#c0c0c0; padding:8mm; display:flex; flex-wrap:wrap; gap:8mm; align-items:flex-start; justify-content:flex-start; min-width:fit-content; width:auto; }
+  .gs-sheet { box-shadow:0 2px 10px rgba(0,0,0,0.25); height:210mm; overflow:hidden; }
+}
+@media print {
+  html, body { width:297mm !important; height:210mm !important; margin:0 !important; padding:0 !important; background:#fff; overflow:visible !important; }
+  .gs-root { width:297mm !important; background:#fff !important; padding:0 !important; gap:0 !important; display:block !important; }
+  .gs-sheet { width:297mm !important; height:210mm !important; box-shadow:none !important; margin:0 !important; break-after:page; page-break-after:always; page-break-inside:avoid; }
+  .gs-sheet:last-child { break-after:auto; page-break-after:auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
