@@ -8,7 +8,7 @@
 > 钳位到白名单范围，给缺省值）。真正的「订单 → 行数组」是 `we`（单张）与 `ge`/`ye`（批量）。
 > 另外 `l`（`:9` `const l = _o`）是**字符串解码器**的别名残留，`const t = l` / `const o = l`
 > （如 `:52`、`:108`、`:200`、`:241`…）在解码后全部是**死代码**，不带任何语义。
-> `Jo`（`:629`、`:832`、`:1061`）同理，是另一个解码器（`Home.formatted.js:2281` `function Jo(e,t)`），
+> `Jo`（`:629`、`:832`、`:1061`）同理，是另一个解码器（`Home.formatted.js:2282` `function Jo(e,t)`），
 > `const t = Jo; const o = t;` 里的 `o` 从未被使用。**读这个文件时，除 `l`/`Jo` 外的单字母才需要就近读赋值。**
 
 ---
@@ -310,7 +310,7 @@ while y < rows.length:
 | `ce(name)` | `:463` | 返回 `data-r2-el="{name}"`，配置产出非空 style 时再拼 ` style="{style}"` |
 | `se(name)` | `:470` | `!cfg \|\| cfg.visible` —— **默认可见**，只有显式 `visible:false` 才隐藏 |
 
-元素配置持久化在 localStorage `receipt2_element_configs`（`ya`，`Home.formatted.js:2373`），
+元素配置持久化在 localStorage `receipt2_element_configs`（`ya`，`Home.formatted.js:2372`），
 其余键：`receipt2_font_settings`(sa) / `receipt2_column_widths`(da) / `receipt2_selected_printer`(Va) /
 `receipt2_print_settings`(ma) / `receipt2_visibility_settings`(wa) / `receipt2_brand_settings`(ga)。
 
