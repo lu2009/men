@@ -1,6 +1,6 @@
 mod handler;
-mod model;
-mod service;
+pub(crate) mod model;
+pub(crate) mod service;
 
 use axum::routing::get;
 use axum::Router;
@@ -12,7 +12,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/orders", get(handler::list).post(handler::create))
         .route(
             "/api/v1/orders/{id}",
-            get(handler::get).put(handler::update).delete(handler::delete),
+            get(handler::get)
+                .put(handler::update)
+                .patch(handler::update_head)
+                .delete(handler::delete),
         )
         .route(
             "/api/v1/orders/{id}/lines/{line_id}",

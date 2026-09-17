@@ -11,6 +11,10 @@ pub struct Config {
     pub admin_username: String,
     pub admin_password: String,
     pub admin_tenant_name: String,
+    /// 电子回执单分享链接的签名密钥（HMAC-SHA256）。
+    /// ⚠️ 生产必须通过 `RECEIPT_SECRET` 显式设置：默认值只用于本地开发，
+    /// 泄漏后任何人都能伪造任意租户的回执单分享链接。
+    pub receipt_secret: String,
 }
 
 impl Config {
@@ -38,6 +42,9 @@ impl Config {
         let admin_tenant_name =
             std::env::var("ADMIN_TENANT_NAME").unwrap_or_else(|_| "默认门窗厂".into());
 
+        let receipt_secret =
+            std::env::var("RECEIPT_SECRET").unwrap_or_else(|_| "dev-receipt-secret".into());
+
         Ok(Self {
             port,
             database_url,
@@ -45,6 +52,7 @@ impl Config {
             admin_username,
             admin_password,
             admin_tenant_name,
+            receipt_secret,
         })
     }
 }

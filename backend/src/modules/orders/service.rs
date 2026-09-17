@@ -4,14 +4,15 @@ use sqlx::PgPool;
 use crate::core::error::{ApiError, ApiResult};
 
 use super::model::{
-    OrderDto, OrderLineDto, OrderLineInput, OrderRequest, OrderSummaryDto,
+    OrderDto, OrderHeadPatch, OrderLineDto, OrderLineInput, OrderRequest, OrderSummaryDto,
 };
 
 /// 订单头 SELECT 列（与 OrderHeaderRow 一一对应）。截止日期由「下单日期 + 生产天数 + 1」推导。
 const HEADER_COLUMNS: &str = "id, receipt_no, client_code, client_name, phone, brand, \
      to_char(order_date, 'YYYY-MM-DD') AS order_date, production_days, \
      to_char(order_date + production_days + 1, 'YYYY-MM-DD') AS due_date, \
-     total_price, deposit, remark, salesperson, door_count, \
+     total_price, deposit, remark, salesperson, order_no_set, install_address, \
+     production_status, creator_name, lock_direction, door_count, \
      to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, \
      to_char(updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at";
 
@@ -39,6 +40,11 @@ struct OrderHeaderRow {
     deposit: f64,
     remark: String,
     salesperson: String,
+    order_no_set: String,
+    install_address: String,
+    production_status: String,
+    creator_name: String,
+    lock_direction: String,
     door_count: i32,
     created_at: String,
     updated_at: String,
@@ -113,6 +119,11 @@ fn header_to_summary(row: OrderHeaderRow) -> OrderSummaryDto {
         deposit: row.deposit,
         remark: row.remark,
         salesperson: row.salesperson,
+        order_no_set: row.order_no_set,
+        install_address: row.install_address,
+        production_status: row.production_status,
+        creator_name: row.creator_name,
+        lock_direction: row.lock_direction,
         door_count: row.door_count,
         created_at: row.created_at,
         updated_at: row.updated_at,
@@ -219,6 +230,55 @@ pub async fn get(pool: &PgPool, tenant_id: i64, id: i64) -> ApiResult<OrderDto> 
         deposit: header.deposit,
         remark: header.remark,
         salesperson: header.salesperson,
+        order_no_set: header.order_no_set,
+        install_address: header.install_address,
+        production_status: header.production_status,
+        creator_name: header.creator_name,
+        lock_direction: header.lock_direction,
+        door_count: header.door_count,
+        created_at: header.created_at,
+        updated_at: header.updated_at,
+        lines,
+    })
+}
+
+/// 按回执单号取详情（`orders(tenant_id, receipt_no)` 上有部分唯一索引：非空单号本租户内唯一）。
+/// 电子回执单是唯一以「单号」而非「id」定位订单的入口。
+pub async fn get_by_receipt_no(
+    pool: &PgPool,
+    tenant_id: i64,
+    receipt_no: &str,
+) -> ApiResult<OrderDto> {
+    let sql = format!(
+        "SELECT {HEADER_COLUMNS} FROM orders WHERE receipt_no = $1 AND tenant_id = $2"
+    );
+    let header: OrderHeaderRow = sqlx::query_as(&sql)
+        .bind(receipt_no)
+        .bind(tenant_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| ApiError::not_found("订单不存在"))?;
+
+    let lines = fetch_lines(pool, header.id).await?;
+    Ok(OrderDto {
+        id: header.id,
+        receipt_no: header.receipt_no,
+        client_code: header.client_code,
+        client_name: header.client_name,
+        phone: header.phone,
+        brand: header.brand,
+        order_date: header.order_date,
+        production_days: header.production_days,
+        due_date: header.due_date,
+        total_price: header.total_price,
+        deposit: header.deposit,
+        remark: header.remark,
+        salesperson: header.salesperson,
+        order_no_set: header.order_no_set,
+        install_address: header.install_address,
+        production_status: header.production_status,
+        creator_name: header.creator_name,
+        lock_direction: header.lock_direction,
         door_count: header.door_count,
         created_at: header.created_at,
         updated_at: header.updated_at,
@@ -231,6 +291,7 @@ pub async fn create(
     pool: &PgPool,
     tenant_id: i64,
     user_id: i64,
+    creator_name: &str,
     req: OrderRequest,
 ) -> ApiResult<OrderDto> {
     let mut tx = pool.begin().await?;
@@ -239,9 +300,10 @@ pub async fn create(
 
     let id: i64 = sqlx::query_scalar(
         "INSERT INTO orders (tenant_id, receipt_no, client_code, client_name, phone, brand, \
-         order_date, production_days, deposit, remark, salesperson, created_by) \
+         order_date, production_days, deposit, remark, salesperson, order_no_set, \
+         install_address, production_status, creator_name, lock_direction, created_by) \
          VALUES ($1, $2, $3, $4, $5, $6, COALESCE(NULLIF($7, '')::date, CURRENT_DATE), \
-         $8, $9, $10, $11, $12) RETURNING id",
+         $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id",
     )
     .bind(tenant_id)
     .bind(&receipt_no)
@@ -254,6 +316,11 @@ pub async fn create(
     .bind(req.deposit)
     .bind(&req.remark)
     .bind(&req.salesperson)
+    .bind(&req.order_no_set)
+    .bind(&req.install_address)
+    .bind(&req.production_status)
+    .bind(creator_name)
+    .bind(&req.lock_direction)
     .bind(user_id)
     .fetch_one(&mut *tx)
     .await?;
@@ -301,8 +368,10 @@ pub async fn update(
     let result = sqlx::query(
         "UPDATE orders SET receipt_no = $1, client_code = $2, client_name = $3, phone = $4, \
          brand = $5, order_date = COALESCE(NULLIF($6, '')::date, CURRENT_DATE), \
-         production_days = $7, deposit = $8, remark = $9, salesperson = $10, updated_at = now() \
-         WHERE id = $11 AND tenant_id = $12",
+         production_days = $7, deposit = $8, remark = $9, salesperson = $10, \
+         order_no_set = $11, install_address = $12, production_status = $13, \
+         lock_direction = $14, updated_at = now() \
+         WHERE id = $15 AND tenant_id = $16",
     )
     .bind(&receipt_no)
     .bind(&req.client_code)
@@ -314,6 +383,10 @@ pub async fn update(
     .bind(req.deposit)
     .bind(&req.remark)
     .bind(&req.salesperson)
+    .bind(&req.order_no_set)
+    .bind(&req.install_address)
+    .bind(&req.production_status)
+    .bind(&req.lock_direction)
     .bind(id)
     .bind(tenant_id)
     .execute(&mut *tx)
@@ -344,6 +417,47 @@ pub async fn update(
         .await?;
 
     tx.commit().await?;
+    get(pool, tenant_id, id).await
+}
+
+/// 就地编辑订单头（不动行）。Home 主表内联编辑/改日期/改客户名走这里，避免整单替换的
+/// 「先删行再插行」副作用。打单人/创建人保持不变。
+pub async fn update_head(
+    pool: &PgPool,
+    tenant_id: i64,
+    id: i64,
+    patch: OrderHeadPatch,
+) -> ApiResult<OrderDto> {
+    let result = sqlx::query(
+        "UPDATE orders SET client_code = $1, client_name = $2, phone = $3, brand = $4, \
+         order_date = COALESCE(NULLIF($5, '')::date, CURRENT_DATE), production_days = $6, \
+         deposit = $7, remark = $8, salesperson = $9, order_no_set = $10, \
+         install_address = $11, production_status = $12, creator_name = $13, lock_direction = $14, \
+         updated_at = now() \
+         WHERE id = $15 AND tenant_id = $16",
+    )
+    .bind(&patch.client_code)
+    .bind(&patch.client_name)
+    .bind(&patch.phone)
+    .bind(&patch.brand)
+    .bind(&patch.order_date)
+    .bind(patch.production_days)
+    .bind(patch.deposit)
+    .bind(&patch.remark)
+    .bind(&patch.salesperson)
+    .bind(&patch.order_no_set)
+    .bind(&patch.install_address)
+    .bind(&patch.production_status)
+    .bind(&patch.creator_name)
+    .bind(&patch.lock_direction)
+    .bind(id)
+    .bind(tenant_id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(ApiError::not_found("订单不存在"));
+    }
     get(pool, tenant_id, id).await
 }
 

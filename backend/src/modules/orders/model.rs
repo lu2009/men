@@ -123,7 +123,49 @@ pub struct OrderRequest {
     #[serde(default)]
     pub salesperson: String,
     #[serde(default)]
+    pub order_no_set: String,
+    #[serde(default)]
+    pub install_address: String,
+    #[serde(default)]
+    pub production_status: String,
+    #[serde(default)]
+    pub lock_direction: String,
+    #[serde(default)]
     pub lines: Vec<OrderLineInput>,
+}
+
+/// 订单头就地编辑（Home 主表内联编辑/改日期/改客户名）。只动头字段，不碰行。
+/// 前端已有整行，直接提交全量头字段即可，无需逐字段 PATCH。
+#[derive(Debug, Deserialize)]
+pub struct OrderHeadPatch {
+    #[serde(default)]
+    pub client_code: String,
+    #[serde(default)]
+    pub client_name: String,
+    #[serde(default)]
+    pub phone: String,
+    #[serde(default)]
+    pub brand: String,
+    #[serde(default)]
+    pub order_date: String,
+    #[serde(default)]
+    pub production_days: i32,
+    #[serde(default)]
+    pub deposit: f64,
+    #[serde(default)]
+    pub remark: String,
+    #[serde(default)]
+    pub salesperson: String,
+    #[serde(default)]
+    pub order_no_set: String,
+    #[serde(default)]
+    pub install_address: String,
+    #[serde(default)]
+    pub production_status: String,
+    #[serde(default)]
+    pub creator_name: String,
+    #[serde(default)]
+    pub lock_direction: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -192,6 +234,11 @@ pub struct OrderSummaryDto {
     pub deposit: f64,
     pub remark: String,
     pub salesperson: String,
+    pub order_no_set: String,
+    pub install_address: String,
+    pub production_status: String,
+    pub creator_name: String,
+    pub lock_direction: String,
     pub door_count: i32,
     pub created_at: String,
     pub updated_at: String,
@@ -213,6 +260,11 @@ pub struct OrderDto {
     pub deposit: f64,
     pub remark: String,
     pub salesperson: String,
+    pub order_no_set: String,
+    pub install_address: String,
+    pub production_status: String,
+    pub creator_name: String,
+    pub lock_direction: String,
     pub door_count: i32,
     pub created_at: String,
     pub updated_at: String,

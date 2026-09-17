@@ -7,7 +7,7 @@ use crate::core::error::ApiResult;
 use crate::core::response;
 use crate::core::AppState;
 
-use super::model::{OrderLineInput, OrderRequest};
+use super::model::{OrderHeadPatch, OrderLineInput, OrderRequest};
 use super::service;
 
 pub async fn list(
@@ -32,7 +32,7 @@ pub async fn create(
     user: CurrentUser,
     Json(req): Json<OrderRequest>,
 ) -> ApiResult<Json<Value>> {
-    let item = service::create(&state.pool, user.tenant_id, user.user_id, req).await?;
+    let item = service::create(&state.pool, user.tenant_id, user.user_id, &user.name, req).await?;
     Ok(response::ok(serde_json::to_value(item).unwrap()))
 }
 
@@ -53,6 +53,17 @@ pub async fn delete(
 ) -> ApiResult<Json<Value>> {
     service::delete(&state.pool, user.tenant_id, id).await?;
     Ok(response::ok(json!({ "deleted": true })))
+}
+
+/// 就地编辑订单头（不动行）。
+pub async fn update_head(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<i64>,
+    Json(patch): Json<OrderHeadPatch>,
+) -> ApiResult<Json<Value>> {
+    let item = service::update_head(&state.pool, user.tenant_id, id, patch).await?;
+    Ok(response::ok(serde_json::to_value(item).unwrap()))
 }
 
 /// 更新订单内单行（按 line_id）。

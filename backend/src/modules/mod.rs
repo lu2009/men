@@ -2,7 +2,9 @@
 pub mod auth;
 pub mod catalog;
 pub mod clients;
+pub mod finance;
 pub mod formula;
 pub mod health;
 pub mod orders;
+pub mod receipts;
 pub mod settings;
