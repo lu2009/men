@@ -193,15 +193,51 @@ app/src/utils/glasssheet2/
 
 ---
 
-## 9. 下一步：其余三张
+## 8b. 第 3 张：自定义生产单2（已完成）
+
+施工图 `docs/custom-docs-recon/01-diff.md`（43 成员逐函数对照）证明它与玻璃合片单
+**约 77% 逐字相同** ⇒ 走「抽底座 + 参数化」，**不复制一份**：
+
+- `app/src/utils/docsheet/` —— **C 家族公共底座**（profile 参数化：前缀 / 存储键 / 标题 /
+  默认配置工厂 / **空段占位开关** / 单元格 case 表）
+- `app/src/utils/glasssheet2/` / `productionsheet2/` —— 各自的 profile 实例
+- `app/src/components/DocSheet{Drawer,LayoutDialog,SettingsDialog}.vue` —— 共用组件，
+  各单据只剩薄包装 + 一份 `*UiProfile.ts`
+
+### 四处差异各自落到哪
+
+| # | 差异 | 落到哪 |
+|---|---|---|
+| 1 | 行数据来源（`calculateGlass` → `calculateReceipt`） | **不在核心层** —— 新版用 `productionProduces()`，落在 UI profile 的 `produceRows(ctx)` |
+| 2 | 列集 8 → 9 列 | 核心层 `defaults` profile |
+| 3 | 空段占位（PS2 补 `&nbsp;`） | 核心层「空段占位」开关 |
+| 4 | 前缀 / 存储键 / 文案 | profile |
+
+### 验收
+
+| 脚本 | 结果 |
+|---|---|
+| `gs2-csscheck` / `gs2-htmlcheck` / `gs2-logiccheck` / `gs2-logiccheck2` | byte-equal · 26/26 · 34/34 · 15/15（**抽底座后零回归**） |
+| `ps2-csscheck` / `ps2-htmlcheck` / `ps2-logiccheck` | byte-equal · 38/38 · 48/48 |
+| `verify/ps2-e2e.mjs` | 真实订单通，**空段占位在真实数据上复现 3 处** |
+
+### 两条推翻既有结论的发现
+
+1. **`doorframe` / `windows` 不是「多余列」**。上一份报告说「`glassProduces()` 根本不产」——
+   那是 `calculateGlass` 的行为；PS2 用的 `calculateReceipt` **会产**，实测行[0] 两列都有值。
+2. **PS2 的 `o.length === 0` 是死分支** —— `String(x).split()` 恒返回 ≥1 元素，
+   它的多行渲染**永不可能返回空串**。
+
+---
+
+## 9. 下一步：其余两张
 
 共用骨架与共用编辑器弹窗都已就位，剩下三张按「家族」处理：
 
 | ic | 组件 | 怎么复用 |
 |---|---|---|
-| 15 | 自定义生产单2 | **编辑器与玻璃合片单逐字相同**（C 家族）⇒ 一份组件 + `prefix`/`defaults` 两个参数 |
-| 14 | 自定义生产单 | 编辑器是 B 家族（`headerFields`+`tableConfig`+`doorImgBox`），需单独写 |
-| 13 | 合格标签族 | A 家族，配置最丰富（逐字段字体、固定张数、就地编辑），且**一个组件挂三个入口** |
+| 14 | 自定义生产单 | 编辑器是 B 家族（`headerFields`+`tableConfig`+`doorImgBox`），需单独写；但**分页/量测/打印/二维码/清洗那几段可直接用 `utils/docsheet/`** |
+| 13 | 合格标签族 | A 家族，配置最丰富（逐字段字体、固定张数、就地编辑），且**一个组件挂三个入口**；同样能复用底座的那几段 |
 
 ---
 
