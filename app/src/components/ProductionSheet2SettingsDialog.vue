@@ -1,11 +1,12 @@
 <!--
-  「自定义玻璃合片单 - 打印设置」弹窗 —— **薄包装**。
-  旧版 `GlassSheet2PrintManager.openSettingsDialog`（GS:781-787 打开流程 + GS:1102-1370 模板）。
+  「自定义生产单2 - 打印设置」弹窗 —— **薄包装**。
+  旧版 `ProductionSheet2PrintManager.openSettingsDialog`（PS2:807-813 打开流程 + PS2:1128-1392 模板）。
 
-  整套外壳（纸张 / 打印机两页、草稿-生效成对、常用尺寸 3 个预设、Electron 降级态）都在共用的
-  `DocSheetSettingsDialog.vue` 里，这里只递 GS2 的组件层档案。
+  整套外壳在共用的 `DocSheetSettingsDialog.vue` 里，这里只递 PS2 的组件层档案。
 
-  逆向定稿：`docs/custom-docs-recon/02-glasssheet2.md` §8（§6.2 的草稿/生效、§6.3 的两个键）。
+  ⚠️ 与 GS2 的**唯一**差异是标题（`自定义生产单2 - 打印设置`，PS2:946）与前缀
+  （`ps2-settings-presets` / `ps2-settings-footer`）—— 两页控件、常用尺寸 3 个预设、
+  `orientation` 那个无消费者的下拉**逐字相同**（§10 CONFIRMED）。
 
   ⚠️ `show` 是 prop（不可写），所以不能用 `v-model:show` —— 显式往两头转（props 进、emit 出）。
 -->
@@ -13,7 +14,7 @@
   <DocSheetSettingsDialog
     :show="show"
     :config="config"
-    :profile="GLASSSHEET2_UI_PROFILE"
+    :profile="PRODUCTIONSHEET2_UI_PROFILE"
     @update:show="(v: boolean) => emit('update:show', v)"
     @saved="() => emit('saved')"
   />
@@ -22,7 +23,7 @@
 <script setup lang="ts">
 import type { DocSheetConfig } from '../utils/docsheet/types'
 import DocSheetSettingsDialog from './DocSheetSettingsDialog.vue'
-import { GLASSSHEET2_UI_PROFILE } from './glassSheet2UiProfile'
+import { PRODUCTIONSHEET2_UI_PROFILE } from './productionSheet2UiProfile'
 
 defineProps<{
   show: boolean
