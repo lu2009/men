@@ -71,7 +71,10 @@ export async function printFromContainer(container: HTMLElement, deps: PrintDeps
   clone.querySelectorAll(RESIZE_HANDLE_SEL).forEach((el) => el.remove())
 
   const doc0 =
-    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>收据单2</title>\n    <style>' +
+    // ⚠️ 旧版这行 `<title>` 写的是「收据单2」。新版改成「自定义收据单」——
+    // 它是**用户可见**的（浏览器打印对话框标题、另存为 PDF 的默认文件名），
+    // 而功能名已按入口按钮定为「自定义收据单」。不属排版保真范围（`check-html/css` 不查这段）。
+    '<!DOCTYPE html><html><head><meta charset="utf-8"><title>自定义收据单</title>\n    <style>' +
     'html,body{margin:0;padding:0;background:#fff;}' +
     css(deps.fonts, deps.paper, deps.columnWidths) +
     '</style>\n  </head><body><div class="receipt2-root">' +

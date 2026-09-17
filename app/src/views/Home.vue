@@ -23,7 +23,7 @@
           :type="checkedRowKeys.length ? 'warning' : 'default'"
           @click="openReceipt2"
         >
-          收据单2{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+          自定义收据单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>

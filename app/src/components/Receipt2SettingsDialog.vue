@@ -17,7 +17,7 @@
   <n-modal
     v-model:show="show"
     preset="card"
-    title="收据单2 设置"
+    title="自定义收据单 - 设置"
     style="width: 460px"
     display-directive="show"
   >

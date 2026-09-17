@@ -1,5 +1,6 @@
 <!--
-  「收据单2」抽屉 —— 旧版 Home 在 `ic=12` 时的那张自绘单据。
+  「自定义收据单」抽屉 —— 旧版 Home 入口按钮的原文（分组「自定义单据：」下），
+  组件源码里叫 `Receipt2PrintManager`、`ic=12`（内部仍沿用 Receipt2 命名，便于和旧版对着查）。
 
   与旧版的关系（逆向定稿见 `docs/2026-09-17-receipt2-analysis.md`）：
   · 旧版**组件自己不渲染预览**：它把 HTML 字符串推回 Home，由 Home 塞进容器。
@@ -14,7 +15,7 @@
 -->
 <template>
   <n-drawer :show="show" :width="1180" placement="right" @update:show="(v: boolean) => emit('update:show', v)">
-    <n-drawer-content title="收据单2" closable>
+    <n-drawer-content title="自定义收据单" closable>
       <div class="r2-wrap">
         <div class="r2-toolbar">
           <span class="hint">
@@ -167,7 +168,7 @@ watch(
       const ctxs = full.map((o) => buildOrderPrintContext(o, prereqs, who))
       await renderPreview(receipt2Orders(ctxs))
     } catch (e) {
-      message.error((e as Error).message || '读取收据单2 数据失败')
+      message.error((e as Error).message || '读取自定义收据单数据失败')
     } finally {
       loading.value = false
     }
@@ -318,7 +319,7 @@ async function doCopy() {
   copying.value = true
   try {
     await copyPreviewToClipboard(el)
-    message.success('收据单2已复制到剪贴板！')
+    message.success('自定义收据单已复制到剪贴板！')
   } catch (e) {
     message.error('复制失败: ' + ((e as Error).message || e))
   } finally {
