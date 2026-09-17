@@ -145,6 +145,66 @@ app/src/utils/glasssheet2/
 
 ---
 
+## 8. 实现落地（试点：自定义玻璃合片单）
+
+代码已写完并提交。**新增依赖只有 `qrcode-generator`**（~10KB 零依赖，用户拍板选的）。
+
+| 文件 | 内容 |
+|---|---|
+| `app/src/utils/glasssheet2/` × 8 | types / defaults / sanitize / storage / css / html / paginate / index |
+| `app/src/utils/glasssheet2/qr.ts` | `qrcode-generator` → 核心层 `QrEncoder` 的接线 |
+| `app/src/utils/glasssheet2/print.ts` | `printDirect` 等价物（无参重建 HTML，300ms/1000ms 时序） |
+| `app/src/components/GlassSheet2Drawer.vue` | 主抽屉（预览 + 工具条） |
+| `app/src/components/GlassSheet2LayoutDialog.vue` | 全屏布局编辑器 |
+| `app/src/components/GlassSheet2SettingsDialog.vue` | 打印设置（纸张 / 打印机两页） |
+| `app/src/components/DocEditDialog.vue` | **共用**「编辑行数据」弹窗（四张单据共用） |
+| `app/src/views/Home.vue` | 工具条「自定义玻璃合片单（N）」 |
+
+### 已验证（可重跑，脚本在 `docs/custom-docs-recon/`）
+
+| 脚本 | 对齐物 | 结果 |
+|---|---|---|
+| `gs2-csscheck.mjs` | `gs2-default.css` 夹具 | **逐字节相等**（1739 字节） |
+| `gs2-htmlcheck.mjs` | 逆向报告 §3 逐字模板 | 26/26 |
+| `gs2-logiccheck.mjs` | 行构造 / 单元格三形态 / 文档外壳 | 34/34 |
+| `gs2-logiccheck2.mjs` | 量测节点 / 二维码 / 等图超时 | 15/15 |
+| `verify/e2e.mjs` | 真实订单（后端 :3000） | 数据管线通，渲染含二维码 |
+| `verify/qrprobe2.mjs` | 二维码编码 | 出码，属性与 §9.2 逐项对齐 |
+
+`vue-tsc --noEmit` 零错、`npm run build` 通过。
+
+### ⚠️ 尚未验证 —— 需要人工在浏览器里看
+
+1. **真实排版与分页**：分页要量真实 DOM 行高，Node 里跑不了。
+2. **`table-layout:fixed` 下列宽之和（默认 230mm）≠ 可用宽（291mm）时浏览器的分配** ——
+   直接影响逐像素复刻。
+3. **量测算式 `querySelector("div")` 是否取对包装 div**。
+4. **打印**：iframe 时序、等图片加载。
+5. **交互**：布局编辑器各控件、打印设置弹窗。
+
+### 实现期发现并记下的三个点
+
+1. **二维码的 `viewBox` 与旧版数值不同但等价**：旧版 zxing 是 `0 0 180 180`（按请求尺寸缩放），
+   新版是 `0 0 23 23`（21 模块 + 两侧各 1 模块静默区）。外层 `<svg>` 固定 17mm +
+   `preserveAspectRatio="xMidYMid meet"`，**矢量缩放后成图一致** —— 变的只是坐标系尺度。
+2. **Node 里没有 `DOMParser`**，`qr.ts` 会降级成「只画字幕」。这是正确降级，但在 Node 里验证要自己补桩。
+3. **`vue-tsc` 抓不到缺失的 `.vue` 导入**（`env.d.ts` 有 `declare module '*.vue'` 通配）⇒
+   **改组件导入后 `vue-tsc` 与 `npm run build` 都要跑**。
+
+---
+
+## 9. 下一步：其余三张
+
+共用骨架与共用编辑器弹窗都已就位，剩下三张按「家族」处理：
+
+| ic | 组件 | 怎么复用 |
+|---|---|---|
+| 15 | 自定义生产单2 | **编辑器与玻璃合片单逐字相同**（C 家族）⇒ 一份组件 + `prefix`/`defaults` 两个参数 |
+| 14 | 自定义生产单 | 编辑器是 B 家族（`headerFields`+`tableConfig`+`doorImgBox`），需单独写 |
+| 13 | 合格标签族 | A 家族，配置最丰富（逐字段字体、固定张数、就地编辑），且**一个组件挂三个入口** |
+
+---
+
 ## 附：材料索引
 
 | 文件 | 内容 |
