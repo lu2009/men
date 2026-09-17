@@ -13,10 +13,28 @@ import type {
   ColumnConfigInput,
   FormulaMatchResolveDto,
   OrderDto,
+  OrderHeadInput,
   OrderInput,
   OrderSummaryDto,
   PriceResolveDto,
   PrintTemplateDto,
+  ReceiptDto,
+  ReceiptShareToken,
+  OrderFinance,
+  OrderFinanceDetail,
+  CheckOrderPaymentItem,
+  CustomerBalance,
+  StatementItem,
+  AllocationPreview,
+  PrepaymentAllocationPreview,
+  PaymentStatsDto,
+  AddOrderPaymentInput,
+  AddOrderAdjustmentInput,
+  AddCustomerPaymentInput,
+  AddCustomerAdjustmentInput,
+  AllocationPreviewInput,
+  PrepaymentPreviewInput,
+  PrepaymentExecuteInput,
 } from './types'
 
 // 统一 API 封装。Web 端经 Vite 代理走相对路径 /api；
@@ -131,6 +149,12 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+  // 订单头就地编辑（不动行）：Home 主表内联编辑/改日期/改客户名。
+  updateOrderHead: (id: number, payload: OrderHeadInput) =>
+    request<OrderDto>(`/v1/orders/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
   deleteOrder: (id: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${id}`, { method: 'DELETE' }),
   // 订单行：单行删除（行的保存统一走 updateOrder 整单提交）。
@@ -176,4 +200,70 @@ export const api = {
   listPrintTemplates: () => request<PrintTemplateDto[]>('/v1/print-templates'),
   getPrintTemplatesByMode: (mode: string) =>
     request<PrintTemplateDto[]>(`/v1/print-templates/${encodeURIComponent(mode)}`),
+  // 电子回执单：已登录取详情 / 签发分享链接 / 无认证凭令牌取详情。
+  getReceipt: (receiptNo: string) =>
+    request<ReceiptDto>(`/v1/receipts/${encodeURIComponent(receiptNo)}`),
+  shareReceipt: (receiptNo: string) =>
+    request<ReceiptShareToken>(`/v1/receipts/${encodeURIComponent(receiptNo)}/share`, {
+      method: 'POST',
+    }),
+  getPublicReceipt: (receiptNo: string, token: string) =>
+    request<ReceiptDto>(
+      `/v1/public/receipts?no=${encodeURIComponent(receiptNo)}&t=${encodeURIComponent(token)}`,
+    ),
+  // 财务：订单级。
+  getOrderFinance: (orderId: number) => request<OrderFinanceDetail>(`/v1/finance/orders/${orderId}`),
+  getOrderFinanceSummary: (days = 60) =>
+    request<Record<string, OrderFinance>>(`/v1/finance/orders/summary?days=${days}`),
+  checkOrderPayment: (orderIds: number[]) =>
+    request<CheckOrderPaymentItem[]>('/v1/finance/orders/check', {
+      method: 'POST',
+      body: JSON.stringify({ order_ids: orderIds }),
+    }),
+  addOrderPayment: (orderId: number, payload: AddOrderPaymentInput) =>
+    request<{ saved: boolean }>(`/v1/finance/orders/${orderId}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  addOrderAdjustment: (orderId: number, payload: AddOrderAdjustmentInput) =>
+    request<{ saved: boolean }>(`/v1/finance/orders/${orderId}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  // 财务：客户级。
+  getCustomerBalance: (customerCode: string) =>
+    request<CustomerBalance>(`/v1/finance/customers/${encodeURIComponent(customerCode)}/balance`),
+  getCustomerStatement: (customerCode: string) =>
+    request<StatementItem[]>(
+      `/v1/finance/customers/${encodeURIComponent(customerCode)}/statement`,
+    ),
+  getPaymentStats: (customerCode: string) =>
+    request<PaymentStatsDto>(
+      `/v1/finance/customers/${encodeURIComponent(customerCode)}/stats`,
+    ),
+  addCustomerPayment: (customerCode: string, payload: AddCustomerPaymentInput) =>
+    request<{ saved: boolean }>(`/v1/finance/customers/${encodeURIComponent(customerCode)}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  addCustomerAdjustment: (customerCode: string, payload: AddCustomerAdjustmentInput) =>
+    request<{ saved: boolean }>(`/v1/finance/customers/${encodeURIComponent(customerCode)}/adjustments`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  previewAllocation: (customerCode: string, payload: AllocationPreviewInput) =>
+    request<AllocationPreview>(
+      `/v1/finance/customers/${encodeURIComponent(customerCode)}/allocation/preview`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  previewPrepaymentAllocation: (customerCode: string, payload: PrepaymentPreviewInput) =>
+    request<PrepaymentAllocationPreview>(
+      `/v1/finance/customers/${encodeURIComponent(customerCode)}/prepayment/preview`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+  executePrepaymentAllocation: (customerCode: string, payload: PrepaymentExecuteInput) =>
+    request<{ saved: boolean }>(
+      `/v1/finance/customers/${encodeURIComponent(customerCode)}/prepayment/execute`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
 }

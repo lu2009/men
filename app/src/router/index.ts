@@ -5,6 +5,8 @@ import Formulas from '../views/Formulas.vue'
 import Home from '../views/Home.vue'
 import Hui from '../views/Hui.vue'
 import Login from '../views/Login.vue'
+import ReceiptShare from '../views/ReceiptShare.vue'
+import ReceiptView from '../views/ReceiptView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -14,6 +16,10 @@ const router = createRouter({
     { path: '/formulas', name: 'formulas', component: Formulas, meta: { requiresAuth: true } },
     { path: '/clients', name: 'clients', component: Clients, meta: { requiresAuth: true } },
     { path: '/hui', name: 'hui', component: Hui, meta: { requiresAuth: true } },
+    // 电子回执单：`/receipt-view/:receiptNo` 已登录预览（旧版 ReceiptView），
+    // `/receipt-share` 无认证分享页（旧版 ReceiptShare），令牌由后端签发、7 天有效。
+    { path: '/receipt-view/:receiptNo', name: 'receipt-view', component: ReceiptView, meta: { requiresAuth: true } },
+    { path: '/receipt-share', name: 'receipt-share', component: ReceiptShare },
   ],
 })
 

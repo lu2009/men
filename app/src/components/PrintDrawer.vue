@@ -1,0 +1,274 @@
+<!--
+  「打印选项」抽屉 —— 旧版 Home 工具栏「打印选中订单」点开后那一片单据按钮。
+
+  与旧版的关系（逆向见 `docs/2026-09-17-home-analysis.md` §4.2 与随本次实现补的逆向报告）：
+  · 旧版按钮组有 ~24 个入口、`ic` 1–16，其中好几个是**同一张模板换引擎/换行过滤**。
+    新版按**模板**列（后端 `print_templates` 共 17 张），一张模板一个按钮 —— 少一半入口，覆盖不减。
+  · 旧版打印走 socket.io 云打印（`v4.printjs.cn:17521`）时另有一路；新版只用本机 hiprint 打印。
+  · 旧版**不补拉未展开订单的明细**（没展开过就打空白），新版进抽屉时统一拉齐。
+  · 旧版「收据单2」（`ic=12`）是自绘组件、含字体调节，不在 17 张模板里 —— 新版未做，见文末说明。
+
+  N 张订单 = **一个打印任务里的 N 页**（与旧版一致），不是弹 N 次打印框。
+-->
+<template>
+  <n-drawer :show="show" :width="900" placement="right" @update:show="(v: boolean) => emit('update:show', v)">
+    <n-drawer-content title="打印选项" closable>
+      <div class="print-drawer">
+        <div class="doc-list">
+          <div v-for="g in DOC_GROUPS" :key="g.title" class="doc-group">
+            <div class="doc-group-title">{{ g.title }}</div>
+            <div class="doc-buttons">
+              <n-button
+                v-for="d in g.items"
+                :key="d.mode"
+                size="small"
+                :type="mode === d.mode ? 'primary' : 'default'"
+                :disabled="loading"
+                @click="selectMode(d.mode)"
+              >
+                {{ d.label }}
+              </n-button>
+            </div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <span class="hint">
+            已选 {{ orders.length }} 张订单
+            <template v-if="loading"> · 正在读取数据…</template>
+          </span>
+          <span class="grow" />
+          <n-button size="small" :disabled="!mode || loading" :loading="rendering" @click="doPreview">
+            预览
+          </n-button>
+          <n-button size="small" type="primary" :disabled="!mode || loading" @click="doPrint">
+            打印
+          </n-button>
+        </div>
+
+        <div v-if="emptyHint" class="empty-hint">{{ emptyHint }}</div>
+
+        <div v-if="previewLoading" class="preview-loading">
+          <n-spin size="small" />
+          <span>正在渲染预览…</span>
+        </div>
+        <!-- 预览 = hiprint 真渲染（与实打同一套渲染核心）：样式/分页/二维码/图片位置都与实打一致。 -->
+        <div v-show="!previewLoading && !!previewHtml" class="production-host" v-html="previewHtml" />
+      </div>
+    </n-drawer-content>
+  </n-drawer>
+</template>
+
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import { NButton, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
+
+import { api } from '../api/client'
+import type { OrderDto } from '../api/types'
+import { useAuthStore } from '../stores/auth'
+import { renderByMode, printByMode } from '../utils/printService'
+import {
+  buildBatchPayload,
+  loadPrintPrereqs,
+  type PrintPrereqs,
+} from '../composables/useOrderPrint'
+
+const props = defineProps<{
+  show: boolean
+  /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
+  orders: OrderDto[]
+}>()
+const emit = defineEmits<{ 'update:show': [boolean] }>()
+
+const message = useMessage()
+const auth = useAuthStore()
+
+/**
+ * 单据清单 = 后端 `print_templates` 的 17 张，按用途分组。
+ * 标签里写死 mode（而不去后端拉列表）是**有意**的：分组与中文名是产品语义，
+ * 后端只有 mode/name；拉列表再分组反而多一次请求、还得分派。
+ */
+const DOC_GROUPS = [
+  {
+    title: '生产类',
+    items: [
+      { mode: 'product', label: '生产单' },
+      { mode: 'product1', label: '生产单1' },
+      { mode: 'product2', label: '生产单定制' },
+      { mode: 'product3', label: '生产单3（双联）' },
+      { mode: 'product4', label: '切料标签' },
+      { mode: 'product5', label: '生产单5' },
+      { mode: 'product6', label: '生产单6' },
+      { mode: 'product7', label: '生产单7' },
+      { mode: 'product8', label: '生产单8' },
+      { mode: 'product9', label: '生产单9' },
+    ],
+  },
+  {
+    title: '玻璃类',
+    items: [
+      { mode: 'glass', label: '玻璃合片单' },
+      { mode: 'glassHole', label: '玻璃订单' },
+    ],
+  },
+  {
+    title: '标签类',
+    items: [
+      { mode: 'lable', label: '标签' },
+      { mode: 'product10', label: '生产标签' },
+    ],
+  },
+  {
+    title: '收据类',
+    items: [
+      { mode: 'receipt', label: '客户回执单' },
+      { mode: 'FinalReceipt', label: '收据单' },
+      { mode: 'ReceiptList', label: '出货清单' },
+    ],
+  },
+]
+
+const mode = ref<string>('product')
+const loading = ref(false)
+const rendering = ref(false)
+const previewLoading = ref(false)
+const previewHtml = ref('')
+const emptyHint = ref('')
+let prereqs: PrintPrereqs | null = null
+/** 兜底拉齐明细后的订单（`props.orders` 里未展开过的那些只有表头）。 */
+const fullOrders = ref<OrderDto[]>([])
+
+watch(
+  () => props.show,
+  async (open) => {
+    if (!open) return
+    previewHtml.value = ''
+    emptyHint.value = ''
+    if (!props.orders.length) {
+      emptyHint.value = '请先在订单列表里勾选要打印的订单'
+      return
+    }
+    loading.value = true
+    prereqs = null
+    try {
+      // 明细兜底：选中行可能没展开过（旧版就栽在这里，打出来是空白）。
+      fullOrders.value = await Promise.all(
+        props.orders.map(async (o) => (o.lines?.length ? o : await api.getOrder(o.id))),
+      )
+      prereqs = await loadPrintPrereqs(fullOrders.value)
+    } catch (e) {
+      message.error((e as Error).message || '读取打印数据失败')
+    } finally {
+      loading.value = false
+    }
+  },
+)
+
+/** 每张订单 → 各自的 payload（`templatePayload` 的分发逻辑与 Hui 完全同一份）。 */
+async function buildPayloads(forPreview: boolean) {
+  const mode0 = mode.value
+  const templates = await api.getPrintTemplatesByMode(mode0)
+  const tpl = templates[0]?.template
+  if (!tpl) throw new Error(`未配置打印模板：${mode0}`)
+  if (!prereqs) throw new Error('打印数据尚未就绪')
+  return buildBatchPayload(
+    fullOrders.value,
+    prereqs,
+    { tenantName: auth.tenant?.name || '', maker: auth.user?.name || '' },
+    tpl,
+    mode0,
+    forPreview,
+  )
+}
+
+async function doPreview() {
+  if (!mode.value) return
+  previewLoading.value = true
+  rendering.value = true
+  try {
+    const { payload } = await buildPayloads(true)
+    previewHtml.value = (await renderByMode(mode.value, payload)) || ''
+    if (!previewHtml.value) message.warning('该模板渲染为空')
+  } catch (e) {
+    previewHtml.value = ''
+    message.error((e as Error).message || '渲染失败')
+  } finally {
+    previewLoading.value = false
+    rendering.value = false
+  }
+}
+
+async function doPrint() {
+  if (!mode.value) return
+  try {
+    const { payload } = await buildPayloads(false)
+    await printByMode(mode.value, payload)
+  } catch (e) {
+    message.error((e as Error).message || '打印失败')
+  }
+}
+
+function selectMode(m: string) {
+  mode.value = m
+  previewHtml.value = ''
+  emptyHint.value = ''
+}
+</script>
+
+<style scoped>
+.print-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.doc-group-title {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 6px;
+}
+.doc-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid #f0f0f0;
+}
+.toolbar .hint {
+  font-size: 13px;
+  color: #666;
+}
+.toolbar .grow {
+  flex: 1;
+}
+.empty-hint {
+  color: #d03050;
+  font-size: 13px;
+}
+.preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 13px;
+  padding: 24px 0;
+}
+.production-host {
+  overflow: auto;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fafafa;
+  max-height: 60vh;
+}
+</style>
