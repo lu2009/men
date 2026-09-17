@@ -371,6 +371,46 @@ Home 真正调用的 **8 个**（`05` §B5）：
 
 ---
 
+## 12. 实现落地（2026-09-17）
+
+代码已写完并提交。**新增依赖只有 `html2canvas`**（`jspdf` 按用户决定去掉了）。
+
+| 文件 | 内容 |
+|---|---|
+| `app/src/utils/receipt2/` × 9 | types / defaults / sanitize / storage / css / html / paginate / print / order |
+| `app/src/components/Receipt2Drawer.vue` | 编排：预览 + 工具条（打印 / 字体调节 / 编辑收据单 / 复制 / 导出PDF） |
+| `app/src/components/Receipt2SettingsDialog.vue` | 6 字号 + 品牌 + 纸张 + 8 个常用尺寸 + 头部元素 + 信息栏排序 + 底部元素 |
+| `app/src/components/Receipt2ElementEditor.vue` | 点选元素的几何微调浮层 |
+| `app/src/composables/useReceipt2Preview.ts` | 缩字自适应 + 列宽拖拽 |
+| `app/src/views/Home.vue` | 工具条新增「收据单2（N）」 |
+
+### 已验证（可重跑，脚本在 `docs/receipt2-recon/`）
+
+| 脚本 | 对齐物 | 结果 |
+|---|---|---|
+| `check-css.mjs` | 旧版实跑产出的 CSS 夹具 | **两个朝向逐字节相等**（4888 / 4221 字符） |
+| `check-html.mjs` | 黄金样本 §2.1 | **逐字节相等**（2321 字符） |
+| `check-paginate.mjs` | 参考实现 `paginate.mjs` | 对拍 **200,011 组，0 组不一致** |
+| （清洗器） | 逆向报告 §9 的实测用例表 | ALL PASS |
+| `e2e-receipt2.mjs` | 真实订单（后端 :3000） | 数据管线通，10 列映射逐项对上 |
+
+`vue-tsc --noEmit` 零错、`npm run build` 通过。
+
+### ⚠️ 尚未验证 —— 需要人工在浏览器里看
+
+1. **真实排版与分页**：分页要量真实 DOM 行高，Node 里跑不了（本机没装 headless 浏览器）。
+   行高测量、翻页位置、`@page` 是否铺满 —— **全部只能靠人眼**。
+2. **打印/导出**：`printFromContainer` 的 iframe 时序、横向纸型的旋转。
+3. **交互**：元素微调浮层的即时预览与三个按钮、列宽拖拽、设置弹窗各控件、contentEditable 编辑模式。
+
+### 实现期发现并已修正的两处
+
+- `findPaperPresetKey` 一度有**两份实现**（规格与实现撞车），已收成一处。
+- 旧版 `measure()` 里 rAF 回调抛错会让 Promise **永不 settle**（`finally` 根本不执行、
+  量测节点永不摘除）。新版加了 reject 路径 —— 属有意的行为改进。
+
+---
+
 ## 附：关于行号引用的一个提醒
 
 本次工作中 `legacy/js/Home.formatted.js` **被重新生成过**（修好了生成器不认识正则字面量的问题，
