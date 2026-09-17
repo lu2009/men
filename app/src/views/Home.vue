@@ -25,6 +25,13 @@
         >
           自定义收据单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openGlassSheet2"
+        >
+          自定义玻璃合片单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
         <span class="grow-spacer" />
@@ -140,6 +147,9 @@
     <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
     <Receipt2Drawer v-model:show="receipt2Show" :orders="receipt2Orders" />
 
+    <!-- 自定义玻璃合片单（旧版 ic=16）：入口文案取自 `dr[529]` = ` 自定义玻璃合片单 ` -->
+    <GlassSheet2Drawer v-model:show="glassSheet2Show" :orders="glassSheet2Orders" />
+
     <!-- 经营看板（§1.2 DashboardBigScreen，数据全部来自前端订单列表） -->
     <DashboardBigScreen v-model:show="dashboardShow" :orders="dashboardOrders" />
   </div>
@@ -172,6 +182,7 @@ import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
 import Receipt2Drawer from '../components/Receipt2Drawer.vue'
+import GlassSheet2Drawer from '../components/GlassSheet2Drawer.vue'
 import type { OrderDto, OrderFinance, OrderHeadInput, OrderLineDto, OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
@@ -478,6 +489,8 @@ const printShow = ref(false)
 const printOrders = ref<OrderDto[]>([])
 const receipt2Show = ref(false)
 const receipt2Orders = ref<OrderDto[]>([])
+const glassSheet2Show = ref(false)
+const glassSheet2Orders = ref<OrderDto[]>([])
 
 async function openPrint() {
   const ids = checkedRowKeys.value.map((k) => Number(k))
@@ -514,6 +527,28 @@ async function openReceipt2() {
     return
   }
   receipt2Show.value = true
+}
+
+/**
+ * 自定义玻璃合片单（旧版 `ic=16` 的自绘单据）。
+ *
+ * 与收据单同构：共用同一套选中订单与明细兜底逻辑，只是走另一条渲染/打印链路。
+ * 注意它的行数据**与收据单不同源** —— 新版复用 `printPayloads.ts` 的 `glassProduces()`
+ * （引擎 A），由抽屉内部装配，这里只负责把订单给过去。
+ */
+async function openGlassSheet2() {
+  const ids = checkedRowKeys.value.map((k) => Number(k))
+  if (!ids.length) {
+    message.warning('请先勾选要打单的订单')
+    return
+  }
+  try {
+    glassSheet2Orders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
+  } catch (e) {
+    message.error((e as Error).message || '读取订单明细失败')
+    return
+  }
+  glassSheet2Show.value = true
 }
 
 // ---------------------------------------------------------------------------
