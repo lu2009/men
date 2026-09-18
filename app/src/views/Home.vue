@@ -2199,8 +2199,19 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
       // ⚠️ 补它的直接原因：筛选口径 `co`（见 `paidOf`）本来就是 `已分配金额 ?? 定金`，
       //   而本列原先**恒显示 `deposit`** ⇒ 两者不等时「下拉里能选的数字，格子里一个都找不到」。
       //   照旧版修了显示，两边自动一致。
+      //
+      // ⚠️⚠️ **判据是 `> 0` 而不是 `!= null`（这里踩过一次，别再改回去）**：
+      //   旧版 `:11470` 判的是**订单行上的 `已分配金额 != null`** —— 那个字段在没有分配时**是 null**。
+      //   而新版摘要里的 `allocated_amount` 是 **`number`（非可空）**，后端用
+      //   `COALESCE(SUM(amount), 0.0)` 再相加（`finance/service.rs:64-77`）⇒ **没有分配时是 0，不是 null**。
+      //   照抄 `!= null` 会让条件**恒真**（摘要覆盖近 60 天的每一张单）⇒ **编辑框变成死代码**：
+      //   凡用户实际会编辑的订单，已付列都恒为蓝色只读 `0.00`。**实测复现过**（第二轮审计）。
+      //
+      //   等价性：后端 `allocated = 已收 + 已分配`，没有分配/收款时为 0 ⟺ 旧版的 `null`。
+      //   唯一不等价的边角：**分配额恰好为 0** 的单 —— 旧版显示只读 `0.00`、新版可编辑。
+      //   那是退化情形（没有人为 0 元的分配记录），可接受。
       const s = financeSummary.value[row.id]
-      if (s && s.allocated_amount != null) {
+      if (s && s.allocated_amount > 0) {
         return h('span', { style: { fontWeight: 600, color: '#409eff' } }, fmt(s.allocated_amount))
       }
       if (editingId.value === row.id) {
