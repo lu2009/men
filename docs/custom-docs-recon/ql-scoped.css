@@ -1,0 +1,13 @@
+[data-v-1b2a6816] .qlabel-edit { outline:1px dashed #409eff;outline-offset:-1px }
+.layout-editor-wrap[data-v-1b2a6816] { display:flex;gap:12px }
+.layout-editor-left[data-v-1b2a6816] { width:280px;border-right:1px solid #eee;padding-right:10px }
+.layout-editor-right[data-v-1b2a6816] { flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px }
+.layout-fields-title[data-v-1b2a6816] { margin-top:8px;margin-bottom:6px;font-size:12px;color:#666 }
+.layout-fields-list[data-v-1b2a6816] { max-height:280px;overflow:auto;border:1px solid #eee;padding:6px;border-radius:4px }
+.layout-field-item[data-v-1b2a6816] { display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0;cursor:pointer }
+.layout-field-item.active[data-v-1b2a6816] { color:#409eff;font-weight:600 }
+.layout-field-editor[data-v-1b2a6816] { margin-top:10px;border-top:1px dashed #ddd;padding-top:8px }
+.layout-canvas-shell[data-v-1b2a6816] { background:#e5e7eb;padding:16px;display:inline-flex;justify-content:center;align-items:flex-start }
+.layout-canvas[data-v-1b2a6816] { position:relative;background:#fff;box-sizing:border-box;box-shadow:0 2px 10px #0003;overflow:hidden }
+.layout-node[data-v-1b2a6816] { position:absolute;border:1px dashed #409eff;background:rgba(64,158,255,.12);color:#1f2937;padding:2px 4px;cursor:move;user-select:none;line-height:1.2 }
+.layout-node-qr[data-v-1b2a6816] { display:flex;align-items:center;justify-content:center }
