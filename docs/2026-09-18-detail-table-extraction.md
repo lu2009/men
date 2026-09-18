@@ -568,3 +568,30 @@ hooks: {                        // 页面回调，共 ~9 个
   **这是拆分设计里最需要先想清楚的一条**，别到写代码时才发现。
 - ⚠️ 小分队 A 把「3D 入口平开/移门是两套不同函数，必须分派」列为硬点 —— 与 §3.1 的差异表一致，
   已记。
+
+### 补记 2026-09-19（二）：两条预览面收敛成一个
+
+用户指出「预览一个就行 这个重复了」。原先两套并存：
+
+| | Hui（自绘） | Home（`PrintPreviewDialog`） |
+|---|---|---|
+| 面 | `templatePreviewOpen` 弹窗（1040px） | 打印预览弹窗（1180px，带该单据操作栏） |
+| 模板 | **有下拉**，可切任意模板 | 固定 `mode` |
+| 渲染 | 自己 `renderTemplatePreview` + `v-html` | `loadPrintPrereqs` + `buildBatchPayload` + `renderByMode` |
+
+**收敛方向**：按用户拍板「直接用 home 那个」——保留 `PrintPreviewDialog`，
+给它补一个可选的模板下拉（`:templates`，**不传则行为完全不变**），
+删掉 Hui 自绘那套（弹窗模板 + `renderTemplatePreview` + `printCurrentTemplate` + `templatePreviewHtml`）。
+
+**两个要点**：
+
+- `PrintPreviewDialog` 新增内部 `currentMode`：默认跟着 `props.mode` 走（Home 一直如此），
+  给了 `templates` 才能被下拉切换；`props.mode` 一变就同步回来 —— 保证「父组件说了算」。
+- Hui 那条路传 **`auto-line-numbers: false`**：Hui 从不补行级单号（旧版也是，它有独立的
+  「填入单号」按钮）。同 §5c 那条副作用的处置。
+
+**踩到一次已知盲区**：`PrintPreviewDialog` 在模板里用了却**忘了 import**，而
+`vue-tsc --noEmit` **没报**（memory `vue-tsc-blind-spot`：抓不到缺失的 `.vue` 导入）。
+补上后 build 才真正可信。**这一步又一次说明：以 `npm run build` 为准，不以 `vue-tsc` 为准。**
+
+验收：`vue-tsc` + `build` 绿；五件回归全绿。Hui.vue 2176 → 2164。

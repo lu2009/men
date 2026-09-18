@@ -84,6 +84,15 @@
           已选 {{ orders.length }} 张订单
           <template v-if="loading"> · 正在读取数据…</template>
         </span>
+        <!-- 模板下拉（只在给了 `templates` 时出现）—— 收敛 Hui 的「模板预览」用 -->
+        <n-select
+          v-if="templates && templates.length"
+          v-model:value="currentMode"
+          size="small"
+          filterable
+          style="width: 240px"
+          :options="templates.map((t) => ({ label: t.name, value: t.mode }))"
+        />
         <span class="pp-grow" />
         <n-button size="small" @click="emit('update:show', false)">关闭</n-button>
         <n-button size="small" :disabled="!ready || loading" :loading="rendering" @click="doPrint">打印</n-button>
@@ -252,6 +261,14 @@ const props = defineProps<{
    * 而算料复用了本弹窗；不关掉的话点一下算料就把单号静默写进库了。
    */
   autoLineNumbers?: boolean
+  /**
+   * 可切换的模板清单（给了才在下拉里出现）。
+   *
+   * ⚠️ 这是为**收敛 Hui 的「模板预览」**加的（2026-09-19）：Hui 那个老弹窗有模板下拉，
+   * 本弹窗只有固定 `mode`，功能不重合。给了 `templates` 就能顶替它。
+   * **不传就完全没变化**（Home 那边一个字都不用改）。
+   */
+  templates?: { mode: string; name: string }[]
 }>()
 
 const emit = defineEmits<{ 'update:show': [boolean] }>()
@@ -337,7 +354,21 @@ const EDIT_SPECS: Record<string, EditSpec> = {
 }
 
 /** 当前 mode 的编辑口径；`null` = 这个 mode 没有编辑按钮。 */
-const editSpec = computed<EditSpec | null>(() => EDIT_SPECS[props.mode] ?? null)
+/**
+ * 当前显示的模板 mode。
+ *
+ * 默认**跟着 `props.mode` 走**（Home 那边一直如此）；给了 `templates` 时，
+ * 下拉可以把它切成别的模板。`props.mode` 一变就同步回来 —— 保证「父组件说了算」。
+ */
+const currentMode = ref(props.mode)
+watch(
+  () => props.mode,
+  (m) => {
+    if (m) currentMode.value = m
+  },
+)
+
+const editSpec = computed<EditSpec | null>(() => EDIT_SPECS[currentMode.value] ?? null)
 
 /** 弹窗标题 = 按钮文案去掉那对**旧版字符串表自带的**前后空格（旧版三个弹窗都没有 title，§10.5）。 */
 const editTitle = computed(() => editSpec.value?.label.trim() || '编辑')
@@ -356,7 +387,7 @@ const copying = ref(false)
 const amountHidden = ref(false)
 
 /** 这颗只在 `FinalReceipt`（= ic=5，见 §0）出现。 */
-const canToggleAmount = computed(() => props.mode === 'FinalReceipt')
+const canToggleAmount = computed(() => currentMode.value === 'FinalReceipt')
 
 /**
  * 旧版 `Qn()`（@354822，逐字）：
@@ -394,7 +425,7 @@ function applyAmountTransform(payload: PrintPayload): PrintPayload {
  */
 async function toggleAmount(): Promise<void> {
   amountHidden.value = !amountHidden.value
-  await render(props.mode, ++renderToken)
+  await render(currentMode.value, ++renderToken)
   message.success(amountHidden.value ? '已去除金额字段' : '已恢复金额字段')
 }
 
@@ -459,7 +490,7 @@ const COPY_SPECS: Record<string, CopySpec> = {
   },
 }
 
-const copySpec = computed<CopySpec | null>(() => COPY_SPECS[props.mode] ?? null)
+const copySpec = computed<CopySpec | null>(() => COPY_SPECS[currentMode.value] ?? null)
 /**
  * 预览渲染时产出的行（`buildBatchPayload` 的 `rows`）—— 编辑弹窗读的就是这份
  * （对应旧版 Home 的内存 ref：ic=1/2 的 `uc`、ic=4 的 `bc`、ic=8/9 的 `uc`）。
@@ -487,7 +518,7 @@ const headerOverride = shallowRef<Row | null>(null)
 let renderToken = 0
 
 watch(
-  () => [props.show, props.mode] as const,
+  () => [props.show, currentMode.value] as const,
   async ([open, mode]) => {
     if (!open) return
     previewHtml.value = ''
@@ -616,10 +647,10 @@ async function doCopy(): Promise<void> {
 }
 
 async function doPrint() {
-  if (!props.mode) return
+  if (!currentMode.value) return
   try {
-    const { payload } = await buildPayloads(false, props.mode, rowOverride.value, headerOverride.value)
-    await printByMode(props.mode, payload)
+    const { payload } = await buildPayloads(false, currentMode.value, rowOverride.value, headerOverride.value)
+    await printByMode(currentMode.value, payload)
   } catch (e) {
     message.error((e as Error).message || '打印失败')
   }
@@ -662,7 +693,7 @@ async function onEditSaved(next: Row[] | Row): Promise<void> {
     rowOverride.value = next as Row[]
   }
   const token = ++renderToken
-  await render(props.mode, token)
+  await render(currentMode.value, token)
 }
 </script>
 

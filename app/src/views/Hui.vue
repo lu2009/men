@@ -372,17 +372,21 @@
       </n-drawer-content>
     </n-drawer>
 
-    <!-- 通用模板预览 -->
-    <n-modal v-model:show="templatePreviewOpen" preset="card" title="模板预览" style="width: 1040px" :loading="templatePreviewLoading">
-      <n-select v-model:value="templatePreviewMode" :options="templateList.map(t=>({label:t.name,value:t.mode}))" filterable style="width: 260px;margin-bottom:8px" @update:value="(v:string)=>renderTemplatePreview(v)" />
-      <div class="production-host" v-html="templatePreviewHtml"></div>
-      <template #footer>
-        <div class="footer">
-          <n-button @click="templatePreviewOpen = false">关闭</n-button>
-          <n-button type="primary" :disabled="!templatePreviewMode" @click="printCurrentTemplate">打印</n-button>
-        </div>
-      </template>
-    </n-modal>
+    <!--
+      模板预览 / 算料预览 —— **与 Home 共用同一个弹窗**（2026-09-19 收敛）。
+
+      原先这里是 Hui 自绘的一套（模板下拉 + v-html + 自己渲染），Home 那边用的是
+      `PrintPreviewDialog`；两套并存是重复。按用户要求「直接用 home 那个」，
+      给 `PrintPreviewDialog` 补上模板下拉（`:templates`）后把这套删了。
+    -->
+    <PrintPreviewDialog
+      v-model:show="templatePreviewOpen"
+      :orders="templatePreviewOrders"
+      :mode="templatePreviewMode || ''"
+      :title="templatePreviewTitle"
+      :templates="templateList"
+      :auto-line-numbers="false"
+    />
   </div>
 </template>
 
@@ -414,7 +418,7 @@ import type {
   OrderLineInput,
   OrderSummaryDto,
 } from '../api/types'
-import { printByMode, renderByMode } from '../utils/printService'
+import { printByMode } from '../utils/printService'
 import type { MarkupItem } from '../utils/markupLines'
 import { round2, type Line, type PartPreview } from '../utils/partsEngine'
 import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
@@ -438,6 +442,7 @@ import {
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import DetailLinesTable from '../components/DetailLinesTable.vue'
 import DetailLineDialogs from '../components/DetailLineDialogs.vue'
+import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
 import { useDetailLineDialogs, sanitizeCustomSquare } from '../composables/useDetailLineDialogs'
 import {
   confirmCustomNames,
@@ -1644,31 +1649,42 @@ async function ensureFormulaImages() {
 
 
 
-async function printCurrentTemplate() {
-  const mode = templatePreviewMode.value
-  if (!mode) return
-  try {
-    const tpl = (await api.getPrintTemplatesByMode(mode))[0]?.template
-    if (!tpl) {
-      message.warning('未找到该模板')
-      return
-    }
-    const { key, data, extra, wrap } = printApi.value.templatePayload(tpl, mode)
-    const payload = key ? { ...extra, [key]: data } : data
-    await printByMode(mode, (wrap ? [payload] : payload) as Record<string, unknown>[])
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '打印失败')
-  }
-}
-
-// ===== 通用模板预览（按字段族渲染）=====
+// ===== 预览（模板预览 / 算料共用）=====
+// 2026-09-19 收敛：原先这里是一套**自绘**的「模板预览」弹窗（模板下拉 + v-html + 自己渲染），
+// 与 Home 的 `PrintPreviewDialog` 功能重复。用户拍板「直接用 home 那个」⇒ 给那个弹窗补上
+// 模板下拉（`:templates`），这边整套删掉，只留打开它的入口。
 const templatePreviewOpen = ref(false)
 const templatePreviewLoading = ref(false)
-const templatePreviewHtml = ref('')
 const templateList = ref<{ mode: string; name: string }[]>([])
 const templatePreviewMode = ref<string | null>(null)
+const templatePreviewTitle = ref('模板预览')
 
+/**
+ * 给 `PrintPreviewDialog` 的订单 = **Hui 当前编辑中的这一单**（可能还没落库）。
+ *
+ * ⚠️ 显式给 `lines`：弹窗里那句 `o.lines?.length ? o : await api.getOrder(o.id)` 就是靠它
+ *    免掉回拉的（未落库的单根本没有 id 可拉）。
+ */
+const templatePreviewOrders = computed<OrderDto[]>(() =>
+  lines.value.length
+    ? [{ ...(order as unknown as OrderDto), id: orderId.value ?? 0, lines: lines.value as unknown as OrderDto['lines'] }]
+    : [],
+)
+
+/**
+ * 打开预览（`:1004` 的「模板预览」入口，以及「算料」都走它）。
+ *
+ * 与旧版自绘那套的差别：预览/打印的**渲染与按钮**都交给 `PrintPreviewDialog` 了，
+ * 这里只负责拉模板清单、定初始 mode、给标题。
+ *
+ * ⚠️ `auto-line-numbers: false`（在模板上）—— Hui 这条链路**从不补行级单号**
+ *    （旧版也是；Hui 有独立的「填入单号」按钮）。
+ */
 async function openTemplatePreview(initialMode?: string) {
+  if (!lines.value.length) {
+    message.warning('暂无订单行')
+    return
+  }
   templatePreviewOpen.value = true
   templatePreviewLoading.value = true
   try {
@@ -1676,37 +1692,9 @@ async function openTemplatePreview(initialMode?: string) {
     templateList.value = all.map((t) => ({ mode: t.mode, name: t.name }))
     const want = initialMode ?? templatePreviewMode.value ?? all[0]?.mode
     templatePreviewMode.value = want || all[0]?.mode || null
-    await renderTemplatePreview(templatePreviewMode.value!)
+    templatePreviewTitle.value = templateList.value.find((t) => t.mode === templatePreviewMode.value)?.name || '模板预览'
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载模板失败')
-  } finally {
-    templatePreviewLoading.value = false
-  }
-}
-
-async function renderTemplatePreview(mode: string) {
-  templatePreviewLoading.value = true
-  try {
-    // 玻璃订单的 `doorImg` 是**公式挖孔图**，先兜底加载（原先只有「算料」会加载）
-    await ensureFormulaImages()
-    const templates = await api.getPrintTemplatesByMode(mode)
-    const tpl = templates[0]?.template
-    if (!tpl) {
-      templatePreviewHtml.value = ''
-      message.warning('未找到该模板')
-      return
-    }
-    // 预览 = **hiprint 真渲染**（与打印同一套渲染核心）：样式/间距/分页/二维码/图片位置都与实打一致。
-    // 17 张模板已逐一实测可渲染（见 docs/2026-09-10-template-field-audit.md §37），故不再保留自绘表格回退。
-    // `forPreview = true`：product10 预览按原版走**分组限量**版（打印走未分组版，原版本身不一致）。
-    const { key, data, extra, wrap } = printApi.value.templatePayload(tpl, mode, true)
-    const payload = key ? { ...extra, [key]: data } : data
-    const html = await renderByMode(mode, (wrap ? [payload] : payload) as Record<string, unknown>[])
-    templatePreviewHtml.value = html || ''
-    if (!html) message.warning('该模板渲染为空')
-  } catch (e) {
-    templatePreviewHtml.value = ''
-    message.error(e instanceof Error ? e.message : '渲染失败')
   } finally {
     templatePreviewLoading.value = false
   }
