@@ -788,9 +788,16 @@ function isDueSoon(due: string): boolean {
   return diff >= 0 && diff <= 4
 }
 
+/**
+ * 「未审核」判据（旧版 `bs`）。`rowProps` 与「审核确认」按钮两处共用 —— 抽出来免得两处漂开。
+ */
+function isUnaudited(r: OrderSummaryDto): boolean {
+  return !r.production_status?.trim() && !r.order_no_set?.trim()
+}
+
 function rowProps(r: OrderSummaryDto) {
   const cls: string[] = []
-  if (!r.production_status?.trim() && !r.order_no_set?.trim()) cls.push('date-audit')
+  if (isUnaudited(r)) cls.push('date-audit')
   if (isDueSoon(r.due_date)) cls.push('date-warning')
   return { class: cls.join(' ') }
 }
@@ -872,6 +879,34 @@ function openDate(row: OrderSummaryDto) {
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * 「审核确认」（旧版 `Ba`/`Ma`/`rn`，`:476268-476400`，审计 `02-actions.md` G2）。
+ *
+ * 旧版两步：① 把**下单日期改成今天**（`Ma` = 今天 → `rn()`，那条路会重算截止日期）；
+ * ② `Hl("确认下单", [回执单号])` = `updataProgress`，把「确认下单」追加进进度串。
+ *
+ * ⚠️ 新版**不需要**手动重算截止日期 —— `due_date` 由 SQL 推导
+ * （`orders/service.rs` 的 `HEADER_COLUMNS`：`order_date + production_days + 1`），改日期自动跟随。
+ *
+ * 进度串的追加沿用 `submitManualProgress` 那条既有通路（`headWithStatus` + `updateOrderHead`），
+ * 不另开后端接口 —— 与「手动更新进度」写的是同一个字段。
+ * 文案照旧版：成功 `dr(1279)`=「更新成功」。
+ */
+async function confirmAudit(row: OrderSummaryDto) {
+  try {
+    await api.updateOrderHead(row.id, {
+      ...headWithStatus(row, '确认下单'),
+      // 旧版 `Ma` 是「今天」的 **date-picker 时间戳**；`order_date` 落库要 ISO 串，
+      // 这里用既有的 `toIsoDate` 转（与 `submitDate` 同一口径）。
+      order_date: toIsoDate(legacyToday()),
+    })
+    message.success('更新成功')
+    await load()
+  } catch (e) {
+    message.error((e as Error).message || '更新失败')
+  }
+}
 
 async function submitDate() {
   if (!dateTarget.value || dateValue.value == null) return
@@ -2074,8 +2109,28 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     filterOptions: dateFilterOptions.value,
     filter: (v, row) => textColumnFilter('order_date', v, row),
     filterOptionValues: columnFilterValues('order_date'),
-    render: (row) =>
-      h('div', { class: 'clickable-cell', onClick: () => openDate(row) }, row.order_date),
+    render: (row) => {
+      const cells: ReturnType<typeof h>[] = [
+        h('div', { class: 'clickable-cell', onClick: () => openDate(row) }, row.order_date),
+      ]
+      // 旧版 `:11423-11438`（G1）：**未审核**时在日期下方追加一颗 `el-button primary small`
+      // 「审核确认」，`margin-top:4px`。
+      if (isUnaudited(row)) {
+        cells.push(
+          h(
+            NButton,
+            {
+              size: 'tiny',
+              type: 'primary',
+              style: { marginTop: '4px' },
+              onClick: () => confirmAudit(row),
+            },
+            { default: () => '审核确认' },
+          ),
+        )
+      }
+      return h('div', cells)
+    },
   },
   {
     title: '安装地址',
