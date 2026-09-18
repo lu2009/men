@@ -408,6 +408,10 @@
 
     <!-- 经营看板（§1.2 DashboardBigScreen，数据全部来自前端订单列表） -->
     <DashboardBigScreen v-model:show="dashboardShow" :orders="dashboardOrders" />
+
+    <!-- 展开行明细表的四个弹窗（新增加价项目 / 修改平方数 / 门图预览 / 门图名字）。
+         与 Hui 页挂的是**同一个组件**（状态在 `useDetailLineDialogs`）。 -->
+    <DetailLineDialogs :d="homeDialogs" />
   </div>
 </template>
 
@@ -449,10 +453,15 @@ import {
   type DataTableRowKey,
 } from 'naive-ui'
 import { api } from '../api/client'
+import { LS, useOrderLines } from '../composables/useOrderLines'
+import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
+import type { Line } from '../utils/partsEngine'
 import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
+import DetailLinesTable from '../components/DetailLinesTable.vue'
+import DetailLineDialogs from '../components/DetailLineDialogs.vue'
 import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
 import ReceiptOtherDialog from '../components/ReceiptOtherDialog.vue'
 import Receipt2Dialog from '../components/Receipt2Dialog.vue'
@@ -467,6 +476,8 @@ import type {
   OrderFinance,
   OrderHeadInput,
   OrderLineDto,
+  FormulaDto,
+  OrderLineInput,
   OrderSummaryDto,
 } from '../api/types'
 
@@ -556,6 +567,9 @@ onMounted(async () => {
     return
   }
   load()
+  // 展开行的明细表要 formulas（算料/候选）。旧版 Home 把整个 Hui 页面组件内嵌进来用它的；
+  // 新版不那样做，自己拉一份。
+  void api.listFormulas().then((f) => (homeFormulas.value = f)).catch(() => {})
 })
 
 async function onLogout() {
@@ -1861,6 +1875,95 @@ function clearAccounts() {
 const expandedRowKeys = ref<DataTableRowKey[]>([])
 const details = reactive<Record<number, OrderDto>>({})
 const loadingDetail = reactive<Record<number, boolean>>({})
+
+// ── 展开行 = 与 Hui 同一张明细表（2026-09-19，方案第 5c 步）────────────────────
+// 旧版 Home 挂的就是 Hui 那两个 SFC 本体（`Home.formatted.js:9` import 自 Hui chunk）。
+// 新版挂 `components/DetailLinesTable.vue`，它按 `kind` 分派平开/移门。
+//
+// ⚠️ **引擎是「每张单一份」**：引擎依赖里 `lines` 是一个 ref，而 Home 同时可能展开多张单。
+//    组件为此提供了 `engineDeps` 自建模式（见该组件 `props.engine` 的注释）。
+const homeFormulas = ref<FormulaDto[]>([])
+/** 「自动加价设置」在 Hui 页设置、存 localStorage；Home 只读它，好让两边口径一致。 */
+const homeDisableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === 'true')
+
+/**
+ * 每张单一个行数组 ref，**指向同一个数组本体**（`details[id].lines`），
+ * 这样表格里改一行、下面别处读到的就是同一份数据。
+ */
+const lineRefs = new Map<number, Ref<Line[]>>()
+function lineRefOf(id: number): Ref<Line[]> {
+  let r = lineRefs.get(id)
+  if (!r) {
+    r = ref<Line[]>([])
+    lineRefs.set(id, r)
+  }
+  return r
+}
+
+/** 明细行的归一：`OrderLineDto.parts/markup` 落库是 JSON，非数组一律当空（同 `useOrderPrint.toLines`）。 */
+function normalizeLines(lines: OrderLineDto[]): Line[] {
+  for (const l of lines) {
+    const raw = l as unknown as Line
+    if (!Array.isArray(raw.parts)) raw.parts = []
+    if (!Array.isArray(raw.markup)) raw.markup = []
+  }
+  return lines as unknown as Line[]
+}
+
+/**
+ * 页面级回调 —— 与 Hui 的 `detailHooks` 同形。
+ *
+ * ⚠️ `calcSingleRow` 目前**只算料、不自动开预览**：旧版 Home 会顺手开「生产单」预览
+ *    （`Home.formatted.js:8221-8263`，靠内嵌整个 Hui 页面组件）。新版不走那条路，
+ *    预览要接 Home 自己的打印链路 —— **这一小条尚未接**，见方案 §3.5 / §5c。
+ */
+const homeDialogs = useDetailLineDialogs({
+  // 行内重算只看行本身 + formulas，用哪一份引擎实例都一样；挑一个稳定的。
+  lineRefresh: (l: Line) => homeCalcEngine.lineRefresh(l),
+})
+const homeDetailHooks = {
+  openSquareDialog: (l: Line) => homeDialogs.openSquareDialog(l),
+  openAddMarkup: (l: Line) => homeDialogs.openAddMarkup(l),
+  pickDoorImg: (l: Line) => homeDialogs.pickDoorImg(l),
+  removeDoorImg: (l: Line) => homeDialogs.removeDoorImg(l),
+  openTextImg: (l: Line) => homeDialogs.openTextImg(l),
+  previewImage: (url: string) => homeDialogs.previewImage(url),
+  calcSingleRow: (l: Line) => void homeCalcEngine.calcRowParts(l).then((ok) => {
+    if (ok) message.success(`算料完成：${l.parts.length} 个部件`)
+  }),
+  // 勾选计数是**每张单各一份**（Home 的展开行各是独立的表）—— 用 tick 触发重算。
+  onSelectChange: () => {
+    homeSelectTick.value++
+  },
+  lineInputOf: (l: Line) => homeLineInputOf(l),
+}
+/** 勾选计数用的 tick（Home 每张单自己算，不像 Hui 那样两表共用）。 */
+const homeSelectTick = ref(0)
+/** 展开行里每张单的平开/移门显隐（旧版 `uo(row, kind)`，初值都是 true）。 */
+const tableShown = reactive<Record<number, { ping: boolean; diao: boolean }>>({})
+function shownOf(id: number) {
+  if (!tableShown[id]) tableShown[id] = { ping: true, diao: true }
+  return tableShown[id]
+}
+/** 展开行的行级保存要发完整行 —— 与 Hui 的 `lineInputOf` 同一件事。 */
+function homeLineInputOf(l: Line): OrderLineInput {
+  // ⚠️ 必须发**完整行**：后端 `service::update_line` 是 45 列 SET 全字段替换（见 client.ts 的注释）。
+  const { isSelected: _drop, ...rest } = l
+  void _drop
+  return rest as unknown as OrderLineInput
+}
+
+/**
+ * 供「弹窗 / 单行算料」用的**一个**引擎实例（Home 的表格各自在组件内自建引擎，
+ * 那些实例在 setup 里拿不到，而 `useDetailLineDialogs` 与 `calcSingleRow` 都需要一个）。
+ */
+const homeCalcEngine = useOrderLines({
+  lines: ref<Line[]>([]),
+  formulas: homeFormulas,
+  order: reactive({ client_code: '' }),
+  orderId: ref<number | null>(null),
+  disableAutoMarkup: homeDisableAutoMarkup,
+})
 /**
  * 明细**已加载成功**的订单 id（旧版 `_o`，`:7792`）—— 用于行类 `loaded-row`。
  *
@@ -1881,6 +1984,9 @@ async function loadDetail(id: number) {
   loadingDetail[id] = true
   try {
     details[id] = await api.getOrder(id)
+    // 展开行的表格读的是这个 ref —— **指向同一个数组本体**（`details[id].lines`），
+    // 这样表里改一行、打印链路读到的就是同一份数据。见 `lineRefOf` 的注释。
+    lineRefOf(id).value = normalizeLines(details[id].lines ?? [])
     // 旧版 `:7792` `_o.value.add(回执单号)` —— 只在 detail 成功那支里做。
     loadedIds.value = new Set(loadedIds.value).add(id)
   } catch (e) {
@@ -1979,29 +2085,7 @@ function rowClass(r: OrderSummaryDto): string {
   return classes.join(' ')
 }
 
-function pingOf(id: number): OrderLineDto[] {
-  return (details[id]?.lines ?? []).filter((l) => l.line_type === 'ping')
-}
-function diaoOf(id: number): OrderLineDto[] {
-  return (details[id]?.lines ?? []).filter((l) => l.line_type === 'diao')
-}
-const qtyOf = (lines: OrderLineDto[]) => lines.reduce((s, l) => s + (l.quantity || 0), 0)
 
-const detailColumns: DataTableColumns<OrderLineDto> = [
-  { title: '型材', key: 'profile', width: 90 },
-  { title: '颜色', key: 'color', width: 70 },
-  { title: '开向', key: 'direction', width: 70 },
-  { title: '扇数', key: 'fans', width: 60 },
-  { title: '五金', key: 'hardware', width: 90 },
-  { title: '面玻', key: 'face_glass', width: 70 },
-  { title: '底玻', key: 'bottom_glass', width: 70 },
-  { title: '门洞宽', key: 'door_width', width: 70 },
-  { title: '门洞高', key: 'door_height', width: 70 },
-  { title: '数量', key: 'quantity', width: 55 },
-  { title: '单价', key: 'unit_price', width: 70 },
-  { title: '金额', key: 'amount', width: 80 },
-  { title: '备注', key: 'remark' },
-]
 
 /*
  * 展开行明细（§4.1）：平开/移门只读子表，逐行 fetch detail。
@@ -2037,29 +2121,97 @@ function renderExpandDetail(row: OrderSummaryDto) {
   }
   const detail = details[id]
   if (!detail) return h('span')
-  const ping = pingOf(id)
-  const diao = diaoOf(id)
+
+  const rows = lineRefOf(id).value
+  const ping = rows.filter((l) => l.line_type === 'ping')
+  const diao = rows.filter((l) => l.line_type === 'diao')
+  const shown = shownOf(id)
+  // 勾选数每张单自己算（`homeSelectTick` 只是触发重算）
+  void homeSelectTick.value
+  const selectedCount = rows.filter((l) => l.isSelected).length
+
+  /** 一张表。`engineDeps` 让组件为**这张单**自建一份引擎（引擎的 `lines` 只能有一个 ref）。 */
+  const table = (kind: 'ping' | 'diao', data: Line[]) =>
+    h(DetailLinesTable, {
+      kind,
+      rows: data,
+      // 列显隐：Home 不提供逐列开关，全显（空对象 ⇒ `colVis` 恒 true）
+      colVis: {},
+      client: { name: detail.client_name || '', code: detail.client_code || '' },
+      engineDeps: {
+        lines: lineRefOf(id),
+        formulas: homeFormulas,
+        order: { client_code: detail.client_code || '' },
+        orderId: ref(id),
+        disableAutoMarkup: homeDisableAutoMarkup,
+      },
+      savedOrderId: id,
+      selectedCount,
+      filling: false,
+      hooks: homeDetailHooks,
+      'onAdd-row': () => addRowToExpand(id, kind),
+      'onBatch-delete': () => batchDeleteInExpand(id),
+      'onToggle-show': () => (shown[kind] = !shown[kind]),
+      'onFill-line-numbers': () => void fillLineNumbersFor(id),
+    })
+
   const children: (ReturnType<typeof h> | null)[] = []
-  if (ping.length) {
-    children.push(
-      h('div', { class: 'detail-block' }, [
-        h('div', { class: 'detail-title' }, `平开门 · ${ping.length} 行 / ${qtyOf(ping)} 樘`),
-        h(NDataTable, { columns: detailColumns, data: ping, bordered: false, size: 'small' }),
-      ]),
-    )
-  }
-  if (diao.length) {
-    children.push(
-      h('div', { class: 'detail-block' }, [
-        h('div', { class: 'detail-title' }, `移门 · ${diao.length} 行 / ${qtyOf(diao)} 樘`),
-        h(NDataTable, { columns: detailColumns, data: diao, bordered: false, size: 'small' }),
-      ]),
-    )
-  }
-  if (!detail.lines?.length) {
-    children.push(h(NEmpty, { description: '暂无明细', size: 'small' }))
-  }
+  if (shown.ping && ping.length) children.push(table('ping', ping))
+  if (shown.diao && diao.length) children.push(table('diao', diao))
+  if (!rows.length) children.push(h(NEmpty, { description: '暂无明细', size: 'small' }))
   return h('div', { class: 'expand-detail' }, children)
+}
+
+/**
+ * 展开行「添加行」（旧版子表底部那颗）。Home 里没有引擎实例可直接用，
+ * 用 `newLine` 造一行推进该单的行数组 —— 口径与 Hui 一致（默认值都走引擎）。
+ */
+function addRowToExpand(id: number, kind: 'ping' | 'diao') {
+  const rows = lineRefOf(id).value
+  rows.push(homeCalcEngine.newLine(kind))
+}
+
+/** 展开行「批量删除(选中)」——只删本地行，落库要逐行走行级保存（旧版也是即时 `deleteRow`，见方案 §3.3）。 */
+function batchDeleteInExpand(id: number) {
+  const r = lineRefOf(id)
+  const sel = r.value.filter((l) => l.isSelected)
+  if (!sel.length) {
+    message.warning('请先勾选要删除的行')
+    return
+  }
+  dialog.warning({
+    title: '批量删除',
+    content: `确定删除选中的 ${sel.length} 行吗？`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      for (const l of sel) {
+        if (l.id != null) {
+          try {
+            await api.deleteOrderLine(id, l.id)
+          } catch {
+            // 单行失败继续（与 Hui 的 batchDeleteRows 同）
+          }
+        }
+        r.value = r.value.filter((x) => x !== l)
+      }
+      message.success('已删除选中行')
+    },
+  })
+}
+
+/** 展开行「填入单号」（只有平开表有这颗按钮，见组件内 `kind === 'ping'`）。 */
+async function fillLineNumbersFor(id: number) {
+  try {
+    const map = await api.fillLineNumbers(id)
+    for (const l of lineRefOf(id).value) {
+      const v = map?.[String(l.id)]
+      if (v) l.line_no = v
+    }
+    message.success('已填入单号')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '填入单号失败')
+  }
 }
 
 // ---------------------------------------------------------------------------

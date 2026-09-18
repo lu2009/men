@@ -86,56 +86,48 @@
     <div class="tables-grid">
       <!-- 旧版没有表格标题栏：门型名是**操作列的表头**（`label:"平开门"/"移门"`）。
            这一条只留我们自己的「批量删除 / 隐藏」入口，不再是标题。 -->
-      <section v-if="showPing" class="table-wrap">
-        <div class="table-head">
-          <n-button v-if="selectedLines.length" size="tiny" text type="error" @click="batchDeleteRows">批量删除({{ selectedLines.length }})</n-button>
-          <!-- 「 填入单号 」：旧版 Hui `:8491-8524` 那颗（文案 `_0x250a(1010)` = " 填入单号 "）。
-               旧版走 `param1=getDiaoFormulas` 顺带返回 `data.orderNumbers{行id→单号}`；
-               新版拆成独立端点 `POST /orders/{id}/fill-line-numbers`（有意偏离，理由见后端
-               `service::fill_line_numbers`：那个老接口还兼着写副作用，混在一起既难测也危险）。 -->
-          <n-button size="tiny" text type="primary" :loading="fillingLineNo" @click="fillLineNumbers">
-            填入单号
-          </n-button>
-          <span class="grow-spacer" />
-          <n-button size="tiny" text type="error" @click="toggleShow('ping')">隐藏</n-button>
-        </div>
-        <n-data-table
-          :columns="pingColumns"
-          :data="pingRows"
-          :bordered="true"
-          :row-key="rowKey"
-          :row-class-name="rowClassName"
-          size="small"
-          :max-height="560"
-          :scroll-x="2000"
-        />
-        <!-- 「 添加行 」在**表格下方**居中，蓝色实心带 + 图标（原版 :2635-2639：
-             `div.table-footer > el-button.custom-button-btn(icon=plus) 文案 " 添加行 "`） -->
-        <div class="table-footer">
-          <n-button class="custom-button-btn" size="small" @click="addRowOf('ping')">＋ 添加行 </n-button>
-        </div>
-      </section>
+      <!-- 明细表外壳已抽成 `components/DetailLinesTable.vue`（2026-09-19，步骤 3a）。
+           搬走的是**模板 + 那 ~220 行表格 CSS**；列定义/单元格仍在下面（步骤 3b 再搬）。
+           `scroll-x` 两表不同：平开 2000 / 移门 2200 —— 别统一。 -->
+      <DetailLinesTable
+        v-if="showPing"
+        kind="ping"
+        :rows="pingRows"
+        :col-vis="pingColVis"
+        :client="{ name: order.client_name, code: order.client_code }"
+        :engine="engine"
+        :saved-order-id="orderId"
+        :selected-count="selectedLines.length"
+        :filling="fillingLineNo"
+        :hooks="detailHooks"
+        @add-row="addRowOf('ping')"
+        @batch-delete="batchDeleteRows"
+        @toggle-show="toggleShow('ping')"
+        @fill-line-numbers="fillLineNumbers"
+      />
 
-      <section v-if="showDiao" class="table-wrap">
-        <div class="table-head">
-          <n-button v-if="selectedLines.length" size="tiny" text type="error" @click="batchDeleteRows">批量删除({{ selectedLines.length }})</n-button>
-          <span class="grow-spacer" />
-          <n-button size="tiny" text type="error" @click="toggleShow('diao')">隐藏</n-button>
-        </div>
-        <n-data-table
-          :columns="diaoColumns"
-          :data="diaoRows"
-          :bordered="true"
-          :row-key="rowKey"
-          :row-class-name="rowClassName"
-          size="small"
-          :max-height="560"
-          :scroll-x="2200"
-        />
-        <div class="table-footer">
-          <n-button class="custom-button-btn" size="small" @click="addRowOf('diao')">＋ 添加行 </n-button>
-        </div>
-      </section>
+      <DetailLinesTable
+        v-if="showDiao"
+        kind="diao"
+        :rows="diaoRows"
+        :col-vis="diaoColVis"
+        :client="{ name: order.client_name, code: order.client_code }"
+        :engine="engine"
+        :saved-order-id="orderId"
+        :selected-count="selectedLines.length"
+        :filling="fillingLineNo"
+        :hooks="detailHooks"
+        @add-row="addRowOf('diao')"
+        @batch-delete="batchDeleteRows"
+        @toggle-show="toggleShow('diao')"
+      />
+      <!-- 「 填入单号 」：旧版 Hui `:8491-8524` 那颗（文案 `_0x250a(1010)` = " 填入单号 "）。
+           旧版走 `param1=getDiaoFormulas` 顺带返回 `data.orderNumbers{行id→单号}`；
+           新版拆成独立端点 `POST /orders/{id}/fill-line-numbers`（有意偏离，理由见后端
+           `service::fill_line_numbers`：那个老接口还兼着写副作用，混在一起既难测也危险）。
+           ⚠️ **只有平开表有这颗按钮**，所以挂在 ping 那个实例上（组件内也是按 `kind` 判）。 -->
+      <!-- 「 添加行 」在**表格下方**居中，蓝色实心带 + 图标（原版 :2635-2639：
+           `div.table-footer > el-button.custom-button-btn(icon=plus) 文案 " 添加行 "`） -->
     </div>
 
     <!-- 底部合计条 -->
@@ -162,39 +154,10 @@
       </n-drawer-content>
     </n-drawer>
 
-    <!-- 新增加价项目（汇算页行内入口；旧版 title/宽 500、label 加价项目/单价/计价方式，:2640-2688） -->
-    <n-modal v-model:show="addMarkupOpen" preset="card" title="新增加价项目" style="width: 500px">
-      <div class="vis-col">
-        <div class="mgmt-row">
-          <span class="mgmt-name">加价项目</span>
-          <!-- 旧版这一格不给宽度（撑满），只有单价/计价方式是 30%（:2660/:2668/:2676） -->
-          <n-input v-model:value="addMarkupForm.name" placeholder="请输入加价项目名称" style="flex: 1" />
-        </div>
-        <div class="mgmt-row">
-          <span class="mgmt-name">单价</span>
-          <!-- 原版单价 min 随单位变：元/套 允许负数（`-Infinity`），其余必须 ≥0（:2652） -->
-          <n-input-number
-            v-model:value="addMarkupForm.price"
-            :show-button="false"
-            :min="addMarkupForm.unit === '元/套' ? undefined : 0"
-            placeholder="单价"
-            style="width: 30%"
-          />
-        </div>
-        <div class="mgmt-row">
-          <span class="mgmt-name">计价方式</span>
-          <n-select v-model:value="addMarkupForm.unit" :options="markupUnitOptions" style="width: 30%" />
-        </div>
-      </div>
-      <template #footer>
-        <div class="footer">
-          <n-button @click="addMarkupOpen = false">取消</n-button>
-          <!-- 按钮 type 照旧版：单次添加 = primary，同步保存 = success（:2647/:2651） -->
-          <n-button type="primary" @click="addMarkupOnce">单次添加</n-button>
-          <n-button type="success" @click="addMarkupSync">同步保存</n-button>
-        </div>
-      </template>
-    </n-modal>
+    <!-- 新增加价项目 / 修改平方数 / 门图预览 / 门图名字 四个弹窗已抽到
+         `components/DetailLineDialogs.vue`（状态在 `composables/useDetailLineDialogs.ts`）。
+         Hui 与 Home 各挂一份 —— 明细表组件的 hooks 里这几个回调两边都要有。 -->
+    <DetailLineDialogs :d="dialogs" />
 
     <!-- 加价项目管理：一个入口 → 两个按钮（复刻旧版 Hui.formatted.js:13107-13117，width 400 居中） -->
     <n-modal v-model:show="markupMgmtOpen" preset="card" title="加价项目管理" style="width: 400px" :bordered="false">
@@ -395,32 +358,6 @@
     </n-modal>
 
 
-    <!-- 修改平方数（平方单元格右键，仿旧版） -->
-    <n-modal v-model:show="squareDialog" preset="dialog" title="修改平方数" positive-text="确定" negative-text="取消"
-      @positive-click="confirmSquare" @negative-click="squareDialog = false">
-      <!-- 原版这个弹窗里**只有一个数字输入框**（`:2733-2747`，placeholder「请输入平方数」，回车=确认），
-           没有我们原先加的那两行提示。 -->
-      <div class="square-dialog">
-        <n-input-number
-          v-model:value="squareInput"
-          :show-button="false"
-          placeholder="请输入平方数"
-          style="width: 100%"
-        />
-      </div>
-    </n-modal>
-
-    <!-- 门图大图预览 -->
-    <n-modal v-model:show="previewOpen" preset="card" style="width: 480px" :on-after-leave="() => (previewImg = null)">
-      <img v-if="previewImg" :src="previewImg" style="width: 100%; object-fit: contain" />
-    </n-modal>
-
-    <!-- 文字传图：输入门图名字生成 PNG -->
-    <n-modal v-model:show="textImgOpen" preset="dialog" title="门图名字" positive-text="确认" negative-text="取消"
-      @positive-click="confirmTextImg" @negative-click="textImgOpen = false">
-      <n-input v-model:value="textImgName" maxlength="24" placeholder="最多 24 个字" @keydown.enter="confirmTextImg" />
-    </n-modal>
-
     <!-- 订单列表 -->
     <n-drawer v-model:show="listOpen" :width="760" placement="right">
       <n-drawer-content title="订单列表" closable>
@@ -466,7 +403,7 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumn, DataTableColumns } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import { api } from '../api/client'
 import type {
   ClientDto,
@@ -477,58 +414,43 @@ import type {
   OrderLineInput,
   OrderSummaryDto,
 } from '../api/types'
-import type { PartsMap } from '../utils/formulaEngine'
 import { printByMode, renderByMode } from '../utils/printService'
-import { markupDetail, markupLines, type MarkupItem } from '../utils/markupLines'
-import {
-  createPartsEngine,
-  partsCache,
-  round2,
-  type EngineId,
-  type Line,
-  type PartPreview,
-} from '../utils/partsEngine'
-import {
-  casingAmountOf,
-  createPrintPayloads,
-  diaoDirImage,
-  TENANT_DS,
-  type PrintContext,
-} from '../utils/printPayloads'
+import type { MarkupItem } from '../utils/markupLines'
+import { round2, type Line, type PartPreview } from '../utils/partsEngine'
+import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
 import {
   fileToDataUrl,
-  genImageId,
   idbGetImage,
   idbPutImage,
   idbRemoveImage,
-  textToImageDataUrl,
 } from '../utils/imageStore'
-import { PING_DIRECTION_IMAGES } from '../data/directionImages'
 import {
   loadMarkupCatalog,
   markupCatalog,
-  markupCatalogOptions,
   markupUnitOptions,
   removeCatalogItem,
-  sessionAddCatalogItem,
   syncAddCatalogItem,
   updateCatalogItem,
 } from '../composables/useMarkupCatalog'
+// 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
+// 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
+// `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
+import { LS, useOrderLines } from '../composables/useOrderLines'
+import DetailLinesTable from '../components/DetailLinesTable.vue'
+import DetailLineDialogs from '../components/DetailLineDialogs.vue'
+import { useDetailLineDialogs, sanitizeCustomSquare } from '../composables/useDetailLineDialogs'
 import {
   confirmCustomNames,
   confirmOpenDirMode,
   customNamesDraft,
   customNamesOpen,
   DIRECTION_STORAGE_KEYS,
-  displayDirection,
-  getOriginalOpenDirection,
   loadOpenDirectionSettings,
   modeRadio,
   openCustomNames,
   openDirSettingsOpen,
   openOpenDirSettings,
   PING_DIRECTIONS,
-  pingDirectionOptions,
   resetCustomNames,
   reverseOpenDirNames,
 } from '../composables/useOpenDirection'
@@ -540,194 +462,23 @@ import {
 const message = useMessage()
 const dialog = useDialog()
 
-const FANS = [
-  '2轨2扇', '2轨3扇', '2轨4扇', '3轨3扇', '单轨单扇', '单轨2扇',
-  '3轨4扇2纱', '3轨2扇1纱', '3轨6扇', '4轨4扇', '5轨5扇', '6轨6扇', '7轨7扇',
-  '一固一活', '双活',
-  '折叠2扇', '折叠3扇', '折叠4扇', '折叠5扇', '折叠6扇',
-  '折叠7扇', '折叠8扇', '折叠9扇', '折叠10扇',
-]
+// 静态选项枚举（FANS / DIRECTION_SUFFIXES / GLASS_OPTIONS / GLASS_THICKNESS_OPTIONS /
+// CASING_OPTIONS / FOLD_DIRECTION_SUFFIXES）已搬到 `utils/detailOptions.ts` —— 明细表组件也要用。
 
-// 移门/折叠门开向 = 扇数 × 方向后缀；后缀为独立枚举。
-const DIRECTION_SUFFIXES = [
-  '左前', '右前', '左外', '右外', '左外开', '右外开', '左右外开',
-  '左内开', '右内开', '左右内开', '中内开', '中外开', '中开',
-  '左前内纱', '右前内纱', '无方向',
-]
-
-// 玻璃枚举（面玻/底玻），「无」=单玻。旧版面玻为 白玻/无/磨砂/普通长虹。
-const GLASS_OPTIONS = ['白玻', '无', '磨砂', '普通长虹']
-// 玻璃厚（旧版顺序 4,8,5,6,10,12,0）
-const GLASS_THICKNESS_OPTIONS = ['4', '8', '5', '6', '10', '12', '0']
-
-// 「套线种类」枚举（原版 `ref(["双包","外包","内包","平框"])`，Hui.formatted.js:758）。
-// 原版平开行的「包边:」标签绑的就是这个字段（同文件 2132：`modelValue: e["套线种类"]`），
-// 它一身三职：单据展示、算料时匹配 `part.track`、套线长度模式（`-N` 后缀 / 一高一宽…）。
-// 新版模板另含「单包」套线部件（1宽2高），故补入「单包」。
-const CASING_OPTIONS = ['双包', '单包', '外包', '内包', '平框']
-
-
-// 折叠门开向后缀（旧版 M+P 内折/外折，随折叠N扇选）
-const FOLD_DIRECTION_SUFFIXES = [
-  '2+0内折', '2+0外折', '0+2内折', '0+2外折',
-  '3+0内折', '3+0外折', '0+3内折', '0+3外折', '1+2内折', '1+2外折', '2+1内折', '2+1外折',
-  '4+0内折', '4+0外折', '0+4内折', '0+4外折', '1+3内折', '1+3外折', '3+1内折', '3+1外折', '2+2内折', '2+2外折',
-  '5+0内折', '5+0外折', '0+5内折', '0+5外折', '4+1内折', '4+1外折', '1+4内折', '1+4外折', '2+3内折', '2+3外折', '3+2内折', '3+2外折',
-  '6+0内折', '6+0外折', '0+6内折', '0+6外折', '5+1内折', '5+1外折', '1+5内折', '1+5外折', '4+2内折', '4+2外折', '2+4内折', '2+4外折',
-  '7+0内折', '7+0外折', '0+7内折', '0+7外折', '5+2内折', '5+2外折', '2+5内折', '2+5外折', '4+3内折', '4+3外折', '3+4内折', '3+4外折',
-  '8+0内折', '8+0外折', '0+8内折', '0+8外折', '4+4内折', '4+4外折',
-  '9+0内折', '9+0外折', '0+9内折', '0+9外折',
-  '10+0内折', '10+0外折', '0+10内折', '0+10外折', '5+5内折', '5+5外折',
-]
 
 // ===== 加价项目目录已抽到 ../composables/useMarkupCatalog（仿旧版 useAddPriceItems）=====
 
-// 新增加价项目弹窗（仿旧版：加价项目名/单价/计价方式 + 取消/单次添加/同步保存）
-const addMarkupOpen = ref(false)
-const addMarkupTarget = ref<Line | null>(null)
-const addMarkupForm = reactive({ name: '', price: 0, unit: '元/套' })
-
-function openAddMarkup(l: Line) {
-  addMarkupTarget.value = l
-  addMarkupForm.name = ''
-  addMarkupForm.price = 0
-  addMarkupForm.unit = '元/套'
-  addMarkupOpen.value = true
-}
-
-/**
- * 提交「新增加价项目」弹窗（旧版 `ea`，Hui.formatted.js:1657-1690）。
- *
- * 关键：**先去重目录，通过了才挂到当前行**。目录里已有的项走多选下拉选，不走这里 ——
- * 所以重复时原版是 `加价项目已存在！` 且**弹窗不关**、行上也不加。
- * `同步保存`(sync=true) 额外 POST `addAddPrice` 并提示成败；`单次添加`(false) 只进内存、不提示。
- */
-async function submitAddMarkup(sync: boolean) {
-  const name = addMarkupForm.name.trim()
-  if (!name) {
-    message.warning('请输入加价项目名称')
-    return
-  }
-  const price = Number(addMarkupForm.price)
-  if (addMarkupForm.price == null || Number.isNaN(price)) {
-    message.warning('请输入有效单价')
-    return
-  }
-  const unit = addMarkupForm.unit || '元/套'
-  // 原版校验：`unit !== '元/套' && Number(t) < 0` → 报错（元/套 允许负数）
-  if (unit !== '元/套' && price < 0) {
-    message.warning('除元/套外，单价必须大于等于0')
-    return
-  }
-  const l = addMarkupTarget.value
-  if (!l) return
-
-  const item = { name, price, unit }
-  if (markupCatalog.value.some((c) => c.name === name && c.price === price && c.unit === unit)) {
-    message.warning('加价项目已存在！') // 不关窗、不加到行上（原版如此）
-    return
-  }
-  const ok = sync ? await syncAddCatalogItem(item) : sessionAddCatalogItem(item)
-  if (sync && !ok) message.error('加价项目添加失败')
-  else if (sync) message.success('加价项目添加成功')
-
-  l.markup = l.markup ?? []
-  l.markup.push({ ...item, amount: 0 })
-  lineRefresh(l)
-  addMarkupOpen.value = false
-}
-
-// 单次添加：只进内存目录（本次会话可选，不持久化）
-function addMarkupOnce() {
-  void submitAddMarkup(false)
-}
-
-// 同步保存：写后端持久化目录（永久，其它行/之后可选）
-async function addMarkupSync() {
-  await submitAddMarkup(true)
-}
-
-// 开向模式/自定义命名已抽到 ../composables/useOpenDirection（仿原版 _0x5a7707）
-const directionSuffixOptions = computed(() =>
-  [...DIRECTION_SUFFIXES, ...FOLD_DIRECTION_SUFFIXES].map((d) => ({ label: displayDirection(d), value: d })),
-)
-const fansOptions = FANS.map((f) => ({ label: f, value: f }))
-const glassOptions = GLASS_OPTIONS.map((g) => ({ label: g, value: g }))
-const glassThicknessOptions = GLASS_THICKNESS_OPTIONS.map((g) => ({ label: g, value: g }))
-const casingKindOptions = CASING_OPTIONS.map((e) => ({ label: e, value: e }))
-const priceTypeOptions = [
-  { label: '套', value: '套' },
-  { label: '方', value: '方' },
-]
+// 静态选项枚举（FANS / GLASS_OPTIONS / CASING_OPTIONS …）与派生数组都已搬到
+// `utils/detailOptions.ts`（明细表组件也要用），这里不再保留一份。
 
 
-// localStorage 存取（隐私模式 / 配额异常时静默降级）
-const LS = {
-  get(key: string): string | null {
-    try {
-      return localStorage.getItem(key)
-    } catch {
-      return null
-    }
-  },
-  set(key: string, val: string) {
-    try {
-      localStorage.setItem(key, val)
-    } catch {
-      // 忽略
-    }
-  },
-}
+// `LS`（localStorage 存取）与「默认值」四件套已搬到 `composables/useOrderLines.ts`。
+// `LS` 从那儿的**模块级导出** import 进来；其余四个从引擎实例解构（见上面 setup 开头）。
 
-// —— 旧版「默认值」机制 ——
-// 键名照抄原版（平开 @36957 / 移门 @147180 两个 ref 初始化）：
-//   底玻   `BottomGlass`     两表**共用同一个键**，但**首次运行回落值不同**：平开「磨砂」、移门「白玻」
-//   玻璃厚 `GlassThickness`  两表共用，回落 4
-//   开向   `OpenDirection`   **只有移门表**读，回落「左前」（平开表开向硬编码 `""`）
-// 且**平开表**在用户改这三项时会「顺带设为默认」并弹提示（`le`/`ne`/`te`，定义 @36957、调用 @75380/@75890/@77100/@93688），
-// 守卫一致：**非空 且 与当前默认不同** 才写并提示。
-const LS_BOTTOM_GLASS = 'BottomGlass'
-const LS_GLASS_THICKNESS = 'GlassThickness'
-const LS_OPEN_DIRECTION = 'OpenDirection'
-/** 默认底玻：平开「磨砂」/ 移门「白玻」（等价于原版 `F.value` / `O.value`）。 */
-const defaultBottomGlass = (type: 'ping' | 'diao') => LS.get(LS_BOTTOM_GLASS) || (type === 'diao' ? '白玻' : '磨砂')
-/** 默认玻璃厚（等价于原版 `ee.value` / `P.value`）。 */
-const defaultGlassThickness = () => Number(LS.get(LS_GLASS_THICKNESS)) || 4
-/** 改底玻 → 设为默认（原版 `le`）。 */
-function rememberDefaultBottomGlass(v: string) {
-  const next = (v || '').trim()
-  if (!next || next === defaultBottomGlass('ping')) return
-  LS.set(LS_BOTTOM_GLASS, next)
-  message.success(`已将"${next}"设为默认底玻`)
-}
-/** 改玻璃厚 → 设为默认（原版 `ne`）。 */
-function rememberDefaultGlassThickness(v: string) {
-  const n = Number(v)
-  if (!v || Number.isNaN(n) || n === defaultGlassThickness()) return
-  LS.set(LS_GLASS_THICKNESS, String(n))
-  message.success(`已将"${n}mm"设为默认玻璃厚度`)
-}
+// 「默认值」机制（`BottomGlass`/`GlassThickness`/`OpenDirection` 三键 + 四个函数）
+// 与 `sanitizeNum`/`sanitizeFloat` 已搬到 `composables/useOrderLines.ts`，此处从引擎实例解构。
 
-// 记忆默认：新建行读取，提交行写回「上一次使用值」。
-// 数字清洗：n-input-number 清空时给 null/NaN，统一归零（数量≥1），防后端 400。
-// 非负整数先 round 再 clamp；其余尺寸四舍五入到 0 位（毫米/元）。
-function sanitizeNum(v: number | null | undefined, min = 0): number {
-  const n = Number.isFinite(v) ? (v as number) : 0
-  const r = Math.round(n)
-  return Math.max(min, r)
-}
-function sanitizeFloat(v: number | null | undefined, min = 0): number {
-  const n = Number.isFinite(v) ? (v as number) : 0
-  const r = round2(n)
-  return Math.max(min, r)
-}
-
-// 自定义方数：空/NaN → -1（自动），其余保留小数，不因 clamp 丢失 -1 哨兵。
-function sanitizeCustomSquare(v: number | null | undefined): number {
-  if (v == null || !Number.isFinite(v as number)) return -1
-  if (v === -1) return -1
-  return Math.max(-1, round2(v as number))
-}
+// `sanitizeCustomSquare` 已随弹窗逻辑搬到 `composables/useDetailLineDialogs.ts`（本页 `lineInputOf` 也用）。
 
 // 行 → 请求体（数字清洗 + 去掉仅前端用的 id）。
 /**
@@ -879,6 +630,32 @@ const saving = ref(false)
 const fillingLineNo = ref(false)
 // 当前已保存订单 id（null = 尚未保存的新订单）。保存时据此决定 create 还是 update。
 const orderId = ref<number | null>(null)
+
+// 公式（算料用）。
+// ⚠️ 声明位置**从下面提上来了**（原在「型材候选」一节之前）—— 引擎要在 setup 早期实例化，
+//    而它依赖这个 ref。移动只改声明位置，不改任何语义。
+const formulas = ref<FormulaDto[]>([])
+/** 页面「自动加价设置」开关（原先在加价一节里声明，理由同上：引擎依赖它）。 */
+const disableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === 'true')
+
+// ── 行编辑引擎实例 ──────────────────────────────────────────────────────────
+// 引擎本体在 `composables/useOrderLines.ts`（2026-09-19 整段搬出）。
+// 这里**解构成与原来同名的局部变量**，所以下面几百行调用点一个字都不用改。
+//
+// ⚠️ 实例化必须在**任何顶层语句用到这些名字之前**。放在函数体里用的不受影响
+//    （`lineRefresh` 首次出现在 `submitAddMarkup` 里、`sanitizeNum` 在 `lineInputOf` 里，
+//     都是调用时才求值，那时 setup 早跑完了）。
+// ⚠️ 引擎**整体**留着（`engine`）—— 明细表组件要的就是这一整份（它必须与本页同一个实例，
+//    否则 `partsEngine` 会有两份，`isDiamond`/候选/算料会分歧）。
+const engine = useOrderLines({ lines, formulas, order, orderId, disableAutoMarkup })
+// 页面自己还要用的几个，解构成同名局部（搬迁保真：调用点不用改）。
+const {
+  sanitizeNum,
+  sanitizeFloat,
+  newLine,
+  lineRefresh,
+  markupError,
+} = engine
 // 两表显隐（仿旧版：平开/移门默认都显示、上下各占整宽）
 const showPing = ref(true)
 const showDiao = ref(true)
@@ -1143,7 +920,7 @@ async function confirmMarkupDelete() {
 //   必须一致，否则从旧版迁过来的浏览器里那份设置会被读反。
 //   旧版点「保存」才落盘，故这里也用草稿态。
 const autoMarkupOpen = ref(false)
-const disableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === 'true')
+// `disableAutoMarkup` 的声明已上提到 setup 开头（引擎依赖它）。
 const autoMarkupDraft = ref(disableAutoMarkup.value)
 function onAutoMarkupDraft(v: boolean) {
   autoMarkupDraft.value = v
@@ -1320,346 +1097,9 @@ function onClientChange(code: string | null) {
   applyClient(code)
 }
 
-// 公式（算料用）
-const formulas = ref<FormulaDto[]>([])
+// `formulas` 的声明已上提到 setup 开头（引擎依赖它）。以下型材候选三件套
+// （`PING_FAMILY_TYPES` / `belongsToTable` / `profileOptionsFor`）已搬到 `useOrderLines.ts`。
 
-// 型材候选（常见型材预设 + 公式名 + 已录入型材历史；旧版来自 material 接口）
-// 平开族的 formula_type 取值。**不能只认 'ping'**：原版没有 formula_type 这层过滤 ——
-// 行.formulaid 是「型材名 → formulaID」直接查服务端 material 字典得到的
-// （Hui.formatted.js:1459-1475 `const _=O.value[x]; _?a.formulaid=String(_):…`），
-// 下拉候选就是该字典的 key 集合（同文件 1898 `Object.keys(O.value)`）。
-// 所以钻石型(diamond)/子母(parentsubsidiary)/双开(double) 这些平开族公式同样在平开表里。
-// 若按 `ft === type` 字面判等，它们会被两张表同时排除 —— 这正是「钻石型公式选不到」的根因。
-const PING_FAMILY_TYPES = ['ping', 'double', 'parentsubsidiary', 'diamond']
-
-/** 公式是否属于某张表：移门只收 diao，平开收平开族；无型别的两边都放（避免隐藏已有数据）。 */
-function belongsToTable(formulaType: string | undefined, type: 'ping' | 'diao'): boolean {
-  const ft = (formulaType || '').trim()
-  if (ft === '') return true
-  return type === 'diao' ? ft === 'diao' : PING_FAMILY_TYPES.includes(ft)
-}
-
-// 型材候选按门型分类（仿旧版 initializPing→pingMaterial / initializDiao→diaoMaterial）：
-// 平开表只看平开族，移门表只看移门类，避免串型。来源 = 对应门型的历史型材 + 对应族的公式名。
-function profileOptionsFor(type: 'ping' | 'diao'): { label: string; value: string }[] {
-  const seen = new Set<string>()
-  const out: { label: string; value: string }[] = []
-  const push = (p: string) => {
-    const v = (p || '').trim()
-    if (v && !seen.has(v)) {
-      seen.add(v)
-      out.push({ label: v, value: v })
-    }
-  }
-  // 候选**只有公式名一个来源** —— 原版型材格子的 `fetch-suggestions` 逐字是
-  //   `const x = Object.keys(O.value); t((e ? x.filter(t=>t.includes(e)) : x).map(e=>({value:e})))`
-  // 其中 `O.value` = **服务端「基础信息」接口返回的 material 字典**（型材名 → formulaID）。
-  // 原版**没有**本地候选历史、**也不能右键删除**（那 15 处 `onContextmenu` 只在 颜色/面玻/底玻/
-  // 套线种类/轨道种类/金额 上，**不含型材**），写侧 `je`(算列宽)/`Ye`(解析 formulaID) 也都不写候选库。
-  // 所以我们原先额外挂的 `readFieldHistory('profile_*')` 与「当前页面的行」两个来源是**自己加的**，
-  // 会造成「公式都删了、型材下拉里还有旧记录」—— 已移除。
-  // （`formulas` 表名即我们对 `O.value` 的等价物；按表归属过滤仍保留。）
-  for (const f of formulas.value) {
-    if (belongsToTable(f.formula_type, type)) push(f.name)
-  }
-  return out
-}
-
-const pingProfileOptions = computed(() => profileOptionsFor('ping'))
-const diaoProfileOptions = computed(() => profileOptionsFor('diao'))
-
-// 通用候选历史持久化（仿旧版 saveOptions(选项库)）：录入/载入的候选写入 localStorage，刷新仍保留。
-// 每个字段一个 key，如 color/casing/track/hardware/profile。
-function readFieldHistory(key: string): string[] {
-  try {
-    const raw = LS.get(`smartdoor_field_history_${key}`)
-    if (!raw) return []
-    const arr = JSON.parse(raw)
-    return Array.isArray(arr) ? arr.filter((x) => typeof x === 'string' && x.trim()) : []
-  } catch {
-    return []
-  }
-}
-function writeFieldHistory(key: string, list: string[]) {
-  try {
-    LS.set(`smartdoor_field_history_${key}`, JSON.stringify(list))
-  } catch {
-    // 忽略
-  }
-}
-function rememberField(key: string, value: string) {
-  const v = (value || '').trim()
-  if (!v) return
-  const list = readFieldHistory(key)
-  if (!list.includes(v)) {
-    list.unshift(v)
-    writeFieldHistory(key, list.slice(0, 50))
-  }
-}
-
-// 颜色候选（本地持久化历史 + 当前已录入颜色；与旧版 autocomplete 一致，无内置色卡）
-const colorOptions = computed<{ label: string; value: string }[]>(() => {
-  const seen = new Set<string>()
-  const out: { label: string; value: string }[] = []
-  const push = (c: string) => {
-    const v = (c || '').trim()
-    if (v && !seen.has(v)) {
-      seen.add(v)
-      out.push({ label: v, value: v })
-    }
-  }
-  for (const c of readFieldHistory('color')) push(c)
-  for (const l of lines.value) push(l.color)
-  return out
-})
-
-// 候选源构建通用函数：预设 + 已录入历史
-
-// 从当前行公式 parts 提取轨道/套线候选（原版部件 track 语义，按型材联动）。
-//   track：部件 track 非空且非单包/双包（如"标配"）；套线：track==单包/双包 → 单包/双包（无"套线"后缀）。
-function partsTrackOptions(l: Line, kind: 'track' | 'casing'): { label: string; value: string }[] {
-  const f = formulaOf(l)
-  const parts = (f?.parts ?? {}) as Record<string, { track?: string; materialName?: string }>
-  const history = readFieldHistory(kind)
-  const seen = new Set<string>()
-  const out: { label: string; value: string }[] = []
-  const push = (v: string) => {
-    const s = (v || '').trim()
-    if (s && !seen.has(s)) {
-      seen.add(s)
-      out.push({ label: s, value: s })
-    }
-  }
-  for (const h of history) push(h)
-  for (const p of Object.values(parts)) {
-    if (!p || typeof p !== 'object') continue
-    const t = (p.track || '').trim()
-    if (!t) continue
-    if (kind === 'track') {
-      if (t !== '单包' && t !== '双包') push(t)
-    } else {
-      // 套线候选 = 原版单包/双包(无"套线"后缀)，来自部件 track
-      if (t === '单包' || t === '双包') push(t)
-    }
-  }
-  return out
-}
-
-// 锁具候选（原版 getOptions("lock") + 取价接口 lock 数组）
-const lockOptions = ref<string[]>([])
-function rememberLocks(vals: unknown) {
-  if (!Array.isArray(vals)) return
-  for (const v of vals) {
-    const s = String(v ?? '').trim()
-    if (!s) continue
-    if (!lockOptions.value.includes(s)) lockOptions.value.push(s)
-    rememberField('lock', s)
-  }
-}
-
-// 五金候选（原版）：公式 hinge 的键（合页名）+ 历史录入（getOptions("hardware")）+ 锁具（getOptions("lock") + 取价 lock 数组）。
-// 无内置预设、不读 extra.hardware。
-function hardwareOptionsFor(l: Line): { label: string; value: string }[] {
-  const seen = new Set<string>()
-  const out: { label: string; value: string }[] = []
-  const push = (v: unknown) => {
-    const s = String(v ?? '').trim()
-    if (s && !seen.has(s)) {
-      seen.add(s)
-      out.push({ label: s, value: s })
-    }
-  }
-  // ① 本行公式 hinge 的键（合页名）优先
-  const hinge = (formulaOf(l)?.extra as { hinge?: Record<string, unknown> } | undefined)?.hinge
-  if (hinge && typeof hinge === 'object') for (const k of Object.keys(hinge)) push(k)
-  // ② 原版（@89220）：五金格候选主体来自服务端 `initializPing.hingeNames` —— 一个**全局合页名列表**，
-  //    与本行公式无关（渲染时 `hingeNames.filter(e => !已选.includes(e))`）。
-  //    本系统无该字段，用「**所有公式 `extra.hinge` 键的并集**」等价近似（同一语义：租户的合页名清单）。
-  for (const f of formulas.value) {
-    const h = (f.extra as { hinge?: Record<string, unknown> } | undefined)?.hinge
-    if (h && typeof h === 'object') for (const k of Object.keys(h)) push(k)
-  }
-  for (const h of readFieldHistory('hardware')) push(h)
-  for (const k of readFieldHistory('lock')) push(k)
-  for (const k of lockOptions.value) push(k)
-  return out
-}
-
-function newLine(type: 'ping' | 'diao'): Line {
-  // 计价默认：平开门读 PriceType（默认套），吊趟门旧版硬编码「方」。
-  const defPriceType = type === 'diao' ? '方' : LS.get('PriceType') || '套'
-  // 底玻/面玻/玻璃厚/开向 的初值**逐字照抄原版新建行工厂**（平开 @39301 / 移门 @149781）：
-  //   `{"底玻": F.value, "面玻": "白玻", "玻璃厚": ce(), "开向": ""}`  ← 平开
-  //   `{"底玻": O.value, "面玻": "白玻", "玻璃厚": …,   "开向": L.value}` ← 移门
-  // 注意 **面玻是硬编码「白玻」**（不读 localStorage），且**底玻一定有值** ——
-  // 原版从不产生「底玻为空」的行，故 `"无" === 底玻` 的严格判定不会误伤。
-  const defBottomGlass = defaultBottomGlass(type)
-  const defFaceGlass = '白玻'
-  // 原版 `ce()`：底玻为「无」且默认厚度 < 8 时取 8，否则取默认厚度。
-  const t = defaultGlassThickness()
-  const defGlassThickness = String(defBottomGlass === '无' && t < 8 ? 8 : t)
-  return {
-    id: null,
-    line_type: type,
-    profile: '',
-    color: '',
-    // 移门开向回落「左前」（localStorage `OpenDirection`）；平开恒空串。
-    direction: type === 'diao' ? LS.get(LS_OPEN_DIRECTION) || '左前' : '',
-    fans: '', track: '', casing: '', hardware: '',
-    bottom_glass: defBottomGlass, face_glass: defFaceGlass, glass_thickness: defGlassThickness,
-    door_width: 0, door_height: 0, light_window_height: 0, wall_thickness: 0, jiao: 0,
-    mother_door_width: 0,
-    quantity: 1, unit_price: 0, price_type: defPriceType, discount: 1,
-    square: 0, custom_square: -1, other_fee: 0, casing_price: 0, casing_amount: 0, amount: 0,
-    parts: [],
-    markup: [],
-    formula_id: null, remark: '', install_address: '',
-    open_img: '', edge_seal_count: type === 'diao' ? 2 : null, seal_board_height: 0, track_length: 0,
-    front_casing_add: null, back_casing_add: null, double_ding: null,
-    light_window_count: 0, image_id: null, image_url: null, progress: '', hole_size: '',
-    line_no: '',
-  }
-}
-
-// —— 算料引擎 ——
-// 原先在本组件内，2026-09-17 搬到 `utils/partsEngine.ts`，与 Home 的批量打印共用同一份实现
-// （同一张订单在页面上看到的料，必须和打出来的一致）。这里只留薄封装，调用点一行都不用改。
-const partsEngine = computed(() => createPartsEngine(formulas.value))
-/** 该行对应的公式（按 `formula_id`）。 */
-const formulaOf = (l: Line) => partsEngine.value.formulaOf(l)
-/** 该行公式是否钻石型（淋浴房 diamondling）。 */
-const isDiamond = (l: Line) => partsEngine.value.isDiamond(l)
-/** 按**指定引擎**算料。原版每个打印入口各跑一套引擎（A/B/D/P1/C），规则不同、结果可能不同。 */
-const computeParts = (l: Line, engine: EngineId = 'B') => partsEngine.value.computeParts(l, engine)
-
-// 行编辑（已改行内就地编辑 + 每表底部添加行，无弹窗抽屉）
-
-
-
-
-/** 母门宽显隐：仅子母门/钻石型类公式（或型材含「子母」）才需要/显示（仿原版）。 */
-function needsMotherWidth(l: Line): boolean {
-  if (isDiamond(l)) return true
-  const ft = formulaOf(l)?.formula_type ?? ''
-  if (ft === 'mother' || ft === 'childmother' || ft === '子母') return true
-  return (l.profile || '').includes('子母')
-}
-
-/** 单樘面积（未乘数量）。钻石型：(宽+墙厚+亮窗高)×高/1e6；普通：宽×max(高,亮窗高)/1e6。 */
-function singleArea(l: Line): number {
-  const w = l.door_width || 0
-  const h = l.door_height || 0
-  if (isDiamond(l)) {
-    return ((w + (l.wall_thickness || 0) + (l.light_window_height || 0)) * h) / 1_000_000
-  }
-  return (w * Math.max(h, l.light_window_height || 0)) / 1_000_000
-}
-
-/** 扇数 N（最小平方倍数：取「扇」前一位数字；活=2；单扇=1）。 */
-function fanCount(l: Line): number {
-  const fan = l.fans || ''
-  if (fan.includes('活')) return 2
-  const m = fan.match(/(\d+)\s*扇/)
-  if (m) return Number(m[1])
-  if (fan.includes('单扇')) return 1
-  return 0
-}
-
-/** 最小平方数：来自公式 square 配置（数字 或 {扇数:"min-max"}）。0 表示无最小。 */
-function minSquareOf(l: Line): number {
-  const f = formulaOf(l)
-  if (!f) return 0
-  const raw = (f.square ?? '').trim()
-  if (!raw || raw === '0') return 0
-  if (raw.startsWith('{')) {
-    try {
-      const obj = JSON.parse(raw)
-      const v = obj[l.fans]
-      if (v === undefined) return 0
-      if (typeof v === 'string' && v.includes('-')) {
-        const [lo, hi] = v.split('-').map((x) => Number(x.trim()) || 0)
-        return (l.light_window_height || 0) > 0 ? hi : lo
-      }
-      const n = Number(v)
-      return n > 0 ? n : 0
-    } catch {
-      return 0
-    }
-  }
-  const n = Number(raw)
-  if (!Number.isFinite(n)) return 0
-  // 移门：扇数 N × 最小平方
-  if (l.line_type === 'diao') return fanCount(l) * n
-  return n
-}
-
-/**
- * 平方数 = 每樘方数 × 数量。每樘方数：
- *   自定义方数 > -1  →  取自定义方数（**覆盖**，可升可降）
- *   否则             →  `max(单樘面积, 公式的最低平方数)`
- *
- * ⚠️ **这里有意偏离旧版**（用户 2026-09-16 拍板：「业务上真要手动改小」）。
- *
- * 旧版 `gt`（`Hui.formatted.js:1314-1331`）是 `l = 自定义方数` → `Math.max(面积, l)`，
- * 调用方 `平方数 = gt(行) * 数量`（`:1478`）—— 即自定义方数只是**每樘下限**，
- * 填得比面积小就抬不动，等于白填。我们照旧版实现过（`556ed7eb`），实测确实如此：
- * 面积 2.0 填 1 → 平方数仍是 2.0，表格不变、只有弹窗里的数字变了。
- * 老板要的是「手改小」，所以改成**覆盖**：填多少就是多少（含低于面积、低于最低平方数）。
- *
- * 清空输入框（空 → -1）即回到自动。除此之外与旧版一致：仍是**每樘**值，外层乘数量。
- */
-function computeSquare(l: Line): number {
-  const custom = l.custom_square ?? -1
-  const per = custom > -1 ? custom : Math.max(singleArea(l), minSquareOf(l))
-  return round2(per * (l.quantity || 1))
-}
-
-
-/** 金额（旧版 wt+round）：套线金额只在「方」时计入；金额取整元。
- *   套 = 单价×数量 + 其它费用；方 = 单价×平方 + 套线金额 + 其它费用；金额 = Math.round(基准×打折)。 */
-function computeAmount(l: Line): number {
-  const isSquare = l.price_type === '方'
-  let base = (l.unit_price || 0) * (isSquare ? l.square || 0 : l.quantity || 1)
-  if (isSquare) base += l.casing_amount || 0 // 套线金额仅在「方」时计入；套不含套线
-  const subtotal = base + (l.other_fee || 0)
-  return Math.round(subtotal * (l.discount || 0))
-}
-
-/**
- * 单条加价项：算出 **金额** 与 **明细文本**。
- *
- * 实现见 `utils/markupLines.ts` —— 与**电子回执单**（`utils/receiptBuilder.ts`）共用同一份，
- * 旧版 `ps` 的 `加价项目` 与打印回执的 `pricingDetail` 本来就取同一个串（`Hui.formatted.js:1308`）。
- */
-
-/**
- * 重算整行加价：逐条算金额，合计写入 `other_fee`。
- *
- * ⚠️ 这里**只算钱，不增删任何项**。
- *   原版 `wt`/`ft`（`Hui.formatted.js:1256-1307` / `:4170-4204`）就是遍历「已挂的项」算钱，
- *   一个 `splice`/`filter` 都没有（已逐行核过）。**该挂哪些自动项，全部由字段失焦钩子决定**：
- *     平开 `Qt`（`:1578-1626`，门洞宽/门洞高/墙厚）、玻璃 `_e`（`:845-871`）
- *     吊趟 `:5075-5125`（只墙厚，≥2 候选弹窗）
- *   原先这里按「阈值最大者胜」把落选的自动项**直接剔除** —— 后果是：
- *   关掉自动加价后，只要行上任何一个字段变化触发重算，用户手动挂的 `超宽N` 也会被悄悄删掉；
- *   原版此时是不动的（钩子被开关挡住，`wt` 又从不删项）。
- */
-/** 加价计算异常上报（原版 catch 里就是 `ElMessage.error('计算金额失败')`）。 */
-function markupError(msg: string) {
-  message.error(msg)
-}
-
-function recalcMarkup(l: Line): number {
-  let total = 0
-  // `carry` 贯穿整行 —— 复刻原版把基准量声明在**循环外**（平开 `o` @:1259 / 吊趟 `c` @:4173）
-  const carry = { v: 0 }
-  for (const item of l.markup ?? []) {
-    item.amount = round2(markupDetail(item, l, carry, markupError).amount)
-    total += item.amount
-  }
-  l.other_fee = round2(total)
-  return l.other_fee
-}
 
 // —— 取价 / 公式匹配（型材失焦自动回填）已改行内 resolveRow；无弹窗抽屉 ——
 
@@ -1801,519 +1241,8 @@ function rowHasContent(l: Line): boolean {
   )
 }
 
-function removeLine(l: Line) {
-  // 已录入行（订单已保存且行有 id）→ 旧版「已录单删除确认」：后端永久删除
-  if (orderId.value != null && l.id != null) {
-    dialog.warning({
-      title: '已录单删除确认',
-      content: '该单已经录入成功，删除后将从后台永久删除，慎重操作。',
-      positiveText: '永久删除',
-      negativeText: '取消',
-      onPositiveClick: async () => {
-        try {
-          await api.deleteOrderLine(orderId.value!, l.id!)
-          lines.value = lines.value.filter((x) => x !== l)
-        } catch (e) {
-          message.error(e instanceof Error ? e.message : '删除失败')
-        }
-      },
-    })
-    return
-  }
-  dialog.warning({
-    title: '删除行',
-    content: '确定要删除这一行吗？',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      lines.value = lines.value.filter((x) => x !== l)
-    },
-  })
-}
-
-// ===== 行内就地编辑（仿旧版 Excel 式表格）=====
-// 值变更即重算（平方/套线金额/金额/加价），型材失焦触发取价+公式。
-const lineRefresh = (l: Line) => {
-  // 行上任何字段变了都丢掉该行的算料缓存。
-  // `partsSig` 已经把所有影响算料的字段列全，这里是**兜底**：万一以后又新增了
-  // 影响算料结果的行字段却忘了加进签名，也不会再出现「改了字段、算料结果不变、
-  // 点『算料』也没用」的幽灵 bug（洞尺/单双丁 都栽过这个）。
-  partsCache.delete(l)
-  l.square = computeSquare(l)
-  recalcMarkup(l)
-  l.casing_amount = casingAmountOf(l)
-  l.amount = computeAmount(l)
-}
-
-const lastProf = new WeakMap<object, string>()
-
-// 型材名 ↔ 公式名 兜底匹配：resolveFormulaMatch(空表) 查不到时，按公式名直接命中 formulas。
-// 表归属用 belongsToTable（平开收平开族，**不是** formula_type 字面判等），否则 diamond 等选不到。
-function matchFormulaByName(l: Line): FormulaDto | undefined {
-  const profile = l.profile.trim()
-  if (!profile) return undefined
-  return formulas.value.find(
-    (f) =>
-      belongsToTable(f.formula_type, l.line_type) &&
-      (f.name.trim() === profile || (f.name && profile.includes(f.name)) || (f.name && f.name.includes(profile))),
-  )
-}
-
-// 行内型材取价 + 自动公式（与抽屉 onProfileBlur 同一套，映射到行）
-async function resolveRow(l: Line) {
-  const profile = l.profile.trim()
-  if (!profile || profile === lastProf.get(l)) return
-  lastProf.set(l, profile)
-  try {
-    const r = await api.resolvePrice(l.line_type, profile, order.client_code || undefined)
-    if (r) {
-      l.unit_price = r.unit_price
-      l.price_type = r.price_type === '方' ? '方' : '套'
-      if (l.line_type === 'diao' && r.casing_price != null) l.casing_price = r.casing_price
-      rememberLocks(r.lock_rules) // 取价返回的锁具可选项 → 并入五金/锁具候选（原版 getPingPrice 的 lock）
-    }
-    const m = await api.resolveFormulaMatch(l.line_type, profile, l.fans || undefined)
-    if (m) {
-      l.formula_id = m.formula_id
-    } else {
-      const fm = matchFormulaByName(l)
-      if (fm) l.formula_id = fm.id
-    }
-  } catch {
-    // 静默
-  }
-  lineRefresh(l)
-}
-
-// 玻璃切换→加价项联动（旧版 Y()）：玻璃改选后，移除名=旧玻璃、单位=元/方的加价项，
-// 并自动加入目录中名=新玻璃、单位=元/方的项。newValue 为空时只移除不新增。
-function syncGlassMarkup(l: Line, newValue: string, oldValue: string) {
-  const isSquare = (m: MarkupItem) => m.unit === '元/方'
-  // 先移除旧玻璃对应的「元/方」加价项
-  const old = (oldValue || '').trim()
-  if (old) {
-    l.markup = (l.markup ?? []).filter((m) => !(isSquare(m) && m.name === old))
-  }
-  // 加入新玻璃对应的「元/方」加价项（来自目录，避免重复）
-  const next = (newValue || '').trim()
-  if (next) {
-    const targets = markupCatalog.value.filter((c) => c.name === next && c.unit === '元/方')
-    for (const c of targets) {
-      if (!(l.markup ?? []).some((m) => m.name === c.name && m.unit === '元/方')) {
-        l.markup.push({ ...c, amount: 0 })
-      }
-    }
-  }
-  lineRefresh(l)
-}
-
-// 面玻/底玻合并联动：改任一玻璃都同步玻璃厚（按当前两玻状态）与「元/方」玻璃加价项。
-function onGlassSelection(l: Line, newValue: string, oldValue: string) {
-  syncGlassMarkup(l, newValue, oldValue)
-  // 逐字照抄旧版 `oe`（@38200 一带），与本次改的是哪个字段无关（对两者 blur 都触发）：
-  //   if ("无" === 底玻)                                     → 玻璃厚 = 8
-  //   else if ("无" !== 底玻 && "无" !== 面玻 && 8 === 厚)    → 玻璃厚 = 默认厚（默认厚非法或为 8 时取 4）
-  // **严格判字面量「无」** —— 空串不算「无」（原版新建行底玻恒有值，不会出现空串）。
-  // 原版第二支**只在厚恰好为 8 时**才改写，且取的是「默认玻璃厚」而非写死 4。
-  const bottom = (l.bottom_glass || '').trim()
-  const face = (l.face_glass || '').trim()
-  if (bottom === '无') {
-    l.glass_thickness = '8'
-  } else if (face !== '无' && Number(l.glass_thickness) === 8) {
-    const t = defaultGlassThickness()
-    l.glass_thickness = String(Number.isFinite(t) && t !== 8 ? t : 4)
-  }
-  lineRefresh(l)
-}
-
-// ===== 尺寸类自动加价（平开 / 吊趟两套）=====
-// 平开 `Qt`  Hui.formatted.js:1578-1626
-// 吊趟      Hui.formatted.js:5075-5125
-// 触发时机都是**失焦**（不是随输入），且都受「自动加价」开关控制。
-
-type SizeField = 'door_width' | 'door_height' | 'wall_thickness'
-
-/** 候选：目录里 `^前缀\d+$` 且 元/公分，且**阈值严格小于**实际值（原版 `n > e`）。 */
-function sizeMarkupCandidates(prefix: string, actual: number) {
-  const re = new RegExp(`^${prefix}\\d+$`)
-  return markupCatalog.value
-    .map((c) => ({ c, th: Number((c.name.trim().match(/\d+$/) || [])[0] || 0) }))
-    .filter((x) => re.test(x.c.name.trim()) && x.c.unit === '元/公分' && actual > x.th)
-}
-
-/**
- * 平开尺寸类自动带出（原版 `Qt`）。
- * - 门洞宽→`超宽`、门洞高→`超高`、墙厚→`超墙厚`
- * - **门洞宽/门洞高 仅当 `计价方式==='套'`**；墙厚恒触发
- * - 先按 `startsWith(前缀)` 清掉本行旧项（比候选筛选用 `^前缀\d+$` 更松，原版如此），
- *   再取「阈值最大（= 差值最小）」的一条挂上
- */
-function syncSizeMarkupPing(l: Line, field: SizeField) {
-  if (disableAutoMarkup.value) return
-  if (field !== 'wall_thickness' && l.price_type !== '套') return
-  const prefix = field === 'door_width' ? '超宽' : field === 'door_height' ? '超高' : '超墙厚'
-  const actual =
-    field === 'door_width' ? l.door_width || 0 : field === 'door_height' ? l.door_height || 0 : l.wall_thickness || 0
-
-  l.markup = (l.markup ?? []).filter(
-    (m) => !(m.name.trim().startsWith(prefix) && m.unit === '元/公分'),
-  )
-  const cands = sizeMarkupCandidates(prefix, actual)
-  if (cands.length) {
-    cands.sort((a, b) => b.th - a.th)
-    l.markup.push({ ...cands[0].c, amount: 0 })
-  }
-  lineRefresh(l)
-}
-
-/** 吊趟「超墙厚」多候选择一（原版 `ElMessageBox.confirm(html,"选择加价项目",{dangerouslyUseHTMLString})` @:5108-5125）。 */
-function pickDiaoWallMarkup(l: Line, cands: { c: { name: string; price: number; unit: string }; th: number }[]) {
-  const sel = ref(0)
-  dialog.warning({
-    title: '选择加价项目',
-    content: () =>
-      h('div', { style: 'max-height:300px;overflow-y:auto' }, [
-        h('p', { style: 'margin-bottom:12px;font-weight:bold' }, '检测到多个超墙厚选项，请选择一个：'),
-        h(
-          NRadioGroup,
-          { value: sel.value, 'onUpdate:value': (v: number) => (sel.value = v) },
-          {
-            default: () =>
-              cands.map((x, i) =>
-                h(NRadio, { key: i, value: i, label: `${x.c.name} ${x.c.price}${x.c.unit}` }),
-              ),
-          },
-        ),
-      ]),
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: () => {
-      const pick = cands[sel.value]
-      if (!pick) return
-      l.markup.push({ ...pick.c, amount: 0 })
-      lineRefresh(l)
-    },
-  })
-}
-
-/**
- * 吊趟墙厚自动带出（原版 `:5075-5125`）。
- * ⚠️ 与平开有两处不同，**照抄**：
- *   ① 只处理 `墙厚 → 超墙厚`（没有 超宽/超高）
- *   ② 候选数 **`<=1` 直接 return** —— 只有 1 个候选时**不自动加**；≥2 才弹窗让用户选
- */
-function syncSizeMarkupDiao(l: Line) {
-  if (disableAutoMarkup.value) return
-  const actual = l.wall_thickness || 0
-  l.markup = (l.markup ?? []).filter(
-    (m) => !(m.name.trim().startsWith('超墙厚') && m.unit === '元/公分'),
-  )
-  const cands = sizeMarkupCandidates('超墙厚', actual)
-  if (cands.length <= 1) {
-    lineRefresh(l)
-    return
-  }
-  pickDiaoWallMarkup(l, cands)
-}
-
-/** 尺寸类自动加价统一入口（按行类型分发）。 */
-function syncSizeMarkup(l: Line, field: SizeField) {
-  if (l.line_type === 'diao') {
-    if (field === 'wall_thickness') syncSizeMarkupDiao(l)
-    return
-  }
-  syncSizeMarkupPing(l, field)
-}
-
 // 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
-function wallThicknessCell(l: Line) {
-  return h(
-    NInputNumber,
-    {
-      ...CELL,
-      class: 'red-number-input',
-      status: cellError(l, 'wall_thickness') ? 'error' : undefined,
-      value: l.wall_thickness,
-      showButton: false,
-      inputStyle: { textAlign: 'right' },
-      onUpdateValue: (v: number | null) => {
-        l.wall_thickness = sanitizeNum(v, 0)
-        lineRefresh(l)
-      },
-      // 原版 `Qt` 挂在 onBlur：吊趟会在 ≥2 候选时弹窗，随输入触发会连弹
-      onBlur: () => syncSizeMarkup(l, 'wall_thickness'),
-    },
-  )
-}
 
-// 玻璃单元格（面玻/底玻）：onSelect 需拿改前值做「元/方」加价项联动，故此处自行实现。
-function glassSelectCell(l: Line, field: 'face_glass' | 'bottom_glass') {
-  const oldByField = new WeakMap<object, string>()
-  return h(
-    NSelect,
-    {
-      ...CELL,
-      status: cellError(l, field) ? 'error' : undefined,
-      value: (l as unknown as Record<string, string>)[field],
-      options: glassOptions,
-      filterable: true,
-      // ⚠️ **不加 `clearable`** —— 原版底玻/面玻两格都没有（@75060 / @73314），
-      //    配合「必填」校验与新建行默认值（磨砂·白玻 / 白玻·白玻）⇒ 空串根本产生不出来。
-      onUpdateValue: (v: string | null) => {
-        const old = oldByField.get(l) ?? (l as unknown as Record<string, string>)[field] ?? ''
-        ;(l as unknown as Record<string, string>)[field] = (v as string) ?? ''
-        oldByField.set(l, (v as string) ?? '')
-        onGlassSelection(l, (v as string) ?? '', old)
-        // 「改底玻 → 设为默认」只在**平开表**（原版 `le` 仅挂在平开表底玻格的 onSelect/onBlur）。
-        if (field === 'bottom_glass' && l.line_type === 'ping') rememberDefaultBottomGlass((v as string) ?? '')
-      },
-    },
-  )
-}
-
-// 就地控件 helpers（h() 渲染）
-const CELL = {
-  size: 'small' as const,
-  style: { width: '100%' },
-  // 旧版的 el-input / el-select 在不写 placeholder 时是**空的**；
-  // naive-ui 不给就是英文默认值（"Please Input" / "Please Select"），必须显式清空。
-  placeholder: '',
-}
-
-// 校验红框：必填但为空的字段 → status=error（仿旧版 error-cell 红框标单元格）
-function cellError(l: Line, field: string): boolean {
-  const t = l.line_type
-  switch (field) {
-    case 'profile': return !l.profile.trim()
-    // 门洞宽/高**不标红** —— 原版从不给 `errorFields["门洞高"/"门洞宽"]` 写 true（死代码，见
-    // `missingFieldsOf` 的注释），单元格上的 `error-cell` 绑定恒为 false。
-    case 'color': return !l.color.trim()
-    // 底玻/面玻 也是必填：原版两格都挂了 `error-cell`（`{["error-cell"]: 校验结果["底玻"]}`），
-    // 且**没有 `clearable`**（见 @75060 平开 / @185271 吊趟 的底玻格、@73314 / @183565 的面玻格）。
-    case 'bottom_glass': return !l.bottom_glass.trim()
-    case 'face_glass': return !l.face_glass.trim()
-    case 'glass_thickness': return !l.glass_thickness.trim()
-    case 'direction': return !l.direction.trim()
-    case 'quantity': return t === 'ping' && !(l.quantity >= 1)
-    case 'price_type': return t === 'ping' && !l.price_type.trim()
-    case 'fans': return t === 'diao' && !l.fans.trim()
-    case 'track': return t === 'diao' && !l.track.trim()
-    default: return false
-  }
-}
-
-function tCell(l: Line, field: string, onBlur?: (l: Line) => void) {
-  return h(
-    NInput,
-    {
-      ...CELL,
-      status: cellError(l, field) ? 'error' : undefined,
-      value: (l as unknown as Record<string, string>)[field],
-      onUpdateValue: (v: string) => {
-        ;(l as unknown as Record<string, string>)[field] = v
-        lineRefresh(l)
-      },
-      onBlur: onBlur ? () => onBlur(l) : undefined,
-    },
-  )
-}
-
-/**
- * 数字格红字（旧版 `.red-number-input .el-input__inner{color:red}`）挂在哪些格子上：
- *   平开：门洞高 / 门洞宽 / 墙厚 / 钻石型门洞尺寸里的「右宽」那一格（绑的也是 亮窗总高）
- *   移门：门洞高 / 门洞宽 / 墙厚 / 封板高
- * 注意 **独立的「亮窗总高」列不红**（原版那一格没挂 class）—— 同一字段在钻石型里才红，
- * 两种渲染互斥，所以这里按 `isDiamond` 判断即可。吊脚 / 轨道长 / 边封数 都是黑字。
- */
-function isRedNum(l: Line, field: string): boolean {
-  if (field === 'door_width' || field === 'door_height' || field === 'wall_thickness') return true
-  if (field === 'light_window_height') return isDiamond(l)
-  if (field === 'seal_board_height') return l.line_type === 'diao'
-  return false
-}
-
-function intCell(l: Line, field: string, min = 0) {
-  // 门洞宽/门洞高在**失焦**时触发尺寸类自动加价（原版 `Qt` 挂在 onBlur 上，不是随输入）
-  const sizeField =
-    field === 'door_width' || field === 'door_height' ? (field as SizeField) : null
-  return h(
-    NInputNumber,
-    {
-      ...CELL,
-      class: isRedNum(l, field) ? 'red-number-input' : undefined,
-      status: cellError(l, field) ? 'error' : undefined,
-      value: (l as unknown as Record<string, number>)[field],
-      min,
-      showButton: false,
-      inputStyle: { textAlign: 'right' },
-      onUpdateValue: (v: number | null) => {
-        ;(l as unknown as Record<string, number>)[field] = sanitizeNum(v, min)
-        lineRefresh(l)
-      },
-      onBlur: sizeField ? () => syncSizeMarkup(l, sizeField) : undefined,
-    },
-  )
-}
-
-function moneyCell(l: Line, field: string, min = 0) {
-  return h(
-    NInputNumber,
-    {
-      ...CELL,
-      status: cellError(l, field) ? 'error' : undefined,
-      value: (l as unknown as Record<string, number>)[field],
-      min,
-      showButton: false,
-      inputStyle: { textAlign: 'right' },
-      onUpdateValue: (v: number | null) => {
-        ;(l as unknown as Record<string, number>)[field] = sanitizeFloat(v, min)
-        lineRefresh(l)
-      },
-    },
-  )
-}
-
-function optCell(
-  l: Line,
-  field: string,
-  options: { label: string; value: string }[],
-  onChange?: (l: Line) => void,
-  allowCreate = false,
-  historyKey?: string,
-) {
-  return h(
-    NSelect,
-    {
-      ...CELL,
-      status: cellError(l, field) ? 'error' : undefined,
-      value: (l as unknown as Record<string, string>)[field],
-      options,
-      filterable: true,
-      clearable: true,
-      ...(allowCreate ? { tag: true } : {}),
-      onUpdateValue: (v: string | null) => {
-        const next = (v as string) ?? ''
-        ;(l as unknown as Record<string, string>)[field] = next
-        if (historyKey) rememberField(historyKey, next)
-        ;(onChange ?? lineRefresh)(l)
-      },
-    },
-  )
-}
-
-// 型材/颜色：带候选下拉（可搜索 + 可输入新值，仿旧版 autocomplete），型材变化即取价/算料
-// 型材候选按行门型过滤（平开不显示移门公式）
-function profileCell(l: Line) {
-  const opts = l.line_type === 'diao' ? diaoProfileOptions.value : pingProfileOptions.value
-  // 不加 `historyKey`：原版型材**不写候选库**（见 `profileOptionsFor` 注释），故无需记忆。
-  return optCell(l, 'profile', opts, (x) => void resolveRow(x), true)
-}
-
-
-function colorCell(l: Line) {
-  return h(
-    NSelect,
-    {
-      ...CELL,
-      status: cellError(l, 'color') ? 'error' : undefined,
-      value: l.color,
-      options: colorOptions.value,
-      filterable: true,
-      clearable: true,
-      tag: true,
-      onUpdateValue: (v: string | null) => {
-        const next = (v as string) ?? ''
-        l.color = next
-        rememberField('color', next)
-        lineRefresh(l)
-      },
-    },
-  )
-}
-function trackCell(l: Line) {
-  // 轨道候选按当前行公式 parts 的 track 提取（随型材联动），合并历史
-  const opts = partsTrackOptions(l, 'track') // 轨道候选仅来自公式 parts + 历史，无内置兜底
-  return optCell(l, 'track', opts, undefined, true, 'track')
-}
-function casingCell(l: Line) {
-  // 套线候选仅来自当前行公式 parts 的单包/双包 + 历史，无内置候选（原版）
-  const opts = partsTrackOptions(l, 'casing')
-  return optCell(l, 'casing', opts, undefined, true, 'casing')
-}
-// 平开「包边」＝原版「套线种类」（Hui.formatted.js:2132 的「包边:」标签即绑 `e["套线种类"]`）。
-// 平开公式常无 包宽/包高 件，纯靠 parts 提候选会空，故候选 = 原版枚举 + 公式套线件 track + 历史。
-function pingCasingOptions(l: Line): { label: string; value: string }[] {
-  const seen = new Set<string>()
-  const out: { label: string; value: string }[] = []
-  for (const o of [...casingKindOptions, ...partsTrackOptions(l, 'casing')]) {
-    if (o.value && !seen.has(o.value)) {
-      seen.add(o.value)
-      out.push(o)
-    }
-  }
-  return out
-}
-/**
- * 五金格 —— 原版是**多选** el-select（:2387-2434）：
- *   · 行字段 `五金` 存的是**下划线分隔的字符串**（`a_b_c`），候选里要去掉已选的；
- *   · `multiple/filterable/allow-create/collapse-tags`，`placeholder:"选择或填写五金"`；
- *   · 已选项会在下方另起一行 `join("、")` 展示（:2434-2435，style margin-top:4px/font-size:12px/color:#606266）。
- * 我们原来是**单选**（`optCell` + tag），只能存一个五金 —— 与旧版不符，这里改成多选。
- */
-function hardwareCell(l: Line) {
-  const selected = String(l.hardware || '')
-    .split('_')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const options = hardwareOptionsFor(l).filter((o) => !selected.includes(o.value))
-  return h('div', { class: 'glass-inputs-container' }, [
-    h(NSelect, {
-      ...CELL,
-      multiple: true,
-      filterable: true,
-      tag: true,
-      options,
-      value: selected,
-      placeholder: '选择或填写五金',
-      onUpdateValue: (vals: string[]) => {
-        // 去重后写回下划线串（原版 `m(行, 值数组)`：`[...new Set(v)].join("_")`）
-        l.hardware = [...new Set(vals.map((v) => String(v)))].join('_')
-        rememberField('hardware', l.hardware)
-        lineRefresh(l)
-      },
-    }),
-    selected.length
-      ? h(
-          'div',
-          { style: 'margin-top:4px;font-size:12px;color:#606266;line-height:1.4' },
-          selected.join('、'),
-        )
-      : null,
-  ])
-}
-// 洞尺选项 —— **两张表的取值集不同**（原版 ping :2341-2345 只有 2 项，diao :5136-5141 有 4 项）
-const PING_HOLE_SIZE_OPTS = ['洞尺', '净尺'].map((v) => ({ label: v, value: v }))
-const DIAO_HOLE_SIZE_OPTS = ['洞尺', '净尺', '单包洞尺', '双包洞尺'].map((v) => ({ label: v, value: v }))
-function holeCell(l: Line, options: { label: string; value: string }[]) {
-  return optCell(l, 'hole_size', options)
-}
-
-// 批量选择列：行首复选框，选中后可批量删除
-const selCol = (): DataTableColumn<Line> => ({
-  title: ' ',
-  key: 'selection',
-  width: 34,
-  fixed: 'left',
-  render: (l: Line) =>
-    h(NCheckbox, {
-      size: 'small',
-      checked: !!l.isSelected,
-      onUpdateChecked: (v: boolean) => {
-        l.isSelected = v
-        checkboxTick.value++
-      },
-    }),
-})
 const checkboxTick = ref(0)
 
 // 选中行（跨两表）
@@ -2349,245 +1278,52 @@ function batchDeleteRows() {
   })
 }
 
-// 列构造：操作列 = 一排小链接（仿旧版 保存单行/删除/复制/删图/添加图片/算料/文字传图）
-// 算料部件明细 tooltip 内容
-function partsTooltip(l: Line) {
-  const parts = (l.parts ?? []).filter((p) => p && p.materialName)
-  if (!parts.length) return '点「算料」后在此显示部件数量与下料长度'
-  return parts
-    .map((p) => `${p.materialName} ×${p.quantity} → ${p.result.toFixed(2)}`)
-    .join('\n')
+/**
+ * 交给明细表组件的**页面级回调**（2026-09-19 组件化时新增）。
+ *
+ * 这些留在页面而不是组件里，是因为它们**跨两表**或**依赖页面能力**：
+ * · `onSelectChange` —— 勾选计数是两表共用一个（旧版也是），组件只能通知页面自己 +1；
+ * · `calcSingleRow` —— 要 `loadFormulaImages` + `openTemplatePreview`（页面弹窗，见方案 §3.5）；
+ * · `openAddMarkup` / `openSquareDialog` / 门图三件套 / `previewImage` —— 页面持有那些弹窗；
+ * · `lineInputOf` —— 行 → `OrderLineInput` 的映射，行级保存要发完整行（缺字段会被抹空）。
+ */
+const dialogs = useDetailLineDialogs({ lineRefresh: engine.lineRefresh })
+
+/**
+ * 交给明细表组件的**页面级回调**（2026-09-19 组件化时新增）。
+ *
+ * 这些留在页面而不是组件里，是因为它们**跨两表**或**依赖页面能力**：
+ * · `onSelectChange` —— 勾选计数是两表共用一个（旧版也是），组件只能通知页面自己 +1；
+ * · `calcSingleRow` —— 要 `loadFormulaImages` + `openTemplatePreview`（页面弹窗，见方案 §3.5）；
+ * · 其余四个是**共用弹窗**（`components/DetailLineDialogs.vue`，状态在本页的 `dialogs`）；
+ * · `lineInputOf` —— 行 → `OrderLineInput` 的映射，行级保存要发完整行（缺字段会被抹空）。
+ */
+const detailHooks = {
+  openSquareDialog: (l: Line) => dialogs.openSquareDialog(l),
+  openAddMarkup: (l: Line) => dialogs.openAddMarkup(l),
+  pickDoorImg: (l: Line) => dialogs.pickDoorImg(l),
+  removeDoorImg: (l: Line) => dialogs.removeDoorImg(l),
+  openTextImg: (l: Line) => dialogs.openTextImg(l),
+  previewImage: (url: string) => dialogs.previewImage(url),
+  calcSingleRow: (l: Line) => void calcSingleRow(l),
+  onSelectChange: () => {
+    checkboxTick.value++
+  },
+  lineInputOf: (l: Line) => lineInputOf(l),
 }
-
-// 操作列。**表头文字就是「平开门」/「移门」**（原版 :1723 / :4517 `label:"平开门"/"移门"`，
-// width:"50"）——旧版没有额外的表格标题栏，门型名就挂在第一列表头上。
-// 原版这一格的按钮是 删除 / 复制 / 查看3D（`div.upload-buttons` 竖排、文案前后带空格）；
-// 我们把「查看3D」换成「算料」（3D 未做），文案保持原样。
-const opsCol = (label: string): DataTableColumn<Line> => ({
-  title: label,
-  key: 'actions',
-  width: 96,
-  fixed: 'left',
-  render: (l) =>
-    h(
-      'div',
-      {
-        style:
-          'display:flex;flex-wrap:wrap;gap:0 6px;align-items:center;line-height:1.5;font-size:11px;white-space:nowrap',
-      },
-      [
-        h(NButton, { size: 'tiny', text: true, type: 'error', onClick: () => removeLine(l) }, { default: () => '删除' }),
-        h(NButton, { size: 'tiny', text: true, onClick: () => copyRow(l) }, { default: () => '复制' }),
-        h(
-          NTooltip,
-          { trigger: 'hover', placement: 'left', rawContent: false },
-          {
-            trigger: () =>
-              h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void calcSingleRow(l) }, { default: () => '算料' }),
-            default: () => h('pre', { style: 'margin:0;font-size:12px;white-space:pre-wrap;max-width:340px' }, partsTooltip(l)),
-          },
-        ),
-      ],
-    ),
-})
-
-// 金额格的「平方数」那一行：**只读输入框**，唯一入口是右键打开「修改平方数」浮窗
-// （原版 :2482-2491：外层 div 挂 onContextmenu，内层 el-input `modelValue:行["平方数"] readonly`）。
-const sqCell = (l: Line) =>
-  h(
-    'div',
-    {
-      onContextmenu: (e: MouseEvent) => {
-        e.preventDefault()
-        openSquareDialog(l)
-      },
-    },
-    [h(NInput, { ...CELL, readonly: true, value: l.square.toFixed(2) })],
-  )
-
-// 金额格的「金额」那一行：原版是 `el-input readonly:!we["金额"][id]`，
-// 而 `we` 只在 onBlur 里被写成 `false`（`!false` 仍是 true）⇒ **恒只读**，不会变成可编辑。
-const amountCell = (l: Line) => h(NInput, { ...CELL, readonly: true, value: l.amount.toFixed(2) })
-
-// 备注格：原版是 `el-input type="textarea" :autosize="{minRows:1}"`，不是单行输入框。
-function remarkCell(l: Line) {
-  return h(NInput, {
-    ...CELL,
-    type: 'textarea',
-    autosize: { minRows: 1 },
-    value: l.remark,
-    onUpdateValue: (v: string) => {
-      l.remark = v
-      lineRefresh(l)
-    },
-  })
-}
-
-// 加价项目列：行内摘要（名称+金额），点击进入行编辑抽屉管理
-// 行内加价：多选目录 + 明细行 + 点击添加（自定义→抽屉）
-function markupSelectCell(l: Line) {
-  const opts = markupCatalogOptions.value
-  const selected = (l.markup ?? [])
-    .filter((m) => m && m.name)
-    .map((m) => {
-      const idx = markupCatalog.value.findIndex((c) => c.name === m.name)
-      return idx >= 0 ? `${idx}_${m.name}` : `x_${m.name}__${m.price}__${m.unit}`
-    })
-  // 明细多行：原版把 `wt`/`ft` 产出的文本按 `\n` 渲染成 `.expression-line`（`Hui.formatted.js:2515`），
-  // 内容是**带算式的文本**（如 `超宽: 5元/公分*3.5公分*2=35元`），不是「名称 ¥金额」。
-  // 文本可现算（与金额同源、同一批分支），故不必落库。
-  const lines = markupLines(l, markupError)
-  // ⚠️ 结构与类名照抄原版（平开 @2497-2520 / 吊趟 @5288-5300 两处同构）：
-  //   div.extra-items-container
-  //     ├ div.glass-input-label  文案 `" 点击添加： "`（**前后各一个空格 + 全角冒号**）cursor:pointer
-  //     ├ el-select              multiple/collapse-tags/collapse-tags-tooltip/filterable，宽 **100%**
-  //     └ div.extra-items-expressions（有内容才渲染）
-  //   四个类的样式见 <style scoped> 末尾（从 legacy/css/Hui-39b802eb.css 抄的）。
-  return h('div', { class: 'extra-items-container' }, [
-    h(
-      'div',
-      { class: 'glass-input-label', style: { cursor: 'pointer' }, onClick: () => openAddMarkup(l) },
-      ' 点击添加： ',
-    ),
-    h(NSelect, {
-      size: 'small',
-      multiple: true,
-      'collapse-tags': true,
-      'collapse-tags-tooltip': true,
-      filterable: true,
-      options: opts,
-      value: selected,
-      placeholder: '请选择加价项目',
-      style: { width: '100%' },
-      onUpdateValue: (vals: (string | number)[]) => {
-        const names = vals.map((v) => String(v))
-        l.markup = names.map((n) => {
-          const m = n.match(/x_(.+)__([\d.]+)__(.+)/)
-          if (m) return { name: m[1], price: Number(m[2]), unit: m[3], amount: 0 }
-          const idx = Number(n.split('_')[0])
-          const c = markupCatalog.value[idx]
-          return c ? { ...c, amount: 0 } : { name: n, price: 0, unit: '元/套', amount: 0 }
-        })
-        lineRefresh(l)
-      },
-    }),
-    lines.length
-      ? h(
-          'div',
-          { class: 'extra-items-expressions' },
-          lines.map((t) => h('div', { class: 'expression-line' }, t)),
-        )
-      : null,
-  ])
-}
-const markupCol = (): DataTableColumn<Line> => ({
-  title: '加价项目',
-  key: 'markup_summary',
-  width: 168,
-  render: (l) => markupSelectCell(l),
-})
-
-// ===== 门花图（行图片）：传图/文字传图/预览/删除 =====
-const previewImg = ref<string | null>(null)
-const previewOpen = ref(false)
-const textImgOpen = ref(false)
-const textImgName = ref('')
-const textImgTarget = ref<Line | null>(null)
-
-async function applyDoorImg(l: Line, dataUrl: string) {
-  const id = genImageId()
-  l.image_id = id
-  l.image_url = dataUrl
-  await idbPutImage(id, dataUrl)
-}
-
-function pickDoorImg(l: Line) {
-  const inp = document.createElement('input')
-  inp.type = 'file'
-  inp.accept = 'image/*'
-  inp.onchange = async () => {
-    const f = inp.files?.[0]
-    if (!f) return
-    try {
-      const url = await fileToDataUrl(f)
-      await applyDoorImg(l, url)
-      message.success('已上传门图')
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '上传图片失败')
-    }
-  }
-  inp.click()
-}
-
-function removeDoorImg(l: Line) {
-  dialog.warning({
-    title: '删除门图',
-    content: '确定删除该行的门图吗？',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      if (l.image_id) await idbRemoveImage(l.image_id)
-      l.image_id = null
-      l.image_url = null
-    },
-  })
-}
-
-function openTextImg(l: Line) {
-  textImgTarget.value = l
-  textImgName.value = ''
-  textImgOpen.value = true
-}
-
-function confirmTextImg() {
-  const l = textImgTarget.value
-  const name = textImgName.value.trim()
-  textImgOpen.value = false
-  if (!l || !name) return
-  if (name.length > 24) {
-    message.warning('门图名字最多 24 个字')
-    return
-  }
-  void applyDoorImg(l, textToImageDataUrl(name)).then(() => message.success('已生成文字门图'))
-}
-
-
 
 
 // 单行算料：有 formula_id 才计算（仿旧版门图列「算料」）
 async function calcSingleRow(l: Line) {
-  if (!l.profile.trim()) {
-    message.warning('请先填写型材')
-    return
-  }
-  if (l.formula_id == null) {
-    // 填了型材但未选/未匹配到公式 → 尝试按型材自动匹配公式（resolveFormulaMatch 或公式名兜底）
-    await resolveRow(l)
-    if (l.formula_id == null) {
-      const fm = matchFormulaByName(l)
-      if (fm) l.formula_id = fm.id
-    }
-    if (l.formula_id == null) {
-      message.warning('未找到对应公式，请检查型材名称是否正确')
-      return
-    }
-  }
-  try {
-    const f = await api.getFormula(l.formula_id)
-    const parts = f.parts as PartsMap
-    if (!parts || typeof parts !== 'object' || Array.isArray(parts)) {
-      l.parts = []
-      return
-    }
-    await loadFormulaImages(l.formula_id) // 拉公式挖孔图（glassHole doorImg 用）
-    // 页面上的算料明细按**生产单引擎（B）**算
-    l.parts = computeParts(l, 'B')
-    lineRefresh(l)
-    message.success(`算料完成：${l.parts.length} 个部件`)
-    void openTemplatePreview('product')
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '算料失败')
-  }
+  // 核心（公式兜底匹配 / 取公式 / 算料 / 重算行）已抽到引擎 `calcRowParts`，
+  // 好让 Home 的展开行用同一份（旧版 Home 是内嵌整个 Hui 页面去调 `calculateReceipt`，
+  // 见 `docs/2026-09-18-detail-table-extraction.md` §3.5）。
+  // 这里只留两件**页面能力**：挖孔图缓存、模板预览弹窗。
+  // `beforeCompute` 保留原顺序（原版就是先拉图再 computeParts）。
+  const ok = await engine.calcRowParts(l, loadFormulaImages)
+  if (!ok) return
+  message.success(`算料完成：${l.parts.length} 个部件`)
+  void openTemplatePreview('product')
 }
 
 /**
@@ -2604,40 +1340,6 @@ async function calcSingleRow(l: Line) {
  * 焦点 trace 由 INPUT → BUTTON(取消) → BUTTON(×)。
  * 给两个分支不同 key，Vue 就会卸载旧的、挂新的，DOM 不再被复用。
  */
-function doorImgCell(l: Line) {
-  if (l.image_url) {
-    return h('div', { key: 'door-img', style: 'position:relative;display:inline-block' }, [
-      h('img', {
-        src: l.image_url,
-        style: 'display:block;width:76px;height:52px;object-fit:contain;border:1px solid #dcdfe6;border-radius:3px;cursor:zoom-in;background:#fff',
-        onClick: () => {
-          previewImg.value = l.image_url
-          previewOpen.value = true
-        },
-      }),
-      h(
-        NButton,
-        { size: 'tiny', quaternary: true, circle: true, type: 'error', title: '删除门图', style: 'position:absolute;top:-6px;right:-6px', onClick: () => removeDoorImg(l) },
-        { icon: () => '×' },
-      ),
-    ])
-  }
-  return h(
-    'div',
-    {
-      key: 'door-img-empty',
-      style:
-        'display:flex;align-items:center;justify-content:center;gap:2px;width:76px;height:52px;border:1px dashed #c0c4cc;border-radius:3px;background:#fafafa;cursor:pointer',
-      onClick: (e: MouseEvent) => e.stopPropagation(),
-    },
-    [
-      h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => pickDoorImg(l) }, { default: () => '传图' }),
-      h(NButton, { size: 'tiny', text: true, onClick: () => openTextImg(l) }, { default: () => '文字' }),
-    ],
-  )
-}
-
-// 载入订单后：有 image_id 但无 image_url 的行，从 IndexedDB 回读
 async function hydrateRowImages(rows: Line[]) {
   for (const l of rows) {
     if (l.image_id && !l.image_url) {
@@ -2659,367 +1361,10 @@ async function hydrateRowImages(rows: Line[]) {
 // ⚠️ 样式必须写成 `:deep(.glass-inputs-container)` 等（见文件末尾样式表）：
 // 这些 vnode 是在 NDataTable 的 `render` 回调里创建的，`currentRenderingInstance` 是表本身，
 // 拿不到本组件的 `data-v` 标记，普通 `<style scoped>` 规则一条都不会命中。
-const cCol = (...vs: (import('vue').VNodeChild | null)[]) =>
-  h('div', { class: 'glass-inputs-container' }, vs)
-const sub = (label: string, ctrl: import('vue').VNodeChild | null) =>
-  h('div', { class: 'glass-input-group' }, [
-    h('div', { class: 'glass-input-label' }, label),
-    ctrl == null ? null : h('div', { class: 'glass-input' }, [ctrl]),
-  ])
 
-const DOUBLE_DING_OPTS = ['正常', '单丁墙', '双丁墙', '上丁墙', '上丁加单丁', '上丁加双丁'].map((v) => ({
-  label: v,
-  value: v,
-}))
-/**
- * 「单号」列。
- *
- * ⚠️ 这里曾显示 `order.receipt_no`（订单的**回执单号**）—— **层级错了**：
- * 旧版这列是**行级**单号（每樘门一个，`N-YY/MM/DD`），且**可编辑**
- * （`Hui.formatted.js:2597-2602`，列 label `:6287`）。
- * 搞混的后果不只是显示错：打印的 `OrderID`/`qrcode` 全取这列，
- * 于是**二维码扫出来是订单号而不是「哪一樘门」**（见 `docs/2026-09-18-order-no-semantics.md` §4.1）。
- *
- * 未填时显示 `—`；「填入单号」按钮会向服务端取号后回填（等同旧版 `:8491` 那颗按钮）。
- */
-const orderNoCell = (l: Line) =>
-  h('span', { style: 'font-size:11px;color:#606266' }, l.line_no || '—')
-// 金额列（平方+金额 同格）
-// 金额格（原版 :2471-2492）：`金额：`（只读输入框）+ `平方数：`（只读输入框，右键改）
-const moneyCell_2 = (l: Line) => cCol(sub('金额：', amountCell(l)), sub('平方数：', sqCell(l)))
-
-const doorImgCol = (): DataTableColumn<Line> => ({
-  title: '门花图',
-  key: 'door_img',
-  width: 72,
-  fixed: 'left',
-  render: (l) => doorImgCell(l),
-})
-
-function pingCols(): DataTableColumn<Line>[] {
-  return [
-    selCol(),
-    opsCol('平开门'),
-    doorImgCol(),
-    {
-      title: '型材/颜色',
-      key: 'profile_color',
-      width: 118,
-      render: (l) => cCol(sub('型材：', profileCell(l)), sub('颜色：', colorCell(l))),
-    },
-    {
-      title: '单价/数量',
-      key: 'unit_quantity',
-      width: 96,
-      render: (l) => cCol(sub('单价：', moneyCell(l, 'unit_price')), sub('数量：', intCell(l, 'quantity', 1))),
-    },
-    {
-      title: '玻璃',
-      key: 'glass',
-      width: 128,
-      render: (l) =>
-        cCol(
-          // 面玻标签**随公式类型变**（原版 :1992-1998：
-          //   `formulaid && L.value[formulaid] ? (=== 'diamond' ? '门玻：' : '面玻：') : '面玻：'`）。
-          sub(isDiamond(l) ? '门玻：' : '面玻：', glassSelectCell(l, 'face_glass')),
-          // 底玻标签同样随公式类型变（原版 :2042-2048：钻石型 '固玻：'，否则 '底玻：'）。
-          sub(isDiamond(l) ? '固玻：' : '底玻：', glassSelectCell(l, 'bottom_glass')),
-          // 厚度一格**不分支**：原版此处恒为 '厚度：'，钻石型也照旧。
-          // 平开表改厚度即「设为默认玻璃厚度」（原版 `ne`，:887）。
-          sub(
-            '厚度：',
-            optCell(l, 'glass_thickness', glassThicknessOptions, (row) => {
-              if (row.line_type === 'ping') rememberDefaultGlassThickness(row.glass_thickness)
-              lineRefresh(row)
-            }),
-          ),
-        ),
-    },
-    {
-      // 原版这一列**没有 `label`**，标题完全由 header 插槽给出：
-      //   `span.clickable-header(onClick=M)` 文本 `" 开向 "`（前后各一个空格）+ 设置图标。
-      title: () =>
-        h('span', { class: 'clickable-header', onClick: openOpenDirSettings }, [
-          ' 开向 ',
-          h('span', { style: 'font-size:11px' }, '⚙'),
-        ]),
-      key: 'open_dir',
-      width: 132,
-      render: (l) => {
-        // ⚠️ 开向图要**先把自定义开向名还原成原始开向**再查表（原版 `ve.value[C(行["开向"])]`，
-        //    `C` = `getOriginalOpenDirection`）。直接用显示名查会漏图。
-        const img = PING_DIRECTION_IMAGES[getOriginalOpenDirection(l.direction)]
-        return cCol(
-          ...(colVis(pingColVis, 'casing')
-            ? [sub('包边：', optCell(l, 'casing', pingCasingOptions(l), undefined, true, 'casing'))]
-            : []),
-          ...(colVis(pingColVis, 'track') ? [sub('锁具：', trackCell(l))] : []),
-          sub('开向：', optCell(l, 'direction', pingDirectionOptions.value, undefined, true)),
-          h('div', { class: 'image-cell2 image-cell2--ping' }, [
-            img ? h('img', { src: img, alt: l.direction, class: 'direction-image' }) : null,
-          ]),
-        )
-      },
-    },
-    // 原版 ping 表 门洞尺寸格（:2222-2348）从上到下：
-    //   高度： → 宽度：/左宽： → ( 母门宽: ) → 墙厚：/门宽： → (右宽：, 钻石型) → (洞/净尺：)
-    // `l.value` 那个三元（决定高/宽谁在前）在旧版恒走 key:0，即**高度在上**。
-    {
-      title: '门洞尺寸',
-      key: 'door_size',
-      width: 96,
-      render: (l) =>
-        cCol(
-          sub('高度：', intCell(l, 'door_height')),
-          // 门洞宽标签随公式类型变（原版 :2231-2236：钻石型 '左宽：'，否则 '宽度：'）。
-          sub(isDiamond(l) ? '左宽：' : '宽度：', intCell(l, 'door_width')),
-          // 母门宽：标签原文是 `" 母门宽: "`（**前后空格 + 半角冒号**），闸门是
-          // `L.value[formulaid] === 'parentSubsidiary'`（子母门公式类型）。
-          ...(needsMotherWidth(l) ? [sub(' 母门宽: ', intCell(l, 'mother_door_width'))] : []),
-          // 墙厚一格也分支：钻石型显示 '门宽：'（仅 ping 表如此，diao 表恒为 '墙厚：'）。
-          sub(isDiamond(l) ? '门宽：' : '墙厚：', wallThicknessCell(l)),
-          // 钻石型时「亮窗总高」这个字段**搬进本列**并改名「右宽」（原版 :2314-2335）。
-          // 非钻石时它在下面独立的「亮窗总高」列里 —— 两处互斥。
-          ...(isDiamond(l) ? [sub('右宽：', intCell(l, 'light_window_height'))] : []),
-          // ⚠️ 「洞尺」**不是独立列**，而是门洞尺寸格里的最后一块（原版 :2336-2346，
-          //    `_["value"]["洞尺"]` 闸门 + `"洞/净尺："` 标签 + 下拉「洞尺/净尺」两项）。
-          ...(colVis(pingColVis, 'hole_size')
-            ? [sub('洞/净尺：', holeCell(l, PING_HOLE_SIZE_OPTS))]
-            : []),
-        ),
-    },
-    // 原版 ping 表里「吊脚」与「亮窗总高」是**两个独立列**（`Hui-d088417c` @86619 / @86995），
-    // 槽内直接渲染输入框、无内嵌小标签。吊脚列由 `列显隐表['吊脚']` 闸门；亮窗总高列**无闸门**（原版如此）。
-    {
-      title: '吊脚',
-      key: 'jiao',
-      width: 62,
-      render: (l) => intCell(l, 'jiao'),
-    },
-    {
-      title: '亮窗总高',
-      key: 'lightwin',
-      width: 62,
-      // 原版该列自带互斥条件：`L.value[formulaid] !== 'diamond'` 才渲染输入框，钻石型整格为空
-      // （else 分支是 `createCommentVNode`）。无公式时渲染（与原版 `return true` 一致）。
-      render: (l) => (isDiamond(l) ? null : intCell(l, 'light_window_height')),
-    },
-    // 原版「五金」（`["五金"]` 闸门）与「封板高」是两个独立列
-    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l) },
-    { title: '封板高', key: 'seal_board', width: 62, render: (l) => intCell(l, 'seal_board_height') },
-    {
-      title: '备注',
-      key: 'remark',
-      width: 110,
-      render: (l) => cCol(sub('地址：', tCell(l, 'install_address')), sub('备注：', remarkCell(l))),
-    },
-    { title: '金额', key: 'money', width: 96, render: (l) => moneyCell_2(l) },
-    markupCol(),
-    // 原版平开表尾部列序：加价项目 → 计价方式 → 打折 → 前包加长 → 后包加长 → 单双丁 → 单号 → …
-    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
-    { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount') },
-    { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add') },
-    { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add') },
-    { title: '单/双丁墙体', key: 'double_ding', width: 96, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
-    { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
-    { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
-    // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
-    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
-    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
-    { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee') },
-  ]
-}
-
-function diaoCols(): DataTableColumn<Line>[] {
-  return [
-    selCol(),
-    opsCol('移门'),
-    doorImgCol(),
-    {
-      title: '型材/颜色',
-      key: 'profile_color',
-      width: 118,
-      render: (l) => cCol(sub('型材：', profileCell(l)), sub('颜色：', colorCell(l))),
-    },
-    // 原版移门表列序与列内容见 `Hui-d088417c` @176837..@207080（表头 label 偏移即列序）：
-    //   门花图 | 型材/颜色 | 单价/数量 | 玻璃 | 扇数/开向 | 下轨道/套线 | 门洞尺寸 | 洞尺 |
-    //   亮窗信息 | 五金 | 备注 | 金额 | 加价项目 | 上轨/边封 | 前包加长 | 后包加长 |
-    //   单双丁 | 计价方式 | 打折 | 单号 | 图片ID | 客户 | 客户编号 | 其它费用
-    // 其中「单价/数量」列内还含 套线单价，且**生产进度是「单价」框上的 tooltip**（不是可编辑格子）；
-    // 「亮窗信息」列内含 亮窗总高/亮窗数量/封板高。
-    {
-      title: '单价/数量',
-      key: 'unit_qty',
-      width: 112,
-      render: (l) =>
-        cCol(
-          // 原版 @181691：`el-tooltip :disabled="!e[…]" :content="e['生产进度']"` 包住单价输入框
-          sub(
-            '单价：',
-            h(
-              NTooltip,
-              { disabled: !l.progress, trigger: 'hover' },
-              { trigger: () => moneyCell(l, 'unit_price'), default: () => l.progress },
-            ),
-          ),
-          sub('数量：', intCell(l, 'quantity', 1)),
-          sub('套线单价：', moneyCell(l, 'casing_price')),
-        ),
-    },
-    {
-      title: '玻璃',
-      key: 'glass',
-      width: 128,
-      render: (l) =>
-        cCol(
-          // 移门表**不分支**（原版 :4803-4870 恒为「面玻：/底玻：/厚度：」，无 diamond 变体）
-          sub('面玻：', glassSelectCell(l, 'face_glass')),
-          sub('底玻：', glassSelectCell(l, 'bottom_glass')),
-          sub('厚度：', optCell(l, 'glass_thickness', glassThicknessOptions)),
-        ),
-    },
-    {
-      title: '扇数/开向',
-      key: 'fans_dir',
-      width: 124,
-      render: (l) => {
-        // 原版 :4962-4963 是 img 的 v-if = 「开向 && 图表[扇数+开向]」，class="direction-image"，
-        // 图取自「扇数+开向」联合键（**不过 getOriginalOpenDirection**，与平开不同）。
-        const img = diaoDirImage(l.fans, l.direction)
-        return cCol(
-          sub(
-            '扇数：',
-            optCell(l, 'fans', fansOptions, (x) => {
-              lineRefresh(x)
-              void resolveRow(x)
-            }, true),
-          ),
-          sub('开向：', optCell(l, 'direction', directionSuffixOptions.value, undefined, true)),
-          h('div', { class: 'image-cell2 image-cell2--diao' }, [
-            img ? h('img', { src: img, alt: l.direction, class: 'direction-image' }) : null,
-          ]),
-        )
-      },
-    },
-    {
-      title: '下轨道/套线',
-      key: 'track_line',
-      width: 108,
-      render: (l) =>
-        cCol(
-          // 原版 :4973-5000 这两格**都没有 v-if 闸门**，恒渲染。
-          sub('轨道：', trackCell(l)),
-          sub('套线：', casingCell(l)),
-        ),
-    },
-    // 原版移门表 门洞尺寸格（:5003-5143）从上到下：高度： → 宽度： → 墙厚： → (洞/净尺：)
-    // **没有母门宽、没有钻石型「右宽」**（那两格是平开表独有的）。
-    // 决定高/宽先后顺序的那个三元在旧版恒走 key:0，即**高度在上**。
-    {
-      title: '门洞尺寸',
-      key: 'door_size',
-      width: 96,
-      render: (l) =>
-        cCol(
-          sub('高度：', intCell(l, 'door_height')),
-          sub('宽度：', intCell(l, 'door_width')),
-          // 移门表墙厚标签**不分支**（原版恒为 '墙厚：'，:3458）
-          sub('墙厚：', wallThicknessCell(l)),
-          ...(colVis(diaoColVis, 'hole_size')
-            ? [sub('洞/净尺：', holeCell(l, DIAO_HOLE_SIZE_OPTS))]
-            : []),
-        ),
-    },
-    // 原版「亮窗信息」列内含三格：亮窗总高 / 亮窗数量 / 封板高
-    {
-      title: '亮窗信息',
-      key: 'lightwin',
-      width: 98,
-      render: (l) =>
-        cCol(
-          sub('亮窗总高：', intCell(l, 'light_window_height')),
-          sub('亮窗数量：', intCell(l, 'light_window_count')),
-          // 「封板高」也挂在 列显隐表['封板高'] 闸门上（原版 :5147 / :5165）
-          ...(colVis(diaoColVis, 'seal_board') ? [sub('封板高：', intCell(l, 'seal_board_height'))] : []),
-        ),
-    },
-    // 原版「五金」是独立列（`["五金"]` 闸门）
-    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l) },
-    {
-      title: '备注',
-      key: 'remark',
-      width: 110,
-      render: (l) => cCol(sub('地址：', tCell(l, 'install_address')), sub('备注：', remarkCell(l))),
-    },
-    { title: '金额', key: 'money', width: 96, render: (l) => moneyCell_2(l) },
-    markupCol(),
-    // 以下列序严格照原版：加价项目 → 上轨/边封 → 前包加长 → 后包加长 → 单双丁 →
-    // 计价方式 → 打折 → 单号 → 图片ID → 客户 → 客户编号 → 其它费用
-    {
-      title: '上轨/边封',
-      key: 'up_track_seal',
-      width: 92,
-      render: (l) => cCol(sub('轨道长：', intCell(l, 'track_length')), sub('边封数：', intCell(l, 'edge_seal_count', 2))),
-    },
-    { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add') },
-    { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add') },
-    { title: '单双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
-    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
-    { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount') },
-    { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
-    // 原版「图片ID」列不可编辑（只展示），故用只读 span
-    { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
-    // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
-    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
-    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
-    { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee') },
-  ]
-}
-
-const rowKey = (r: Line) => (r.id ?? r) as unknown as number
-// 未保存行（尚未录入、id=null）高亮，仿旧版 unsaved-row
-const rowClassName = (r: Line) => (r.id == null ? 'unsaved-row' : '')
-type KeyedCol = DataTableColumn<Line> & { key: string }
-const pingColumns = computed<DataTableColumn<Line>[]>(() =>
-  pingCols().filter((c) => colVis(pingColVis, (c as KeyedCol).key ?? '')),
-)
-const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
-  diaoCols().filter((c) => colVis(diaoColVis, (c as KeyedCol).key ?? '')),
-)
 
 // 复制行（仿旧版：清生产进度/图片）
-function copyRow(l: Line) {
-  const copy: Line = JSON.parse(JSON.stringify(l))
-  copy.id = null
-  copy.progress = ''
-  copy.image_id = null
-  copy.image_url = null
-  lines.value.push(copy)
-  lineRefresh(copy)
-  message.success('复制成功')
-}
-
 // 修改平方数（平方单元格右键，仿旧版）
-const squareDialog = ref(false)
-const squareTarget = ref<Line | null>(null)
-// 空 = 未填（旧版输入框初值就是空串 `Mt=Vue.ref("")`，`Hui.formatted.js:4386`）。
-// 确认时为空 → 回到「自动」（custom_square = -1）。
-const squareInput = ref<number | null>(null)
-
-function openSquareDialog(l: Line) {
-  squareTarget.value = l
-  squareInput.value = l.custom_square >= 0 ? l.custom_square : null
-  squareDialog.value = true
-}
-
-function confirmSquare() {
-  if (squareTarget.value) {
-    squareTarget.value.custom_square = sanitizeCustomSquare(squareInput.value)
-    lineRefresh(squareTarget.value)
-  }
-  squareDialog.value = false
-}
-
 // 保存
 /** 保存订单。成功返回服务端结果（**「填入单号」要用它的 id**），被守卫拦下时返回 null。 */
 async function saveOrder(): Promise<OrderDto | null> {
@@ -3640,53 +1985,6 @@ onMounted(async () => {
    `:deep(X)` 编译成 `[data-v-本组件] X`，靠祖先命中，正好绕开这一点。
    —— 旧版能用普通 scoped 是因为它走 Element Plus 的**作用域插槽**，插槽内容在父作用域渲染。 */
 /* 明细表格「一格多控件」的布局类，同样照抄 legacy/css/Hui-39b802eb.css。 */
-:deep(.glass-inputs-container) {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-}
-:deep(.glass-input-group) {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-:deep(.glass-input) {
-  flex: 1;
-  min-width: 0;
-}
-/* 「 开向 」列表头是个可点链接（旧版 `.clickable-header{cursor:pointer;display:inline-flex;
-   align-items:center;gap:4px;color:#409eff}`，hover #66b1ff） */
-:deep(.clickable-header) {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #409eff;
-}
-:deep(.clickable-header:hover) {
-  color: #66b1ff;
-}
-:deep(.extra-items-container) {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-:deep(.glass-input-label) {
-  font-size: 11px;
-  white-space: nowrap;
-  color: #1302fa;
-  min-width: 0px;
-}
-:deep(.extra-items-expressions) {
-  margin-top: 4px;
-  white-space: pre-line;
-  font-size: 12px;
-  line-height: 1.5;
-}
-:deep(.expression-line) {
-  margin-bottom: 2px;
-}
 .markup-list {
   display: flex;
   flex-direction: column;
@@ -3748,9 +2046,6 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 10px;
 }
-.grow-spacer {
-  flex: 1;
-}
 .readonly-meta {
   white-space: nowrap;
 }
@@ -3777,12 +2072,6 @@ onMounted(async () => {
   background: #fff;
   margin-top: 12px;
 }
-.table-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
 .tbl-title {
   font-weight: 600;
   font-size: 14px;
@@ -3792,118 +2081,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-}
-.table-wrap {
-  border: 1px solid #ebeef5;
-  background: #fff;
-}
-/* 表尾「 添加行 」按钮（旧版 `div.table-footer{margin-top:10px;display:flex;justify-content:center}`
-   + `.custom-button-btn{background-color:#7caaf3;color:#fff;border-color:#7caaf3}`，hover #0965fa） */
-.table-footer {
-  margin-top: 10px;
-  padding-bottom: 10px;
-  display: flex;
-  justify-content: center;
-}
-.table-wrap :deep(.custom-button-btn.n-button) {
-  background-color: #7caaf3;
-  border-color: #7caaf3;
-  color: #fff;
-}
-.table-wrap :deep(.custom-button-btn.n-button:hover),
-.table-wrap :deep(.custom-button-btn.n-button:focus) {
-  background-color: #0965fa;
-  border-color: #0965fa;
-  color: #fff;
-}
-.table-wrap .table-head {
-  padding: 6px 8px;
-  background: #f7f8fa;
-  border-bottom: 1px solid #ebeef5;
-}
-/*
- * 表头：照抄旧版 `legacy/css/Hui-39b802eb.css`
- *   .el-table__header-wrapper th{font-weight:700;background-color:#f0f9eb!important;color:#000!important;text-align:center!important}
- *   .el-table__header-wrapper .cell{font-weight:700;color:#000!important;text-align:center!important}
- * （我们原来是浅绿底 + 深绿字，旧版是**浅绿底 + 纯黑加粗居中**。）
- */
-.table-wrap :deep(.n-data-table .n-data-table-th) {
-  background: #f0f9eb;
-}
-.table-wrap :deep(.n-data-table .n-data-table-th .n-data-table-th__title) {
-  font-size: 12px;
-  font-weight: 700;
-  color: #000;
-  justify-content: center;
-  text-align: center;
-}
-/*
- * 单元格内边距：旧版 `cell-style:{padding:"1px"}`（td 内联）+ `.el-table .cell{padding:2px 5px}`
- * + `.el-table__cell{padding-top:5px!important;padding-bottom:5px!important}`（覆盖内联）
- * ⇒ 实际 垂直 5+2=7px、水平 1+5=6px。naive-ui 没有 `.cell` 内层，合并成一条。
- */
-.table-wrap :deep(.n-data-table .n-data-table-td) {
-  padding: 5px 6px;
-  font-size: 12px;
-  line-height: 1.35;
-}
-.table-wrap :deep(.n-data-table .n-data-table-tr .n-data-table-td) {
-  height: auto;
-}
-.table-wrap :deep(.n-input),
-.table-wrap :deep(.n-base-selection),
-.table-wrap :deep(.n-input-number) {
-  font-size: 12px;
-}
-/* 强制输入/下拉高度与内边距收紧 */
-.table-wrap :deep(.n-input .n-input__input-el),
-.table-wrap :deep(.n-input .n-input__border),
-.table-wrap :deep(.n-base-selection .n-base-selection-label) {
-  height: 22px;
-  line-height: 22px;
-  font-size: 12px;
-  padding: 0 4px;
-}
-.table-wrap :deep(.n-input .n-input__state-border),
-.table-wrap :deep(.n-base-selection .n-base-selection__border) {
-  top: 2px;
-  bottom: 2px;
-}
-.table-wrap :deep(.n-base-selection .n-base-selection-input),
-.table-wrap :deep(.n-input-number .n-input__input-el) {
-  height: 22px;
-  font-size: 12px;
-}
-/* 数字类输入右对齐，下拉/文本不被截断 */
-.table-wrap :deep(.n-input-number .n-input__input-el) {
-  text-align: right;
-  padding-right: 6px;
-}
-.table-wrap :deep(.n-input-number .n-input__input-el),
-.table-wrap :deep(.n-input .n-input__input-el) {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-/* 带后缀(㎡)的平方输入不被后缀挤压 */
-.table-wrap :deep(.n-input .n-input__input) {
-  min-width: 0;
-  flex: 1;
-}
-.table-wrap :deep(.n-input .n-input__suffix) {
-  flex: none;
-}
-/* 下拉选中区不再强制裁剪文字 */
-.table-wrap :deep(.n-base-selection-label) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.table-wrap :deep(.n-button--tiny-type-text),
-.table-wrap :deep(.n-button--tiny) {
-  font-size: 12px;
-  padding: 0 2px;
-  height: 18px;
 }
 
 .totals-strip {
@@ -3973,48 +2150,6 @@ onMounted(async () => {
 /* 未保存行 / 命中单号行高亮 —— 颜色照抄旧版：
    .el-table__row.unsaved-row>td.el-table__cell{background-color:#ffe6ef!important}
    hover → #ffd6e6；.highlight-matched-order → #d4edda / hover #c3e6cb */
-.table-wrap :deep(.n-data-table .unsaved-row .n-data-table-td) {
-  background: #ffe6ef;
-}
-.table-wrap :deep(.n-data-table .unsaved-row:hover .n-data-table-td) {
-  background: #ffd6e6;
-}
-.table-wrap :deep(.n-data-table .highlight-matched-order .n-data-table-td) {
-  background: #d4edda;
-}
-.table-wrap :deep(.n-data-table .highlight-matched-order:hover .n-data-table-td) {
-  background: #c3e6cb;
-}
-/* 尺寸类数字输入红字（旧版 `.red-number-input .el-input__inner{color:red}`）：
-   平开 门洞高/门洞宽/墙厚/钻石型「右宽」；移门 门洞高/门洞宽/墙厚/封板高。 */
-.table-wrap :deep(.n-input-number.red-number-input .n-input__input-el),
-.table-wrap :deep(.n-input.red-number-input .n-input__input-el) {
-  color: red;
-}
-/*
- * 开向示意图。旧版靠 `.image-cell2` 的**百分比宽度**给图封顶：
- *   平开 `.image-cell2{width:70%;height:70%}` ／ 移门 `.image-cell2{width:50%;height:40%}`
- * 加上 `img.direction-image{max-width:100%;object-fit:contain}`。
- * ⚠️ 这两条 width 不能省：图是**原始尺寸**渲染的，而移门那批图最大到 **479×126**
- * （平开那批只有 80~115 宽），不封顶就会把整个格子撑爆。
- * 百分比高度对着 auto 高度的父元素等于没用，真正起作用的是 width —— 照抄即可。
- */
-.table-wrap :deep(.image-cell2) {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0 auto;
-}
-.table-wrap :deep(.image-cell2--ping) {
-  width: 70%;
-}
-.table-wrap :deep(.image-cell2--diao) {
-  width: 50%;
-}
-.table-wrap :deep(.direction-image) {
-  max-width: 100%;
-  object-fit: contain;
-}
 /* 自定义开向命名 */
 .custom-name-grid {
   display: grid;

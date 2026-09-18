@@ -15,6 +15,7 @@ import type {
   OrderDto,
   OrderHeadInput,
   OrderInput,
+  OrderLineInput,
   OrderSearchParams,
   OrderSummaryDto,
   PriceResolveDto,
@@ -191,10 +192,27 @@ export const api = {
     request<Record<string, string>>(`/v1/orders/${orderId}/fill-line-numbers`, {
       method: 'POST',
     }),
-  // 订单行：单行删除（行的保存统一走 updateOrder 整单提交）。
+  // 订单行：单行删除。
   deleteOrderLine: (orderId: number, lineId: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
       method: 'DELETE',
+    }),
+  /**
+   * 单行保存（旧版 `param1=updateRowData`，见 `docs/2026-09-18-detail-table-extraction.md` §3.3）。
+   *
+   * ⚠️ **本版原先刻意没做这条**（这条注释原写「行的保存统一走 updateOrder 整单提交」）——
+   * 2026-09-19 用户拍板按旧版补齐：旧版明细表有「行级编辑态」（点单元格选中该行 →
+   * 操作列出「保存/取消」→ 脏行标粉 → 切行/离开时提醒并自动保存），我们一条都没有。
+   *
+   * ⚠️ **必须发完整行**：后端 `service::update_line` 是 45 列的 `SET` 全字段替换，
+   * 少发哪个字段就把哪一列抹空。所以**不要**照抄旧版那份「剔内部键」的清单
+   * （`["开向图","imageUrl","isSelected","生产进度",…]`）—— 换成我们的字段名之后，
+   * 那几个恰恰都是要落库的列（`open_img` / `image_url` / `progress`）。
+   */
+  updateOrderLine: (orderId: number, lineId: number, line: OrderLineInput) =>
+    request<{ updated: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {
+      method: 'PUT',
+      body: JSON.stringify(line),
     }),
   // 取价 + 公式匹配（汇算字典 resolve）。
   resolvePrice: (lineType: string, profile: string, clientCode?: string) =>
