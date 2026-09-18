@@ -47,7 +47,7 @@ export interface PrintContext {
   /** 回执族是否包含平开/吊趟行（原版两张表的显隐开关）。 */
   showPing: boolean
   showDiao: boolean
-  /** 行序方式：'order' 按单号数字前缀，其余按 formulaid→颜色。 */
+  /** 行序方式：`'order'` 按**行级单号**的数字前缀升序，其余按 formulaid→颜色。 */
   sortMethod: string
   /** 公式挖孔图缓存：`formula_id → 图列表`。 */
   formulaImages: Record<number, FormulaImageDto[]>
@@ -411,9 +411,23 @@ export function createPrintPayloads(ctx: PrintContext) {
   const clientAddress = () => ctx.clients.find((c) => c.code === ctx.order.client_code)?.address || ''
   const orderInstallAddress = () => (ctx.order.install_address ? installAddresses() : clientAddress())
 
-  // 行级单号（原版 `单号` 列，可逐行编辑）本次做减法时已删除，故退回**订单级**单号；
-  // 同一张订单内所有行取到同一个前缀，"序号优先" 等价于保持原序。
-  const orderPrefix = () => parseInt(String(ctx.order.receipt_no || '').split('-')[0] || '0', 10) || 0
+  /**
+   * 行级「单号」—— 打印载荷里 `OrderID` / `orderID` / `qrcode` 一律取它。
+   *
+   * 旧版这三个键**全部**来自**明细行**的「单号」字段（不是订单头的回执单号）：
+   *   `Hui.formatted.js:10028/10057/10087/10131/…`（十余处）`x["OrderID"] = row["单号"]`
+   *   `:9075` 标签 `qrcode = String(row["单号"])`
+   * ⚠️ 与订单级回执单号是**两个层级**：回执单号印在收据单2 的表头（`receiptPrintData.orderNo`，
+   *    那个**保持**不变）。搞混的后果是**厂里扫二维码本应定位「哪一樘门」，却扫出订单号**。
+   * 见 `docs/2026-09-18-order-no-semantics.md` §4.1。
+   */
+  const lineNoOf = (l: Line) => l.line_no || ''
+
+  /**
+   * 行级单号的数字前缀（旧版 comparator 逐字：`parseInt(OrderID.split("-")[0]) || 0`，
+   * `Hui.formatted.js:9659` / `:10570`）。空单号 → `parseInt("")` = NaN → `|| 0` ⇒ 0，排最前。
+   */
+  const lineNoPrefix = (l: Line) => parseInt(String(l.line_no || '').split('-')[0], 10) || 0
 
   function orderedLines(sortByFormula = true): Line[] {
     const keep = (l: Line) => {
@@ -432,9 +446,10 @@ export function createPrintPayloads(ctx: PrintContext) {
     }
     const all = [...block('ping'), ...block('diao')]
     if (ctx.sortMethod !== 'order') return all
-    // 「序号优先」：前缀退化为订单级单号（同单内恒定）→ 当前恒为原序，保留分支以维持设置项语义。
-    const p = orderPrefix()
-    return all.slice().sort(() => p - p)
+    // 「序号优先」：按**各行自己的**单号数字前缀升序。
+    // ⚠️ 先前这里读订单级回执单号 ⇒ 同一张单内所有行取到同一个值，`p - p` 恒为 0，
+    //    排序**静默退化成原序**（设置项看着有效其实没做事）。现在行级单号有了，真正生效。
+    return all.slice().sort((a, b) => lineNoPrefix(a) - lineNoPrefix(b))
   }
 
   // 回执行顺序（原版 @348915 / @353436）：**先全部平开行、再全部吊趟行**，各自**保持表格原序**
@@ -484,6 +499,10 @@ export function createPrintPayloads(ctx: PrintContext) {
       // 首项是**品牌** `ctx.order.brand`，不是客户名。
       brand: `${ctx.order.brand || ctx.tenantName || '客户'}${brandSuffix}`,
       date: ctx.order.order_date || ctx.today,
+      // ⚠️ **这里就该是订单级回执单号**，别跟着 `OrderID`/`qrcode` 一起改成行级！
+      // 回执族（receipt / FinalReceipt / ReceiptList）的 `orderNo` 在旧版就是回执单号
+      // （旁证：`ReceiptMobile` 拿它当 `finance_getOrderFinanceSummary` 的入参，而那个接口的键就是回执单号）。
+      // 行级单号是 `OrderID`/`qrcode` 那一组，见 `lineNoOf`。
       orderNo: ctx.order.receipt_no || '',
       tel: ctx.order.phone || '',
       address: orderInstallAddress() || '',
@@ -521,8 +540,8 @@ export function createPrintPayloads(ctx: PrintContext) {
       ? (/哑口套|门套/.test(l.profile || '') ? `开向:${dir}` : `开向:${l.fans || ''}${dir}`)
       : l.casing ? `开向:${l.casing}${dir}` : `开向:${dir}`
     return {
-      orderID: ctx.order.receipt_no || '',
-      qrcode: String(ctx.order.receipt_no || ''),
+      orderID: lineNoOf(l),
+      qrcode: String(lineNoOf(l)),
       client: ctx.order.client_name || '',
       door: `型材:${l.profile}`,
       size,
@@ -574,7 +593,7 @@ export function createPrintPayloads(ctx: PrintContext) {
       return ''
     })()
     return {
-      orderID: ctx.order.receipt_no || '',
+      orderID: lineNoOf(l),
       client: ctx.order.client_name || '',
       size,
       lockway: l.casing ? `${l.casing}${dir}` : dir,
@@ -753,7 +772,7 @@ export function createPrintPayloads(ctx: PrintContext) {
         client: ctx.order.client_name || '',
         // 引擎A：`door` = 型材+颜色（**不含客户**，与生产单引擎B不同）
         door: [l.profile, l.color].filter(Boolean).join('<br>'),
-        OrderID: ctx.order.receipt_no || '',
+        OrderID: lineNoOf(l),
         basicInfo: basicInfoText(l, 'A'), // 引擎A：双无玻文案 = 「无」
         lockImg: lineLockImage(l),
         doorImg: l.image_url || '',
@@ -826,7 +845,7 @@ export function createPrintPayloads(ctx: PrintContext) {
       // 原版：吊趟循环 `if (底玻==='无' && 面玻==='无') continue`；**平开循环没有这句**
       if (diao && bRaw === '无' && fRaw === '无') continue
       const base = {
-        OrderID: ctx.order.receipt_no || '',
+        OrderID: lineNoOf(l),
         client: ctx.order.client_name || '',
         date: ctx.today,
         thickness: l.glass_thickness || '',
@@ -1367,7 +1386,7 @@ export function createPrintPayloads(ctx: PrintContext) {
       // 对照：玻璃合片单（@464478）与 product2/3（@533xxx/@552xxx）**没有**白名单门控，只判 `行["图片ID"]`，
       //       那两族我们无条件取图是对的，别一并改。
       doorImg: STORE_DOOR_NO_CLIENT.includes(ctx.tenantName) ? '' : l.image_url || '',
-      OrderID: ctx.order.receipt_no || '',
+      OrderID: lineNoOf(l),
       basicInfo: basicInfoText(l, engine),
       lockImg: lineLockImage(l),
       doorsheet: doorsheetText(l, engine),
@@ -1424,8 +1443,8 @@ export function createPrintPayloads(ctx: PrintContext) {
     return {
       client: ctx.order.client_name || '',
       material: l.profile,
-      qrcode: String(ctx.order.receipt_no || ''),
-      orderID: ctx.order.receipt_no || '',
+      qrcode: String(lineNoOf(l)),
+      orderID: lineNoOf(l),
       maker: ctx.maker || '',
       lockImg: lineLockImage(l),
       lockway,
@@ -1529,7 +1548,7 @@ export function createPrintPayloads(ctx: PrintContext) {
       if (l.hole_size && String(l.hole_size).trim()) doorSize = `${l.hole_size}<br>${doorSize}`
       rows.push({
         client: ctx.order.client_name || '',
-        OrderID: ctx.order.receipt_no || '',
+        OrderID: lineNoOf(l),
         goods: l.profile,
         color: l.color,
         lockway: l.direction || '', // 原版：**原始开向**（无扇数、无套线前缀）

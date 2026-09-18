@@ -299,8 +299,10 @@ mode → 载荷：
 - ~~**`link_no`（行级单号）已删除**~~ → **2026-09-18 已恢复**：迁移 `0020` 加回 `order_lines.line_no`
   （名字仍叫 `line_no`，旧版那个 key 就叫「单号」），配套「填入单号」端点
   `POST /orders/{id}/fill-line-numbers`。原版「单号」列可逐行编辑并作为「序号优先」的排序键。
-  ⚠️ **`orderedLines` 的 `orderPrefix` 还没跟着改** —— 它现在仍读 `receipt_no.split('-')[0]`，
-  对毫秒戳格式恒为 0 ⇒ **「序号优先」仍未真正恢复**，要改读行级单号。
+  ✅ **`orderedLines` 的 `orderPrefix` 也已跟着改**（同日）：改按**行级单号**的数字前缀升序
+  （旧版 comparator 逐字 `parseInt(OrderID.split("-")[0]) || 0`，`Hui.formatted.js:9659`/`:10570`）
+  ⇒ **「序号优先」已真正恢复**。验收：`docs/home-audit/print-lineno-check.mjs`
+  （夹具 `7- / 3- / 11-` 会被重排成 `3- / 7- / 11-`；先前恒为原序）。
   <br>（原「已删除」的记载与删列理由见下方更正。）
   > ⚠️ **2026-09-18 更正删列理由**：本条原先写「移植时丢了编辑器导致恒为 NULL」——
   > **那个推理是错的**。行级单号的**写点不在前端编辑器，在旧服务端**：

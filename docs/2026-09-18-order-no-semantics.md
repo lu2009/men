@@ -247,12 +247,16 @@ body: { formula: [...distinct(row.formulaid)], id: [...distinct(row.id)] }
 
 ### 4.1 由「行级单号缺失」连带出来的错误落点
 
-| 位置 | 现状 | 旧版真身 |
+> ✅ **2026-09-18 已全部修掉**（见本页 §6）。下表保留为当时的盘点记录。
+
+| 位置 | 现状（改之前） | 旧版真身 |
 |---|---|---|
-| `Hui.vue:2614-2616` | 有一列**叫「单号」**，但 `render` 显示的是 `order.receipt_no`，且**只读** | 列名对、值错：旧版是**行级单号**且**可编辑**（`Hui.formatted.js:2597-2602`，列 label `:6287`） |
-| `printPayloads.ts:487` `orderNo` / `:756/829/1370/1532` `OrderID` | 全用 `ctx.order.receipt_no` | 旧版这些位置取的都是**行级单号**（`Home.formatted.js:683`；Hui `:10028…` 十余处 `X["OrderID"] = row["单号"]`） |
-| `printPayloads.ts:524-525/:1427-1428` `qrcode` | `String(ctx.order.receipt_no)` | 旧版 `qrcode = String(row["单号"])`（Hui `:9075`）⇒ **厂里扫码本来定位到「哪一樘门」，现在扫出订单号** |
-| `printPayloads.ts:416` `orderPrefix()` | `parseInt(receipt_no.split('-')[0])` ⇒ `HT00000067` 无 `-` ⇒ **恒 0** | 旧版按 `parseInt(单号.split("-")[0])`（Hui `:10570`/`:10973`）⇒ 「序号优先」这个设置项**静默失效** |
+| `Hui.vue` 「单号」列 | 有一列**叫「单号」**，但显示的是 `order.receipt_no`，且**只读** → **已改取 `line.line_no`** | 列名对、值错：旧版是**行级单号**且**可编辑**（`Hui.formatted.js:2597-2602`，列 label `:6287`）。⚠️ 「是否恢复可编辑」仍待定 |
+| `printPayloads.ts` 的 `OrderID`/`orderID`（9 处） | 全用 `ctx.order.receipt_no` → **已改取 `lineNoOf(l)`** | 旧版这些位置取的都是**行级单号**（Hui `:10028/10057/10087/10131/…` 十余处 `X["OrderID"] = row["单号"]`） |
+| `printPayloads.ts` 的 `qrcode`（3 处） | `String(ctx.order.receipt_no)` → **已改** | 旧版 `qrcode = String(row["单号"])`（Hui `:9075`）⇒ 原先是**厂里扫码定位到「哪一樘门」，却扫出订单号** |
+| `printPayloads.ts` 的 `orderPrefix()` | `parseInt(receipt_no.split('-')[0])` ⇒ `parseInt` 得 NaN ⇒ **恒 0** → **已改为按行级单号** | 旧版按 `parseInt(单号.split("-")[0])`（Hui `:9659`/`:10570`）⇒ 原先是「序号优先」这个设置项**静默失效** |
+
+⚠️ **`receiptPrintData.orderNo` 不在上表里，它本来就对**（回执族表头 = 订单级回执单号，旁证：`ReceiptMobile` 拿它当 `finance_getOrderFinanceSummary` 的入参）。代码里已就地写死注释，防止以后被「一把 grep 全改」误伤。
 
 > ⚠️ 但 **`ReceiptEditDialog.vue` 的「单号」标签是**对**的** —— 收据单2 走的 `orderNo` 在旧版就是**回执单号**
 > （旁证：`ReceiptMobile` 拿 `orderNo` 当 `finance_getOrderFinanceSummary` 的键，而该接口的键就是回执单号）。
@@ -345,6 +349,20 @@ body: { formula: [...distinct(row.formulaid)], id: [...distinct(row.id)] }
 新版：客户端只传 **id 列表**，存活单由**服务端**按回执单号数值取最小算出来。
 正常路径下两者结果相同（都取最早那条），但「传错就毁数据」这条路堵掉了。
 所以前端确认文案里那句「以最早的回执单号为准」现在**名副其实** —— 服务端真的这么算。
+
+### 打印链路（`printPayloads.ts`）同步改完
+
+`OrderID` / `orderID` / `qrcode`（共 12 处）改用行级单号；`orderPrefix` 改用行级单号前缀。
+**`receiptPrintData.orderNo` 保持回执单号不动**（它本来就对）。
+
+验收：`docs/home-audit/print-lineno-check.mjs`（**20 条全过**）——
+esbuild 把 `printPayloads.ts` 打进 node 直接跑（不是手抄一份），用一条**每行单号都不同**的订单
+遍历全部 builders，断言其中**没有一处**出现回执单号；并单独钉住回执族表头那个 `orderNo`
+**就是**回执单号。变异测试通过（把 `lineNoOf` 改成回退回执单号 ⇒ 7 个 builder 全红）。
+「序号优先」实测已能重排：`7-/3-/11-` → `3-/7-/11-`。
+
+⚠️ 夹具必须给**真 `formula_id`** —— `orderedLines` 的 `keep()` 会剔掉没有公式的行，
+给 null 的话生产单/合片单/自绘单据/product1 全都出不了行，「有没有用错单号」根本测不到（第一版就这么假绿）。
 
 ### 验收
 

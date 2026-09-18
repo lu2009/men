@@ -23,7 +23,11 @@ globalThis.DOMParser = class {
 
 const m = await import(out)
 const p = m.createQrSvgProvider(m.createQrEncoder())
-for (const t of ['HT00000067，3', 'HT00000067-3', '']) {
+// ⚠️ 探的是「非 ASCII / 带后缀」这两条编码边界，样本本身不重要；
+//    但原先用的 `HT00000067…` 是**改口径之前**的回执单号形态，容易让人以为二维码内容就该长那样。
+//    二维码扫出来的应当是**行级单号**（`N-YY/MM/DD`），所以换成这个形态。
+//    见 `docs/2026-09-18-order-no-semantics.md` §4.1。
+for (const t of ['85-26/09/14，3', '85-26/09/14-3', '']) {
   const r = p(t)
   console.log(`文本 ${JSON.stringify(t)}`)
   console.log(`  → ${r ? `viewBox="${r.viewBox}"  inner ${r.inner.length} 字符` : 'null（只画字幕）'}`)
