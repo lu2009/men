@@ -133,8 +133,16 @@ export function renderOrderCaption(value: unknown): string {
  * 编码器由组件层注入（见 `types.ts` 的 `QrEncoder`）。把缓存和编码器绑在一个实例里，
  * 既保住「同一组件内不重复编码」的旧版行为，又避免多个编码器共用一张缓存表时串味。
  * **每个打印管理器实例建一个即可。**
+ *
+ * @param fallbackViewBox 库产出取不到 `viewBox` 时的回退值。
+ *   C 家族（GS2/PS2）是 **`"0 0 180 180"`**（GS:253，因为旧版 `write(text, 180, 180, …)`）；
+ *   **自定义生产单（ic=14）是 `"0 0 200 200"`**（PS:830，旧版 `write(text, 200, 200, …)`）。
+ *   ⇒ 这是本函数唯一被参数化的常量（§1 #33 / §8.2 #14）。**默认值保持 `180`，C 家族逐字未动。**
  */
-export function createQrSvgProvider(encode: QrEncoder): (text: string) => QrSvg | null {
+export function createQrSvgProvider(
+  encode: QrEncoder,
+  fallbackViewBox = '0 0 180 180',
+): (text: string) => QrSvg | null {
   const cache = new Map<string, string>() // 旧版 `I`：text::m1 → JSON
 
   return (text: string): QrSvg | null => {
@@ -147,8 +155,8 @@ export function createQrSvgProvider(encode: QrEncoder): (text: string) => QrSvg 
     try {
       const encoded = encode(text)
       if (!encoded) return null
-      // GS:253 —— 库产出的 viewBox 取不到时回退固定视口
-      const svg: QrSvg = { viewBox: encoded.viewBox || '0 0 180 180', inner: encoded.inner }
+      // GS:253 —— 库产出的 viewBox 取不到时回退固定视口（C 家族 180，PS 传 200）
+      const svg: QrSvg = { viewBox: encoded.viewBox || fallbackViewBox, inner: encoded.inner }
       cache.set(key, JSON.stringify(svg)) // GS:256
       return svg
     } catch {

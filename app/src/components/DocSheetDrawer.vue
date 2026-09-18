@@ -109,6 +109,7 @@ import { api } from '../api/client'
 import type { OrderDto } from '../api/types'
 import { useAuthStore } from '../stores/auth'
 import { buildOrderPrintContext, loadPrintPrereqs, type PrintPrereqs } from '../composables/useOrderPrint'
+import type { PrintContext } from '../utils/printPayloads'
 import type { DocSheetRow, RenderOptions } from '../utils/docsheet/types'
 import DocEditDialog from './DocEditDialog.vue'
 import {
@@ -156,6 +157,13 @@ const editShow = ref(false)
 
 /** 行数据（旧版 Home 的 `oi` / `qr`）—— 编辑弹窗改的就是它，随抽屉重开重建。 */
 const rows = ref<DocSheetRow[]>([])
+/**
+ * 每张订单的汇算上下文（**新版自有的一份留存**）—— 只为「配置改了要重建行」这件事
+ * （决策 D3）。旧版没有这一层：它的行来源是 Home 侧的 `getData()`，每次 build 现算。
+ * 不留这份就无法在 `onConfigSaved()` 里重跑 `produceRows`（`props.orders` 那时已经
+ * 被 `getOrder` 补全过，`prereqs` 也不想重拉一遍）。
+ */
+const rowContexts = ref<PrintContext[]>([])
 /** 生效配置（旧版组件内的 `i`）。两个弹窗都只读它，草稿在各自内部。 */
 const config = ref(props.profile.api.loadSettings().config)
 const ready = computed(() => !!previewHtml.value)
@@ -183,8 +191,8 @@ watch(
       )
       const prereqs: PrintPrereqs = await loadPrintPrereqs(full)
       const who = { tenantName: auth.tenant?.name || '', maker: auth.user?.name || '' }
-      // 多张订单 = 各单的行**首尾相接**（旧版 `oi` / `qr` 就是一次汇算的全部行）。
-      rows.value = full.flatMap((o) => props.profile.produceRows(buildOrderPrintContext(o, prereqs, who)))
+      rowContexts.value = full.map((o) => buildOrderPrintContext(o, prereqs, who))
+      rows.value = buildRows()
       await renderPreview()
     } catch (e) {
       message.error((e as Error).message || props.profile.text.readError)
@@ -193,6 +201,17 @@ watch(
     }
   },
 )
+
+/**
+ * 由留存的上下文重建行（**决策 D3 新加的**）。
+ *
+ * 多张订单 = 各单的行**首尾相接**（旧版 `oi` / `qr` 就是一次汇算的全部行）；
+ * 第二参 `config` 供「行形状依赖配置」的单据使用（本次是自定义生产单的 `itemsPerPage`，
+ * 见 `DocSheetUiProfile.produceRows` 的注）。
+ */
+function buildRows(): DocSheetRow[] {
+  return rowContexts.value.flatMap((ctx) => props.profile.produceRows(ctx, config.value))
+}
 
 /**
  * 重建预览（旧版组件的 `refreshPreview`，GS:779-780：`await props.onPreviewHtmlChange(await build())`）。
@@ -210,9 +229,20 @@ async function renderPreview(): Promise<void> {
   }
 }
 
-/** 两个设置弹窗保存后：重读生效配置（同一个 localStorage 键）→ 重渲染。 */
+/**
+ * 两个设置弹窗保存后：重读生效配置（同一个 localStorage 键）→ 按需重建行 → 重渲染。
+ *
+ * **决策 D3（§8.1，2026-09-18 lead 批准）**：自定义生产单（ic=14）的**行形状**由
+ * `print.itemsPerPage` 决定（`=== 2` 时两条记录配对成一条配对行），所以改了「每页数据数」
+ * 之后**必须重跑一次 `produceRows`**，否则预览仍按旧版式渲染。
+ * 其余单据的行只由订单明细决定 ⇒ `rowsDependOnConfig` 留空，这里不白跑一遍汇算。
+ *
+ * ⚠️ 判据刻意**不看配置内容是否真的变了**（旧版 Home `wc` 就是保存后无条件重跑 `Sr()`）：
+ * `produceRows` 对同一份输入是纯函数，多跑一次无副作用，而逐字段比配置反而容易漏字段。
+ */
 async function onConfigSaved(): Promise<void> {
   config.value = props.profile.api.loadSettings().config
+  if (props.profile.rowsDependOnConfig) rows.value = buildRows()
   await renderPreview()
 }
 
@@ -231,6 +261,23 @@ function openEditDialog(): void {
  * 编辑弹窗「确认修改」（旧版 Home 的 `ci` / `Qr`）：回写行 → 刷预览。
  * ⚠️ 旧版**只改 Home 那份行数组，不回写汇算结果** —— 下次重新算会被覆盖。
  * 新版同理：改动只活在本抽屉的这一次会话里。
+ *
+ * ⚠️⚠️ **有意偏离（决策 D3 的附带结论，§9.2，2026-09-18 lead 明确要求写在这里）**：
+ * 新版**保存编辑后不再重跑 `produceRows`**（即**不再配对**）。
+ *
+ * 旧版 ic=14 的 `ProductionEditOld` 吃的是**已配对的行**、保存时**原样吐回配对行**
+ * （两套 `orderID`/`size`/`oldSheet`/`remark`，`Hui.formatted.js:6544-6557`），
+ * 而 Home 的 `wc` 紧接着又调了一次 `Sr()` → 又跑一次 `sc()` ⇒ **二次配对**：
+ *   · 配对数 = 1 时是 no-op（`sc` 里 `b === undefined` 走 `else`，原样返回）；
+ *   · 配对数 ≥ 2 时真的会串位，产出 `orderID11` / `oldSheet11` 这类脏键
+ *     （关键字段歪打正着地活着，非关键字段串位）。
+ *   触发门槛 = **一次汇算出 ≥ 4 张订单且开了「2 条/页」**（§9.2）。
+ *
+ * **这是旧版的一处长期潜伏的脏数据源，新版不复刻**：配对**只在一处做** ——
+ * `produceRows(ctx, config)` 里按 `config.print.itemsPerPage` 决定
+ * `oldSheetProduces(paired)`；编辑弹窗与预览读的是**同一份已配对的行**；
+ * 编辑保存后只回写这行、**不重新配对**。行为差异仅在「≥4 张订单 + 2 条/页 + 用编辑弹窗改过」
+ * 这一组合下可见，且新版是**修正**、不是回归。
  */
 async function onRowsSaved(next: Record<string, unknown>[]): Promise<void> {
   rows.value = next as DocSheetRow[]
@@ -264,20 +311,34 @@ async function doPrint(): Promise<void> {
 
 <style scoped>
 /*
-  ⚠️ 两个前缀并列 —— 模板 class 由 `profile.classes` 运行时绑定，CSS 选择器只能是字面量
+  ⚠️ **全部前缀并列** —— 模板 class 由 `profile.classes` 运行时绑定，CSS 选择器只能是字面量
   （详见 `DocSheetLayoutDialog.vue` 的文件头注）。
+
+  三个前缀（§8.1 决策 D1(b)，2026-09-18 lead 批准）：
+    · `gs2-*` —— 自定义玻璃合片单（ic=16）
+    · `ps2-*` —— 自定义生产单2（ic=15）
+    · `ps1-*` —— 自定义生产单（ic=14）。★ 前缀是 **`ps1`**（不是 `ps`）：
+      PS2 的核心层前缀也是 `ps`，外壳若共用 `ps2-*` 两张单子在 DOM 里就同名了。
+      常量见 `docSheetUi.ts` 的 `PS_SHELL_NS` / `PRODUCTION_SHEET_UI_CLASSES`。
+      ⚠️ **`ps1-*` 这一组目前是「预埋」**：PS 的组件层档案（`productionSheetUiProfile.ts`）
+      与两个弹窗组件尚未落地，所以暂时没有渲染它的模板。留着是因为
+      `docSheetUi.ts:78-82` 那条 TODO 的约定就是「新增单据时回来补一行」——
+      补在**共用组件**里，而不是等接线时再回头改这里。
+      ⚠️ 若将来 PS 走**自己的**抽屉（不复用本组件），这 6 组选择器就成了死代码，可一并删掉。
 
   下面 5 条全部是**新版自己的排版胶水**：旧版组件只把 HTML 推回 Home，没有抽屉外壳，
   所以没有任何旧版 CSS 可对照。逐字沿用 GS2 抽屉原有的取值（视觉零回归）。
 */
 .gs2-wrap,
-.ps2-wrap {
+.ps2-wrap,
+.ps1-wrap {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 .gs2-toolbar,
-.ps2-toolbar {
+.ps2-toolbar,
+.ps1-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -286,21 +347,25 @@ async function doPrint(): Promise<void> {
   border-bottom: 1px solid #f0f0f0;
 }
 .gs2-toolbar .hint,
-.ps2-toolbar .hint {
+.ps2-toolbar .hint,
+.ps1-toolbar .hint {
   font-size: 13px;
   color: #666;
 }
 .gs2-toolbar .grow,
-.ps2-toolbar .grow {
+.ps2-toolbar .grow,
+.ps1-toolbar .grow {
   flex: 1;
 }
 .gs2-empty,
-.ps2-empty {
+.ps2-empty,
+.ps1-empty {
   color: #d03050;
   font-size: 13px;
 }
 .gs2-loading,
-.ps2-loading {
+.ps2-loading,
+.ps1-loading {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -313,7 +378,8 @@ async function doPrint(): Promise<void> {
   横向宽表靠这里滚动（等价 Home 那个容器的 `width:fit-content` + `overflowX:auto` + `maxWidth:100%`）。
 */
 .gs2-preview,
-.ps2-preview {
+.ps2-preview,
+.ps1-preview {
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;

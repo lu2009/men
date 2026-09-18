@@ -73,16 +73,14 @@ export interface DocSheetUiClasses {
 }
 
 /**
- * 由**单一**前缀派生全部组件层 class 名（`'gs'` / `'ps'`）。
+ * 由**命名空间**派生全部组件层 class 名（`'gs2'` / `'ps2'` / `'ps1'`）。
  *
  * ⚠️ 模板里的 class 是**动态绑定**的，但 `<style scoped>` 的选择器只能是字面量 ——
- * 所以三套共用组件的样式表把两个前缀**都写出来**（`.gs2-x, .ps2-x`）。
- * 两个前缀就是当前 C 家族的全部成员，这份「CSS 里必须同时列两个前缀」的耦合
- * 写在每套组件样式表的头注里。**新增第三张单据时要回来补一行** ——
- * TODO(未确认): 若 C 家族继续扩张，把样式改成「稳定钩子类 + 单据类」双 class 的做法更划算。
+ * 所以共用组件的样式表把各单据的前缀**都写出来**（`.gs2-x, .ps2-x, .ps1-x`）。
+ * 这份「CSS 里必须同时列全部前缀」的耦合写在每套共用组件样式表的头注里。
+ * **新增一张单据时要回来补一行。**
  */
-export function createDocSheetUiClasses(prefix: string): DocSheetUiClasses {
-  const ns = prefix + '2'
+export function createDocSheetUiClassesFromNs(ns: string): DocSheetUiClasses {
   const layout = (suffix: string): string => ns + '-layout-' + suffix
   return {
     drawerWrap: ns + '-wrap',
@@ -104,6 +102,42 @@ export function createDocSheetUiClasses(prefix: string): DocSheetUiClasses {
     columnOrder: ns + '-column-order',
   }
 }
+
+/**
+ * 由**单据前缀**派生组件层 class 名（C 家族用：`'gs'` → `gs2-*`、`'ps'` → `ps2-*`）。
+ *
+ * ⚠️ 规则是 `prefix + '2'`（§4.2 的「两套前缀并存」）——
+ * **这只对 C 家族成立**。自定义生产单（ic=14）的外壳前缀是 **`ps1`**（决策 D1(b)），
+ * 若误用本函数传 `'ps1'` 会得到 **`ps12-*`**（`'ps1' + '2'`）—— 那是错的。
+ * 它的外壳一律走 `PRODUCTION_SHEET_UI_CLASSES`（显式 ns），别走这里。
+ */
+export function createDocSheetUiClasses(prefix: string): DocSheetUiClasses {
+  return createDocSheetUiClassesFromNs(prefix + '2')
+}
+
+/**
+ * **自定义生产单（ic=14）的外壳命名空间**（决策 D1(b)，2026-09-18 团队 lead 拍板）。
+ *
+ * 为什么要有独立前缀：PS2 的核心层前缀也是 `ps`（`createDocSheetClasses('ps')` → `ps-root`/`ps-sheet`
+ * **与 PS 撞名**），外壳若也共用 `ps2-*`，两张单子的抽屉外壳在 DOM 里就完全同名了。
+ * 报告 §8.1 D1 给了两条路，(b) 胜出：**给 PS 独立外壳前缀，可读性优先**，
+ * 且 §骨架 §2.1 本来就承认 PS 是独立的 UI 一族（B 家族）。
+ *
+ * ⚠️ 命名是 `ps1`（**不是** `ps`）—— 与 `ps2` 并排时一眼能分开，
+ * 代价是它读起来不像 ic=14；这是刻意的，别再改回 `ps`。
+ *
+ * ⚠️ **这个前缀只作用于「新版自己的排版胶水」**（抽屉/弹窗外壳）——
+ * PS 的**产出 HTML 与编辑器 class** 是另一套，见核心层
+ * `utils/productionsheet/profile.ts` 的 `PS_CLASSES` / `PS_LAYOUT_CLASSES`：
+ *   · 产出 HTML 只有 `ps-root` / `ps-sheet`（§0.3，**不带数字**）；
+ *   · 布局编辑器是 `ps-layout-**editor**-*`（带 `editor`、无数字）。
+ * ⚠️ **千万别**用 `createDocSheetClasses('ps')` 那套派生 PS 的编辑器 class —— §0.3 CONFIRMED
+ * 底座的 `ns + '-layout-wrap'` 推导对 PS 是错的（会吐 `ps2-layout-wrap`，PS 一个都不吐）。
+ */
+export const PS_SHELL_NS = 'ps1'
+
+/** PS 的组件层外壳 class（显式命名空间 `ps1`，见 `PS_SHELL_NS`）。 */
+export const PRODUCTION_SHEET_UI_CLASSES: DocSheetUiClasses = createDocSheetUiClassesFromNs(PS_SHELL_NS)
 
 /**
  * **按单据写死的**文案（§10 那张表里的全部字符串差异都落在这一组里）。
@@ -185,8 +219,30 @@ export interface DocSheetUiProfile {
    *   · PS2 → `createPrintPayloads(ctx).productionProduces()`（= 旧版 `calculateReceipt()`
    *     的 `{ping:!0,diao:!0,single:!1,singleRowData:null}` 口径）
    * 返回值**首尾相接**就是整份单据的行（多张订单 = 各单的行拼接，旧版 `oi` / `qr` 就是全量行）。
+   *
+   * ⚠️ **第二参 `config` 是决策 D2（§8.1，2026-09-18 lead 批准）加的** —— 之前没有它，
+   * 而**自定义生产单（ic=14）需要它**：它的行形状由 `print.itemsPerPage` 决定
+   * （`=== 2` 时要把两条记录**配对**成一条配对行，见 `printPayloads.oldSheetProduces(paired)`，
+   * §6.4 / §8.1 D2）。
+   * GS2 / PS2 **忽略第二参即可**（`(ctx) => …` 的少参写法天然满足本签名，无需改动）。
+   *
+   * ⚠️ 拿到的 `config` 是**生效配置**（抽屉里的 `config.value`），不是任何草稿 ——
+   * 与 `renderPreview` 读的那份一致。
    */
-  produceRows(ctx: PrintContext): DocSheetRow[]
+  produceRows(ctx: PrintContext, config: DocSheetConfig): DocSheetRow[]
+
+  /**
+   * **行是否随配置变化**（决策 D3，§8.1，2026-09-18 lead 批准）。
+   *
+   * 只有自定义生产单（ic=14）需要置 `true`：它的「每页数据数」在配置里，
+   * 改了它必须**重跑配对**，否则预览还是旧版式（§8.1 D3）。
+   * GS2 / PS2 的行只由订单明细决定，与配置无关 ⇒ 留空（`undefined` = `false`），
+   * 保存设置后不白跑一遍汇算。
+   *
+   * ⚠️ **只在「配置保存后」重建行**，**不在「编辑行数据后」重建** —— 见
+   * `DocSheetDrawer.onRowsSaved` 的注（那是有意偏离旧版的一处）。
+   */
+  rowsDependOnConfig?: boolean
 }
 
 /**
@@ -196,7 +252,8 @@ export function createDocSheetUiProfile(input: {
   core: DocSheetProfile
   text: DocSheetUiText
   api: DocSheetUiApi
-  produceRows: (ctx: PrintContext) => DocSheetRow[]
+  produceRows: (ctx: PrintContext, config: DocSheetConfig) => DocSheetRow[]
+  rowsDependOnConfig?: boolean
 }): DocSheetUiProfile {
   return { ...input, classes: createDocSheetUiClasses(input.core.prefix) }
 }

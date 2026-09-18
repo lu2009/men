@@ -47,33 +47,29 @@ export const PRINT_IFRAME_REMOVE_MS = 1000
 const PRINT_IFRAME_STYLE = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;'
 
 /**
- * 「直接打印」—— 重建整份单据文档，塞进隐藏 iframe，唤起浏览器打印对话框。
+ * **打印骨架**：把一份**完整文档 HTML** 塞进隐藏 iframe，唤起浏览器打印对话框。
+ *
+ * 本函数是 §8.2 #15 那次参数化的产物 —— 旧版 `printDirect` 的骨架（iframe 样式 / 等图 /
+ * 300ms / focus + print / 1000ms 摘除）在 C 家族与自定义生产单之间**逐字相同**（§6.1 CONFIRMED），
+ * **唯一的差别是「文档怎么造」**：C 家族走 `buildDocumentHtml`（只有 `<title>`），
+ * 自定义生产单走 `ne`（head 里**多一段 `<style>`**，§4.3）。
+ * ⇒ 把骨架单独提出来，两边的 `print.ts` 各自造完文档再调它。**C 家族路径逐字未动。**
  *
  * 时序（GS:799-848，逐条）：
- *   1. 构建**完整文档 HTML**（`<!DOCTYPE html>…<title>{profile.documentTitle}</title>…`）；
- *   2. 建隐藏 iframe → 挂 body → `document.write` → `close`；
- *   3. 等所有 `<img>` 完成；
- *   4. **300ms** → `contentWindow.focus()` + `print()`；
- *   5. **1000ms** 后（且 iframe 还在 body 里才）摘掉。
+ *   1. 建隐藏 iframe → 挂 body → `document.write` → `close`；
+ *   2. 等所有 `<img>` 完成；
+ *   3. **300ms** → `contentWindow.focus()` + `print()`；
+ *   4. **1000ms** 后（且 iframe 还在 body 里才）摘掉。
  *
- * ⚠️ **一处有意的改进（用户 2026-09-17 报告 §9.3 / §13.9 建议）**：第 3 步**带 2s 兜底**。
+ * ⚠️ **一处有意的改进（用户 2026-09-17 报告 §9.3 / §13.9 建议）**：第 2 步**带 2s 兜底**。
  * 旧版这段等待 Promise **没有 `setTimeout`**，任一张 `<img>` 既不 `onload` 也不 `onerror`
  * （断链但连接挂起）时，**打印对话框永远不会弹**、遮罩一直转。量测那条链路本来就有 2s 兜底
  * （GS:505），打印这条**漏了** —— 这是旧版的缺陷。新版传 `MEASURE_IMAGE_TIMEOUT_MS`，
  * 与量测保持一致：等不到的图片不再阻塞打印（打出来那一格是空的，与「图片加载失败」同观感）。
  *
- * 提示文案（旧版在这里弹的 `ElMessage.success("已打开打印对话框")` / 失败时的
- * `ElMessage.error("打印失败: …")`）**留给组件层** —— Naive 的 `useMessage()` 只能在 setup 里拿。
- * 异常照旧版**向上抛**（旧的 catch 只负责弹提示，没有任何清理逻辑）。
+ * @param html **完整文档**（含 `<!DOCTYPE html>`）—— 调用方负责造。
  */
-export async function printDocSheetDirect<R extends DocSheetRow>(
-  rows: R[],
-  config: DocSheetConfig,
-  opts: RenderOptions,
-  profile: DocSheetProfile,
-): Promise<void> {
-  const html = await buildDocSheetDocument(rows, config, opts, profile) // 旧版 `J()`，GS:806
-
+export async function printHtmlViaIframe(html: string): Promise<void> {
   const iframe = document.createElement('iframe') // GS:808
   iframe.style.cssText = PRINT_IFRAME_STYLE // GS:809-810
   document.body.appendChild(iframe) // GS:811
@@ -102,4 +98,21 @@ export async function printDocSheetDirect<R extends DocSheetRow>(
     if (document.body.contains(iframe)) document.body.removeChild(iframe)
     throw e
   }
+}
+
+/**
+ * 「直接打印」（C 家族）—— 重建整份单据文档，交给 `printHtmlViaIframe`。
+ *
+ * 提示文案（旧版在这里弹的 `ElMessage.success("已打开打印对话框")` / 失败时的
+ * `ElMessage.error("打印失败: …")`）**留给组件层** —— Naive 的 `useMessage()` 只能在 setup 里拿。
+ * 异常照旧版**向上抛**（旧的 catch 只负责弹提示，没有任何清理逻辑）。
+ */
+export async function printDocSheetDirect<R extends DocSheetRow>(
+  rows: R[],
+  config: DocSheetConfig,
+  opts: RenderOptions,
+  profile: DocSheetProfile,
+): Promise<void> {
+  const html = await buildDocSheetDocument(rows, config, opts, profile) // 旧版 `J()`，GS:806
+  await printHtmlViaIframe(html) // GS:808-841 —— 骨架见上
 }
