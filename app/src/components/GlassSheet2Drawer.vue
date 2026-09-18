@@ -18,6 +18,7 @@
   <DocSheetDrawer
     :show="show"
     :orders="orders"
+    width="95%"
     :profile="GLASSSHEET2_UI_PROFILE"
     :layout-dialog="GlassSheet2LayoutDialog"
     :settings-dialog="GlassSheet2SettingsDialog"

@@ -30,8 +30,20 @@
   PS2 走 `productionProduces()`（引擎 B）。这是两张单据**最根本的不同**（§7.2）。
 -->
 <template>
-  <n-drawer :show="show" :width="1180" placement="right" @update:show="(v: boolean) => emit('update:show', v)">
-    <n-drawer-content :title="profile.text.drawerTitle" closable>
+  <!--
+    ★ **2026-09-18 由抽屉改为弹窗**（用户要求：自定义单据也统一成弹窗）。
+    依据：旧版这几张走的就是**同一个预览弹窗**（`el-dialog`），而且它的宽度算式
+    `15==ic||16==ic ? "95%" : "1180px"` 里那两个 95% 的恰恰就是生产单2 与玻璃合片单
+    —— 说明它们本来就是弹窗，原版的 350px 抽屉只是「打印选项」入口列表。
+  -->
+  <n-modal
+    :show="show"
+    preset="card"
+    :style="{ width: dialogWidth }"
+    :bordered="false"
+    :title="profile.text.drawerTitle"
+    @update:show="(v: boolean) => emit('update:show', v)"
+  >
       <div :class="cls.drawerWrap">
         <div :class="cls.drawerToolbar">
           <span class="hint">
@@ -73,8 +85,7 @@
         -->
         <div v-show="!rendering && !!previewHtml" :class="cls.drawerPreview" v-html="previewHtml" />
       </div>
-    </n-drawer-content>
-  </n-drawer>
+  </n-modal>
 
   <!-- B：布局编辑（改版式，存 `profile.core.storageKeys.template`） -->
   <component
@@ -132,7 +143,7 @@
 
 <script setup lang="ts" generic="C, R, O">
 import { computed, nextTick, ref, shallowRef, watch, type Component } from 'vue'
-import { NButton, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
+import { NButton, NModal, NSpin, useMessage } from 'naive-ui'
 
 import { api } from '../api/client'
 import type { OrderDto } from '../api/types'
@@ -159,8 +170,10 @@ import {
  * GS2 / PS2 由 `PRODUCTIONSHEET2_UI_PROFILE`（= `DocSheetUiProfile`，三个形参全走默认值）
  * 推出 `C = DocSheetConfig` / `R = DocSheetRow` / `O = RenderOptions`，与改动前逐字等价。
  */
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   show: boolean
+  /** 弹窗宽度。旧版算式 `15==ic||16==ic ? "95%" : "1180px"`，由各包装组件传。 */
+  width?: string
   /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
   orders: OrderDto[]
   /** 本单据的组件层档案（文案 / 外壳 class / 模块转出 / **行来源**）。 */
@@ -182,8 +195,13 @@ const props = defineProps<{
    * 注入的组件接收 `{ modelValue, rows, title }` 并 emit `save`。
    */
   editDialog?: Component
-}>()
+}>(), {
+  width: '1180px',
+})
 const emit = defineEmits<{ 'update:show': [boolean] }>()
+
+/** 弹窗宽度（旧版 `15==ic||16==ic ? "95%" : "1180px"`，由各包装组件按 ic 传）。 */
+const dialogWidth = computed(() => props.width || '1180px')
 
 const message = useMessage()
 const auth = useAuthStore()

@@ -14,8 +14,19 @@
     「复制收据单」→ html2canvas｜「导出PDF」→ 浏览器打印对话框（旧版是 jsPDF，有意改掉）
 -->
 <template>
-  <n-drawer :show="show" :width="1180" placement="right" @update:show="(v: boolean) => emit('update:show', v)">
-    <n-drawer-content title="自定义收据单" closable>
+  <!--
+    ★ **2026-09-18 由抽屉改为弹窗**（用户要求：自定义单据统一成弹窗）。
+    依据：旧版这几张走的就是**同一个预览弹窗**（`el-dialog`，宽 `1180px`），
+    原版那个 350px 的抽屉只是「打印选项」的入口列表。
+  -->
+  <n-modal
+    :show="show"
+    preset="card"
+    style="width: 1180px"
+    :bordered="false"
+    title="自定义收据单"
+    @update:show="(v: boolean) => emit('update:show', v)"
+  >
       <div class="r2-wrap">
         <div class="r2-toolbar">
           <span class="hint">
@@ -49,8 +60,7 @@
           @keydown.enter="onEditKeydown"
         />
       </div>
-    </n-drawer-content>
-  </n-drawer>
+  </n-modal>
 
   <Receipt2SettingsDialog
     v-model:show="settingsShow"
@@ -77,7 +87,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
-import { NButton, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
+import { NButton, NModal, NSpin, useMessage } from 'naive-ui'
 
 import { api } from '../api/client'
 import type { OrderDto } from '../api/types'
