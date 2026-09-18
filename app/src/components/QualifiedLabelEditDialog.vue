@@ -38,6 +38,14 @@
       <div class="ql-edit-button-group">
         <n-button type="primary" round @click="confirm">确认修改</n-button>
         <n-button round @click="cancel">取消</n-button>
+        <!--
+          「位置」列开关 —— **新版新增**（旧版按门店名硬编码，除那一家谁都看不到）。
+          改动即落盘（与固定张数同款），不做「等确认修改才生效」。
+        -->
+        <span class="ql-edit-location-toggle">
+          <n-switch :value="showLocationColumn" size="small" @update:value="toggleLocationColumn" />
+          <span class="ql-edit-location-label">显示「位置」列</span>
+        </span>
       </div>
 
       <div class="ql-edit-table-wrap">
@@ -80,9 +88,12 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { NButton, NInput, NModal, useMessage } from 'naive-ui'
+import { NButton, NInput, NModal, NSwitch, useMessage } from 'naive-ui'
 
-import { useAuthStore } from '../stores/auth'
+import {
+  loadLocationColumnSetting,
+  saveLocationColumnSetting,
+} from '../utils/qualifiedlabel/locationColumn'
 
 type Row = Record<string, unknown>
 
@@ -112,24 +123,29 @@ const emit = defineEmits<{
 }>()
 
 const message = useMessage()
-const auth = useAuthStore()
 
 const show = ref(props.modelValue)
 const draft = ref<Row[]>([])
 
 /**
- * 门店特判（旧版 `LabelEdit` 的 `onMounted`）。
+ * 「位置」列的显隐 —— **用户可控的开关，不再按门店名特判**（用户 2026-09-18 拍板）。
  *
- * 旧版：`getUserData()` → `t.userinfo.registrant === '杉杉铝木极简门'` ⇒ 多渲染一列「位置」。
- * 新版取 `auth.tenant.name`。
+ * ⚠️ **有意偏离旧版**。旧版是 `getUserData()` → `userinfo.registrant === '杉杉铝木极简门'`
+ * 才多渲这一列，等于**除那一家门店外谁都用不到**，且换门店名就得改代码。
+ * 新版改成持久化开关：**默认关，要的人自己开**（存储见 `utils/qualifiedlabel/locationColumn.ts`）。
  *
- * TODO(未确认): `userinfo.registrant` 与 `TenantDto.name` 是否**同一个字段**没有实证 ——
- * 依据是「`registrant` 在本仓库的既有落点就是 `ctx.tenantName`（= `auth.tenant?.name`）」
- * （`printPayloads.ts:672` 的 `labelQuantity({… registrant: ctx.tenantName})`，那里的工厂特判
- * 用的正是这套名字）。**如果后端其实另有一个 `registrant` 字段，这里判错门店的话，
- * 后果只是「位置」列显示/隐藏不对 —— 而那一列在当前数据源下本来就是空的**（见文件头注）。
+ * 这个改动还有个直接动因：`storeAddress` 在新版数据层**原本根本不存在**
+ * （`labelRows('lable')` 不产它），所以旧版那套特判**即使门店名对上、列也是恒为空的**。
+ * 本次已在 `printPayloads.ts` 的 `lableRow` 里补上（取**客户资料地址**，不是订单安装地址）。
+ *
+ * 旧版那条 TODO（`userinfo.registrant` 与 `TenantDto.name` 是否同一字段）随本次改动一并作废。
  */
-const isStoreTenant = computed(() => auth.tenant?.name === '杉杉铝木极简门')
+const showLocationColumn = ref(loadLocationColumnSetting())
+
+/** 开关变更：立即落盘（与固定张数同款，不走「确认修改」）。 */
+function toggleLocationColumn(v: boolean) {
+  showLocationColumn.value = saveLocationColumnSetting(v)
+}
 
 /**
  * 列清单（旧版 11 列 + 可选「位置」 + 「操作」），**顺序与宽度逐字照抄**。
@@ -142,7 +158,7 @@ const columns = computed<EditColumn[]>(() => {
   const list: EditColumn[] = [
     { key: 'client', label: '客户', width: 130, rows: 2 },
   ]
-  if (isStoreTenant.value) list.push({ key: 'storeAddress', label: '位置', width: 130, rows: 2 })
+  if (showLocationColumn.value) list.push({ key: 'storeAddress', label: '位置', width: 130, rows: 2 })
   list.push(
     { key: 'door', label: '门型', width: 160, rows: 2 },
     { key: 'size', label: '尺寸', width: 180, rows: 2 },
@@ -255,7 +271,21 @@ function deleteRow(index: number): void {
 }
 .ql-edit-button-group {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+/* 「位置」列开关：靠右，与两颗按钮拉开距离（新版新增，旧版没有这个控件） */
+.ql-edit-location-toggle {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #606266;
+}
+.ql-edit-location-label {
+  user-select: none;
+  cursor: pointer;
 }
 .ql-edit-table-wrap {
   overflow: auto;
