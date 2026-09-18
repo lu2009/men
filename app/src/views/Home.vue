@@ -39,6 +39,13 @@
         >
           自定义生产单2{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openProductionSheet"
+        >
+          自定义生产单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
         <span class="grow-spacer" />
@@ -160,6 +167,9 @@
     <!-- 自定义生产单2（旧版 ic=15）：与玻璃合片单同属 C 家族，差在行数据来源与列集 -->
     <ProductionSheet2Drawer v-model:show="productionSheet2Show" :orders="productionSheet2Orders" />
 
+    <!-- 自定义生产单（旧版 ic=14）：B 家族，行数据来自 oldSheetProduces() -->
+    <ProductionSheetDrawer v-model:show="productionSheetShow" :orders="productionSheetOrders" />
+
     <!-- 经营看板（§1.2 DashboardBigScreen，数据全部来自前端订单列表） -->
     <DashboardBigScreen v-model:show="dashboardShow" :orders="dashboardOrders" />
   </div>
@@ -194,6 +204,7 @@ import PrintDrawer from '../components/PrintDrawer.vue'
 import Receipt2Drawer from '../components/Receipt2Drawer.vue'
 import GlassSheet2Drawer from '../components/GlassSheet2Drawer.vue'
 import ProductionSheet2Drawer from '../components/ProductionSheet2Drawer.vue'
+import ProductionSheetDrawer from '../components/ProductionSheetDrawer.vue'
 import type { OrderDto, OrderFinance, OrderHeadInput, OrderLineDto, OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
@@ -504,6 +515,8 @@ const glassSheet2Show = ref(false)
 const glassSheet2Orders = ref<OrderDto[]>([])
 const productionSheet2Show = ref(false)
 const productionSheet2Orders = ref<OrderDto[]>([])
+const productionSheetShow = ref(false)
+const productionSheetOrders = ref<OrderDto[]>([])
 
 async function openPrint() {
   const ids = checkedRowKeys.value.map((k) => Number(k))
@@ -586,6 +599,29 @@ async function openProductionSheet2() {
     return
   }
   productionSheet2Show.value = true
+}
+
+/**
+ * 自定义生产单（旧版 `ic=14`）—— **B 家族**，与前三张都不同族。
+ *
+ * 三点与前几张的区别（都封装在抽屉里，Home 只负责把订单给过去）：
+ * · 行数据来源 `calculateReceiptOld()` → 新版 `oldSheetProduces(paired)`；
+ * · 配置是三块（`headerFields` + `tableConfig` + `doorImgBox`）而非纯列模型；
+ * · 独有的「每页条数（1/2）」会把行**配对**成两联。
+ */
+async function openProductionSheet() {
+  const ids = checkedRowKeys.value.map((k) => Number(k))
+  if (!ids.length) {
+    message.warning('请先勾选要打单的订单')
+    return
+  }
+  try {
+    productionSheetOrders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
+  } catch (e) {
+    message.error((e as Error).message || '读取订单明细失败')
+    return
+  }
+  productionSheetShow.value = true
 }
 
 // ---------------------------------------------------------------------------

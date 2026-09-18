@@ -17,7 +17,10 @@
     新版反过来，由本抽屉自己持容器 —— 与收据单抽屉同一决策，产出不变。
   · 旧版「编辑XX」是 Home 侧的 `ProductionEdit`（Hui chunk，改的是**行数据**）；
     这里换成共用的 `DocEditDialog.vue`（列定义/转换字段都按 §15.2 传进去，
-    两张单据用的是**同一个** `ProductionEdit`，见 §15.5 的映射表）。
+    **C 家族两张**单据用的是**同一个** `ProductionEdit`，见 §15.5 的映射表）。
+    ⚠️ **ic=14（自定义生产单）是例外**：它用的是另一个组件 `ProductionEditOld`
+    （oldSheet 嵌套 + 双联，施工图 §6.5），所以本组件留了 `editDialog` 注入口 ——
+    **只有 C 家族（GS2/PS2）走内置的 `DocEditDialog`**，ic=14 由包装层注入。
   · 旧版有五颗按钮（GS §11.4 的 key 22-26 / PS2 的 key 17-21）。新版**去掉「直接打印」**：
     它的浏览器分支就是「生成 HTML 塞进预览」（`@363550`），而本抽屉恒有预览 ——
     等价物已经天然存在，不需要这颗按钮。Electron 的 `printSilent` 分支更是没有载体
@@ -89,9 +92,26 @@
     转换的那 **5** 个字段（`remark`/`OrderID`/`doorImg` **不转**）。
     ⚠️ 两张单据用的是**同一个** `ProductionEdit`（§15.5），所以这四项是**共用常量**，不进 profile。
   -->
-  <DocEditDialog
+  <!--
+    A：编辑行数据。**两种口径**（旧版是两个不同的组件，见 §15.5 / §6.5）：
+      · C 家族（ic=15/16）→ `ProductionEdit`，平铺行、8 列固定定义 ⇒ 用内置的 `DocEditDialog`；
+      · 自定义生产单（ic=14）→ `ProductionEditOld`，**oldSheet 嵌套 + 双联** ⇒ 形状对不上，
+        由包装层经 `editDialog` 注入（`ProductionSheetEditDialog.vue`）。
+    列定义 = 旧版 `ProductionEdit` 硬编码的那 8 列（§15.2）；`brFields` = 旧版做 `<br>`↔`\n`
+    转换的那 **5** 个字段（`remark`/`OrderID`/`doorImg` **不转**）。
+  -->
+  <component
+    v-if="editDialog"
+    :is="editDialog"
     v-model="editShow"
     :rows="rows"
+    :title="profile.text.editActionLabel"
+    @save="onRowsSaved"
+  />
+  <DocEditDialog
+    v-else
+    v-model="editShow"
+    :rows="docEditRows"
     :columns="DOC_EDIT_COLUMNS"
     :br-fields="DOC_EDIT_BR_FIELDS"
     :image-field="DOC_EDIT_IMAGE_FIELD"
@@ -101,8 +121,8 @@
   />
 </template>
 
-<script setup lang="ts">
-import { computed, nextTick, ref, watch, type Component } from 'vue'
+<script setup lang="ts" generic="C, R, O">
+import { computed, nextTick, ref, shallowRef, watch, type Component } from 'vue'
 import { NButton, NDrawer, NDrawerContent, NSpin, useMessage } from 'naive-ui'
 
 import { api } from '../api/client'
@@ -110,7 +130,6 @@ import type { OrderDto } from '../api/types'
 import { useAuthStore } from '../stores/auth'
 import { buildOrderPrintContext, loadPrintPrereqs, type PrintPrereqs } from '../composables/useOrderPrint'
 import type { PrintContext } from '../utils/printPayloads'
-import type { DocSheetRow, RenderOptions } from '../utils/docsheet/types'
 import DocEditDialog from './DocEditDialog.vue'
 import {
   DOC_EDIT_BR_FIELDS,
@@ -120,15 +139,23 @@ import {
   UI_NO_ORDERS_HINT,
   UI_PRINT_FAIL_PREFIX,
   UI_PRINT_OK,
-  type DocSheetUiProfile,
+  type DocSheetDrawerProfile,
 } from './docSheetUi'
 
+/**
+ * ⚠️ **三个类型形参只有一处用处**：让「配置 / 行 / 渲染选项」的形状随单据走。
+ * 本组件对它们**不做任何假设**（只把它们原样转给档案里的函数），所以不需要约束
+ * （`R` 尤其不能约束成 `DocSheetRow` —— 它是 interface，没有索引签名时的隐式兼容不成立）。
+ *
+ * GS2 / PS2 由 `PRODUCTIONSHEET2_UI_PROFILE`（= `DocSheetUiProfile`，三个形参全走默认值）
+ * 推出 `C = DocSheetConfig` / `R = DocSheetRow` / `O = RenderOptions`，与改动前逐字等价。
+ */
 const props = defineProps<{
   show: boolean
   /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
   orders: OrderDto[]
   /** 本单据的组件层档案（文案 / 外壳 class / 模块转出 / **行来源**）。 */
-  profile: DocSheetUiProfile
+  profile: DocSheetDrawerProfile<C, R, O>
   /**
    * 两个设置弹窗的**具体单据包装组件**（`GlassSheet2LayoutDialog` / `ProductionSheet2LayoutDialog` …）。
    *
@@ -138,6 +165,14 @@ const props = defineProps<{
    */
   layoutDialog: Component
   settingsDialog: Component
+  /**
+   * 「编辑XX」那颗按钮开的弹窗组件（**可选**）。缺省 → 用内置的 `DocEditDialog`（C 家族口径）。
+   *
+   * ⚠️ 为什么必须能换：ic=14 的编辑弹窗是旧版的另一个组件 `ProductionEditOld`（§6.5），
+   * 数据形状是 `oldSheet` 嵌套 + 双联，与 `DocEditDialog` 的「平铺行 + 8 列固定定义」对不上。
+   * 注入的组件接收 `{ modelValue, rows, title }` 并 emit `save`。
+   */
+  editDialog?: Component
 }>()
 const emit = defineEmits<{ 'update:show': [boolean] }>()
 
@@ -155,8 +190,15 @@ const layoutShow = ref(false)
 const settingsShow = ref(false)
 const editShow = ref(false)
 
-/** 行数据（旧版 Home 的 `oi` / `qr`）—— 编辑弹窗改的就是它，随抽屉重开重建。 */
-const rows = ref<DocSheetRow[]>([])
+/**
+ * 行数据（旧版 Home 的 `oi` / `qr`）—— 编辑弹窗改的就是它，随抽屉重开重建。
+ *
+ * ⚠️ 必须是 `shallowRef` 而不是 `ref`：`R` 是**不设约束**的形参，`ref<R[]>` 会得到
+ * `UnwrapRefSimple<R>[]`，那个类型**没法**传回 `produceRows`/`printDirect`（`R` 可能是个
+ * 带方法或 getter 的类型）。本组件只**整体替换**这个数组（从不就地改某一项），
+ * 浅层响应式完全够用，且与旧版「每次 build 现算一整个数组」的语义一致。
+ */
+const rows = shallowRef<R[]>([])
 /**
  * 每张订单的汇算上下文（**新版自有的一份留存**）—— 只为「配置改了要重建行」这件事
  * （决策 D3）。旧版没有这一层：它的行来源是 Home 侧的 `getData()`，每次 build 现算。
@@ -165,13 +207,25 @@ const rows = ref<DocSheetRow[]>([])
  */
 const rowContexts = ref<PrintContext[]>([])
 /** 生效配置（旧版组件内的 `i`）。两个弹窗都只读它，草稿在各自内部。 */
-const config = ref(props.profile.api.loadSettings().config)
+const config = ref<C>(props.profile.api.loadSettings().config)
 const ready = computed(() => !!previewHtml.value)
 
-/** 整份文档一套二维码 provider（旧版是模块级单例 + 一张 Map 缓存，这里按抽屉实例一份）。 */
-const renderOpts: RenderOptions = {
-  qr: props.profile.api.createQrSvgProvider(props.profile.api.createQrEncoder()),
-}
+/**
+ * 给**内置** `DocEditDialog` 用的行（只走 `v-else` 那条分支）。
+ *
+ * ⚠️ 断言是必要的、也是安全的：`R` 在本组件里是个不设约束的形参，而**内置编辑弹窗只服务
+ * C 家族**（`R` 在那里恒为 `DocSheetRow`，本身就带 `[extra: string]: unknown`）。
+ * ic=14 走的是 `editDialog` 注入的那条分支，根本不经过这里（§6.5）。
+ */
+const docEditRows = computed(() => rows.value as unknown as Record<string, unknown>[])
+
+/**
+ * 整份文档一套渲染选项（旧版是模块级单例 + 一张 Map 缓存，这里按抽屉实例一份）。
+ *
+ * ⚠️ 由**档案**构造而不是在这里拼：两张单据的选项**键名不同**（C 家族 `{qr}` /
+ * ic=14 `{qrSvg}`），本组件不知道 `O` 的具体形状 —— 见 `DocSheetDrawerProfile.createRenderOpts`。
+ */
+const renderOpts: O = props.profile.createRenderOpts()
 
 watch(
   () => props.show,
@@ -209,7 +263,7 @@ watch(
  * 第二参 `config` 供「行形状依赖配置」的单据使用（本次是自定义生产单的 `itemsPerPage`，
  * 见 `DocSheetUiProfile.produceRows` 的注）。
  */
-function buildRows(): DocSheetRow[] {
+function buildRows(): R[] {
   return rowContexts.value.flatMap((ctx) => props.profile.produceRows(ctx, config.value))
 }
 
@@ -280,7 +334,7 @@ function openEditDialog(): void {
  * 这一组合下可见，且新版是**修正**、不是回归。
  */
 async function onRowsSaved(next: Record<string, unknown>[]): Promise<void> {
-  rows.value = next as DocSheetRow[]
+  rows.value = next as R[]
   await renderPreview()
 }
 
@@ -320,11 +374,11 @@ async function doPrint(): Promise<void> {
     · `ps1-*` —— 自定义生产单（ic=14）。★ 前缀是 **`ps1`**（不是 `ps`）：
       PS2 的核心层前缀也是 `ps`，外壳若共用 `ps2-*` 两张单子在 DOM 里就同名了。
       常量见 `docSheetUi.ts` 的 `PS_SHELL_NS` / `PRODUCTION_SHEET_UI_CLASSES`。
-      ⚠️ **`ps1-*` 这一组目前是「预埋」**：PS 的组件层档案（`productionSheetUiProfile.ts`）
-      与两个弹窗组件尚未落地，所以暂时没有渲染它的模板。留着是因为
-      `docSheetUi.ts:78-82` 那条 TODO 的约定就是「新增单据时回来补一行」——
-      补在**共用组件**里，而不是等接线时再回头改这里。
-      ⚠️ 若将来 PS 走**自己的**抽屉（不复用本组件），这 6 组选择器就成了死代码，可一并删掉。
+      **落地情况（2026-09-18）**：`ps1-*` 这一组**已经是活的** ——
+      `ProductionSheetDrawer.vue` 复用本组件、递的是 `PRODUCTION_SHEET_UI_PROFILE`
+      （`classes` 走显式的 `PRODUCTION_SHEET_UI_CLASSES`，不派生自 `core.prefix`，
+      因为 ic=14 没有 `core`，见 `DocSheetDrawerProfile` 的头注）。
+      它下面 5 条样式随之生效，**不是死代码**。
 
   下面 5 条全部是**新版自己的排版胶水**：旧版组件只把 HTML 推回 Home，没有抽屉外壳，
   所以没有任何旧版 CSS 可对照。逐字沿用 GS2 抽屉原有的取值（视觉零回归）。

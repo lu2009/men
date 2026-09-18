@@ -169,49 +169,109 @@ export interface DocSheetUiText {
 }
 
 /**
- * 本单据 `utils/<doc>/` 出口里**组件层真正用到**的那几个函数 —— 显式列出、显式改名，
- * 免得共用组件去 `import * as` 再按名字猜（两张单据的导出名不同：
- * `buildGlassSheet2Html` vs `buildProductionSheet2Html`、`loadGlassSheet2Settings` vs
- * `loadProductionSheet2Settings`）。
+ * 本单据 `utils/<doc>/` 出口里**组件层用到**的那几个函数（抽屉只消费它的一个子集）。
  *
- * 参数类型统一成底座的 `DocSheetRow` / `DocSheetConfig`：两张单据的类型都是它们的
- * 别名或子类型（见 `utils/docsheet/types.ts`），所以这里是**收窄方向**、不是放宽。
+ * ⚠️ **三个类型形参（决策 2026-09-18，为 ic=14 加）**：`C` 配置 / `R` 行 / `O` 渲染选项。
+ * 全部**带默认值 = C 家族的类型**，所以 GS2 / PS2 的一切既有写法（`DocSheetUiProfile`、
+ * `DocSheetUiApi` 裸用）**一个字都不用改**。加形参的原因见 `DocSheetDrawerProfile`。
  */
-export interface DocSheetUiApi {
+export interface DocSheetRenderApi<
+  C = DocSheetConfig,
+  R = DocSheetRow,
+  O = RenderOptions,
+> {
   /** 一次载入的两项（生效配置 + 裸字符串打印机名，GS:686-774 / PS2:709-803）。 */
-  loadSettings(): DocSheetLoadedSettings
+  loadSettings(): DocSheetLoadedSettings<C>
   /** 配置落盘 —— **两个弹窗共用同一个键**（§6.3 / §8）。 */
-  saveConfig(config: DocSheetConfig): void
+  saveConfig(config: C): void
   /** 打印机名落盘 —— **裸字符串，不 JSON**，选中即写。 */
   savePrinter(name: string): void
   /** 默认配置工厂（旧版 `a()`）—— 三颗「重置默认」按钮都用它，**每次返回全新对象**。 */
-  createDefaultConfig(): DocSheetConfig
+  createDefaultConfig(): C
   /** 根容器 HTML（旧版 `j`，读**生效配置**）。 */
-  buildHtml(rows: DocSheetRow[], config: DocSheetConfig, opts?: RenderOptions): Promise<string>
+  buildHtml(rows: R[], config: C, opts?: O): Promise<string>
   /** 直接打印（旧版 `printDirect`：重建文档 → iframe → 300ms → print）。 */
-  printDirect(rows: DocSheetRow[], config: DocSheetConfig, opts?: RenderOptions): Promise<void>
-  /** 量测 + 切页（旧版 `H`）—— 布局编辑器的右侧预览走它，用的是**草稿**配置。 */
-  paginateWithMeasure(
-    rows: DocSheetRow[],
-    config: DocSheetConfig,
-    opts?: RenderOptions,
-  ): Promise<DocSheetRow[][]>
-  /** 布局编辑器预览表（旧版 `S`）。 */
-  renderPreviewTable(rows: DocSheetRow[], config: DocSheetConfig, opts?: RenderOptions): string
+  printDirect(rows: R[], config: C, opts?: O): Promise<void>
   /** 二维码 SVG provider（旧版是模块级单例 + Map 缓存；新版按组件实例一份）。 */
   createQrSvgProvider(encode: QrEncoder): QrEncoder
   /** 二维码编码器（本仓库用 `qrcode-generator` 顶旧版的 zxing，见 `utils/docsheet/qr.ts`）。 */
   createQrEncoder(): QrEncoder
 }
 
+/**
+ * 本单据 `utils/<doc>/` 出口里**组件层真正用到**的那几个函数 —— 显式列出、显式改名，
+ * 免得共用组件去 `import * as` 再按名字猜（两张单据的导出名不同：
+ * `buildGlassSheet2Html` vs `buildProductionSheet2Html`、`loadGlassSheet2Settings` vs
+ * `loadProductionSheet2Settings`）。
+ *
+ * ★ 它是 `DocSheetRenderApi` 的**超集**：多出来的两条只被**布局编辑器**（C 家族）消费，
+ *   抽屉不碰 —— 这正是 ic=14 能复用抽屉却不用为这两条造假实现的原因，见 `DocSheetDrawerProfile`。
+ *
+ * 参数类型统一成底座的 `DocSheetRow` / `DocSheetConfig`：两张单据的类型都是它们的
+ * 别名或子类型（见 `utils/docsheet/types.ts`），所以这里是**收窄方向**、不是放宽。
+ */
+export interface DocSheetUiApi<
+  C = DocSheetConfig,
+  R = DocSheetRow,
+  O = RenderOptions,
+> extends DocSheetRenderApi<C, R, O> {
+  /** 量测 + 切页（旧版 `H`）—— 布局编辑器的右侧预览走它，用的是**草稿**配置。 */
+  paginateWithMeasure(rows: R[], config: C, opts?: O): Promise<R[][]>
+  /** 布局编辑器预览表（旧版 `S`）。 */
+  renderPreviewTable(rows: R[], config: C, opts?: O): string
+}
+
+/**
+ * **抽屉（`DocSheetDrawer.vue`）真正消费的**那一份档案。
+ *
+ * ★ 为什么要有这一层（决策 2026-09-18，为 ic=14 加）：自定义生产单（ic=14）的配置模型
+ *   与 C 家族**完全无一处同构**（§0.1：B 家族 vs C 家族），既没有 `DocSheetProfile`
+ *   （核心层档案明确「表达不了」，见 `utils/productionsheet/profile.ts` 头注），
+ *   也没有 `paginateWithMeasure` / `renderPreviewTable`（它的分页是**解析式**的、预览是
+ *   三种绝对定位元素拼出来的，§3.3 / §5.1）。
+ *   ⇒ 若抽屉仍要求完整的 `DocSheetUiProfile`，ic=14 就得**给两条永远调不到的方法写假实现**，
+ *     再往一个语义错误的 `core` 上塞东西。把抽屉的依赖面收窄成「它真的会调的 8 个方法」，
+ *     两边就都能**无断言**地满足它。
+ *
+ * ⚠️ 三个形参的默认值 = C 家族的类型 ⇒ GS2 / PS2 的 `DocSheetUiProfile` 天然是它的子类型。
+ */
+export interface DocSheetDrawerProfile<
+  C = DocSheetConfig,
+  R = DocSheetRow,
+  O = RenderOptions,
+> {
+  /** 外壳 class 名（**不派生自 `core.prefix`** —— ic=14 走显式的 `PRODUCTION_SHEET_UI_CLASSES`）。 */
+  classes: DocSheetUiClasses
+  text: DocSheetUiText
+  api: DocSheetRenderApi<C, R, O>
+  /**
+   * **行数据来源**（详见下方 `DocSheetUiProfile.produceRows` 的说明）。
+   */
+  produceRows(ctx: PrintContext, config: C): R[]
+  /** 行是否随配置变化 —— 见下方 `DocSheetUiProfile.rowsDependOnConfig`。 */
+  rowsDependOnConfig?: boolean
+  /**
+   * 构造**本单据的**渲染选项（旧版是各组件模块级单例，见 `utils/docsheet/html.ts`）。
+   *
+   * ★ 必须由档案给：两张单据的选项**键名不同** —— C 家族是 `{qr}`（`RenderOptions`），
+   *   自定义生产单是 `{qrSvg}`（`ProductionSheetRenderOptions`），抽屉在不知道 `O` 的
+   *   具体形状时无法自己拼。返回的对象**每次调用新建**（抽屉只在 setup 里调一次）。
+   */
+  createRenderOpts(): O
+}
+
 /** 一张单据在**组件层**的全部差异。 */
-export interface DocSheetUiProfile {
+export interface DocSheetUiProfile<
+  C = DocSheetConfig,
+  R = DocSheetRow,
+  O = RenderOptions,
+> extends DocSheetDrawerProfile<C, R, O> {
   /** 核心层档案（同一个「单据档案」）—— 组件层读它的 `prefix` 与 `documentTitle`。 */
   core: DocSheetProfile
   /** 由 `core.prefix` 派生的外壳 class 名。 */
   classes: DocSheetUiClasses
   text: DocSheetUiText
-  api: DocSheetUiApi
+  api: DocSheetUiApi<C, R, O>
   /**
    * **行数据来源** —— 两张单据最根本的不同，也是核心层**唯一**不表达的那处差异
    * （§0 差异 #1 / §7.2）：
@@ -228,8 +288,11 @@ export interface DocSheetUiProfile {
    *
    * ⚠️ 拿到的 `config` 是**生效配置**（抽屉里的 `config.value`），不是任何草稿 ——
    * 与 `renderPreview` 读的那份一致。
+   *
+   * ⚠️ 形参被**重声明**（而不是靠继承）是必须的：`DocSheetDrawerProfile` 里的 `config: C`
+   * 在子接口里要收窄成 `DocSheetConfig`，不重写会被 TS 判为「不兼容地扩展父接口」。
    */
-  produceRows(ctx: PrintContext, config: DocSheetConfig): DocSheetRow[]
+  produceRows(ctx: PrintContext, config: C): R[]
 
   /**
    * **行是否随配置变化**（决策 D3，§8.1，2026-09-18 lead 批准）。
@@ -255,7 +318,18 @@ export function createDocSheetUiProfile(input: {
   produceRows: (ctx: PrintContext, config: DocSheetConfig) => DocSheetRow[]
   rowsDependOnConfig?: boolean
 }): DocSheetUiProfile {
-  return { ...input, classes: createDocSheetUiClasses(input.core.prefix) }
+  return {
+    ...input,
+    classes: createDocSheetUiClasses(input.core.prefix),
+    /**
+     * C 家族的渲染选项只有一个键 `qr`（旧版两张单据都是模块级单例 `k`/`I` + Map 缓存）。
+     * 这里**不给调用方留口子** —— ic=14 的选项键叫 `qrSvg`（`ProductionSheetRenderOptions`），
+     * 它走自己那份 `ProductionSheetUiProfile`，不经过本工厂（见 `DocSheetDrawerProfile`）。
+     */
+    createRenderOpts: () => ({
+      qr: input.api.createQrSvgProvider(input.api.createQrEncoder()),
+    }),
+  }
 }
 
 // --------------------------------------------------------------------------- //
