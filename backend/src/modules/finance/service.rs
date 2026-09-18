@@ -330,7 +330,11 @@ pub async fn add_order_payment(
         if amount < 0.0 {
             return Err(ApiError::bad_request("启用预付优惠时不支持负数红冲"));
         }
-        discount = round2((of.unpaid_amount * req.discount_rate / 100.0).min(cb.unallocated_balance));
+        // 优惠基数 = **本次收款额**（不是未收额），且**不按资金池封顶**。
+        // 旧版 `addPayment` 的单张单分支：`discount = max(0, amount) * 优惠比例`（svc:346），
+        // 无上限也无池子封顶 —— 上限由下面那条「收款金额+优惠抵扣不能超过本单未收」的护栏兜住。
+        // ⚠️ 先前写成 `未收 × 比例` 且按资金池封顶，两头都不对（见 09-fix-plan.md 改动 8）。
+        discount = round2(amount.max(0.0) * req.discount_rate / 100.0);
         if discount <= 0.0 {
             return Err(ApiError::bad_request("当前没有可用预付款用于优惠抵扣"));
         }
@@ -369,21 +373,35 @@ pub async fn add_order_payment(
     .execute(&mut *tx)
     .await?;
 
-    // 预付优惠抵扣 G：从客户未分配资金池扣减，落到该订单。
-    // G 全部为「优惠」，故 amount=discount=G（迁移列 discount 语义即「优惠抵扣金额」）。
-    // 入账方式为 INTERPRETED：旧版服务端计算，bundle 内不可见（见逆向结论 B4）。
+    // 预付优惠抵扣：**记成订单调整，不动客户资金池**（改动 8）。
+    //
+    // 旧版这条路径（`addPayment` 单张单分支，svc:339-361）只做三件事：
+    //   `discount = max(0, amount) * 比例` → `nextUnpaid = max(0, unpaid - amount - discount)`
+    //   → `return { allocatedTotal: amount, prepaidDelta: 0 }`
+    // ⚠️ 最后那句 `prepaidDelta: 0` 是关键：它**提前返回**，根本走不到下面的客户余额段
+    //   （`:386-427`），所以**优惠一分钱都不碰客户池子**。与预付款分配那条路径同源
+    //   （改动 2：`orderAdjustments` + 池子只减 `Σalloc`）—— 优惠是**店家让利**。
+    //
+    // 我们先前写的是 `finance_allocations(amount = discount)`，那等于「优惠从客户池子转出」，
+    // 与旧版相反，也和本文件里另一条优惠路径自相矛盾。改成订单调整后：
+    //   `未收 = 总价 − Σ本单收款 − Σ池分配 − Σ订单调整(含优惠)`，两边一致。
+    //
+    // ⚠️ 旧版**不写**任何调整记录（直接改存量列），代价是它的
+    //   `订单总额 = Σ(已分配 + 未收 + 订单调整)` 会少掉这个优惠额（旧版自身的内部不一致）。
+    //   我们记一条，订单总额才守得住 —— 这是**有意的改进**，不是偏离。
     if discount > 0.0 {
         sqlx::query(
-            "INSERT INTO finance_allocations \
-             (tenant_id, customer_code, order_id, receipt_no, amount, discount) \
-             VALUES ($1, $2, $3, $4, $5, $6)",
+            "INSERT INTO finance_order_adjustments \
+             (tenant_id, customer_code, customer_name, order_id, receipt_no, amount, type, remark) \
+             VALUES ($1, $2, $3, $4, $5, $6, '预付优惠', $7)",
         )
         .bind(tenant_id)
         .bind(&req.customer_code)
+        .bind(&req.customer_name)
         .bind(req.order_id)
         .bind(&req.receipt_no)
         .bind(discount)
-        .bind(discount)
+        .bind(&req.remark)
         .execute(&mut *tx)
         .await?;
     }

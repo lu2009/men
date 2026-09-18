@@ -1,0 +1,669 @@
+<title>财务管理使用手册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+
+<style>
+  :root {
+    --paper: #f4f6f2;
+    --surface: #ffffff;
+    --surface-sunk: #ecefe9;
+    --ink: #161e19;
+    --ink-soft: #3d4a41;
+    --muted: #68766d;
+    --rule: #d3dbd1;
+    --rule-soft: #e4e9e1;
+    --accent: #0e6a4e;
+    --accent-soft: #e2efe8;
+    --debit: #a8342a;
+    --debit-soft: #f6e6e3;
+    --shadow: 0 1px 2px rgba(22, 30, 25, .06), 0 6px 20px -12px rgba(22, 30, 25, .22);
+
+    --f-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
+    --f-body: "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+    --rail: 15rem;
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0f140f;
+      --surface: #171e18;
+      --surface-sunk: #1d251e;
+      --ink: #e7ede5;
+      --ink-soft: #bcc7bd;
+      --muted: #91a094;
+      --rule: #2b342c;
+      --rule-soft: #222a23;
+      --accent: #4fb88e;
+      --accent-soft: #163024;
+      --debit: #e2836f;
+      --debit-soft: #33201c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px -12px rgba(0, 0, 0, .7);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0f140f;
+    --surface: #171e18;
+    --surface-sunk: #1d251e;
+    --ink: #e7ede5;
+    --ink-soft: #bcc7bd;
+    --muted: #91a094;
+    --rule: #2b342c;
+    --rule-soft: #222a23;
+    --accent: #4fb88e;
+    --accent-soft: #163024;
+    --debit: #e2836f;
+    --debit-soft: #33201c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px -12px rgba(0, 0, 0, .7);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 15px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .shell {
+    max-width: calc(var(--rail) + var(--measure) + 6rem);
+    margin: 0 auto;
+    padding: 0 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr);
+    gap: 3.5rem;
+    align-items: start;
+  }
+
+  /* ── 左栏：目录 ───────────────────────────────────────── */
+  .rail {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 3.5rem 0 2rem;
+    font-size: 13px;
+  }
+  .rail-title {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .9rem;
+  }
+  .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .1rem; }
+  .rail a {
+    display: flex;
+    gap: .6rem;
+    padding: .3rem .55rem;
+    border-radius: 4px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+  }
+  .rail a:hover { background: var(--surface-sunk); color: var(--ink); border-left-color: var(--accent); }
+  .rail .n { font-family: var(--f-mono); font-size: 11px; color: var(--muted); padding-top: .15em; }
+
+  /* ── 正文 ─────────────────────────────────────────────── */
+  main { padding-top: 3.5rem; min-width: 0; }
+
+  header.masthead { padding-bottom: 1.6rem; border-bottom: 2px solid var(--ink); margin-bottom: 2.6rem; }
+  .eyebrow {
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 .8rem;
+  }
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(1.9rem, 4vw, 2.5rem);
+    line-height: 1.25;
+    letter-spacing: .01em;
+    margin: 0 0 .7rem;
+    text-wrap: balance;
+  }
+  .standfirst { font-size: 1.02rem; color: var(--ink-soft); margin: 0; max-width: 56ch; }
+
+  section { margin-top: 3.4rem; scroll-margin-top: 1.5rem; }
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 1.42rem;
+    line-height: 1.35;
+    margin: 0 0 .35rem;
+    padding-top: .9rem;
+    border-top: 1px solid var(--rule);
+    text-wrap: balance;
+  }
+  h2 .num {
+    font-family: var(--f-mono);
+    font-size: .72rem;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: .1em;
+    display: block;
+    margin-bottom: .4rem;
+  }
+  h3 {
+    font-family: var(--f-body);
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 2rem 0 .5rem;
+  }
+  p { margin: .8rem 0; max-width: var(--measure); }
+  ul, ol { max-width: var(--measure); padding-left: 1.35rem; }
+  li { margin: .3rem 0; }
+  strong { font-weight: 700; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: .88em;
+    background: var(--surface-sunk);
+    padding: .1em .38em;
+    border-radius: 3px;
+  }
+
+  /* UI 里出现的字面文案 */
+  .ui {
+    font-family: var(--f-mono);
+    font-size: .86em;
+    color: var(--ink);
+    background: var(--surface-sunk);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: .05em .4em;
+    white-space: nowrap;
+  }
+
+  /* ── 三个数：本篇的中心 ─────────────────────────────── */
+  .trio { display: grid; gap: 1rem; margin: 1.6rem 0 1rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  .trio-card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-top: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 1.1rem 1.15rem 1.2rem;
+    box-shadow: var(--shadow);
+  }
+  .trio-card.debt { border-top-color: var(--debit); }
+  .trio-card.pool { border-top-color: var(--muted); }
+  .trio-scope {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: .45rem;
+  }
+  .trio-name { font-weight: 700; font-size: 1.06rem; margin-bottom: .4rem; }
+  .trio-desc { font-size: .9rem; color: var(--ink-soft); line-height: 1.65; }
+  .trio-desc b { color: var(--ink); }
+
+  /* ── 表 ───────────────────────────────────────────────── */
+  .tw { overflow-x: auto; margin: 1.2rem 0; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .6rem .85rem; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+  thead th {
+    background: var(--surface-sunk);
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .02em;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--rule);
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ── 例算块 ───────────────────────────────────────────── */
+  .worked {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1.2rem 1.3rem;
+    margin: 1.3rem 0;
+    box-shadow: var(--shadow);
+  }
+  .worked h4 {
+    font-size: .82rem;
+    font-family: var(--f-mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 400;
+    margin: 0 0 .8rem;
+  }
+  .worked dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .3rem 1.2rem; font-size: .92rem; }
+  .worked dt { color: var(--ink-soft); }
+  .worked dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .worked .hl dd { color: var(--accent); font-weight: 600; }
+  .worked .hl-bad dd { color: var(--debit); font-weight: 600; }
+
+  /* ── 步骤 ─────────────────────────────────────────────── */
+  .steps { list-style: none; padding: 0; margin: 1.1rem 0; counter-reset: s; max-width: var(--measure); }
+  .steps > li {
+    counter-increment: s;
+    position: relative;
+    padding-left: 2.6rem;
+    margin: .55rem 0;
+  }
+  .steps > li::before {
+    content: counter(s);
+    position: absolute;
+    left: 0;
+    top: .12em;
+    width: 1.65rem;
+    height: 1.65rem;
+    display: grid;
+    place-items: center;
+    font-family: var(--f-mono);
+    font-size: .78rem;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 50%;
+    font-weight: 600;
+  }
+  .steps ul { margin: .3rem 0 .5rem; }
+
+  /* ── 调用块 ───────────────────────────────────────────── */
+  .callout {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: .85rem 1.1rem;
+    border-radius: 0 5px 5px 0;
+    margin: 1.3rem 0;
+    max-width: var(--measure);
+    font-size: .94rem;
+  }
+  .callout.warn { border-left-color: var(--debit); background: var(--debit-soft); }
+  .callout p { margin: .3rem 0; }
+  .callout .tag {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .35rem;
+  }
+  .callout.warn .tag { color: var(--debit); }
+
+  /* ── 规矩清单 ─────────────────────────────────────────── */
+  .rules { list-style: none; padding: 0; margin: 1.2rem 0; display: flex; flex-direction: column; gap: .1rem; max-width: var(--measure); }
+  .rules li {
+    display: grid;
+    grid-template-columns: 1.4rem 1fr;
+    gap: .7rem;
+    padding: .7rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    font-size: .94rem;
+  }
+  .rules li:last-child { border-bottom: 0; }
+  .rules .mark { color: var(--debit); font-weight: 700; font-family: var(--f-mono); }
+
+  footer {
+    margin-top: 4.5rem;
+    padding-top: 1.4rem;
+    border-top: 2px solid var(--ink);
+    font-size: .85rem;
+    color: var(--muted);
+    max-width: var(--measure);
+  }
+
+  @media (max-width: 60rem) {
+    .shell { grid-template-columns: 1fr; gap: 0; }
+    .rail { position: static; max-height: none; padding: 2rem 0 0; border-bottom: 1px solid var(--rule); }
+    .rail ol { flex-flow: row wrap; gap: .2rem .9rem; }
+    main { padding-top: 2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  }
+  html { scroll-behavior: smooth; }
+</style>
+
+<div class="shell">
+  <nav class="rail" aria-label="目录">
+    <p class="rail-title">目录</p>
+    <ol>
+      <li><span class="n">1</span><a href="#open">从哪儿打开</a></li>
+      <li><span class="n">2</span><a href="#trio">先分清三个数</a></li>
+      <li><span class="n">3</span><a href="#tabs">三个标签页</a></li>
+      <li><span class="n">4</span><a href="#dialogs">四个弹窗</a></li>
+      <li><span class="n">5</span><a href="#howto">常见情况怎么做</a></li>
+      <li><span class="n">6</span><a href="#formulas">每个数怎么算出来</a></li>
+      <li><span class="n">7</span><a href="#rules">六条不能忘的规矩</a></li>
+      <li><span class="n">8</span><a href="#trouble">对不上账时怎么办</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <p class="eyebrow">开门红 · 订单财务</p>
+      <h1>财务管理使用手册</h1>
+      <p class="standfirst">
+        订单列表右侧滑出来的那个面板 —— 收款、抹零、预付款、对账都在这儿做。
+        这份手册先说清三个最容易搞混的数字，再讲每个按钮点下去会发生什么。
+      </p>
+    </header>
+
+    <section id="open">
+      <h2><span class="num">01</span>从哪儿打开</h2>
+      <p>
+        订单管理页 → 找到那一行订单 → 操作列点 <span class="ui">财务</span>。
+        面板从右边滑出来，标题是「财务管理 — 客户名」，里面三个标签页。
+      </p>
+      <p>
+        面板里的所有操作都只对<strong>当前这张单</strong>（或当前这个客户）生效，
+        换订单要关掉重开。
+      </p>
+    </section>
+
+    <section id="trio">
+      <h2><span class="num">02</span>先分清三个数</h2>
+      <p>
+        绝大多数「数字对不上」的困惑，都出在这三个数被混着看。
+        它们各管一件事，<strong>范围不同</strong>——第一个只管一张单，后两个管整个客户。
+      </p>
+
+      <div class="trio">
+        <div class="trio-card">
+          <div class="trio-scope">一张单</div>
+          <div class="trio-name">本单未收</div>
+          <div class="trio-desc">
+            这<strong>一张单</strong>还差多少钱没收到。<br>
+            收满了它就是 <b>0</b>，<strong>永远不会是负数</strong>。
+          </div>
+        </div>
+        <div class="trio-card debt">
+          <div class="trio-scope">一个客户 · 欠款</div>
+          <div class="trio-name">客户余额</div>
+          <div class="trio-desc">
+            这个客户名下<strong>所有单加起来</strong>还欠多少。<br>
+            它是<b>欠款</b>，所以也是 <b>0 起、不会为负</b>。多付的钱不体现在这儿。
+          </div>
+        </div>
+        <div class="trio-card pool">
+          <div class="trio-scope">一个客户 · 余钱</div>
+          <div class="trio-name">未分配余额</div>
+          <div class="trio-desc">
+            客户<strong>已经打给我们、但还没算到任何一张单上</strong>的钱。<br>
+            相当于客户在我们这儿的<b>余额</b>。
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <span class="tag">最容易搞混</span>
+        <p>
+          <strong>「客户余额」是欠款，「未分配余额」是余钱，方向正好相反。</strong>
+          一个人可以同时「欠我们 2400」又「在我们这儿存着 7500」—— 这两个数会同时显示，不互相抵消。
+        </p>
+      </div>
+
+      <div class="worked">
+        <h4>拿一个例子走一遍</h4>
+        <p style="margin-top:0;font-size:.92rem;color:var(--ink-soft)">
+          张老板有两张单：A 单 3200 元、B 单 1800 元。他先往我们这儿打了 10000 元，
+          我们把这个钱里的 2500 元分到 A 单上，A 单又给他抹零 100 元。
+        </p>
+        <dl>
+          <dt>A 单 · 已分配</dt><dd>2500.00</dd>
+          <dt>A 单 · 订单调整（抹零）</dt><dd>100.00</dd>
+          <dt class="hl-bad">A 单 · 本单未收</dt><dd>600.00</dd>
+          <dt>B 单 · 本单未收</dt><dd>1800.00</dd>
+          <dt class="hl-bad">客户余额（还欠）</dt><dd>2400.00</dd>
+          <dt class="hl">未分配余额（余钱）</dt><dd>7500.00</dd>
+          <dt class="hl">实收金额（累计充值）</dt><dd>10000.00</dd>
+        </dl>
+      </div>
+
+      <p>
+        算一遍就明白：本单未收 = 3200 − 2500 − 100 = <strong>600</strong>；
+        客户余额 = 600 + 1800 = <strong>2400</strong>；
+        未分配余额 = 10000 − 2500 = <strong>7500</strong>。
+      </p>
+    </section>
+
+    <section id="tabs">
+      <h2><span class="num">03</span>三个标签页</h2>
+
+      <h3>📄 本单财务 —— 看这一张单的账</h3>
+      <p>顶部横幅一眼看到回执单号、订单总价、本单未收（未收不为 0 时标红）。下面四张卡：</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>卡片</th><th>是什么</th></tr></thead>
+          <tbody>
+            <tr><td>订单总价</td><td>这张单的合同金额</td></tr>
+            <tr><td>已分配金额</td><td>已经算到这张单上的钱（本单收款 + 从客户池子分过来的）</td></tr>
+            <tr><td>订单调整金额</td><td>这张单的抹零 / 优惠 / 补贴 / 冲销合计</td></tr>
+            <tr><td>未收金额</td><td>总价 − 已分配 − 订单调整，最小为 0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>再往下依次是：<strong>收款分配记录</strong> → <strong>本单收款</strong>表单 → <strong>订单调整记录</strong>。</p>
+      <p>
+        本单收款表单填「收款金额 / 收款日期 / 收款方式 / 备注」，金额精确到分。
+        打开 <span class="ui">预付优惠</span> 开关后可以填优惠比例（0.1%–99%），
+        旁边会实时显示「预计抵扣 ¥多少」。填完点 <span class="ui">收款</span>。
+      </p>
+      <p>表单下面那颗 <span class="ui">订单抹零 / 冲销</span> 按钮，打开第 4 节的弹窗。</p>
+
+      <h3>💰 客户收款 —— 管这个客户的钱</h3>
+      <p>最上面一张紫卡是客户的四个总账数字：订单总额 / 已实收 / 客户余额 / 未分配余额。</p>
+      <p><strong>录收款</strong>是这一页的主功能，步骤是「先预览、再提交」：</p>
+      <ul>
+        <li>填收款金额、日期、方式、备注</li>
+        <li>点 <span class="ui">预览分配</span> —— 系统按<strong>订单日期从早到晚</strong>把钱自动铺到欠款的单上，给你看一份方案</li>
+        <li>确认无误后点 <span class="ui">提交收款</span>。没预览过就提交，系统会拦住你</li>
+      </ul>
+      <p>
+        预览表下面有一行「剩余未分配」：这笔钱铺完所有欠款单之后还剩多少 ——
+        剩下的部分会留在客户池子里，变成「未分配余额」。
+      </p>
+      <p>最下面「其他操作」三颗按钮：客户抹零 / 冲销 · 录入预付款 · 预付款分配。</p>
+
+      <h3>📊 客户对账 —— 回头看账</h3>
+      <ul>
+        <li><strong>收款趋势</strong>：按月一根双色条，绿色是收进来的、红色是红冲掉的</li>
+        <li><strong>对账明细</strong>：按日期倒序列出每一笔（收款 / 红冲 / 订单抹零 / 客户抹零），
+          可以按类型下拉筛选，也可以在关键字框里搜单据号、日期、地址、备注</li>
+      </ul>
+    </section>
+
+    <section id="dialogs">
+      <h2><span class="num">04</span>四个弹窗</h2>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>弹窗</th><th>填什么</th><th>管什么</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>订单抹零 / 冲销</strong></td>
+              <td>调整金额 · 调整类型 · 备注</td>
+              <td>只影响<strong>这一张单</strong>。类型：抹零 / 优惠 / 补贴 / 冲销 / 其他。<br>
+                  正数 = 少收（抹掉欠款），<strong>负数 = 冲销</strong>（把之前多抹的加回来）</td>
+            </tr>
+            <tr>
+              <td><strong>客户抹零 / 冲销</strong></td>
+              <td>调整金额 · 调整类型 · 备注</td>
+              <td>挂在<strong>客户名下</strong>，不落到任何单上，只减「客户余额」。<br>
+                  类型：月度抹零 / 优惠 / 冲销 / 其他。一般在月底整批抹零时用</td>
+            </tr>
+            <tr>
+              <td><strong>录入预付款</strong></td>
+              <td>收款金额 · 日期 · 方式 · 备注 · 冲销开关</td>
+              <td>客户先打钱放着、还没指定抵哪张单时用这个。钱进「未分配余额」。<br>
+                  打开 <span class="ui">冲销</span> 开关可以把钱从池子里扣回去（金额填正数）</td>
+            </tr>
+            <tr>
+              <td><strong>预付款分配</strong></td>
+              <td>分配金额 · 优惠比例</td>
+              <td>把池子里的钱分到具体订单上。点 <span class="ui">预览分配方案</span> 看方案，
+                  再点 <span class="ui">执行分配</span> 落库。没预览过不能执行</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="tag">两个抹零的区别</span>
+        <p>
+          订单抹零冲的是<strong>某一张单</strong>的欠款（这张单的「本单未收」会变小）；
+          客户抹零冲的是<strong>客户整体</strong>（各单未收不变，只有「客户余额」变小）。
+          算总账时两者都会减，但看单张单的时候只有订单抹零有用。
+        </p>
+      </div>
+    </section>
+
+    <section id="howto">
+      <h2><span class="num">05</span>常见情况怎么做</h2>
+
+      <h3>客户交一笔钱，要抵掉几张单</h3>
+      <ol class="steps">
+        <li>打开「💰 客户收款」，填收款金额、日期、方式</li>
+        <li>点 <span class="ui">预览分配</span>，看系统打算怎么分（按订单日期从早到晚）</li>
+        <li>方案不对就先别提交 —— 要么改金额，要么先去做别的操作调整欠款分布</li>
+        <li>确认后点 <span class="ui">提交收款</span></li>
+      </ol>
+
+      <h3>客户事先打了一笔钱放着，以后再用</h3>
+      <ol class="steps">
+        <li>「💰 客户收款」→ <span class="ui">录入预付款</span>，填金额和日期</li>
+        <li>钱进「未分配余额」，此时不影响任何单的未收</li>
+        <li>以后要用时 → <span class="ui">预付款分配</span>，填分配金额，预览后执行</li>
+      </ol>
+
+      <h3>客户少给了几十块，不打算要了</h3>
+      <ol class="steps">
+        <li>如果是<strong>某一张单</strong>的事：「📄 本单财务」→ <span class="ui">订单抹零 / 冲销</span></li>
+        <li>如果是<strong>整个客户</strong>年底一起抹：「💰 客户收款」→ <span class="ui">客户抹零 / 冲销</span></li>
+        <li>金额填<strong>正数</strong>（比如 50），类型选抹零</li>
+      </ol>
+
+      <h3>收错了 / 录错了，要退回去</h3>
+      <ol class="steps">
+        <li>收款录错：在「📄 本单财务」的本单收款里，金额填<strong>负数</strong>（比如 −500 红冲掉 500）</li>
+        <li>抹零抹错：「订单抹零 / 冲销」或「客户抹零 / 冲销」，金额填<strong>负数</strong></li>
+        <li>预付款录错：「录入预付款」打开冲销开关</li>
+      </ol>
+
+      <h3>订单整张删掉了</h3>
+      <p>
+        删订单在<strong>订单列表页</strong>做（选中 → 删除），不在这个面板里。
+        删除时如果有财务记录，系统会自动红冲：<strong>本单收款</strong>和<strong>订单抹零</strong>各冲一笔，
+        从客户池子分过来的钱则退回池子。确认框里会列出来让你看清楚再删。
+      </p>
+    </section>
+
+    <section id="formulas">
+      <h2><span class="num">06</span>每个数怎么算出来</h2>
+      <p>对账对不上时照这张表逐个核。</p>
+      <div class="tw">
+        <table>
+          <thead>
+            <tr><th>数字</th><th>怎么算的</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>本单未收</strong></td>
+              <td>订单总价 − 本单收款 − 池分配 − 订单调整<br><span style="color:var(--muted)">结果小于 0 就按 0 算</span></td>
+            </tr>
+            <tr>
+              <td><strong>已分配金额</strong></td>
+              <td>本单收款 + 从客户池子分到这张单上的钱</td>
+            </tr>
+            <tr>
+              <td><strong>客户余额</strong></td>
+              <td>各单未收<strong>加起来</strong> − 客户抹零合计<br><span style="color:var(--muted)">结果小于 0 就按 0 算；这是欠款，不含余钱</span></td>
+            </tr>
+            <tr>
+              <td><strong>未分配余额</strong></td>
+              <td>客户打进来的钱（净额） − 已经分配到订单上的钱</td>
+            </tr>
+            <tr>
+              <td><strong>实收金额</strong></td>
+              <td>客户打进池子的钱里<strong>所有正数</strong>相加<br><span style="color:var(--muted)">红冲<strong>不减</strong>它 —— 它是「累计充值」不是「净收款」</span></td>
+            </tr>
+            <tr>
+              <td><strong>订单总额</strong></td>
+              <td>各单的（已分配 + 未收 + 订单调整）相加</td>
+            </tr>
+            <tr>
+              <td><strong>订单调整合计</strong></td>
+              <td>所有订单抹零 / 优惠 / 补贴 / 冲销相加</td>
+            </tr>
+            <tr>
+              <td><strong>客户调整合计</strong></td>
+              <td>所有客户抹零 / 优惠 / 冲销相加</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout">
+        <span class="tag">为什么「实收金额」看着不对</span>
+        <p>
+          一位客户打进来 1000，后来红冲掉 1000 —— <strong>实收金额还是 1000，未分配余额变成 0</strong>。
+          这不是错。实收金额记的是「这位客户总共往我们这儿打过多少钱」，
+          减钱这件事体现在「未分配余额」上。
+        </p>
+      </div>
+    </section>
+
+    <section id="rules">
+      <h2><span class="num">07</span>六条不能忘的规矩</h2>
+      <ul class="rules">
+        <li><span class="mark">1</span><span><strong>未收永远不会是负数。</strong>多收了、多抹了，系统会按 0 截住，不会出现「客户倒欠」这种账。</span></li>
+        <li><span class="mark">2</span><span><strong>池子里有多少，才能分多少。</strong>申请分配 100000 但池子只有 2000，实际只会按 2000 处理，不会把池子扣成负数。</span></li>
+        <li><span class="mark">3</span><span><strong>优惠只在「这张单没被一次付清」时才产生。</strong>收款刚好把整张单付清时，优惠是 0；只有「钱不够、这张单只付了一部分」时才有优惠。</span></li>
+        <li><span class="mark">4</span><span><strong>优惠是店里让利，不动客户的钱。</strong>给客户优惠 50，客户池子里的钱一分不少，只是这张单少收 50。</span></li>
+        <li><span class="mark">5</span><span><strong>收款不能超过欠款。</strong>本单收款不能超过这张单的未收；客户级操作不能超过客户还欠的总额。</span></li>
+        <li><span class="mark">6</span><span><strong>红冲用负数。</strong>录错了不要想着「再录一笔抵掉」—— 直接在原处填负数，账面上才留得下痕迹。</span></li>
+      </ul>
+    </section>
+
+    <section id="trouble">
+      <h2><span class="num">08</span>对不上账时怎么办</h2>
+      <ol class="steps">
+        <li>先确认你看的是哪个数 —— 是<strong>一张单</strong>的未收，还是<strong>客户</strong>的余额？（第 2 节）</li>
+        <li>打开「📊 客户对账」，按日期倒序看每一笔，找出让你意外的那条</li>
+        <li>拿第 6 节的公式手算一遍，看和界面差多少</li>
+        <li>差的钱如果正好等于某笔抹零 / 优惠 —— 那就是理解口径的问题，不是账错</li>
+        <li>确认真的记错了：按第 5 节「收错了要退回去」用负数红冲，<strong>不要直接改数据库</strong></li>
+      </ol>
+      <div class="callout warn">
+        <span class="tag">注意</span>
+        <p>
+          这套账的设计是<strong>只加不改</strong>：任何一笔操作都会留下一条记录，永远不覆盖历史。
+          所以「改数字」这件事在系统里不存在 —— 只有「再记一笔反向的」。
+          这也是为什么对账明细里能看到全部来龙去脉。
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        这份手册描述的是当前版本的实际行为。文中所有公式都与系统逐条核对过，
+        并用手工算例验证过结果一致。如果界面上看到的数和手册不符，请以手册第 6 节的公式为准排查。
+      </p>
+    </footer>
+  </main>
+</div>

@@ -150,6 +150,44 @@ let paid_amount: f64 = "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments
 
 ---
 
+## 改动 8 ⛔ 本单收款的「预付优惠」（**写手册时才发现**，2026-09-18 补）
+
+先前那 7 条**漏了这条路**。旧版在 `addPayment` 的**单张单分支**（svc:339-361）：
+
+```js
+const discount    = Math.max(0, amount) * toNum(body['优惠比例']);   // svc:346 基数=收款额
+const deltaUnpaid = amount >= 0 ? -(amount + discount) : Math.abs(amount);
+const nextUnpaid  = Math.max(0, toNum(fo.unpaidAmount) + deltaUnpaid);
+allocatedTotal = amount;
+return { paymentId, allocatedTotal, prepaidDelta: 0 };                // svc:359 ★ 提前返回
+```
+
+★ 最后那句 `prepaidDelta: 0` 是关键 —— 它**提前 return**，根本走不到下面的客户余额段
+（svc:386-427），所以这条路的优惠**一分钱都不碰客户资金池**。
+
+| | 旧版 | 我们（改前） |
+|---|---|---|
+| 优惠基数 | **收款金额** | 未收金额 ✗ |
+| 上限 | 无（靠 `unpaid` 夹零） | 资金池余额 ✗ |
+| 动资金池 | **不动** | **动**（写 `finance_allocations(amount=discount)`）✗ |
+
+⇒ 改：`discount = amount.max(0) * rate`；**改写 `finance_order_adjustments`（type `预付优惠`）**
+而不是 allocation。顺带删掉「入账方式为 INTERPRETED：旧版服务端计算不可见」那段注释 ——
+**旧服务端源码已在手，这句话不成立了**。
+
+⚠️ 旧版**不写**任何调整记录（直接改存量列），代价是它的
+`订单总额 = Σ(已分配 + 未收 + 订单调整)` 会少掉这个优惠额（旧版自身的内部不一致）。
+我们记一条，**是有意的改进**。
+
+### 一条**有意比旧版严**的护栏
+
+「收款金额+优惠抵扣不能超过本单未收」（我们原有的校验）：收满时旧版照算，
+把那个优惠**静默夹掉**（`max(0, 1000-1000-100) = 0`，那 100 什么都没减到、且无记录）；
+我们直接拦住并提示。收满时把预付优惠开关关掉即可。
+
+`09-diff-orderpay.mjs` 把这条**固化成断言**：场景 ② 期望「被拦住且库里没动」，
+其余场景期望「接受且与旧版同值」。
+
 ## 验收（硬门槛）
 
 ```bash
@@ -159,6 +197,8 @@ DATABASE_URL=postgres://smartdoor:smartdoor@localhost:5432/smartdoor PORT=3999 \
 node docs/legacy-finance/05-diff-alloc.mjs      # 优惠：应全绿
 node docs/legacy-finance/06-diff-balance.mjs    # 余额/实收：应全绿
 node docs/legacy-finance/07-diff-execute.mjs    # 落库效果：应全绿
+node docs/legacy-finance/09-diff-orderpay.mjs   # 本单收款+预付优惠：应全绿
+node docs/legacy-finance/08-verify-live.mjs     # 真实数据（只读）：应全绿
 cd app && npm run build && npx vue-tsc --noEmit
 ```
 
