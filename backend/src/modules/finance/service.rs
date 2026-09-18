@@ -127,7 +127,7 @@ pub async fn order_finance_detail(
 
     // 收款记录（本单收款，负=红冲）。
     let pays: Vec<(String, f64, String)> = sqlx::query_as(
-        "SELECT COALESCE(NULLIF(pay_date, ''), to_char(created_at, 'YYYY-MM-DD')), amount, remark \
+        "SELECT COALESCE(NULLIF(left(pay_date, 10), ''), to_char(created_at, 'YYYY-MM-DD')), amount, remark \
          FROM finance_payments WHERE tenant_id = $1 AND order_id = $2 ORDER BY created_at",
     )
     .bind(tenant_id)
@@ -549,7 +549,7 @@ pub async fn customer_statement(
 
     let rows: Vec<Row> = sqlx::query_as(
         "SELECT CASE WHEN p.amount < 0 THEN '红冲单' ELSE '收款' END AS kind, \
-                p.receipt_no, p.pay_date AS date, p.amount, \
+                p.receipt_no, left(p.pay_date, 10) AS date, p.amount, \
                 COALESCE(o.install_address, '') AS install_address, p.remark \
          FROM finance_payments p \
          LEFT JOIN orders o ON o.id = p.order_id AND o.tenant_id = p.tenant_id \
