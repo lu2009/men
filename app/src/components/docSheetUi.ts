@@ -166,6 +166,23 @@ export interface DocSheetUiText {
   settingsTitle: string
   /** 布局编辑弹窗标题（GS:1377 / PS2:1400）。 */
   layoutTitle: string
+  /**
+   * 工具栏那颗「打开设置弹窗」按钮的文案。**留空 → `'打印设置'`**（C 家族与 ic=14 的现状，逐字不变）。
+   *
+   * ⚠️ **旧版四张单据这条文案互不相同**（`docs/custom-docs-recon/01-skeleton.md` §7.3）：
+   * C 家族（GS2/PS2）是 ` 打印设置 `、ic=14 是 ` 生产单设置 `、**合格标签族是 ` 标签机设置 `**。
+   * 本字段是 2026-09-18 为 ic=13 加的 —— 在此之前这三个字面量写死在 `DocSheetDrawer.vue` 里。
+   * ⚠️ ic=14（`ProductionSheetDrawer`）**暂时仍吃缺省值**：它的按钮文案也应当是「生产单设置」，
+   *    但那是它自己的一处待办，本次不动（改它会改到已交付的产物的 DOM 文案）。
+   */
+  settingsActionLabel?: string
+  /**
+   * 工具栏那颗「打开布局编辑器」按钮的文案。**留空 → `'布局设置'`**（C 家族现状，逐字不变）。
+   *
+   * ⚠️ 同上，四张单据不同（§7.3）：GS2/PS2 是 ` 布局设置 `、**PS 与合格标签族是 ` 编辑布局 `**
+   *    （CONFIRMED 文案不统一）。ic=14 的「编辑布局」同上仍吃缺省值。
+   */
+  layoutActionLabel?: string
 }
 
 /**

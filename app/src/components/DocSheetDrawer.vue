@@ -43,8 +43,17 @@
           <n-button size="small" :disabled="loading" @click="openEditDialog">
             {{ profile.text.editActionLabel }}
           </n-button>
-          <n-button size="small" :disabled="!ready" @click="settingsShow = true">打印设置</n-button>
-          <n-button size="small" :disabled="!ready" @click="layoutShow = true">布局设置</n-button>
+          <!--
+            ⚠️ 这两颗按钮的文案**四张单据不一致**（§7.3）：C 家族「打印设置/布局设置」、
+            ic=13 合格标签族「标签机设置/编辑布局」。缺省值保持 C 家族逐字不变，
+            需要改的走 `profile.text.settingsActionLabel` / `layoutActionLabel`（见 `DocSheetUiText`）。
+          -->
+          <n-button size="small" :disabled="!ready" @click="settingsShow = true">
+            {{ profile.text.settingsActionLabel ?? '打印设置' }}
+          </n-button>
+          <n-button size="small" :disabled="!ready" @click="layoutShow = true">
+            {{ profile.text.layoutActionLabel ?? '布局设置' }}
+          </n-button>
           <n-button size="small" type="primary" :disabled="!ready" :loading="printing" @click="doPrint">
             打印
           </n-button>
@@ -382,17 +391,26 @@ async function doPrint(): Promise<void> {
 
   下面 5 条全部是**新版自己的排版胶水**：旧版组件只把 HTML 推回 Home，没有抽屉外壳，
   所以没有任何旧版 CSS 可对照。逐字沿用 GS2 抽屉原有的取值（视觉零回归）。
+
+  ⚠️ **第四套前缀 `ql-`（2026-09-18，为 ic=13 合格标签族补）**：合格标签族复用本抽屉，
+  `profile.classes` 走 `createDocSheetUiClassesFromNs('ql')`（见 `qualifiedLabelUiProfile.ts`）。
+  注意**只有这 5 条抽屉外壳胶水**带 `ql-` 前缀 —— 合格标签的**产出 HTML** 是
+  `qlabel-root`/`qlabel`/`qfield`（另一套命名），**布局编辑器**是裸的 `layout-editor-*`
+  （`QL_LAYOUT_CLASSES`，见 `QualifiedLabelLayoutDialog.vue` 自己的 `<style scoped>`），
+  两者都与这里无关。
 */
 .gs2-wrap,
 .ps2-wrap,
-.ps1-wrap {
+.ps1-wrap,
+.ql-wrap {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 .gs2-toolbar,
 .ps2-toolbar,
-.ps1-toolbar {
+.ps1-toolbar,
+.ql-toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -402,24 +420,28 @@ async function doPrint(): Promise<void> {
 }
 .gs2-toolbar .hint,
 .ps2-toolbar .hint,
-.ps1-toolbar .hint {
+.ps1-toolbar .hint,
+.ql-toolbar .hint {
   font-size: 13px;
   color: #666;
 }
 .gs2-toolbar .grow,
 .ps2-toolbar .grow,
-.ps1-toolbar .grow {
+.ps1-toolbar .grow,
+.ql-toolbar .grow {
   flex: 1;
 }
 .gs2-empty,
 .ps2-empty,
-.ps1-empty {
+.ps1-empty,
+.ql-empty {
   color: #d03050;
   font-size: 13px;
 }
 .gs2-loading,
 .ps2-loading,
-.ps1-loading {
+.ps1-loading,
+.ql-loading {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -433,7 +455,8 @@ async function doPrint(): Promise<void> {
 */
 .gs2-preview,
 .ps2-preview,
-.ps1-preview {
+.ps1-preview,
+.ql-preview {
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;

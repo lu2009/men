@@ -46,6 +46,32 @@
         >
           自定义生产单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
+        <!--
+          合格标签族的三颗入口（旧版 `br`/`Dr`/`Ar`，`H@356456 / 357247 / 358009`）。
+          ★ 三者打开的是**同一个抽屉**，差别只有 `entry`（决定行集合）——
+          旧版是 `lable()` / `lable({ping:!0,diao:!1})` / `lable({ping:!1,diao:!0})`，见 `qualifiedLabelUiProfile.ts`。
+        -->
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openQualifiedLabel('all')"
+        >
+          自定义合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openQualifiedLabel('ping')"
+        >
+          平开合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
+        <n-button
+          size="small"
+          :type="checkedRowKeys.length ? 'warning' : 'default'"
+          @click="openQualifiedLabel('diao')"
+        >
+          推拉合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
+        </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
         <span class="grow-spacer" />
@@ -170,6 +196,16 @@
     <!-- 自定义生产单（旧版 ic=14）：B 家族，行数据来自 oldSheetProduces() -->
     <ProductionSheetDrawer v-model:show="productionSheetShow" :orders="productionSheetOrders" />
 
+    <!--
+      自定义合格标签族（旧版 ic=13）：**三个入口共用这一个抽屉**，只差 `entry`（= 行过滤）。
+      旧版三个 handler 打开的就是同一个组件实例（施工图 §6.1 CONFIRMED），新版照此。
+    -->
+    <QualifiedLabelDrawer
+      v-model:show="qualifiedLabelShow"
+      :orders="qualifiedLabelOrders"
+      :entry="qualifiedLabelEntry"
+    />
+
     <!-- 经营看板（§1.2 DashboardBigScreen，数据全部来自前端订单列表） -->
     <DashboardBigScreen v-model:show="dashboardShow" :orders="dashboardOrders" />
   </div>
@@ -205,6 +241,8 @@ import Receipt2Drawer from '../components/Receipt2Drawer.vue'
 import GlassSheet2Drawer from '../components/GlassSheet2Drawer.vue'
 import ProductionSheet2Drawer from '../components/ProductionSheet2Drawer.vue'
 import ProductionSheetDrawer from '../components/ProductionSheetDrawer.vue'
+import QualifiedLabelDrawer from '../components/QualifiedLabelDrawer.vue'
+import type { QualifiedLabelEntry } from '../components/qualifiedLabelUiProfile'
 import type { OrderDto, OrderFinance, OrderHeadInput, OrderLineDto, OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
@@ -517,6 +555,10 @@ const productionSheet2Show = ref(false)
 const productionSheet2Orders = ref<OrderDto[]>([])
 const productionSheetShow = ref(false)
 const productionSheetOrders = ref<OrderDto[]>([])
+const qualifiedLabelShow = ref(false)
+const qualifiedLabelOrders = ref<OrderDto[]>([])
+/** 合格标签族的入口（三个按钮唯一的差别，见 `qualifiedLabelUiProfile.ts`）。 */
+const qualifiedLabelEntry = ref<QualifiedLabelEntry>('all')
 
 async function openPrint() {
   const ids = checkedRowKeys.value.map((k) => Number(k))
@@ -622,6 +664,32 @@ async function openProductionSheet() {
     return
   }
   productionSheetShow.value = true
+}
+
+/**
+ * 合格标签族的**三个入口**（旧版 `br` / `Dr` / `Ar`）。
+ *
+ * ★ 它们打开的是**同一个抽屉**，唯一的差别是 `entry` —— 旧版是
+ * `lable()` / `lable({ping:!0,diao:!1})` / `lable({ping:!1,diao:!0})`，
+ * 三者的组件层代码**逐字相同**（施工图 §6.1 CONFIRMED：组件 props 里没有任何入口标识）。
+ *
+ * ⚠️ `entry` 与 `show` 必须在**同一个 tick** 里设 —— 抽屉重建行的时机是它自己的
+ * `show` watcher（`false → true`），那时 `entry` 已经是新值（见 `QualifiedLabelDrawer.vue`）。
+ */
+async function openQualifiedLabel(entry: QualifiedLabelEntry) {
+  const ids = checkedRowKeys.value.map((k) => Number(k))
+  if (!ids.length) {
+    message.warning('请先勾选要打单的订单')
+    return
+  }
+  try {
+    qualifiedLabelOrders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
+  } catch (e) {
+    message.error((e as Error).message || '读取订单明细失败')
+    return
+  }
+  qualifiedLabelEntry.value = entry
+  qualifiedLabelShow.value = true
 }
 
 // ---------------------------------------------------------------------------
