@@ -1,681 +1,619 @@
-# 旧系统财务模块 — 读取口径逐行取证（01-read）
+# 旧系统财务模块 · 读取口径（逆向取证）
 
-取证对象：`/Users/aaa/Downloads/server`（Node + Express + Prisma，兼容层 `legacy-dispatch.ts` 对外暴露旧 action 名）。
-取证范围：**只读路径**。写操作（`addPayment` / `addOrderPayment` / `addOrderAdjustment` / `addCustomerAdjustment` /
-`executePrepaymentAllocation` / `clearSelectedOrders` / `updateOrderCustomer`）只在「谁维护存量列」里点名，不展开。
+取证对象（只读，未做任何修改）：
 
-配套前端证据：`legacy/js/Home.formatted.js`（混淆码已用 `legacy/decode-token.mjs` 解开，文中给出 token 值）；
-既有前端侧结论：`docs/2026-09-17-home-analysis.md`。
+- `/Users/aaa/Downloads/server/src/modules/finance/finance.service.ts`（887 行，下称 `svc`）
+- `/Users/aaa/Downloads/server/src/modules/finance/finance.repository.ts`（98 行）
+- `/Users/aaa/Downloads/server/prisma/schema.prisma`（378 行）
 
-**标号约定**：`CONFIRMED` = 源码直接读到；`UNCERTAIN` = 需要推断/有歧义，集中列在 §11。
+调用入口补充（用于确认「对外字段」到底长什么样）：
+
+- `src/modules/finance/finance.routes.ts`（REST）
+- `src/modules/legacy-dispatch.ts:840-909`（旧客户端兼容层，同名 handler 映射）
+- `src/modules/legacy-dispatch.ts:518-613`（`projectCustomerStatement`，唯一消费 `getCustomerStatement` 的地方）
+
+标记约定：**[C]** = CONFIRMED（源码直读，引用到行）；**[U]** = UNCERTAIN（有歧义，见 §13）。
 
 ---
 
-## 0. 入口与信封（读口径之前必须先定死这一层）
+## 0. 一句话总纲
 
-旧 action 名有两条对外通路，**同一条 service 代码，对外形状不同**：
+**旧系统财务读数 = 从 `finance_orders` 的 3 个存量列（`allocatedAmount` / `unpaidAmount` / `orderAdjustTotal`）直接求和，外加 2 张流水表（`order_adjustments` / `customer_adjustments`）的求和；`payments` 表只用于「明细列表」，从不参与任何合计；`customer_balances` 只有 `prepaidBalance` / `totalTopup` 两个列被读出来当「未分配余额 / 实收金额」，而它俩跟订单收款完全无关。**
 
-| 通路 | 位置 | ds 来源 | 信封 |
+正文里「实时聚合」专指：读的时候对某张表做 `reduce` 求和。「存量列」专指：读某一行的某一列。
+
+---
+
+## 1. 对外字段总表
+
+| 对外字段 | 出现位置 | 值来源 | 性质 |
 |---|---|---|---|
-| A 旧兼容 | `POST/GET /1?param1=finance_xxx&param2=<ds>` → `legacy-dispatch.ts:48,55,63` | `legacy-dispatch.ts:1144`：`query.param2 \|\| body.param2 \|\| body.ds \|\| ''`（**无鉴权**，见 §12） | `applyLegacyContract()`（`:326-350`）+ `mapResponseFields()`（`:1214-1282`） |
-| B REST | `finance.routes.ts:12-229` → `ok(res, data)` | `req.user!.databaseName`（`:15` 等，`router.use(requireAuth)` `:9`） | `middleware/response.ts:3-8`：`{code:200, data:<service 返回值>}` |
+| `已分配金额` | `svc:294`, `svc:718`, `svc:767` | `finance_orders.allocatedAmount` | 存量列，逐单读 / 跨单求和 |
+| `未收金额` | `svc:293`, `svc:720` | `finance_orders.unpaidAmount` | 存量列，逐单读 |
+| `订单调整金额` | `svc:295`, `svc:721` | `finance_orders.orderAdjustTotal` | 存量列，逐单读 |
+| `订单调整合计` | `svc:770` | `order_adjustments.adjustAmount` 求和 | **实时聚合流水表**（注意与上一行不是同一个源） |
+| `客户调整合计` | `svc:766` | `customer_adjustments.adjustAmount` 求和 | 实时聚合流水表 |
+| `订单总额` | `svc:769` | Σ(allocatedAmount + unpaidAmount + orderAdjustTotal) | 存量列求和，**不用** `orders.totalAmount` |
+| `客户余额` | `svc:763` | `max(0, ΣunpaidAmount − ΣcustomerAdjustments)` | 纯计算，**不落库** |
+| `未分配余额` | `svc:768` | `customer_balances.prepaidBalance` | 存量列 |
+| `实收金额` | `svc:762` | `customer_balances.totalTopup` | 存量列 |
+| `总价`（订单详情） | `svc:719` | allocated + unpaid + orderAdjustTotal | 存量列求和 |
+| `总价`（分配预览行） | `svc:190`, `svc:210` | `orderTotal()` → `orders.totalAmount`，**为 0/空时**回退到存量列求和 | 混合，见 §2.9 |
+| `分配金额` / `优惠金额` / `分配后余额` | `svc:192-194`, `svc:212-214` | 预览期内存计算，不落库 | 纯计算 |
+| `statusText` | `svc:311` | `finance_orders.statusText` | 存量列，**原样透出，不重算** |
 
-- `LEGACY_CONTRACTS`（`legacy-dispatch.ts:249-301`）**没有任何 `finance_*` 条目** ⇒ 全部走默认
-  `mapFields = true`、`responseShape = 'auto'`、无 `requiredParams`。CONFIRMED
-- 通路 B 对 `getOrderSummary`/`checkSystem`/`getCustomerBalance` 这类**已经返回 `{code,data,message}`** 的函数会二次包裹，
-  变成 `{code:200, data:{code:200, data:…, message:'ok'}}`。CONFIRMED（`finance.routes.ts:27`、`:161` + `response.ts:3`）
+`getCustomerBalance` **不返回** `未收金额`；`unpaidTotal` 只在该函数内部参与算「客户余额」（`svc:749`, `svc:763`）。这点是坑：新系统若按「客户余额页应该有未收金额」去实现，就与旧版不符。
 
-### 0.1 `mapResponseFields` 的触发条件（决定中英文 key 到底哪个到客户端）
+---
+
+## 2. Helpers 逐条（`svc:5-279`）
+
+### 2.1 `toNum` — `svc:5-8` [C]
 
 ```ts
-// legacy-dispatch.ts:1214-1230
-mapResponseFields(x):
-  if Array.isArray(x) → x.map(mapResponseFields)          // 逐元素递归
-  if (!x || typeof x !== 'object') → x
-  if ('data' in x && Array.isArray(x['data'])) → {…x, data: x.data.map(mapResponseFields)}   // 只递归「data 是数组」这一种
-  hasEnglish = x 的直接 key 里含 name/phone/clientCode/customerName/orderNo/procedureName/databaseName/createdAt 之一
-  if (!hasEnglish) → x 原样返回
-  …否则按 engToCn（:1233-1251）改名，未登记的 key 原样保留（丢掉 id/clientId/orderId/financeOrderId/*At/databaseName）
-```
-
-⇒ **`data` 是对象时不会递归**。这条直接决定了下面每个端点的对外 key：CONFIRMED
-
-| 端点 | service 返回值 | 顶层是否命中 hasEnglish | 结论（到客户端的形状） |
-|---|---|---|---|
-| `getOrderSummary` | `{code,data:{…},message}` | 否（key 只有 code/data/message） | 原样：`data[回执单号] = {已分配金额,未收金额,订单调整金额}` |
-| `checkOrderPayment` | 数组 | **是**（元素有 orderNo/customerName） | 逐元素改名为 `{回执单号,客户,已分配金额,未付,statusText,payments}`，再包 `{code:200,data:[…]}` |
-| `checkSystem` | `{code,data:{hasNewFinance},message}` | 否 | 原样 |
-| `getOrderDetail` | `{code,data:{中文…},message}` | 否 | 原样 |
-| `getCustomerBalance` | `{code,data:{中文…},message}` | 否 | 原样 |
-| `getPaymentStats` | `{code,data:{monthly,payments,yearly},message}` | 否（data 是对象不递归） | 原样 |
-| `getCustomerStatement` | `{orders,payments,adjustments}`（**无 code/data**） | — | 先 `projectCustomerStatement()`（`:518-613`）→ `{code:200,data:[…]}`；行 key 全是中文，二次 map 不改动 |
-
----
-
-## 1. 数据模型：哪些是存量、哪些是流水（`prisma/schema.prisma`）
-
-### 1.1 `FinanceOrder`（`:133-154`，表 `finance_orders`，DDL `prisma/migrations/20260626062201_init/migration.sql:105-120`）
-
-| 列 | 类型 | 语义 | 性质 |
-|---|---|---|---|
-| `orderId` | `Int?` → `Order?`（`:147`，`onDelete: Cascade`） | 关联订单；可为 NULL | 关联 |
-| `orderNo` | `String?`（`:139`） | 回执单号 | 业务主键（`@@unique([databaseName, orderNo])` `:150`） |
-| `customerName` | `String?`（`:140`） | 客户名**冗余**（订单改名后靠写路径同步） | 冗余 |
-| `allocatedAmount` | `Decimal? @default(0)`（`:141`） | **已分配金额**：本单已收（含池分配） | **存量（读取唯一来源）** |
-| `unpaidAmount` | `Decimal? @default(0)`（`:142`） | **未收金额** | **存量** |
-| `orderAdjustTotal` | `Decimal? @default(0)`（`:143`） | **订单调整金额**（抹零/优惠/补贴/冲销的累计） | **存量** |
-| `monthTag` | `String?`（`:144`） | `YYYY-MM`，建单时写入 | **只写不读**：全库无任何读点（`grep monthTag` → 只有 `order.service.ts:571`、`client.service.ts:542` 两处写）CONFIRMED |
-| `statusText` | `String?`（`:145`） | 结清状态文案 | 存量，读路径**原样透传**（见 §5.3 两套词表） |
-
-**没有 DB 触发器**（migration 里只有 DDL，无 `CREATE TRIGGER`/`CREATE FUNCTION`），存量列全靠应用层维护。CONFIRMED
-
-### 1.2 `Payment`（`:156-173`，表 `payments`）— **流水**
-
-`amount Decimal? @default(0)`（`:163`）正=收款、负=红冲；`orderId`/`financeOrderId` 均可为 NULL；
-`paymentDate @db.Date`；`paymentMethod`；`notes`。**没有任何存量汇总列**。
-注意 `financeOrderId = NULL` 是合法的：`addPayment` 为「客户级预付款」单独建一条无归属 Payment（`finance.service.ts:388-390`）。
-
-### 1.3 `CustomerFundFlow`（`:175-195`，表 `customer_fund_flows`）— **流水（资金池）**
-
-`amount Decimal`（**非空**，`:184`）、`flowType`（`:185` 默认 `'预付款'`）、`paymentId`（`:183`，可空，指向 Payment）、
-`clientId`/`clientCode`/`customerName`。**没有存量列**。
-写点只有两处：`finance.service.ts:414-427`（`预付款` / `预付款冲销`）、`:847-859`（`预付款分配`，amount 为负）。
-
-### 1.4 `CustomerBalance`（`:197-213`，表 `customer_balances`，`@@unique([databaseName, clientCode])`）— **存量汇总**
-
-| 列 | 语义 | 谁维护（只点名） |
-|---|---|---|
-| `prepaidBalance`（`:205`） | **未分配余额**（资金池余额） | `finance.service.ts:252-258`、`:394-400`、`:402-412`、`:845` |
-| `totalTopup`（`:206`） | **实收金额**（累计充值，只在 amount>0 时加） | 同上（`:251`、`:398`、`:409`）、`ensureCustomerBalance:100` 建行时置 0 |
-| `totalSpent`（`:207`） | 累计消费 | **只写不读**（唯一读点 `:844` 是自增，读路径从不返回它）CONFIRMED |
-
-`ensureCustomerBalance`（`:91-109`）在 upsert 的 update 分支只改 `clientId`/`customerName`，**不动三个金额列**。CONFIRMED
-
-### 1.5 `CustomerAdjustment`（`:215-228`）— **流水**
-
-`clientCode`（`:220` 可空）、`adjustAmount Decimal NOT NULL`（`:222`）、`adjustType`（`:223` 默认 `'人工调整'`）。
-**只写不参与任何存量列**：`addCustomerAdjustment`（`:459-473`）只 insert 一行，不动 `CustomerBalance`，
-它的影响**只体现在 `getCustomerBalance` 的实时聚合里**（§5）。
-
-### 1.6 `OrderAdjustment`（`:230-243`）— **流水**
-
-`orderNo`（`:235` 可空）、`orderNumber`（`:236`，**只写不读** CONFIRMED）、`adjustAmount NOT NULL`、`adjustType`（默认 `'订单调整'`）。
-与 `FinanceOrder.orderAdjustTotal` 是**同一事实的两份记录**（流水 vs 存量），由 `addOrderAdjustment:573→applyOrderAdjustmentToFinance:231-246` 同时写。
-
-### 1.7 真相在哪一份
-
-- **未收金额 / 已分配金额 / 订单调整金额（单据级）**：读**存量列** `finance_orders`。流水表 `payments` **不参与**这三个数的计算。CONFIRMED
-- **订单调整合计（客户级）**：读**流水表** `order_adjustments` 求和。**注意它与「订单调整金额」不同源**（§6.2 第 4 条）。
-- **未分配余额 / 实收金额（客户级）**：读**存量列** `customer_balances`。
-- **客户余额 / 客户调整合计 / 订单总额**：**实时聚合**。
-- 存量列与流水表之间**没有任何一致性校验或对账逻辑**（全库无 reconcile）。CONFIRMED
-
-### 1.8 死代码（读这份代码时的两个坑）
-
-- `finance.repository.ts` **整文件无人 import**（`grep -rn "finance.repository\|financeRepository" src` → 只有它自己的定义行）。CONFIRMED
-- `addToCustomerBalance`（`finance.service.ts:248-259`）**零调用点**。CONFIRMED
-
----
-
-## 2. `getOrderSummary`（`finance.service.ts:283-298`）
-
-```ts
-// 等价伪码
-rows = prisma.financeOrder.findMany({ where: { databaseName: ds }, include: { order: true } })
-out = {}
-for (fo of rows) {
-  if (!fo.orderNo) continue                      // null / '' 直接丢
-  out[fo.orderNo] = {
-    已分配金额:   toNum(fo.allocatedAmount),      // 存量列
-    未收金额:     toNum(fo.unpaidAmount),         // 存量列
-    订单调整金额: toNum(fo.orderAdjustTotal),     // 存量列
-  }
-}
-return { code: 200, data: out, message: 'ok' }
-```
-
-- **纯存量列读取**，零聚合、零计算、零过滤（除 `databaseName`）。
-- `include: { order: true }`（`:286`）**结果里完全没用到**（循环体不碰 `fo.order`）。CONFIRMED
-- 入参**只有 ds**：`legacy-dispatch.ts:844` 传 `p.ds`，**`param3`(days=60) / `param4`(start) / `param5`(end) 全部被丢弃**（**UNCERTAIN-2**）。
-- 前端契约对得上：`Home.formatted.js:7911` 拼 `…&param3=<days>&param4=<start>&param5=<end>`（token `1170`=`` &param3= ``, `680`=`` &param4= ``, `1135`=`` &param5= ``），`:7914-7921` 读 `r.data[回执单号]["已分配金额"/"订单调整金额"/"未收金额"]`。CONFIRMED 对齐
-
----
-
-## 3. `checkOrderPayment`（`finance.service.ts:302-314`）
-
-```ts
-if (!orderNos.length) return []                 // ← 裸数组，无 {code,data} 信封
-rows = prisma.financeOrder.findMany({
-  where: { databaseName: ds, orderNo: { in: orderNos } },
-  include: { payments: { select: { id: true, amount: true, paymentDate: true, paymentMethod: true, notes: true } } },
-})
-return rows.map(fo => ({
-  orderNo:         fo.orderNo,
-  customerName:    fo.customerName,
-  allocatedAmount: toNum(fo.allocatedAmount),          // 存量列
-  unpaidAmount:    toNum(fo.unpaidAmount),             // 存量列
-  statusText:      fo.statusText,                      // 原样透传，不重算
-  payments:        fo.payments.map(p => ({ id: p.id, amount: toNum(p.amount), paymentDate: p.paymentDate,
-                                           method: p.paymentMethod, notes: p.notes })),
-}))
-```
-
-- **不含** `adjustmentAmount`，**不含** `customerId`，**不返回** `data.orders` 这种按单号索引的 map。
-- 不按入参 `orderNos` 的顺序输出，也不为查不到的单号补空位（缺哪个少哪个）。
-- `payments` **没有 `orderBy`** ⇒ 顺序未定义（**UNCERTAIN-5**）。
-
-### 3.1 ⚠️ 与前端契约**不符**（本次取证最重要的发现之一）
-
-旧前端（`Home.formatted.js:9237-9270`，解码表 `dr`）读的是：
-
-```js
-// Home.formatted.js:9242-9248（token：554=data, 1175=code, 955=orders, 889=allocatedAmount,
-//                               863=adjustmentAmount, 904=customerId）
-if (200 === u.code && u.data?.orders) {          // ← 期望 data.orders —— 而 service 返回数组
-  s = u.data.orders                              //   ⇒ s 恒为 {}
-  Object.entries(s).forEach(([k, t]) => {
-    if (t.allocatedAmount  > 0) a += t.allocatedAmount;    // 汇总「已分配收款」
-    if (t.adjustmentAmount > 0) i += t.adjustmentAmount;   // 汇总「订单抹零」
-    if (t.customerId && (t.allocatedAmount > 0 || t.adjustmentAmount > 0)) c.push(t.customerId);
-  });
+function toNum(val) {
+  const n = typeof val === 'string' ? parseFloat(val) : Number(val);
+  return isNaN(n) ? 0 : n;
 }
 ```
 
-随后（`:9254-9290`）只有当 `d = a + i > 0` 时才弹「删除订单时将自动进行红冲」（token `1411`），
-并按 `c`（客户 id 集合）逐客户发 `finance_addPayment`（负收款，token `1347`=`` • 已分配收款 ¥ ``）
-与 `finance_addCustomerAdjustment`（负抹零，token `1082`=`` • 订单抹零 ¥ ``）。
+- 全模块唯一的数值入口，**不做任何舍入**，保留 IEEE754 全精度。
+- `null` → `Number(null)` = `0`；`undefined` → `NaN` → `0`；`''` → `parseFloat('')` = `NaN` → `0`。
+- 字符串前缀数字会被吃掉：`'12abc'` → `12`；`'1,234'` → `1`。
+- Prisma `Decimal`（decimal.js 实例，`typeof === 'object'`）走 `Number(val)` → `valueOf()` → 正确转成 number，无精度声明。
+- 布尔 `true` → `1`（本模块不会遇到）。
 
-⇒ 用本仓库这份 service，`data.orders` 恒为 `undefined`，**删除订单的红冲静默不执行**（不报错、不提示）。
-本仓库 service 的返回形状与旧前端契约**不兼容**。CONFIRMED（两侧源码都直接读到）
-
-> 需要 `customerId`（`Order.clientId`）和 `adjustmentAmount`（订单级调整合计）才能满足契约，
-> 而 `FinanceOrder` 表里**没有** `customerId` 列，`orderAdjustTotal` 也没被这个端点读取。
-
----
-
-## 4. `checkSystem`（`finance.service.ts:318-321`）
+### 2.2 `dsFilter` — `svc:10-12` [C]
 
 ```ts
-count = prisma.financeOrder.count({ where: { databaseName: ds } })
-return { code: 200, data: { hasNewFinance: count > 0 }, message: 'ok' }
+{ databaseName: ds }
 ```
-只判「该 ds 是否有任何 finance_orders 行」。无其他条件。CONFIRMED
+
+finance 模块**直接使用 `req.user.databaseName`**，不经 `parseDs()` 归一化（对比 `order.service.ts` 用 `parseDs(ds)`）。所以调用方传什么字符串，就按什么字符串精确匹配。
+
+### 2.3 `dateText` — `svc:22-26` [C]
+
+```ts
+if (!val) return '';                       // 0 / '' / null / undefined / NaN 全部 → ''
+const d = val instanceof Date ? val : new Date(String(val));
+return Number.isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+```
+
+**用 UTC 取日期，不是本地时区**。东八区下本地 2026-09-18 07:00 的 `Date` 会输出 `'2026-09-17'`。
+
+### 2.4 `textValue` — `svc:28-30` [C]
+
+```ts
+val === null || val === undefined ? '' : String(val).trim()
+```
+
+`0` → `'0'`；`false` → `'false'`；只对 `null/undefined` 返回空串。**空串不做兜底**（见 §11.3 的 `??` 陷阱）。
+
+### 2.5 `parseJsonRecord` — `svc:32-41` [C]
+
+对象且非数组 → 原样返回；非字符串或空白串 → `{}`；`JSON.parse` 失败或结果非对象 → `{}`。
+
+### 2.6 `statusText` — `svc:52-55` [C]
+
+```ts
+unpaid <= 0 ? '已结清' : '部分付款'
+```
+
+**只被写侧调用**。注意与 `orders` 模块的用词不一致（见 §9.3），读侧 `checkOrderPayment` 原样透出。
+
+### 2.7 `orderTotal` — `svc:57-60` [C]
+
+```ts
+const order = fo.order ?? {};
+return toNum(order.totalAmount) || (toNum(fo.allocatedAmount) + toNum(fo.unpaidAmount) + toNum(fo.orderAdjustTotal));
+```
+
+- 优先 `orders.totalAmount`；**为 0 时也会回退**（`||` 对 0 敏感，不只是 null）。
+- 仅被 `buildAllocationPreview` 使用（`svc:190`, `svc:210`）。`getOrderDetail` / `getCustomerBalance` **不用它**，直接用存量列求和 —— 这是同一个「总价」在两条读路径上的口径分叉。
+
+### 2.8 `customerCodeFromBody` — `svc:62-64` [C]
+
+```ts
+textValue(body['客户编号'] ?? body['customerCode'] ?? body['clientCode'])
+```
+
+`??` 只跳过 `null/undefined`。若请求体显式带 `'客户编号': ''`，不会再去看 `customerCode`，直接得到 `''` → `findClient('')` 返回 `null` → 一路降级成「按名字匹配」甚至 `getCustomerBalance` 直接返回 `null`。
+
+### 2.9 `findClient` — `svc:66-80` [C]
+
+```ts
+if (!customerCode) return null;                       // ''/undefined → null
+const numericId = /^\d+$/.test(trimmed) ? Number(trimmed) : NaN;
+findFirst({ where: { databaseName: ds, OR: [ {clientCode: trimmed}, ...(isFinite(numericId) ? [{id: numericId}] : []) ] },
+            orderBy: { id: 'asc' } });
+```
+
+- 纯数字客户编号会**同时**按 `clientCode` 和主键 `id` 匹配，命中 id 更小的那条。
+- 匹配不到就是 `null`，**不会回退到按名字找客户**（回退逻辑在 `financeOrdersForCustomer` 里，见 2.12）。
+
+### 2.10 `resolveCustomerIdentity` — `svc:82-89` [C]
+
+```ts
+{ client, balanceCode: client?.clientCode || customerCode, customerName: client?.name || '' }
+```
+
+`balanceCode` 是「客户编号归一化」的唯一出口：找到客户就用客户档案里的 `clientCode`，否则用调用方给的字符串。
+
+### 2.11 `ensureCustomerBalance` — `svc:91-109` [C]
+
+按 `(databaseName, clientCode)` upsert：不存在则以**全 0** 建行（`prepaidBalance: 0, totalTopup: 0, totalSpent: 0`，`svc:100-102`）；已存在时 **`update` 分支只写 `clientId` / `customerName`**（`svc:104-107`），三个金额列一个都不碰。也就是说这是一个「读之前顺手建个空行」的副作用函数。
+
+### 2.12 `financeOrdersForCustomer` — `svc:142-167` [C]（客户维度的订单集怎么选的）
+
+```ts
+primary = financeOrder.findMany({ where: { databaseName, ...extraWhere,
+    ...(client ? { order: { clientId: client.id } } : { customerName: customerCode }) },
+  include: { order: true },
+  orderBy: [{ order: { orderDate: 'asc' } }, { createdAt: 'asc' }] });
+
+if (primary.length > 0 || !client?.name) return primary;      // ← 关键
+return financeOrder.findMany({ where: { databaseName, ...extraWhere, customerName: client.name }, ... });
+```
+
+- 有客户档案时，**只认 `orders.clientId` 关联**；`finance_orders.orderId` 为 null 的订单被排除。
+- 兜底（按 `customerName = 客户名` 找）**仅在主查询一条都没命中时才启动**。所以「部分订单已关联、部分没关联」的客户，会静默漏掉没关联那部分。**[C]**
+
+### 2.13 `fundFlowPaymentRow` — `svc:261-279` [C]
+
+把资金流水伪装成一条 payment：
+
+```ts
+{ id: `fund-${flow.id}`, amount: flow.amount, paymentDate, paymentMethod,
+  notes: flow.notes || flow.flowType || '',     // 备注为空 → 用 flowType 顶上
+  financeOrderId: null, orderId: null, financeOrder: null }
+```
+
+`id` 是**字符串**，而真 payment 行的 `id` 是**数字**，两者被塞进同一个数组（`svc:605`, `svc:683`）。
 
 ---
 
-## 5. `getOrderDetail`（`finance.service.ts:688-726`）
+## 3. `getCustomerBalance` — `svc:730-774`（最重要）
+
+### 3.1 前置 [C]
 
 ```ts
-fo = prisma.financeOrder.findFirst({ where: { databaseName: ds, orderNo: receiptNo } })
-if (!fo) return { code: 200, data: null, message: 'ok' }        // :690
-        // → legacy-dispatch.ts:879-885 把它翻成 HTTP 404 {code:404,data:null,message:'订单不存在'}
+const client = customerId ? await findClient(ds, customerId) : null;
+if (customerId && !client) return { code:200, data:null, message:'ok' };   // svc:732
+const canonicalCustomerCode = client?.clientCode || customerId || '';      // svc:733
+```
 
-payments    = prisma.payment.findMany({ where: { databaseName: ds, financeOrderId: fo.id } })   // 无 orderBy
-adjustments = prisma.orderAdjustment.findMany({ where: { databaseName: ds, orderNo: receiptNo } }) // 无 orderBy
+客户编号找不到客户档案 → **整个接口返回 `data: null`**，不做任何名字兜底。（旧兼容层把 `data === null` 翻译成 500「客户不存在」，`legacy-dispatch.ts:886-893`。）
 
-分配明细[i] = { id: p.id, payment_id: p.id,
-                分配金额: toNum(p.amount),
-                备注: p.notes || '', 收款方式: p.paymentMethod || '',
-                收款日期: p.paymentDate ? p.paymentDate.toISOString().split('T')[0] : '' }
+### 3.2 取数与求和 [C]
 
-调整记录[i] = { id: a.id, 调整金额: toNum(a.adjustAmount), 调整类型: a.adjustType || '', 备注: a.notes || '',
-                调整日期: a.createdAt ? a.createdAt.toISOString().split('T')[0] : '',
-                日期:     同上 }
+```ts
+const balance = customerId ? await ensureCustomerBalance(ds, canonicalCustomerCode, client?.name)
+                           : await prisma.customerBalance.findFirst({ where: { databaseName: ds } });   // svc:734-736  ← 无 orderBy
+const financeOrders = customerId ? await financeOrdersForCustomer(ds, customerId, client)
+                                 : await prisma.financeOrder.findMany({ where:{databaseName: ds}, include:{order:true} });  // svc:737-739
+const customerAdjustments = await prisma.customerAdjustment.findMany({
+  where: { databaseName: ds, ...(customerId ? { clientCode: canonicalCustomerCode } : {}) } });          // svc:740-742
+const orderNos = financeOrders.map(r => r.orderNo).filter(Boolean);
+const orderAdjustments = orderNos.length
+  ? await prisma.orderAdjustment.findMany({ where: { databaseName: ds, orderNo: { in: orderNos } } })
+  : [];                                                                                                  // svc:743-746
+
+const orderTotalAmount   = Σ (toNum(r.allocatedAmount) + toNum(r.unpaidAmount) + toNum(r.orderAdjustTotal));  // svc:747
+const allocated          = Σ toNum(r.allocatedAmount);                                                        // svc:748
+const unpaidTotal        = Σ toNum(r.unpaidAmount);                                                           // svc:749
+const orderAdjustTotal   = Σ toNum(a.adjustAmount)   // ← 来自 order_adjustments 表                          // svc:750
+const customerAdjustTotal= Σ toNum(a.adjustAmount);   // ← 来自 customer_adjustments 表                       // svc:751
+```
+
+### 3.3 六个对外字段的精确公式 [C]
+
+```ts
+const b = balance || { totalTopup:0, prepaidBalance:0, totalSpent:0,
+                       customerName: client?.name || '', clientCode: customerId || '' };   // svc:752-758
 
 data = {
-  分配明细,
-  回执单号:     receiptNo,                                          // ← 回显入参，不是 fo.orderNo
-  客户:         fo.customerName || '',
-  已分配金额:   toNum(fo.allocatedAmount),                          // 存量列
-  总价:         toNum(allocatedAmount) + toNum(unpaidAmount) + toNum(orderAdjustTotal),   // :719 存量三列相加
-  未收金额:     toNum(fo.unpaidAmount),                             // 存量列
-  订单调整金额: toNum(fo.orderAdjustTotal),                         // 存量列
-  调整记录,
+  实收金额:     toNum(b.totalTopup),                              // svc:762  存量列
+  客户余额:     Math.max(0, unpaidTotal - customerAdjustTotal),    // svc:763  纯计算，不落库
+  客户名称:     b.customerName || '',                              // svc:764
+  客户编号:     b.clientCode,                                      // svc:765  未做空值兜底
+  客户调整合计: customerAdjustTotal,                               // svc:766
+  已分配金额:   allocated,                                         // svc:767
+  未分配余额:   toNum(b.prepaidBalance),                           // svc:768  存量列
+  订单总额:     orderTotalAmount,                                  // svc:769
+  订单调整合计: orderAdjustTotal,                                  // svc:770
 }
 ```
 
-关键点（全部 CONFIRMED）：
+四条必须记住的语义：
 
-1. **`总价` 不读 `orders.total_amount`**，是 `已分配 + 未收 + 订单调整` 三个存量列之和
-   （与 `orderTotal()` 助手 `:57-60` **不同**：那个优先 `order.totalAmount`，见 §10 的 `orderTotal` 行）。零兜底：三列都是 0 时 `总价 = 0`。
-2. **`Σ分配明细.分配金额 ≠ 已分配金额`**：`executePrepaymentAllocation`（`:828-834`）只改存量列、**不建 Payment 行**，
-   所以资金池分配进来的钱**不在 `分配明细` 里**。
-3. 两个明细查询都**无 `orderBy`** ⇒ 顺序未定义；`financeOrderId` 为 NULL 的 Payment 不出现（符合预期）。
-4. `分配明细` 这个字段旧前端**根本不读**：`grep "分配明细" Home.formatted.js` → 0 命中。前端读的是
-   `c["已分配金额"]`（`:1529`）与 `c["调整记录"]`（`:1668`），对象由 `Object.assign(c, a.data)` 灌入
-   （`:1097-1108`，解码表 `To`：`537`=`` ?param1=finance_getOrderDetail&param2= ``, `412`=`data`）。CONFIRMED
+1. **`实收金额` ≠ 历史收款总额**。它读的是 `customer_balances.totalTopup`，而这个列**只在预付款路径被加分**（`svc:398`, `svc:409`；`executePrepaymentAllocation` 甚至不加，`svc:843-845` 只写 `prepaidBalance`/`totalSpent`）。订单收款（`addPayment` 的分配路径、`addOrderPayment`、`clearSelectedOrders`、终端收款）**一个字节都不写 `totalTopup`**。所以「从没充过预付款的客户，实收金额恒为 0」。[C]
+2. **`客户余额` = 未收 − 客户调整**，与 `customer_balances.prepaidBalance` **毫无关系**。名字叫「余额」，实际是「这个客户还欠多少（经客户级调整后）」。取 `max(0, …)`，负值被夹到 0。
+3. **`未分配余额` = `customer_balances.prepaidBalance`，没有 `max(0, …)`**（对比预览侧 `svc:796` 有 `Math.max(0, …)`）。因为 `addPayment` 的预付款差额可以是负数（`prepaidDelta = amount - allocatedTotal`，`svc:384`），这个列**可以是负的**。[C]
+4. **`订单总额` 不是 `orders.totalAmount`**，而是「该客户名下所有 `finance_orders` 的 三个存量列之和 再求和」（`svc:747`）。**`订单调整合计` 却是流水表求和**（`svc:750`）。两者源不同，见 §10.2 的必然分叉。
+
+### 3.4 无 `customerId` 时的行为 [C]
+
+- `balance` = `databaseName` 下的**任意一条**（`findFirst` 无 `orderBy`，Postgres 通常是最小 id）→ `实收金额` / `未分配余额` / `客户名称` / `客户编号` 都会是**某个随机客户**的值。
+- `customerAdjustments` 不再按 `clientCode` 过滤 → **全库客户调整**都算进「客户调整合计」和「客户余额」。
+- `financeOrders` 是全库订单 → 其余金额是全库合计。
+- 这个「半客户、半全库」的混合口径在没有 `customerId` 时必然自相矛盾。[C]（是否真有调用方这么调，见 [U-6]）
 
 ---
 
-## 6. `getCustomerBalance`（`finance.service.ts:730-774`）— 本次取证的核心
+## 4. `getOrderDetail` — `svc:688-726`
 
 ```ts
-client = customerId ? await findClient(ds, customerId) : null
-if (customerId && !client) return { code: 200, data: null, message: 'ok' }   // :732
-        // → legacy-dispatch.ts:886-893 翻成 HTTP 500 {code:500,data:null,message:'客户不存在'}
+const fo = await prisma.financeOrder.findFirst({ where: { databaseName: ds, orderNo: receiptNo } });
+if (!fo) return { code:200, data:null, message:'ok' };                                  // svc:690
 
-canonical = client?.clientCode || customerId || ''
-
-balance = customerId
-  ? await ensureCustomerBalance(ds, canonical, client?.name)      // :735 ★ UPSERT：GET 接口会写库
-  : await prisma.customerBalance.findFirst({ where: { databaseName: ds } })   // :736 ★ 任意一行
-
-financeOrders = customerId
-  ? await financeOrdersForCustomer(ds, customerId, client)                        // :738
-  : await prisma.financeOrder.findMany({ where: { databaseName: ds }, include: { order: true } })  // :739
-
-customerAdjustments = prisma.customerAdjustment.findMany({
-  where: { databaseName: ds, ...(customerId ? { clientCode: canonical } : {}) },   // :740-742
-})
-
-orderNos = financeOrders.map(r => r.orderNo).filter(Boolean)                        // :743
-orderAdjustments = orderNos.length
-  ? prisma.orderAdjustment.findMany({ where: { databaseName: ds, orderNo: { in: orderNos } } })   // :744-746
-  : []
-
-orderTotalAmount = Σ ( toNum(allocatedAmount) + toNum(unpaidAmount) + toNum(orderAdjustTotal) )   // :747 存量列
-allocated        = Σ toNum(allocatedAmount)                                                      // :748 存量列
-unpaidTotal      = Σ toNum(unpaidAmount)                                                         // :749 存量列
-orderAdjustTotal = Σ toNum(orderAdjustments.adjustAmount)      // :750 ★ 流水表 order_adjustments
-customerAdjustTotal = Σ toNum(customerAdjustments.adjustAmount) // :751 ★ 流水表 customer_adjustments
-
-b = balance ?? { totalTopup: 0, prepaidBalance: 0, totalSpent: 0,
-                 customerName: client?.name || '', clientCode: customerId || '' }   // :752-758
-
-data = {
-  实收金额:     toNum(b.totalTopup),                       // ★ 存量列 customer_balances.total_topup
-  客户余额:     Math.max(0, unpaidTotal - customerAdjustTotal),   // ★ 实时聚合，且夹到 ≥0
-  客户名称:     b.customerName || '',
-  客户编号:     b.clientCode,                              // ★ 来自 balance 行，不是入参
-  客户调整合计: customerAdjustTotal,                        // ★ 实时 Σ customer_adjustments
-  已分配金额:   allocated,                                  // ★ 实时 Σ 存量列
-  未分配余额:   toNum(b.prepaidBalance),                    // ★ 存量列，**不夹零，可为负**
-  订单总额:     orderTotalAmount,                           // ★ 实时 Σ(三存量列)
-  订单调整合计: orderAdjustTotal,                           // ★ 实时 Σ order_adjustments（≠ 订单调整金额）
-}
+const payments = await prisma.payment.findMany({ where: { databaseName: ds, financeOrderId: fo.id } });  // svc:691  ← 只看 financeOrderId，无排序、无日期范围
+const adjustments = await prisma.orderAdjustment.findMany({ where: { databaseName: ds, orderNo: receiptNo } });  // svc:692
 ```
 
-### 6.1 逐字段定死
-
-| 对外字段 | 公式 | 性质 |
-|---|---|---|
-| `已分配金额` | `Σ finance_orders.allocated_amount`（该客户全部单） | 聚合存量列 |
-| `未收金额`（**本端点不返回**，但参与下面两行） | `Σ finance_orders.unpaid_amount` | 聚合存量列 |
-| `订单总额` | `Σ (allocated_amount + unpaid_amount + order_adjust_total)` | 聚合存量列 |
-| `订单调整合计` | `Σ order_adjustments.adjust_amount`（按 `orderNo ∈ 该客户 financeOrders` 圈定） | **实时读流水表** |
-| `客户调整合计` | `Σ customer_adjustments.adjust_amount`（按 `client_code = canonical`） | **实时读流水表** |
-| `客户余额` | `max(0, Σ unpaid_amount − Σ customer_adjustments.adjust_amount)` | **实时**，夹到 ≥0 |
-| `实收金额` | `customer_balances.total_topup` | **存量列** |
-| `未分配余额` | `customer_balances.prepaid_balance` | **存量列**，不夹零 |
-| `客户名称` / `客户编号` | `balance` 行的 `customer_name` / `client_code` | 存量列 |
-
-### 6.2 本端点的坑（全部 CONFIRMED）
-
-1. **GET 会写库**：`:735` 走 `ensureCustomerBalance` 的 upsert（`:91-109`）——客户不存在余额行时**建一行**。
-2. **`未分配余额` 可为负**（`:768` 无 `Math.max`），前端自己夹：`Home.formatted.js:987` `max(0, Number(s["未分配余额"] ?? 0))`（token `598`=`max`）。CONFIRMED
-3. **`客户余额` 夹零**：`:763` `Math.max(0, …)` ⇒ 客户多付了也不会在 `客户余额` 上显示负数（负数落在 `未分配余额`）。
-4. **`订单调整合计` 与 `订单总额` 不同源**：前者读流水表，后者读存量列 `order_adjust_total`。
-   只要写路径保证了两者同步（现在靠 `applyOrderAdjustmentToFinance:231-246` 同时写），
-   `订单总额` 就等于**原总价**（`unpaid` 减多少、`orderAdjustTotal` 加多少）。但 `:235` 的
-   `Math.max(0, unpaid − amount)` **一旦触发夹零，这个恒等式就破了**，`订单总额` 会被抬高。CONFIRMED（代码行为）/ **UNCERTAIN-6**（是否有意）
-5. **无 `customerId` 时是「全局聚合 + 任意一行余额」**：`:736` 取该 ds 的**第一条** `customer_balances`
-   （无 `orderBy`），却用它的 `total_topup`/`prepaid_balance` 配全量 `finance_orders` 的求和 ⇒
-   `实收金额`/`未分配余额`/`客户编号` 只有那一条余额行的值。语义不明，**UNCERTAIN-3**。
-6. **`客户编号` 不是入参回显**：是 `balance.clientCode`（有 client 时已被 canonical 化）。
-7. `addCustomerAdjustment` 不动 `finance_orders.unpaid_amount` ⇒ 客户抹零**只**通过 `客户余额` 这一条公式体现。
-8. **`_days`（`:730` 形参）完全未使用**（同理 `getCustomerStatement` 的 `:645`）。CONFIRMED
-
----
-
-## 7. `getPaymentStats`（`finance.service.ts:579-641`）
+输出（`svc:712-725`）：
 
 ```ts
-client = customerId ? await findClient(ds, customerId) : null
-canonical = client?.clientCode || customerId || ''
-
-payments = prisma.payment.findMany({
-  where: { databaseName: ds, ...(customerId ? { OR: [
-      { financeOrder: { order: { clientId: client?.id ?? -1 } } },     // 没有 client 时用 -1 ⇒ 恒不命中
-      { financeOrder: { customerName: client?.name || customerId } },
-  ]} : {}) },
-  orderBy: { paymentDate: 'desc' }, take: 200,
-  include: { financeOrder: { select: { customerName: true } } },        // 查了但输出里没用到
-})
-
-fundFlows = customerId
-  ? prisma.customerFundFlow.findMany({ where: { databaseName: ds, clientCode: canonical },
-                                       orderBy: { paymentDate: 'desc' }, take: 200 })
-  : []                                                                  // ← 无客户 ⇒ 一条资金流水都不取
-
-rows = [...payments, ...fundFlows.map(fundFlowPaymentRow)]
-
-monthMap = {}; yearMap = {}
-for (p of rows) {
-  if (!p.paymentDate) continue                     // 无日期：不进月度/年度，但**仍进 payments 列表**
-  ym = `${p.paymentDate.getFullYear()}-${pad(getMonth()+1)}`   // ★ 本地时区取年月
-  y  = `${p.paymentDate.getFullYear()}`                        // ★ 本地时区取年
-  amt = toNum(p.amount)
-  amt >= 0 ? (收款 += amt) : (红冲 += Math.abs(amt))            // ★ 只按符号分桶
+{
+  分配明细: payments.map(p => ({
+      id: p.id, payment_id: p.id,
+      分配金额: toNum(p.amount),
+      备注: p.notes || '',
+      收款方式: p.paymentMethod || '',
+      收款日期: p.paymentDate ? p.paymentDate.toISOString().split('T')[0] : '',   // UTC 日期
+  })),                                                                             // svc:694-701
+  回执单号: receiptNo,                                                             // svc:716 回显入参，非 fo.orderNo
+  客户: fo.customerName || '',
+  已分配金额: toNum(fo.allocatedAmount),                                           // 存量列
+  总价: toNum(fo.allocatedAmount) + toNum(fo.unpaidAmount) + toNum(fo.orderAdjustTotal),  // svc:719 不用 orderTotal()
+  未收金额: toNum(fo.unpaidAmount),                                                // 存量列
+  订单调整金额: toNum(fo.orderAdjustTotal),                                        // 存量列
+  调整记录: adjustments.map(a => ({ id, 调整金额: toNum(a.adjustAmount), 调整类型: a.adjustType || '',
+      备注: a.notes || '', 调整日期: createdAt 的 UTC 日期, 日期: 同上 })),
 }
-
-payments 列表 = rows.map(p => ({
-  方式: p.paymentMethod || '',
-  日期: p.paymentDate ? p.paymentDate.toISOString().split('T')[0] : '',   // ★ UTC 取日期
-  金额: toNum(p.amount),
-}))
-
-return { code: 200, data: { monthly: 按月份字典序升序, payments: paymentsList, yearly: 按年份字典序升序 }, message: 'ok' }
 ```
-
-`fundFlowPaymentRow`（`:261-279`）：`{ id: 'fund-'+flow.id, amount, paymentDate, paymentMethod,
-notes: flow.notes || flow.flowType || '', financeOrderId: null, orderId: null, financeOrder: null }`
-—— **`notes` 在为空时回落到 `flowType`**（这是唯一的「字段缺失回退另一来源」之一）。CONFIRMED
 
 要点：
 
-1. **`take: 200` 且无分页/无 total** ⇒ 每源最多 200 行，客户视图最多 400 行。历史数据会被截断。CONFIRMED
-2. **有/无 `customerId` 是两套数据源**：无客户只看 `payments`；有客户时 `payments` 被
-   `financeOrder` 关系过滤，**`financeOrderId = NULL` 的客户级预付款 Payment 被两个 OR 分支同时排除**
-   （`financeOrder` 为 null，关系条件不成立），由对应的 `CustomerFundFlow` 代表。
-   正常路径下不重不漏（`addPayment:388-427` 是成对写的），**UNCERTAIN-7**（其他写路径是否也成对，本次未审）。
-3. `红冲` 桶把三种负数**混在一起**：订单收款红冲、`预付款冲销`、`预付款分配`（负数）。仅凭 monthly 无法区分。CONFIRMED
-4. **月度/年度用本地时区、`日期` 列用 UTC** ⇒ 服务器时区为负偏移时同一行的年月与日期可能差一天。CONFIRMED（代码事实；具体偏移 **UNCERTAIN-8**）
-5. 前端契约对得上：`Home.formatted.js:1159` `oe.monthly = a.data.monthly; oe.yearly = a.data.yearly`
-   （解码表 `To`：`501`=`monthly`,`349`=`yearly`,`677`=`` 获取收款统计失败 ``）。`payments` 数组**前端未使用**。CONFIRMED
+- **`分配明细` 只认 `payments.financeOrderId`**。`progress.service.ts:421-427` 创建的收款记录只填了 `orderId`，`financeOrderId` 为 null → **在订单详情里完全不可见**。[C]
+- `调整记录` 无分页无排序（Prisma 默认物理序），日期列用的是 `createdAt`（`OrderAdjustment` 没有业务日期列，`schema.prisma:230-243`）。
+- `总价` 的定义跟 `orders.totalAmount` 无关。
 
 ---
 
-## 8. `getCustomerStatement`（`finance.service.ts:645-684`）+ 投影层（`legacy-dispatch.ts:518-613`）
-
-### 8.1 service 层：四张表原样返回，零聚合
+## 5. `getOrderSummary` — `svc:283-298`
 
 ```ts
-client = customerId ? await findClient(ds, customerId) : null
-canonical = client?.clientCode || customerId || ''
-
-financeOrderWhere = paymentWhere = adjustmentWhere = orderAdjustmentWhere = { databaseName: ds }
-
-if (customerId) {
-  financeOrderWhere.OR = [ ...(client ? [{ order: { clientId: client.id } }] : []),
-                           { customerName: client?.name || customerId } ]
-  paymentWhere.OR     = [ ...(client ? [{ financeOrder: { order: { clientId: client.id } } }] : []),
-                          { financeOrder: { customerName: client?.name || customerId } } ]
-  adjustmentWhere.clientCode = canonical
-  orderAdjustmentWhere.orderNo = { in: (financeOrder.findMany({ where: financeOrderWhere, select: { orderNo } })
-                                          .map(r => r.orderNo).filter(Boolean)) }      // :662-667 二次查询
+const financeOrders = await prisma.financeOrder.findMany({ where: { databaseName: ds }, include: { order: true } });  // include 未被使用
+for (const fo of financeOrders) {
+  if (!fo.orderNo) continue;                                        // svc:290 无单号的订单被跳过
+  result[fo.orderNo] = { 已分配金额: toNum(fo.allocatedAmount),      // svc:292
+                         未收金额:   toNum(fo.unpaidAmount),         // svc:293
+                         订单调整金额: toNum(fo.orderAdjustTotal) }; // svc:294
 }
-
-financeOrders    = findMany({ financeOrderWhere, include: { order: true }, orderBy: { createdAt: 'desc' } })
-payments         = findMany({ paymentWhere, orderBy: { paymentDate: 'desc' } })
-fundFlows        = customerId ? findMany({ databaseName, clientCode: canonical, orderBy: { paymentDate: 'desc' } }) : []
-adjustments      = findMany({ adjustmentWhere, orderBy: { createdAt: 'desc' } })          // CustomerAdjustment
-orderAdjustments = findMany({ orderAdjustmentWhere, orderBy: { createdAt: 'desc' } })     // OrderAdjustment
-
-return { orders: financeOrders,
-         payments: [...payments, ...fundFlows.map(fundFlowPaymentRow)],   // ★ 资金流水伪装成收款行
-         adjustments: [...adjustments, ...orderAdjustments] }              // ★ 客户调整 + 订单调整混在一个数组
 ```
 
-**与 `getCustomerBalance` 的关键差异**：这里 `client` 为 null 时**不返回 null**，而是继续用
-`customerName = customerId` 兜底查（`:655,659`）。CONFIRMED
+- **纯存量列直读**，零聚合、零计算、零舍入。
+- 返回 `{ 单号: {...} }` 的字典（不是数组），单号是 key。
+- `(databaseName, orderNo)` 有唯一约束（`schema.prisma:150`），不会重复覆盖。
+- 这里叫 `订单调整金额`，客户余额页叫 `订单调整合计`（`svc:770`），同一个存量列两个名字。
 
-无 `code`/`data` 键 ⇒ 兼容层 `legacy-dispatch.ts:875-877` 判定要走 `projectCustomerStatement`。
-无 `days` 过滤、无分页。CONFIRMED
-
-### 8.2 投影层（对外的「流水行」）CONFIRMED
+## 5.1 `checkOrderPayment` — `svc:302-314`
 
 ```ts
-// legacy-dispatch.ts:518-613
-先建三张映射（:524-554）：
-  foMap:        financeOrder.id  → { orderNo: 单据号, address: 安装地址 }
-  单据号 docNo  = ping_hui/diao_hui 各行的 '单号' 里第一个非空（Set 插入序）
-                  || customerInfo['单号集']（:534-545）
-  安装地址 addr = customerInfo['安装地址'] ?? customerInfo['地址'] ?? ''（:532）
-  orderNoMap:   docNo → addr（:547-549）
-  receiptToDocNo: 回执单号 → docNo（:550-553）
-
-orderRows = financeOrders
-  .filter(r => isRecord(r.order))                    // ★ order 关系为 null 的行被整行丢弃
-  .map(r => ({
-    单据号:   docNo,
-    备注:     r.order.notes ?? customerInfo['订单备注'] ?? '',      // 注意是 ??，不是 ||
-    安装地址: customerInfo['安装地址'] ?? customerInfo['地址'] ?? '',
-    收款方式: null,
-    日期:     dateText(r.order.orderDate ?? customerInfo['日期']),
-    类型:     '订单',
-    金额:     numberValue(r.order.totalAmount ?? customerInfo['总价'] ?? r.allocatedAmount),  // ★ 三档回退
-  }))
-
-paymentRows = payments.map(p => ({
-  单据号:   foMap.get(p.financeOrderId)?.orderNo ?? '',    // financeOrderId 为 null（资金流水）⇒ ''
-  备注:     p.notes ?? '', 安装地址: foMap.get(p.financeOrderId)?.address ?? '',
-  收款方式: p.paymentMethod ?? null, 日期: dateText(p.paymentDate), 类型: '收款', 金额: numberValue(p.amount),
-}))
-
-adjustmentRows = adjustments.map(a => ({
-  单据号:   a.orderNo ? (receiptToDocNo.get(a.orderNo) || a.orderNo) : '',   // 客户调整无 orderNo ⇒ ''
-  备注:     a.notes ?? '', 安装地址: orderNoMap.get(a.orderNo) ?? '',         // ★ 见下
-  收款方式: null, 日期: dateText(a.createdAt), 类型: a.adjustType ?? '调整', 金额: numberValue(a.adjustAmount),
-}))
-
-return { code: 200, data: [...orderRows, ...paymentRows, ...adjustmentRows], message: 'ok' }
+findMany({ where: { databaseName: ds, orderNo: { in: orderNos } },
+           include: { payments: { select: { id, amount, paymentDate, paymentMethod, notes } } } });
+return fo => ({ orderNo, customerName,
+   allocatedAmount: toNum(fo.allocatedAmount), unpaidAmount: toNum(fo.unpaidAmount),
+   statusText: fo.statusText,                                    // svc:311 原样，不按 unpaidAmount 重算
+   payments: [{ id, amount: toNum(p.amount), paymentDate, method: p.paymentMethod, notes: p.notes }] });
 ```
 
-投影层的三个确定行为：
+- `orderNos` 为空数组时直接返回 `[]`（`svc:303`）。
+- `payments` 走 `financeOrderId` 关联（同 §4 的漏读问题）。
+- **`statusText` 与 `unpaidAmount` 可能自相矛盾**：写侧有两套词表（`部分付款` vs `未付清`，见 §9.3）。读侧不做一致性校验。
 
-1. **`安装地址` 查错了 map**：`orderNoMap` 的键是**单据号 docNo**（`:547`），却拿 **`a.orderNo`（回执单号）** 去查（`:598`）。
-   两个 id 空间不同 ⇒ 只有当 `单号 == 回执单号` 时才有值，否则恒为 `''`。
-   同一行的 `单据号` 却正确地走了 `receiptToDocNo`（`:601`）。CONFIRMED（代码事实；实际影响取决于数据，**UNCERTAIN-9**）
-2. **资金流水行**（`fundFlowPaymentRow`）的 `financeOrderId` 是 `null` ⇒ 它的 `单据号`/`安装地址` 恒为 `''`，
-   但 `收款方式`/`金额`/`日期` 正常。CONFIRMED
-3. **`order` 关系为 null 的 financeOrder 整行消失**（`:558`），不进流水。CONFIRMED
-4. `金额` 用的是 `??`（`:581`），所以 `total_amount = 0` 会**保留 0**，不会回退到 `customerInfo['总价']`
-   —— 与 §10 的 `orderTotal()` 用 `||` 是**相反**的语义。CONFIRMED
+## 5.2 `checkSystem` — `svc:318-321`
+
+```ts
+const count = await prisma.financeOrder.count({ where: { databaseName: ds } });
+return { code:200, data:{ hasNewFinance: count > 0 } };
+```
+
+纯粹的「这个库有没有财务数据」探针，不涉及金额。
 
 ---
 
-## 9. 只读预览（不写库，但公式属于读取口径）
+## 6. `getPaymentStats` — `svc:579-641`
 
-### 9.1 `previewAllocation`（`:778-784`）
+### 6.1 取数 [C]
+
 ```ts
-customerCode = customerCodeFromBody(body)                      // 客户编号 ?? customerCode ?? clientCode
-amount = toNum(body['收款金额'] ?? body['分配金额'] ?? body.amount)
-unpaidOrders = unpaidOrdersForCustomer(ds, customerCode)       // = 该客户 unpaid_amount > 0 的单，按 orderDate asc, createdAt asc
-data = buildAllocationPreview(unpaidOrders, amount, toNum(body['优惠比例']))
+const client = customerId ? await findClient(ds, customerId) : null;
+const canonicalCustomerCode = client?.clientCode || customerId || '';                       // svc:581
+
+const payments = await prisma.payment.findMany({
+  where: { databaseName: ds, ...(customerId ? { OR: [
+      { financeOrder: { order: { clientId: client?.id ?? -1 } } },                          // svc:588
+      { financeOrder: { customerName: client?.name || customerId } },                       // svc:589
+    ] } : {}) },
+  orderBy: { paymentDate: 'desc' }, take: 200,                                              // svc:594-595
+  include: { financeOrder: { select: { customerName: true } } },
+});
+
+const fundFlows = customerId
+  ? await prisma.customerFundFlow.findMany({ where: { databaseName: ds, clientCode: canonicalCustomerCode },
+                                             orderBy: { paymentDate: 'desc' }, take: 200 })  // svc:598-604
+  : [];                                                                                      // svc:604
+const paymentRows = [...payments, ...fundFlows.map(fundFlowPaymentRow)];                      // svc:605
 ```
 
-### 9.2 `buildAllocationPreview`（`:174-229`）—— 分配 / 优惠公式
+三条硬口径：
+
+1. **带 `customerId` 时，`OR` 的两个分支都走 `financeOrder` 关系**，所以 `financeOrderId === null` 的收款记录（预付款那一笔，`svc:388-390`；终端收款那一笔，`progress.service.ts:421`）**被整体排除**。预付款之所以还能出现在统计里，是因为它同时写了一条资金流水（`svc:414-427`）。终端收款那笔（只有 `orderId`）在**带客户和不带客户两种模式下都丢失**——不带客户时它在 200 条里占位，但没有任何标识能归属到客户。
+2. **`take: 200` 是硬截断**，而且按月/按年聚合是**在这个截断后的集合上算的**（`svc:610-624`）。`orderBy: { paymentDate: 'desc' }` + PostgreSQL 默认 `DESC = NULLS FIRST`（`schema.prisma:5-7` 确认是 postgresql）→ **`paymentDate` 为 null 的记录排在最前面**，会优先吃掉 200 个名额，然后被 `if (!p.paymentDate) continue`（`svc:611`）跳过。所以：**`monthly` / `yearly` 不是全量历史，是「最近 200 条（含 null 日期占位）」的聚合。** [C]
+3. 不带 `customerId` 时 `fundFlows = []`，且 `payments` 不带 OR → 全库前 200 条。**两条路径的取数集合完全不同**，同一客户在两个模式下的数不一定对得上。
+
+### 6.2 聚合 [C]
 
 ```ts
-isRefund = amount < 0
-remaining = amount; totalDiscount = 0; rows = []
-
-if (isRefund) {                                   // 红冲：反分配
-  toRefund = Math.abs(amount)
-  for (fo of orders) {                            // ★ orders 是「unpaid>0」的集合，见下
-    if (toRefund <= 0) break
-    allocated = toNum(fo.allocatedAmount); if (allocated <= 0) continue
-    refund = Math.min(toRefund, allocated)
-    rows.push({ 回执单号: fo.orderNo||'', 日期: dateText(fo.order?.orderDate), 总价: orderTotal(fo),
-                已分配金额: allocated, 分配金额: -refund, 优惠金额: 0, 分配后余额: allocated - refund })
-    toRefund -= refund
-  }
-  remaining = -toRefund                            // 剩余（负）＝退不掉的部分
-} else {                                          // 正常分配：FIFO，先老单
-  for (fo of orders) {
-    if (remaining <= 0) break
-    unpaid = toNum(fo.unpaidAmount); if (unpaid <= 0) continue
-    alloc = Math.min(remaining, unpaid)
-    discount = discountRate > 0
-      ? Math.min(unpaid - alloc, Math.round(alloc * discountRate * 100) / 100)   // ★ 全库唯一的显式舍入
-      : 0
-    rows.push({ 回执单号: fo.orderNo||'', 日期: dateText(fo.order?.orderDate), 总价: orderTotal(fo),
-                未收金额: unpaid, 分配金额: alloc, 优惠金额: discount,
-                分配后余额: Math.max(0, unpaid - alloc - discount) })
-    remaining -= alloc                             // ★ 优惠不抵扣 remaining（优惠是白送的，不占现金）
-    totalDiscount += discount
-  }
+for (const p of paymentRows) {
+  if (!p.paymentDate) continue;
+  const ym = `${p.paymentDate.getFullYear()}-${String(p.paymentDate.getMonth()+1).padStart(2,'0')}`;  // 本地时区
+  const y  = String(p.paymentDate.getFullYear());                                                     // 本地时区
+  const amt = toNum(p.amount);
+  if (amt >= 0) { monthMap[ym].收款 += amt; yearMap[y].收款 += amt; }
+  else          { monthMap[ym].红冲 += Math.abs(amt); yearMap[y].红冲 += Math.abs(amt); }             // svc:617-623
 }
-return { 分配列表: rows, allocations: rows,
-         剩余金额: remaining, unallocated: remaining,
-         合计分配金额: amount - remaining,          // 现金口径
-         合计优惠金额: totalDiscount,
-         资金池剩余: remaining }
 ```
 
-- **红冲预览的候选集是错的（或至少反直觉）**：候选来自 `unpaidOrdersForCustomer`（`unpaid_amount > 0`），
-  但红冲分支要求 `allocated > 0` —— **已结清的单（unpaid=0）永远不会出现在红冲预览里**。CONFIRMED（代码事实；是否有意 **UNCERTAIN-10**）
-- `优惠比例` 是**小数**（`Math.round(alloc * rate * 100)/100`，配合 `docs/2026-09-17-home-analysis.md:263` 的 ÷100 结论），上限是 `unpaid − alloc`。
-- 该函数是 `previewAllocation` 与 `previewPrepaymentAllocation` 共用的。
+- **正负号即分类**：`amt >= 0` 一律计入「收款」（含 `amt === 0`），`amt < 0` 一律计入「红冲」并取绝对值。
+- 月份/年份用 `getFullYear/getMonth`（**本地时区**）；同一批数据的 `payments[].日期` 用 `toISOString()`（**UTC**，`svc:628`）。东八区下，本地 9 月 1 日凌晨的收款会落进 `2026-09` 月桶、却在列表里显示 `2026-08-31`。**同一响应内两个日期口径不一致。** [C]
+- 没有去重：如果一条资金流水恰好也有一条 `financeOrderId` 非空的 payment 命中同一集合，会被计两次。**当前代码下不会发生**（预付款那笔 payment 的 `financeOrderId` 恒为 null，被 OR 排除），依据 `svc:388-390` + `svc:588-589`。[C]
+- `executePrepaymentAllocation` 只写资金流水（`amount: -totalAllocated`，`flowType: '预付款分配'`，`svc:847-859`），不写 payment。它会被当成**红冲**计入。
 
-### 9.3 `previewPrepaymentAllocation`（`:788-801`）
+### 6.3 输出 [C]
+
 ```ts
-available = Math.max(0, toNum(balance?.prepaidBalance))        // 存量列，夹零
-amount    = Math.min(Math.max(0, requestedAmount), available)  // ★ 夹到 [0, available]
-data      = buildAllocationPreview(unpaidOrders, amount, 优惠比例)
+payments: paymentRows.map(p => ({ 方式: p.paymentMethod || '',
+                                  日期: p.paymentDate ? p.paymentDate.toISOString().split('T')[0] : '',
+                                  金额: toNum(p.amount) }));     // svc:626-630
+monthly: 按 月份 localeCompare 升序；yearly: 按 年份 升序。     // svc:635-637
 ```
-注意 `legacy-dispatch.ts:898-901` 把 `finance_previewPrepaymentAllocation` 也指向 `previewPrepaymentAllocation`，
-**而 REST 路由 `finance.routes.ts:184-197` 把 `preview-prepayment-allocation` 错误地指向了 `previewAllocation`**
-（不读资金池余额、不夹 `available`）。CONFIRMED（两条通路行为不一致）
+
+无总计字段；`payments` 列表最坏情况 200（payment）+ 200（流水）= 400 行，其中 payment 行的 `金额` 可为负。
 
 ---
 
-## 10. Helper 逐个定死
+## 7. `getCustomerStatement` — `svc:645-684`
 
-| helper | 行 | 语义（CONFIRMED） |
+### 7.1 入参 [C]
+
+`_days`（形参名带下划线，`svc:645`）**全程未被使用** —— 这个接口**没有任何日期范围过滤**。REST 侧 `finance.routes.ts` 仍会传 `days`，旧兼容层传 `p.param4`（`legacy-dispatch.ts:872-878`），**全部被丢弃**。`getCustomerBalance` 的 `_days`（`svc:730`）同理。
+
+### 7.2 取数 [C]
+
+```ts
+financeOrderWhere.OR = [ ...(client ? [{ order: { clientId: client.id } }] : []),
+                         { customerName: client?.name || customerId } ];              // svc:653-656
+paymentWhere.OR      = [ ...(client ? [{ financeOrder: { order: { clientId: client.id } } }] : []),
+                         { financeOrder: { customerName: client?.name || customerId } } ];  // svc:657-660
+adjustmentWhere.clientCode = canonicalCustomerCode;                                   // svc:661  ← 只按编号，无名字兜底
+orderAdjustmentWhere.orderNo = { in: (该客户的 financeOrder 单号列表) };               // svc:662-667
+```
+
+与 `getCustomerBalance` 的口径差异（同一个「客户」，三个接口三种选法）：
+
+| | 订单集选法 |
+|---|---|
+| `financeOrdersForCustomer`（余额页用） | `order.clientId` 优先，**空集才**回退按 `customerName = 客户名` |
+| `getCustomerStatement` 订单集 | `order.clientId` **OR** `customerName = 客户名`（并集，不要求主查询为空） |
+| `getCustomerStatement` 收款集 | `financeOrder.order.clientId` **OR** `financeOrder.customerName = 客户名` |
+
+`customer_adjustments` 只有 `clientCode` 一个匹配键（`svc:661`），`clientCode` 为 null 的行（`schema.prisma:220` 可空）**在单客户模式下永远读不到**，在全库模式下又全都被算进去。
+
+### 7.3 输出（**不是 `{code,data}` 包装**）[C]
+
+```ts
+return { orders: financeOrders,                                        // svc:683  原始 Prisma 行（含 order，Decimal 序列化成字符串）
+         payments: [...payments, ...fundFlows.map(fundFlowPaymentRow)],
+         adjustments: [...adjustments, ...orderAdjustments] };         // svc:683  ← 两张结构不同的表混在一个数组
+```
+
+- `orders` 是原始行，**没有做任何字段改名**（与其它接口的中文字段风格不同）。
+- `payments` 数组里**两种行结构**：真 payment 有 `financeOrderId/orderId/databaseName`，资金流水行是 `{id:'fund-N', amount, paymentDate, paymentMethod, notes, financeOrderId:null, orderId:null, financeOrder:null}`（`svc:269-278`）。
+- `adjustments` 数组里**两种行结构**：客户调整有 `clientCode/customerName`，订单调整有 `orderNo/orderNumber`（`schema.prisma:215-243`）。**没有类型字段**，消费方只能靠字段名猜。
+- 唯一消费方 `projectCustomerStatement`（`legacy-dispatch.ts:518-613`）正是这么做的：订单行 `类型: '订单'`、金额取 `orders.totalAmount ?? customerInfo['总价'] ?? financeOrder.allocatedAmount`（`legacy-dispatch.ts:580-581`）；收款行 `类型: '收款'`、金额 `payment.amount`（`:584-595`）；调整行 `类型: adjustType ?? '调整'`（`:596-611`）。资金流水行因为 `financeOrderId: null`，`foMap.get(null)` 命不中 → `单据号` 为空串、`安装地址` 为空。[C]
+
+---
+
+## 8. 数据模型：谁是真相、谁是存量
+
+（`schema.prisma` 行号见括号）
+
+### 8.1 `FinanceOrder`（`:133-154`）—— 订单财务的**存量视图**
+
+| 列 | 语义 | 谁维护 |
 |---|---|---|
-| `toNum(val)` | `:5-8` | `typeof val === 'string' ? parseFloat(val) : Number(val)`；`isNaN` → `0`。**不抛错、不舍入**。`null`→`0`（`Number(null)=0`）、`undefined`→`0`、`''`→`0`、`'12abc'`→`12`、`'1,234.5'`→`1` |
-| `dsFilter(ds)` | `:10-12` | `{ databaseName: ds }`，只用于 `getOrderSummary:285` 与 `checkSystem:319` |
-| `nowDate()` | `:14-20` | 本地时区当天 00:00 的 `Date`（用本地年月日拼 `YYYY-MM-DD` 再 `new Date`） |
-| `dateText(val)` | `:22-26` | `!val → ''`（**`0` 也是 falsy ⇒ `0 → ''`**）；能转 Date 就 `toISOString().split('T')[0]`（**UTC**），否则 `''` |
-| `textValue(val)` | `:28-30` | `null/undefined → ''`，否则 `String(val).trim()` |
-| `parseJsonRecord(v)` | `:32-41` | 已是对象（非数组）→ 原样；字符串 → `JSON.parse`，非对象/解析失败 → `{}` |
-| `updateCustomerFields` | `:43-50` | 写路径专用（`updateOrderCustomer:500-507`），读取路径不用 |
-| `statusText(unpaid)` | `:52-55` | `unpaid <= 0 → '已结清'`，否则 **`'部分付款'`** |
-| `orderTotal(fo)` | `:57-60` | `toNum(order.totalAmount) \|\| (allocated + unpaid + orderAdjustTotal)` —— **`\|\|` 语义**：`totalAmount` 为 `0`/`null`/缺失都会回退到三列之和。**只在 `buildAllocationPreview` 用**（预览的「总价」列），**不在任何真正的读端点用** |
-| `customerCodeFromBody(body)` | `:62-64` | `textValue(body['客户编号'] ?? body['customerCode'] ?? body['clientCode'])`。**`??` 只在 null/undefined 时下探**：`{'客户编号': ''}` 会得到 `''`，不会回退到 `customerCode` |
-| `findClient(ds, code)` | `:66-80` | 无 code → `null`；否则 `findFirst({databaseName: ds, OR: [{clientCode: trimmed}, ...(纯数字时 {id: Number})]}, orderBy: {id:'asc'})` |
-| `resolveCustomerIdentity` | `:82-89` | `{ client, balanceCode: client?.clientCode \|\| customerCode, customerName: client?.name \|\| '' }` |
-| `ensureCustomerBalance` | `:91-109` | 按 `(databaseName, clientCode)` upsert；update 分支**只改 `clientId`/`customerName`**，不动金额列 |
-| `syncOrderAmounts(orderId, a, u)` | `:111-120` | `order.update({ where: { id: orderId }, data: { paidAmount: a, unpaidAmount: u } })` —— **无 `databaseName` 条件**（见 §12） |
-| `updateFinanceOrderAmounts` | `:122-135` | `nextAllocated = allocated + Δ`（**不夹零**）；`nextUnpaid = max(0, unpaid + Δ)`（**夹零**）；同时回写 `orders` |
-| `allocationRows(body)` | `:137-140` | `body['分配列表'] ?? body['allocations'] ?? body['allocationList'] ?? []`，只留非数组对象项 |
-| `financeOrdersForCustomer` | `:142-167` | 主查：`{databaseName, ...extraWhere, client ? {order:{clientId}} : {customerName: customerCode}}`，`orderBy [order.orderDate asc, createdAt asc]`；**若结果为空且 client 有 name**，再用 `customerName: client.name` 重查一次 |
-| `unpaidOrdersForCustomer` | `:169-172` | `financeOrdersForCustomer(ds, code, client, { unpaidAmount: { gt: 0 } })` |
-| `fundFlowPaymentRow` | `:261-279` | 见 §7 |
+| `allocatedAmount` | 该单已分配/已收金额 | 写侧散落在 5 处：`svc:350-353`、`svc:374-377`、`svc:828-831`、`svc:879-882`、`svc:122-135`（addOrderPayment）；另 `order.service.ts:561-578`（合并单 upsert）、`order.service.ts:704-711`、`order.service.ts:812-820`（改明细行）、`client.service.ts:532-` （客户端导入 upsert）、`progress.service.ts:397-405`（终端收款，用 `Math.max(旧值, 新值)`） |
+| `unpaidAmount` | 该单未收金额 | 同上各处，写侧一律 `Math.max(0, …)` 夹底 |
+| `orderAdjustTotal` | 该单调整累计 | **只有** `svc:236-243`（`addOrderAdjustment`）会加；建单时初始化为 0（`order.service.ts:567`、`client.service.ts:539`）。`progress.service.ts:409-418` 建行时不带此列（取默认 0） |
+| `statusText` | 结清状态字符串 | 词表不统一，见 §9.3 |
+| `monthTag` | 建单月份 | 建单时写 |
+| `orderId` | 指向 `orders` | 可能为 null（历史数据 / 终端收款路径），**null 会让客户维度读不到这一单**（§2.12） |
 
-**`financeOrdersForCustomer` 的三条边界（CONFIRMED）**：
-1. `client === null` 时用 **`customerName = customerCode`（原样入参）** 匹配 —— 传客户名也能查到；传查不到的编号会得到空集。
-2. 兜底重查**只在 `client.name` 非空时**发生；`client` 存在但 name 为空且按 `clientId` 查不到时，**不兜底**。
-3. `extraWhere` 直接展开进 `where`，所以 `{ unpaidAmount: { gt: 0 } }` 是**在 SQL 里过滤**（`Decimal` 列比较），不是 JS 过滤。
+**没有流水可以推导出这三个数**：`payments` 表里存在 `financeOrderId` 为 null 的记录（`progress.service.ts:421`），所以 `Σpayments.amount` 与 `allocatedAmount` **不保证相等**。要定死口径只能承认：**这三个存量列就是真相**。[C]
 
----
+### 8.2 `Payment`（`:156-173`）—— 收款流水
 
-## 11. UNCERTAIN（卡在哪）
+- 一条 payment = 一次分配动作。`amount` 有符号（负数 = 冲回，见 §10.1）。
+- `financeOrderId` 可空（`:162`）：**预付款那一笔**（`svc:388-390`，只有 `databaseName`）、**终端收款那一笔**（`progress.service.ts:421`，只有 `orderId`）都是 null。
+- 读侧三个消费点全部走 `financeOrderId`：`getOrderDetail:691`、`checkOrderPayment:306`、`getPaymentStats:588-589`。→ 上述两类记录在这三处**不可见**（在 `getPaymentStats` 全库模式下可见但无客户归属）。
+- `paymentDate` 可空（`:164`），且 `getPaymentStats` 用 `DESC` 排序时 null 排最前（§6.1）。
 
-| # | 事项 | 卡在哪 |
+### 8.3 `CustomerBalance`（`:197-213`）—— 预付款存量，**与订单收款无关**
+
+| 列 | 语义 | 谁维护 |
 |---|---|---|
-| 1 | **本仓库这份 service 是不是「旧系统」的权威读取口径** | `checkOrderPayment` 返回数组、无 `data.orders`/`adjustmentAmount`/`customerId`，与 `legacy/js/Home.formatted.js:9242-9248` 的契约直接冲突（§3.1）。本次**没有**核对原始 PHP/线上服务端；`~/Downloads/server` 究竟是原系统还是 Node 重写，从仓库内看不出来 |
-| 2 | `finance_getOrderFinanceSummary` 的 `param3/param4/param5`（days=60/start/end）被丢弃 | 前端确实传（`Home.formatted.js:7911`，token `1170/680/1135`），service 签名只有 ds（`finance.service.ts:283`）。是「有意全量」还是漏实现，源码里无注释可判 |
-| 3 | `getCustomerBalance` 无 `customerId` 分支取「任意一行 `customer_balances`」 | `:736` `findFirst` 无 `orderBy`，却用它配全量聚合。该分支给谁用、期望哪一行，无从判断 |
-| 4 | `statusText` 两套词表 | 本文件写 `'部分付款'`（`:54`），而 `order.service.ts:572,579`、`client.service.ts:543,550` 建行时写 `'未付清'`。读端点**原样透传**，所以同一列会返回两种文案。哪个是对外口径，无法判定 |
-| 5 | `checkOrderPayment` 里 `payments` 的顺序 | 无 `orderBy`（`:306`），顺序由 PG 决定 |
-| 6 | `applyOrderAdjustmentToFinance` 的 `Math.max(0, unpaid - amount)` 夹零 | `:235`。夹零会破坏「`allocated+unpaid+orderAdjustTotal` = 原总价」的恒等式，使 `订单总额` 虚高。是有意防负还是漏判，源码无说明 |
-| 7 | `payments` 与 `customer_fund_flows` 是否**永远成对** | 只有 `addPayment:388-427` 是成对写的；其余写路径（含 `executePrepaymentAllocation:847-859` 造了 fund flow 却没有 Payment）本次未审。若不成对，`getPaymentStats(customerId)` 会漏计或重复计 |
-| 8 | 月度分桶的时区偏移 | `:612-613` 用本地 getter，`:628` 用 UTC。服务器 TZ 未知（**.env 禁读**），实际差几天无法判定 |
-| 9 | `projectCustomerStatement` 里 `安装地址` 用 `orderNoMap`（键=单据号）配 `回执单号` 查 | `legacy-dispatch.ts:596-599`。代码事实确定，但 `单号 == 回执单号` 在老数据里是否普遍成立，需要真实数据才能定量 |
-| 10 | 红冲预览的候选集 | `buildAllocationPreview` 的负数分支只在 `unpaidOrdersForCustomer`（unpaid>0）里选，导致已结清单不进红冲预览（`:182-197`）。前端「红冲不能超过本单已分配金额」的校验（`Home.formatted.js:1227`）暗示界面上是能选到已分配的单的，两者对不上 |
-| 11 | `checkOrderPayment` 返回空数组时 | `:303` 返回裸 `[]`，经 `applyLegacyContract` 后变成 `{code:200,data:[]}`（`:342`）——与「查不到单号时返回空 map/空对象」的期望形状不同 |
-| 12 | 其余读取端点的前端消费形状 | 已核实：summary（`:7911-7921`）、checkOrderPayment（`:9242-9248`）、paymentStats（`:1159`）、orderDetail（`:1097-1108`）、customerBalance（`:1112-1114`）。**未核实**：`finance_getCustomerStatement` 的行消费者（endpoint 字符串被混淆，未定位） |
+| `prepaidBalance` | 未分配的预付款余额 | `svc:397`/`svc:408`（`addPayment` 预付款差额，**可为负**）、`svc:843`（预付款分配后扣减，`Math.max(0,…)`）。`ensureCustomerBalance` 不碰它 |
+| `totalTopup` | 累计充值 | **只在 `addPayment` 预付款差额为正时加**（`svc:398`, `svc:409`）。`executePrepaymentAllocation` 不加 |
+| `totalSpent` | 累计消费 | `svc:844`（预付款分配时加 `totalAllocated`）；建行时 0。**没有任何读接口返回它** [C] |
 
----
+- ⚠️ `addToCustomerBalance`（`svc:248-259`）**定义了但全项目零调用点**（grep 确认）→ 死代码，不要拿它当口径依据。[C]
+- `ensureCustomerBalance`（`svc:104-107`）在已存在的行上只更新 `clientId`/`customerName`，**不会把一个旧编号的行迁移到规范编号下**。所以历史上以数字别名建的余额行会一直挂在别名 `clientCode` 下。[C]
 
-## 12. 多租户（`ds`）隔离核查
+### 8.4 `CustomerFundFlow`（`:175-195`）—— 预付款的资金流水
 
-- 通路 A：`ds` 来自 **`legacy-dispatch.ts:1144`**（`req.query.param2 || req.body.param2 || req.body.ds || ''`）——`app.ts:42` 的 `/1` 路由**没有任何鉴权中间件**（`app.ts:26-28` 只有 cors/json/urlencoded），
-  即**旧通路的 `ds` 完全由调用方指定**：租户隔离在该通路上仅靠「客户端不说谎」。
-  通路 B：`ds = req.user!.databaseName`（`finance.routes.ts:15` 等，`router.use(requireAuth)` 在 `:9`）。CONFIRMED
-- **所有读取查询都带 `databaseName: ds`**，逐条核对过：`getOrderSummary:285`、`checkOrderPayment:305`、
-  `checkSystem:319`、`getOrderDetail:689,691,692`、`getCustomerBalance:736,739,741,745`、
-  `getPaymentStats:583,600`、`getCustomerStatement:648-651,662,669,674,676,681,682`、
-  `findClient:72`、`financeOrdersForCustomer:148,161`、`ensureCustomerBalance:94`、`unpaidOrdersForCustomer`（透传）。
-  **没有发现读路径漏 `ds`**。CONFIRMED
-- **写路径有两处按主键直接更新、不带 `databaseName`**：
-  `syncOrderAmounts`（`:113-119`，写 `orders`）与 `updateFinanceOrderAmounts`/`applyOrderAdjustmentToFinance`
-  （`:125-132`、`:236-243`，写 `finance_orders`），以及 `addPayment` 事务内的 `tx.financeOrder.update({where:{id}})`（`:350`、`:374`）。
-  它们的 id 都来自**本次请求已按 ds 过滤出来的行**，所以实际不可跨租户；但这是「靠调用方自觉」的模式，
-  新系统若照搬需要在 SQL 层补 tenant_id（新后端已补，见 `backend/src/modules/finance/service.rs:21-24`）。
-- 另两处语义缺口（非泄漏）：`getCustomerBalance:736` 与 `:757` 的 `clientCode: customerId` 回退会把
-  **未经校验的入参**当作客户编号落进返回体；`getOrderSummary` 无分页，返回该 ds 全量单据。CONFIRMED
+三条写入路径，符号即类型：
 
----
-
-## 13. 舍入与精度
-
-- **读路径没有任何显式舍入**。`toNum`（`:5-8`）只做类型转换 + `NaN→0`。
-- 所有求和都是 **JS double 累加**（`:747-751`、`:610-624`、`buildAllocationPreview`），
-  `Decimal(12,2)` 经 Prisma 取回后转成 number，累加可能出 `0.30000000000000004` 这类尾差。
-- 全库唯一的显式舍入在**预览**里：`Math.round(alloc * discountRate * 100) / 100`（`:206`）。
-- 夹零点（等价于隐式阈值）：`Math.max(0, unpaidTotal - customerAdjustTotal)`（`:763`）、
-  `Math.max(0, available)`（`:796`、`:814`）、`Math.max(0, nextUnpaid)`（`:124`、`:235`、`:349`、`:373`、`:827`）。
-  **`未分配余额`（`:768`）和 `finance_orders.allocated_amount`（`:123`）不夹零**，可以是负数。
-- `Math.abs(prepaidDelta) > 0.005`（`:385`）是写路径里唯一的浮点容差判断。
-
----
-
-## 14. 边界与兜底清单
-
-| 场景 | 行为 | 行 |
+| `flowType` | `amount` | 位置 |
 |---|---|---|
-| `fo.orderNo` 为 `null`/`''` | `getOrderSummary` 跳过该行 | `:290` |
-| `getOrderDetail` 查不到单 | `data: null` → 兼容层 HTTP 404 | `:690` / `legacy-dispatch.ts:879-885` |
-| `getCustomerBalance` 客户查不到 | `data: null` → 兼容层 HTTP 500「客户不存在」 | `:732` / `:886-893` |
-| `getCustomerStatement` 客户查不到 | **不返回 null**，按 `customerName = customerId` 兜底继续 | `:655,659` |
-| `checkOrderPayment` 空入参 | 返回裸 `[]` | `:303` |
-| `financeOrder.order` 关系为 null | `getCustomerStatement` 的投影**整行丢弃** | `legacy-dispatch.ts:558` |
-| `paymentDate` 为 null | 不进 monthly/yearly，但**进 `payments` 列表**（`日期: ''`） | `:611`、`:628` |
-| `finance_orders` 三列全 0 | `总价 = 0`，**不回退** `orders.total_amount` | `:719` |
-| 金额列 `NULL` | `toNum(null) = 0` | `:5-8` |
-| `销售金额` 字段缺失 | `orderTotal()` 用 `\|\|` 回退三列之和；投影层用 `??` **不回退** | `:59` vs `legacy-dispatch.ts:581` |
-| 资金流水 `notes` 为空 | 回退到 `flowType` | `:274` |
-| `客户编号` 为空串 | `customerCodeFromBody` **不会**下探到 `customerCode`/`clientCode`（`??` 语义） | `:63` |
-| 无 `customerId` 的 `getPaymentStats` | 一条资金流水都不取（`fundFlows = []`） | `:598-604` |
+| `'预付款'` | 正（`prepaidDelta >= 0`） | `svc:414-427`（`flowType: prepaidDelta >= 0 ? '预付款' : '预付款冲销'`，`svc:422`） |
+| `'预付款冲销'` | 负 | 同上 |
+| `'预付款分配'` | 负（`-totalAllocated`） | `svc:847-859` |
+
+注意 `paymentId` 只在第一种情况下有值（`svc:420`）。读侧把它伪装成 payment 行时 `notes` 会回退到 `flowType`（`svc:274`）。
+
+### 8.5 `CustomerAdjustment`（`:215-228`）—— 客户级调整流水
+
+- 唯一写入点 `svc:459-473`（`addCustomerAdjustment`），**只插一行，不改任何存量列**。`adjustAmount` 符号由调用方决定，服务端不归一化（`svc:467`）。
+- 只在 `getCustomerBalance`（按 `clientCode = 规范编号` 求和）和 `getCustomerStatement`（同）被读。
+- 读侧口径：**`客户余额 = max(0, 未收 − 客户调整合计)`** → **正数表示「减少客户欠款」**（客户视角的贷方）。[C]（UI 实际发正还是发负见 [U-3]）
+
+### 8.6 `OrderAdjustment`（`:230-243`）—— 订单级调整流水
+
+- 写入点两处：`svc:572`（`addOrderAdjustment`，随后同步存量列 `svc:236-243`）、`svc:837-839`（`executePrepaymentAllocation`，`adjustType: '预付款优惠'`，**不**同步存量列）。
+- 读侧口径：正数 = 减免（`applyOrderAdjustmentToFinance` 里 `nextUnpaid = max(0, unpaid - amount)`，`svc:235`）。
+- 没有业务日期列，读侧只能拿 `createdAt` 当日期（`svc:708-709`）。
 
 ---
 
-## 15. 金额正负号约定（CONFIRMED）
+## 9. 舍入
 
-| 业务 | 正负 | 落点 | 行 |
+1. **全模块只有一处显式舍入**：`svc:206` [C]
+   ```ts
+   const discount = discountRate > 0 ? Math.min(unpaid - alloc, Math.round(alloc * discountRate * 100) / 100) : 0;
+   ```
+   舍的是**优惠额**（四舍五入到分），而且是个**上限**：不得超过 `未收 − 本次分配`。全额付清（`alloc === unpaid`）时上限为 0 → **优惠只能在「部分付款」时产生**。
+2. `toNum` 不做任何舍入（`svc:5-8`），所有求和都是 IEEE754 浮点直接相加。
+3. 落库侧有 Postgres `numeric(12,2)` 兜底量化（`schema.prisma:141-143`, `:163`, `:184`, `:205-207`, `:222`, `:237`），**读侧不再量化**。所以 `已分配金额`/`未收金额`/`订单总额` 这类求和结果理论上可能出现 `x.xx000000000000001` 形态的尾数。
+4. `buildAllocationPreview` 里 `alloc = Math.min(remaining, unpaid)`（`svc:205`）**不舍入**，`remaining` 的浮点残差会一路传到 `剩余金额`/`资金池剩余`（`svc:223-227`）。
+5. 阈值判断有一处用了 0.005：`if (Math.abs(prepaidDelta) > 0.005)`（`svc:385`）—— 小于半分钱的差额被静默丢弃，不写预付款流水。
+
+---
+
+## 10. 正负号约定
+
+### 10.1 收款 / 红冲 [C]
+
+| 场景 | `Payment.amount` | 存量列变化 | 位置 |
 |---|---|---|---|
-| 收款 | **正** | `payments.amount` → `allocated_amount += amount`、`unpaid_amount -= amount` | `:347-349` |
-| 红冲（收款冲销） | **负** | `payments.amount`；`unpaid_amount += \|amount\|` | `:347`（`amount >= 0 ? -(amount+discount) : Math.abs(amount)`） |
-| 抹零/优惠/补贴 | **正 = 减免** | `order_adjustments.adjust_amount`；`order_adjust_total += amount`、`unpaid_amount -= amount` | `:234-235`、`:838` |
-| 订单调整冲销 | **负** | 同上（`adjustAmount` 为负） | 前端 `docs/2026-09-17-home-analysis.md:263` |
-| 客户抹零 | **正 = 减客户余额** | `customer_adjustments.adjust_amount`；仅在 `客户余额 = max(0, Σ未收 − Σ客户调整)` 里生效 | `:751`、`:763` |
-| 预付款充值 | **正** | `customer_fund_flows.amount`，`flowType='预付款'`；`prepaid_balance += amount`、`total_topup += amount` | `:414-427` |
-| 预付款冲销 | **负** | 同上，`flowType='预付款冲销'`；`total_topup` **不加** | `:422`、`:398` |
-| 预付款分配（池→单） | **负** | `customer_fund_flows.amount = -totalAllocated`，`flowType='预付款分配'`；`prepaid_balance -= totalAllocated` | `:843-859` |
-| 清账 | **正** | `payments.amount = unpaid`，`paymentMethod='清账'` | `:876-877` |
-| `getPaymentStats` 分桶 | `amount >= 0` → `收款`；`< 0` → `红冲 += abs` | — | `:617-623` |
+| 收款（单据路径，无分配列表） | `+amount` | `allocated += amount`；`unpaid = max(0, unpaid − amount − discount)` | `svc:342-353` |
+| 收款（分配列表路径，逐行） | `+alloc` | `allocated += alloc`；`unpaid = max(0, unpaid − alloc − discount)` | `svc:367-377` |
+| 红冲（`amount < 0` 的单据路径） | `−amount`（负） | `allocated += amount`（减少）；`unpaid = unpaid + |amount|`（**回涨**） | `svc:347-349` |
+| 红冲（预览里按已分配倒冲，逐行） | `分配金额: -refund` | `unpaid = max(0, unpaid + refund)` | `svc:187-195`、`svc:373` |
+| 预付款差额 | `+prepaidDelta`（可负） | 不碰订单列，改 `customer_balances.prepaidBalance` | `svc:384-428` |
+| 预付款分配 | **不写 payment** | 只减 `prepaidBalance`，写负的资金流水 | `svc:842-860` |
+| 批量清账 | `+unpaid`（正） | `allocated += unpaid`，`unpaid = 0` | `svc:876-882` |
+| 终端收款调整 | **`Math.abs(delta)` 恒正** | 覆盖式写 `allocated = max(旧, 新)` | `progress.service.ts:404-427` |
 
-**`客户余额` 是唯一的「减法型」对外字段**：`Σ未收 − Σ客户抹零`（`:763`）。其余字段都是加法累计。
+两个必须记住的坑：
+
+- **红冲的 `unpaid` 增量与 `allocated` 减量不对称**：单据路径下 `unpaid` 按 `|amount|` 回涨，`allocated` 按 `amount` 减少 —— 若原单带过优惠（`discount > 0`），一次「收款 + 红冲」往返**不会回到原值**，差额恰好是当初的优惠额。[C]
+- **终端收款调整把向下修正记成正数收款**（`Math.abs(delta)`，`progress.service.ts:424`），所以「收款额从 5000 改成 3000」在 `payments` 里留下一条 `+2000` 的收款，会让 `getPaymentStats` 的「收款」虚增。[C]
+
+### 10.2 优惠 / 调整 [C]
+
+| 字段 | 正数含义 | 依据 |
+|---|---|---|
+| `OrderAdjustment.adjustAmount` | 减免（应缴减少）：`unpaid = max(0, unpaid − amount)` | `svc:235` |
+| `CustomerAdjustment.adjustAmount` | 减免（客户余额减少）：`客户余额 = max(0, unpaid − Σadjust)` | `svc:763` |
+| `previewAllocation.合计优惠金额` / 行内 `优惠金额` | 恒 ≥ 0 的额度，直接从 `unpaid` 里扣 | `svc:206`, `svc:214`, `svc:371-373` |
+| `buildAllocationPreview` 行内 `分配金额` | 收款为正、红冲为负 | `svc:192` vs `svc:212` |
+
+**「抹零」这个概念在本模块不存在**：全项目 grep `抹零` 零命中（finance / order 全模块）。最接近的是「批量清账」（`clearSelectedOrders`，`svc:867-887`），但它是把 `unpaid` 全额记为收款、不做任何减免。[C]
+
+### 10.3 ⚠️ 由符号约定推出的必然分叉 [C]
+
+`订单总额`（`svc:747`，用存量列 `orderAdjustTotal`）与 `订单调整合计`（`svc:750`，用 `order_adjustments` 流水表）**在代码上就可能不相等**，两条路径会让流水表多出存量列没记的调整：
+
+1. `executePrepaymentAllocation` 写 `OrderAdjustment('预付款优惠')`（`svc:837-839`）但**不**更新 `fo.orderAdjustTotal`（`svc:828-831` 只写 `allocatedAmount`/`unpaidAmount`/`statusText`）。
+2. `addPayment` 的逐行优惠（`svc:371`）直接扣 `unpaid`，**既不写 `OrderAdjustment` 也不动 `orderAdjustTotal`**。
+
+因此在这两种操作之后：
+
+```
+订单总额 ≠ 已分配金额 + 未收金额 + 订单调整合计
+```
+
+（第 2 种情况下差值方向相反：`订单总额` 因为 `unpaid` 被扣而变小，而 `订单调整合计` 完全不动。）
+
+新系统若要「自洽」，必须二选一：要么统一用存量列 `orderAdjustTotal`，要么统一用流水表 —— **照抄旧代码会照抄这个不自洽**。
 
 ---
 
-## 16. 一页速查：每个对外字段的真相来源
+## 11. 边界与兜底
 
-| 对外字段 | 出处 | 公式 | 性质 |
-|---|---|---|---|
-| 已分配金额（单） | `getOrderSummary:292`、`getOrderDetail:718`、`checkOrderPayment:310` | `finance_orders.allocated_amount` | 存量 |
-| 未收金额（单） | `:293`、`:720`、`:310` | `finance_orders.unpaid_amount` | 存量 |
-| 订单调整金额（单） | `:294`、`:721` | `finance_orders.order_adjust_total` | 存量 |
-| 总价（单） | `getOrderDetail:719` | `allocated + unpaid + order_adjust_total` | 存量三列之和 |
-| 已分配金额（客） | `getCustomerBalance:748,767` | `Σ allocated_amount` | 聚合存量 |
-| 订单总额（客） | `:747,769` | `Σ (allocated + unpaid + order_adjust_total)` | 聚合存量 |
-| 订单调整合计（客） | `:750,770` | `Σ order_adjustments.adjust_amount` | **实时流水** |
-| 客户调整合计（客） | `:751,766` | `Σ customer_adjustments.adjust_amount` | **实时流水** |
-| 客户余额（客） | `:763` | `max(0, Σ unpaid_amount − Σ customer_adjustments.adjust_amount)` | **实时** |
-| 实收金额（客） | `:762` | `customer_balances.total_topup` | 存量 |
-| 未分配余额（客） | `:768` | `customer_balances.prepaid_balance` | 存量 |
-| 收款/红冲（统计） | `:610-624` | `payments` + `customer_fund_flows` 按 `amount` 符号分桶 | **实时流水** |
-| 流水行（对账单） | `:669-683` + `legacy-dispatch.ts:518-613` | 四张表原样读取后投影 | **实时流水** |
+### 11.1 `null` / `undefined` / 空串 / 0
+
+| 输入 | 处理 | 位置 |
+|---|---|---|
+| 任何金额列为 `null` | `toNum` → `0` | `svc:5-8` |
+| `orderNo` 为 `null` 的 `FinanceOrder` | `getOrderSummary` **跳过**；`getCustomerBalance` 的 `orderNos` **`filter(Boolean)` 过滤掉**（→ 该单的 `OrderAdjustment` 也不会被算进「订单调整合计」） | `svc:290`, `svc:743` |
+| `orderAdjustments` 查询命中空单号集 | 直接不查，得 `[]` | `svc:744-746` |
+| `payments.paymentDate` 为 `null` | 统计里跳过；列表里 `日期: ''`；但**占 `take: 200` 名额且排最前** | `svc:611`, `svc:628` |
+| `orders.totalAmount` 为 `0` | `orderTotal()` 认为「没有」→ 回退到存量列求和（`||` 的 0 陷阱） | `svc:59` |
+| `body['客户编号'] = ''` | `??` 不跳过空串 → 不再看 `customerCode`/`clientCode` 别名 | `svc:63` |
+| `customerBalance` 行不存在 | `getCustomerBalance` 用 0 值兜底对象；`getPaymentStats`/`getCustomerStatement` 直接用 null/空数组 | `svc:752-758` |
+
+### 11.2 兜底链（有的话）
+
+1. **客户订单集**：`orders.clientId` 关联 → 若**一条都没有**且客户档案有名字 → 按 `finance_orders.customerName = 客户名` 再查一次（`svc:157-166`，见 §2.12 的漏读风险）。
+2. **客户编号**：`findClient` 先按 `clientCode`，纯数字时并带主键 `id`（`svc:69-77`）；`resolveCustomerIdentity` 把命中结果归一化成档案里的 `clientCode`（`svc:86`）。
+3. **总价**：`orderTotal()` 先 `orders.totalAmount`，为 0/空回退存量列求和（`svc:59`）—— 仅分配预览用。
+4. **资金流水备注**：`notes || flowType`（`svc:274`）。
+
+### 11.3 明确**没有**的兜底
+
+- `findClient` 失败后，`getCustomerBalance` **直接返回 `data: null`**（`svc:732`），不会按名字再试。
+- `getCustomerStatement` 的 `customerAdjustments` **只按 `clientCode` 匹配**，没有名字兜底（`svc:661`）。
+- `checkOrderPayment` / `getOrderDetail` 的 `payments` **只按 `financeOrderId` 关联**，没有按 `orderId` 或 `orderNo` 的兜底（`svc:306`, `svc:691`）。
+- `_days` 参数被完全忽略，**没有时间范围兜底**（`svc:645`, `svc:730`）。
+
+---
+
+## 12. 写侧顺带发现（影响读数的，注明出处）
+
+1. `finance.routes.ts` 的 `POST /preview-prepayment-allocation` 调的是 `previewAllocation`（**不是** `previewPrepaymentAllocation`），REST 路径下的「预付款分配预览」返回的是**普通收款分配预览**（不带 `availableBalance`、不做 `min(请求额, 预付款余额)` 夹取）。旧兼容层 `legacy-dispatch.ts:898-901` 调的才是 `previewPrepaymentAllocation`。[C]
+2. `CustomerBalance.totalSpent` 全项目**只写不读**（写：`svc:410`, `svc:844`；读：无）。`legacy-dispatch.ts:1248` 虽然把 `totalSpent` 映射成「累计消费」，但没有任何 finance 接口会返回这个字段。[C]
+3. `addToCustomerBalance`（`svc:248-259`）零调用点。[C]
+
+---
+
+## 13. UNCERTAIN（卡在哪）
+
+- **[U-1] `statusText` 的权威词表**：写侧有两套 —— finance 模块写 `'部分付款'`（`svc:52-55`, 写出点 `svc:130/241/352/376/830`），order/client 模块写 `'未付清'`（`order.service.ts:567/574/710/817`、`client.service.ts:537`）。读侧 `checkOrderPayment:311` 原样透出。**卡在**：无法从服务端判断旧前端认哪个词（`'部分付款'` 还是 `'未付清'`）作为「未结清」的判据 —— 需要旧客户端源码或真实数据分布，两者本地都没有（`/Users/aaa/Downloads` 下只有 server，无前端）。是「两种状态」还是「同一个状态两种写法」，我读不出来。
+- **[U-2] 双重计数是否真实存在**：逻辑上我确认当前代码**不会**重复计（§6.1 第 1 点，依据 `svc:388-390` 与 `svc:588-589`）。但由于历史数据里可能存在 `financeOrderId` 非空、同时又有资金流水的支付行（例如 `order.service.ts:584-590` 的合并单重挂），**存量数据是否会双计，只能查库确认**。我没有连库权限，也没读 `.env`。
+- **[U-3] `CustomerAdjustment.adjustAmount` 的 UI 符号习惯**：服务端只把它当成「减少客户欠款」（`svc:763`）且不归一化符号（`svc:467`）。**卡在**：旧前端提交「客户优惠」时发的是正数还是负数，服务端无从判断；若前端发负数，则「客户余额」会**变大**。需前端源码或样本数据。
+- **[U-4] `getPaymentStats` 月份桶的时区**：`getFullYear/getMonth`（本地，`svc:612-613`）与 `toISOString()`（UTC，`svc:628`）并存。**卡在**：服务器进程的 `TZ` 是多少，我读不到（不读 `.env`，也没读部署脚本/容器配置）。`TZ=UTC` 时两者一致；`TZ=Asia/Shanghai` 时月初/月末的收款会出现「列表日期与月份桶差一天」。
+- **[U-5] `orders.totalAmount` 与三存量列之和是否恒等**：`getOrderDetail:719` 与 `getCustomerBalance:747` 用的是后者。两条路径在 `client.service.ts:485` 的建单口径（`totalAmount` 与 `paidAmount`/`unpaidAmount` 各自独立取值）下未必相等。**卡在**：需要真实数据比对，静态读码无法判定「历史上是否已经不等」。
+- **[U-6] 无 `customerId` 调用 `getCustomerBalance` 是否是真实用例**：代码路径存在（`svc:736`, `svc:739`），行为自相矛盾（§3.4）。**卡在**：旧前端是否真的不带 `customerId` 调这个接口 —— 无前端源码。
+- **[U-7] `financeOrdersForCustomer` 的「空集才回退」是否有意为之**（`svc:157`）：可能是有意的（避免名字撞车重复计数），也可能是漏读 bug。**卡在**：只有原作者的注释/提交历史能判断，服务端无注释。
+
+---
+
+## 14. 复现命令
+
+```bash
+# 关键行号抽查
+sed -n '730,774p' /Users/aaa/Downloads/server/src/modules/finance/finance.service.ts   # getCustomerBalance
+sed -n '283,321p' /Users/aaa/Downloads/server/src/modules/finance/finance.service.ts   # summary / check*
+sed -n '579,684p' /Users/aaa/Downloads/server/src/modules/finance/finance.service.ts   # stats / statement
+sed -n '133,243p' /Users/aaa/Downloads/server/prisma/schema.prisma                      # 财务五表
+
+# 「抹零」不存在
+grep -rn '抹零' /Users/aaa/Downloads/server/src
+# statusText 两套词表
+grep -rn "'部分付款'\|'未付清'" /Users/aaa/Downloads/server/src
+# 总价/调整的源分叉
+grep -rn 'orderAdjustTotal' /Users/aaa/Downloads/server/src
+```
