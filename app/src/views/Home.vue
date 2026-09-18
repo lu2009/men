@@ -69,6 +69,7 @@
         size="small"
         @update:checked-row-keys="onCheckedKeys"
         @update:expanded-row-keys="onExpandedKeys"
+        @update:filters="onUpdateFilters"
       />
     </div>
 
@@ -208,6 +209,7 @@ import {
   useDialog,
   useMessage,
   type DataTableColumns,
+  type DataTableFilterState,
   type DataTableRowKey,
 } from 'naive-ui'
 import { api } from '../api/client'
@@ -349,6 +351,115 @@ const filtered = computed(() => {
   }
   return list.filter(matchSearch)
 })
+
+// ---------------------------------------------------------------------------
+// 列头原生筛选（C16–C18，旧版 `Home.formatted.js:7933-8003`）
+// ---------------------------------------------------------------------------
+/*
+ * ⚠️ 顺序（已回源码核实，不是猜的）：旧版这套筛选**不在 `ps` 链里**，而是交给 el-table
+ *    自己在 `:data="Cs"` 上做 —— `:11296` `data:Cs.value`，而 `Cs` = `ps.slice(...)`
+ *    （`:11180-11183`）。所以旧版是：筛选链（未生产→付款状态→进度→搜索）→ 分页切片 → 列头筛选，
+ *    即**列头筛选只作用于当前页那一页的行**；且分页总数 `zs`（= `ps.length`，`:11183`）不含列头筛选。
+ *    新版照做：`:data="paged"` 交给 n-data-table 内部过滤，`item-count` 仍取 `filtered.length`。
+ *    列头筛选**不重置页码**（旧版 Element 的列筛选同样不动 `Kl`）。
+ *
+ * 选项取值来源：旧版 `ta`/`ma`/`wa` 全部读 `_l`（**全量**原始列表，`:7934`/`:7987`/`:7992`），
+ * 不是当前筛选结果 —— 新版对应 `rawOrders`（连非管理员的「只看自己」过滤都不算在内，与旧版一致）。
+ */
+const columnFilterState = ref<DataTableFilterState>({})
+
+// 旧版 `ta` 里 `unshift` 的哨兵（`:7937-7939`）：value = 字符串表 dr(1196) = "__EMPTY__"，
+// text = dr(1470) = "未生产"。只挂在「打单操作」这一列上。
+const EMPTY_FILTER_VALUE = '__EMPTY__'
+const EMPTY_FILTER_LABEL = '未生产'
+
+// Naive 的 `FilterOption` / `FilterOptionValue` 没有从包入口导出，这里按结构声明。
+type ColumnFilterOption = { label: string; value: string | number }
+
+// 旧版 `ta(prop)`（`:7933-7939`）= `new Set(_l.map(t => t[prop]))` → `Array.from` → `{text:v, value:v}`。
+//   · 只做 distinct，**不排序**（保持首次出现顺序，`Set` 的插入序）；
+//   · **不剔除空值**（空串同样会成为一个选项）；
+//   · `text` 取原值，Element 用插值渲染 → 新版 `label` 取 `String(v)`，数值列显示一致。
+function distinctOptions(pick: (r: OrderSummaryDto) => string | number): ColumnFilterOption[] {
+  const seen = new Set<string | number>()
+  const out: ColumnFilterOption[] = []
+  for (const r of rawOrders.value) {
+    const v = pick(r)
+    if (seen.has(v)) continue
+    seen.add(v)
+    out.push({ label: String(v), value: v })
+  }
+  return out
+}
+
+// 旧版 `ma`（`:7986-7991`，已付列 `:11469`）：distinct 的是 **`co(row)` 金额数字**，不是「已付」标签。
+// `co`（`:7660`）= `Ht && 已分配金额 != null ? 已分配金额 : 定金||0`；
+// 新版财务摘要的 `allocated_amount`（后端注释即「已分配金额」，finance/service.rs:39-42）就是那个字段，
+// 取不到摘要时回退 `定金||0` —— 与既有 `unpaidOf`（旧版 `so`）同构。
+function paidOf(r: OrderSummaryDto): number {
+  const s = financeSummary.value[r.id]
+  return s ? s.allocated_amount : r.deposit || 0
+}
+
+// 旧版 `ga(value,row,column)`（`:7996-8002`）：
+//   ① 打单操作列 + 哨兵值 → 该列值为空/纯空白即命中（`!v || (typeof v==='string' && v.trim()==='')`）；
+//   ② 其余一律 `row[prop] === value` **严格相等**（不是模糊匹配，也不做类型转换）。
+type TextFilterKey =
+  | 'client_name'
+  | 'order_date'
+  | 'install_address'
+  | 'production_status'
+  | 'door_count'
+  | 'total_price'
+  | 'remark'
+  | 'salesperson'
+  | 'creator_name'
+
+function textColumnFilter(key: TextFilterKey, value: string | number, row: OrderSummaryDto): boolean {
+  if (key === 'production_status' && value === EMPTY_FILTER_VALUE) {
+    const v = row.production_status
+    return !v || (typeof v === 'string' && v.trim() === '')
+  }
+  return row[key] === value
+}
+
+// 旧版 `ya`（`:8003`）= `co(row)===e`；`fa`（`:8003`）= `so(row)===e`。
+const paidColumnFilter = (value: string | number, row: OrderSummaryDto) => paidOf(row) === value
+const unpaidColumnFilter = (value: string | number, row: OrderSummaryDto) => unpaidOf(row) === value
+
+// 选项（受控列定义用量，`rawOrders`/`financeSummary` 变化时自动重算）。
+const clientFilterOptions = computed(() => distinctOptions((r) => r.client_name))
+const dateFilterOptions = computed(() => distinctOptions((r) => r.order_date))
+const addressFilterOptions = computed(() => distinctOptions((r) => r.install_address))
+const doorCountFilterOptions = computed(() => distinctOptions((r) => r.door_count))
+const totalPriceFilterOptions = computed(() => distinctOptions((r) => r.total_price))
+const remarkFilterOptions = computed(() => distinctOptions((r) => r.remark))
+const salespersonFilterOptions = computed(() => distinctOptions((r) => r.salesperson))
+const creatorFilterOptions = computed(() => distinctOptions((r) => r.creator_name))
+// 打单操作：distinct 之后把哨兵 **unshift 到最前**（旧版 `:7937-7939`）。
+const productionStatusFilterOptions = computed(() => {
+  const opts = distinctOptions((r) => r.production_status)
+  opts.unshift({ label: EMPTY_FILTER_LABEL, value: EMPTY_FILTER_VALUE })
+  return opts
+})
+// 已付 / 未付（旧版 `ma` `:7986-7991` / `wa` `:7991-7995`）：选项同样是 distinct 的金额数字。
+const paidFilterOptions = computed(() => distinctOptions(paidOf))
+const unpaidFilterOptions = computed(() => distinctOptions(unpaidOf))
+
+// 受控写法：Naive 2.45 的 n-data-table **没有表级 `filters` prop**，受控只能落在列的
+// `filterOptionValues` 上（`use-table-data.mjs:58-68` 的 `mergedFilterStateRef`）。
+// 不能用 `defaultFilterOptionValues` —— 那是非受控初值，之后组件内部状态说了算，会与
+// `searchText`/`onlyUnproduced` 的「筛选即重算」预期打架。
+function columnFilterValues(key: string): (string | number)[] {
+  const v = columnFilterState.value[key]
+  if (v == null) return []
+  return Array.isArray(v) ? [...v] : [v]
+}
+
+// Naive 每次变更都会把**整个**筛选状态回抛（`FilterButton.mjs:68-69` `doUpdateFilters`）。
+function onUpdateFilters(state: DataTableFilterState) {
+  columnFilterState.value = { ...state }
+}
 
 const summary = computed(() => {
   const list = filtered.value
@@ -1054,6 +1165,10 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     title: '客户',
     key: 'client_name',
     minWidth: 100,
+    // 列头原生筛选（C16/C17）：旧版 `:11400` `filters:ta("客户")` + `"filter-method":ga`
+    filterOptions: clientFilterOptions.value,
+    filter: (v, row) => textColumnFilter('client_name', v, row),
+    filterOptionValues: columnFilterValues('client_name'),
     render: (row) =>
       h('div', { class: 'clickable-cell', onClick: () => openRename(row) }, row.client_name),
   },
@@ -1062,6 +1177,9 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     key: 'order_date',
     minWidth: 90,
     sortable: true,
+    filterOptions: dateFilterOptions.value,
+    filter: (v, row) => textColumnFilter('order_date', v, row),
+    filterOptionValues: columnFilterValues('order_date'),
     render: (row) =>
       h('div', { class: 'clickable-cell', onClick: () => openDate(row) }, row.order_date),
   },
@@ -1069,21 +1187,47 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     title: '安装地址',
     key: 'install_address',
     minWidth: 220,
+    filterOptions: addressFilterOptions.value,
+    filter: (v, row) => textColumnFilter('install_address', v, row),
+    filterOptionValues: columnFilterValues('install_address'),
     render: (row) => renderEditable(row, 'install_address'),
   },
   {
     title: popoverTitle('打单操作', '生产进度', PROGRESS_OPTIONS, progressFilter, progressPopShow, (v) => (progressFilter.value = v)),
     key: 'production_status',
     minWidth: 150,
+    filterOptions: productionStatusFilterOptions.value,
+    filter: (v, row) => textColumnFilter('production_status', v, row),
+    filterOptionValues: columnFilterValues('production_status'),
     render: (row) =>
       h('div', { class: 'progress-cell', style: { background: statusBg(row.production_status || '') } }, renderProgress(row.production_status || '')),
   },
-  { title: '门数', key: 'door_count', minWidth: 80 },
-  { title: '总价', key: 'total_price', minWidth: 100, render: (row) => fmt(row.total_price) },
+  {
+    title: '门数',
+    key: 'door_count',
+    minWidth: 80,
+    filterOptions: doorCountFilterOptions.value,
+    filter: (v, row) => textColumnFilter('door_count', v, row),
+    filterOptionValues: columnFilterValues('door_count'),
+  },
+  {
+    title: '总价',
+    key: 'total_price',
+    minWidth: 100,
+    filterOptions: totalPriceFilterOptions.value,
+    filter: (v, row) => textColumnFilter('total_price', v, row),
+    filterOptionValues: columnFilterValues('total_price'),
+    render: (row) => fmt(row.total_price),
+  },
   {
     title: '已付',
     key: 'deposit',
     minWidth: 100,
+    // 旧版 `:11469` `filters:ma` + `"filter-method":ya` —— 选项是 `co(row)` 的**金额数字**，
+    // 不是「已付」这种标签（C18，最容易做错的一处）。
+    filterOptions: paidFilterOptions.value,
+    filter: paidColumnFilter,
+    filterOptionValues: columnFilterValues('deposit'),
     render: (row) => {
       if (editingId.value === row.id) {
         return h(NInputNumber, {
@@ -1101,6 +1245,10 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     title: popoverTitle('未付', '付款状态', PAYMENT_OPTIONS, paymentFilter, paymentPopShow, (v) => (paymentFilter.value = v)),
     key: 'unpaid',
     minWidth: 100,
+    // 旧版 `:11475` `filters:wa` + `"filter-method":fa` —— 同样是 `so(row)` 的金额数字。
+    filterOptions: unpaidFilterOptions.value,
+    filter: unpaidColumnFilter,
+    filterOptionValues: columnFilterValues('unpaid'),
     render: (row) => {
       const u = unpaidOf(row)
       return h('span', { style: { color: u <= 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' } }, fmt(u))
@@ -1110,10 +1258,29 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     title: '订单备注',
     key: 'remark',
     minWidth: 220,
+    filterOptions: remarkFilterOptions.value,
+    filter: (v, row) => textColumnFilter('remark', v, row),
+    filterOptionValues: columnFilterValues('remark'),
     render: (row) => renderEditable(row, 'remark'),
   },
-  { title: '业务员', key: 'salesperson', minWidth: 80, render: (row) => renderEditable(row, 'salesperson') },
-  { title: '打单人', key: 'creator_name', minWidth: 80, render: (row) => renderEditable(row, 'creator_name') },
+  {
+    title: '业务员',
+    key: 'salesperson',
+    minWidth: 80,
+    filterOptions: salespersonFilterOptions.value,
+    filter: (v, row) => textColumnFilter('salesperson', v, row),
+    filterOptionValues: columnFilterValues('salesperson'),
+    render: (row) => renderEditable(row, 'salesperson'),
+  },
+  {
+    title: '打单人',
+    key: 'creator_name',
+    minWidth: 80,
+    filterOptions: creatorFilterOptions.value,
+    filter: (v, row) => textColumnFilter('creator_name', v, row),
+    filterOptionValues: columnFilterValues('creator_name'),
+    render: (row) => renderEditable(row, 'creator_name'),
+  },
 ])
 
 const tableHeight = 'calc(100vh - 300px)'
