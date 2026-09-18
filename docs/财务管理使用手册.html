@@ -459,9 +459,20 @@
           </tbody>
         </table>
       </div>
-      <p>再往下依次是：<strong>收款分配记录</strong> → <strong>本单收款</strong>表单 → <strong>订单调整记录</strong>。</p>
       <p>
-        本单收款表单填「收款金额 / 收款日期 / 收款方式 / 备注」，金额精确到分。
+        再往下依次是：<strong>按钮行</strong> → <strong>收款分配记录</strong>表 →
+        <strong>本单收款</strong>表单 → <strong>订单调整记录</strong>表。
+      </p>
+      <p>
+        按钮行是 <span class="ui">录入本单收款</span> 和 <span class="ui">新增抹零</span> 两颗，
+        <strong>在收款分配记录表的上面</strong>。
+        「本单收款」那张录入表单<strong>默认是收起的</strong> —— 点
+        <span class="ui">录入本单收款</span> 才展开，这时按钮变成
+        <span class="ui">收起</span>；再点一下收回去。
+      </p>
+      <p>
+        展开后在表单里填「收款金额 / 收款日期 / 收款方式 / 备注」，金额精确到分。
+        日期是<strong>日期加时间</strong>，而且<strong>打开就已经填好当前时间</strong>，通常不用改。
         打开 <span class="ui">预付优惠</span> 开关后可以填优惠比例（0.1%–99%），
         旁边会实时显示「预计抵扣 ¥多少」。填完点 <span class="ui">收款</span>。
       </p>
@@ -471,7 +482,9 @@
         也就是说<strong>收满这张单时用不了优惠</strong>（没有可减的了），
         系统会提示你。那种情况把开关关掉即可。
       </p>
-      <p>表单下面那颗 <span class="ui">订单抹零 / 冲销</span> 按钮，打开第 4 节的弹窗。</p>
+      <p>
+        上面按钮行里那颗 <span class="ui">新增抹零</span> 打开第 4 节的「订单抹零 / 冲销」弹窗。
+      </p>
 
       <h3>💰 客户收款 —— 管这个客户的钱</h3>
       <p>最上面一张紫卡是客户的四个总账数字：订单总额 / 已实收 / 客户余额 / 未分配余额。</p>
@@ -479,13 +492,18 @@
       <ul>
         <li>填收款金额、日期、方式、备注</li>
         <li>点 <span class="ui">预览分配</span> —— 系统按<strong>订单日期从早到晚</strong>把钱自动铺到欠款的单上，给你看一份方案</li>
-        <li>确认无误后点 <span class="ui">提交收款</span>。没预览过就提交，系统会拦住你</li>
+        <li>确认无误后点预览表<strong>下面</strong>那颗 <span class="ui">提交收款</span>
+          —— 它在预览结果的下方，不是和「预览分配」并排。没预览过就提交，系统会拦住你</li>
       </ul>
       <p>
         预览表下面有一行「剩余未分配」：这笔钱铺完所有欠款单之后还剩多少 ——
         剩下的部分会留在客户池子里，变成「未分配余额」。
       </p>
-      <p>最下面「其他操作」三颗按钮：客户抹零 / 冲销 · 录入预付款 · 预付款分配。</p>
+      <p>
+        这一页的按钮分两处：<strong>最顶上单独一行</strong>是 <span class="ui">预付款分配</span>；
+        <strong>「录入收款」标题那一行</strong>里内联着 <span class="ui">客户抹零 / 冲销</span> 与
+        <span class="ui">录入预付款</span> 两颗。
+      </p>
 
       <h3>📊 客户对账 —— 回头看账</h3>
       <ul>
@@ -493,6 +511,19 @@
         <li><strong>对账明细</strong>：按日期倒序列出每一笔（收款 / 红冲 / 订单抹零 / 客户抹零），
           可以按类型下拉筛选，也可以在关键字框里搜单据号、日期、地址、备注</li>
       </ul>
+      <p>这一页有四个按钮：</p>
+      <div class="tw">
+        <table>
+          <thead><tr><th>按钮</th><th>作用</th></tr></thead>
+          <tbody>
+            <tr><td><span class="ui">刷新图表</span>（在「收款趋势」标题行里）</td><td>重拉收款趋势</td></tr>
+            <tr><td><span class="ui">月度抹零</span></td><td>开「客户抹零 / 冲销」弹窗 —— 月底整批抹零用这个</td></tr>
+            <tr><td><span class="ui">刷新对账单</span></td><td>重拉对账明细</td></tr>
+            <tr><td><span class="ui">仅看近365天</span> / <span class="ui">查看全部历史</span></td>
+                <td>切换对账明细的时间范围。默认只看近 365 天，点一下看全部</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
     <section id="dialogs">
@@ -504,32 +535,51 @@
           </thead>
           <tbody>
             <tr>
-              <td><strong>订单抹零 / 冲销</strong></td>
+              <td><strong>订单抹零 / 冲销</strong><br>
+                  <span style="color:var(--muted)">（「本单财务」点 <span class="ui">新增抹零</span>）</span></td>
               <td>调整金额 · 调整类型 · 备注</td>
               <td>只影响<strong>这一张单</strong>。类型：抹零 / 优惠 / 补贴 / 冲销 / 其他。<br>
-                  正数 = 少收（抹掉欠款），<strong>负数 = 冲销</strong>（把之前多抹的加回来）</td>
+                  正数 = 少收（抹掉欠款），<strong>负数 = 冲销</strong>（把之前多抹的加回来）。<br>
+                  确认按钮是 <span class="ui">确认抹零</span></td>
             </tr>
             <tr>
               <td><strong>客户抹零 / 冲销</strong></td>
               <td>调整金额 · 调整类型 · 备注</td>
               <td>挂在<strong>客户名下</strong>，不落到任何单上，只减「客户余额」。<br>
-                  类型：月度抹零 / 优惠 / 冲销 / 其他。一般在月底整批抹零时用</td>
+                  类型：月度抹零 / 优惠 / 冲销 / 其他。一般在月底整批抹零时用。<br>
+                  确认按钮也是 <span class="ui">确认抹零</span></td>
             </tr>
             <tr>
               <td><strong>录入预付款</strong></td>
               <td>收款金额 · 日期 · 方式 · 备注 · 冲销开关</td>
               <td>客户先打钱放着、还没指定抵哪张单时用这个。钱进「未分配余额」。<br>
-                  打开 <span class="ui">冲销</span> 开关可以把钱从池子里扣回去（金额填正数）</td>
+                  打开 <span class="ui">冲销</span> 开关可以把钱从池子里扣回去（金额填正数）。<br>
+                  确认按钮是 <span class="ui">确认录入</span></td>
             </tr>
             <tr>
               <td><strong>预付款分配</strong></td>
-              <td>分配金额 · 优惠比例</td>
+              <td>分配金额 · 启用优惠（开关）· 优惠比例（开关打开才出现）</td>
               <td>把池子里的钱分到具体订单上。点 <span class="ui">预览分配方案</span> 看方案，
-                  再点 <span class="ui">执行分配</span> 落库。没预览过不能执行</td>
+                  再点 <span class="ui">确认分配</span> 落库。没预览过不能执行</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <div class="worked">
+        <h4>「预付款分配」弹窗里的细节</h4>
+        <ul style="margin:0">
+          <li>打开时顶部会显示<strong>当前未分配余额</strong>，而<strong>分配金额已经按它填好</strong>
+            —— 不改就是「把池子里的钱全分出去」，通常要往下调</li>
+          <li>金额框<strong>最多只能填到未分配余额</strong>（池子里没钱就分不出去）</li>
+          <li>想给优惠要先打开 <span class="ui">启用优惠</span> 开关，<strong>优惠比例才会出现</strong>
+            （默认 2%）</li>
+          <li>改了金额或比例，下面的预览会<strong>自动清空</strong> —— 得重新点
+            <span class="ui">预览分配方案</span>，免得拿着旧方案直接执行</li>
+          <li>预览表五列：回执单号 · 订单未收 · 优惠 · 分配 · 分配后剩余。
+            <strong>优惠那列只在有优惠的行才出现</strong></li>
+        </ul>
+      </div>
+
       <div class="callout">
         <span class="tag">两个抹零的区别</span>
         <p>
@@ -555,20 +605,23 @@
       <ol class="steps">
         <li>「💰 客户收款」→ <span class="ui">录入预付款</span>，填金额和日期</li>
         <li>钱进「未分配余额」，此时不影响任何单的未收</li>
-        <li>以后要用时 → <span class="ui">预付款分配</span>，填分配金额，预览后执行</li>
+        <li>以后要用时 →「💰 客户收款」最顶上那颗 <span class="ui">预付款分配</span>，
+          改一下默认填好的金额，预览后点 <span class="ui">确认分配</span></li>
       </ol>
 
       <h3>客户少给了几十块，不打算要了</h3>
       <ol class="steps">
-        <li>如果是<strong>某一张单</strong>的事：「📄 本单财务」→ <span class="ui">订单抹零 / 冲销</span></li>
+        <li>如果是<strong>某一张单</strong>的事：「📄 本单财务」→ 点 <span class="ui">录入本单收款</span>
+          上方那颗 <span class="ui">新增抹零</span></li>
         <li>如果是<strong>整个客户</strong>年底一起抹：「💰 客户收款」→ <span class="ui">客户抹零 / 冲销</span></li>
         <li>金额填<strong>正数</strong>（比如 50），类型选抹零</li>
       </ol>
 
       <h3>收错了 / 录错了，要退回去</h3>
       <ol class="steps">
-        <li>收款录错：在「📄 本单财务」的本单收款里，金额填<strong>负数</strong>（比如 −500 红冲掉 500）</li>
-        <li>抹零抹错：「订单抹零 / 冲销」或「客户抹零 / 冲销」，金额填<strong>负数</strong></li>
+        <li>收款录错：「📄 本单财务」→ <span class="ui">录入本单收款</span> 展开表单，金额填
+          <strong>负数</strong>（比如 −500 红冲掉 500）</li>
+        <li>抹零抹错：<span class="ui">新增抹零</span>（本单）或 <span class="ui">客户抹零 / 冲销</span>（客户），金额填<strong>负数</strong></li>
         <li>预付款录错：「录入预付款」打开冲销开关</li>
       </ol>
 
