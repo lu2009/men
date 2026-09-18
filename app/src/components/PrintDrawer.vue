@@ -9,11 +9,14 @@
 
   新版先前把预览和「预览/打印」按钮也放在本抽屉里 —— 与原型不符，已拆开。
 
-  入口分两类（见 `DocEntry`）：
+  入口分三类：
     · `mode` = hiprint 模板 → 抛 `openMode`，Home 开 `PrintPreviewDialog`
     · `doc`  = 自绘单据（旧版 `ic=12–16`）→ 抛 `openDoc`，Home 开它自己的抽屉
       （那五张各有自己的组件与打印链路；旧版也是同一个预览弹窗按 `ic` 分支，
        新版保留各自的实现，因为它们本来就是「预览 + 工具栏」的形态）
+    · 顶部那组「查看回执单 / 回执单-其它」（旧版 `ki` / `Nn`）→ 前者实质是 `mode:'receipt'`
+      的预览（走 `openMode`），后者抛 `openReceiptOther`，Home 开 `ReceiptOtherDialog`
+      （**2026-09-18 补**：旧版这两颗在抽屉最上面，本文件先前整块没有）
 
   单据清单见 `docs/edit-dialog-recon/01-edit-table.md` §1、§2。
 -->
@@ -22,6 +25,39 @@
     <n-drawer-content title="打印选项" closable>
       <div class="print-drawer">
         <div class="doc-hint">已选 {{ orders.length }} 张订单</div>
+
+        <!--
+          抽屉**最上面**那一组（旧版渲染函数 `:11868-11873`，容器 `div.drawer-content`）：
+
+            [ 查看回执单 ]  `ki`  :9103
+            [ 回执单-其它 ] `Nn`  :8184 → 开第二层嵌套抽屉（`ReceiptOtherDialog.vue`）
+
+          旧版两颗都是 `type:"primary"`、`size` 用默认值。这里沿用本抽屉既有的 `size="small"` 口径
+          （与下方 24 个单据入口一致；不为一排按钮单独换字号属**观感口径统一**，行为一致）。
+
+          ⚠️ 旧版 `ki` 打开的是**它自己的**预览弹窗（`Ai`，宽 1180px，工具条 = 关闭/打印/手动打印/
+          编辑回执单/复制回执单），不是 24 个入口用的那个按 `ic` 分支的弹窗。新版这两条路
+          (`ki` 与 `openMode`) 落到同一个 `PrintPreviewDialog` —— 模板、数据形状、编辑入口都相同，
+          差别只有工具条上那颗「复制回执单」（新版由「回执单-其它」抽屉提供，见 `ReceiptOtherDialog.vue`）。
+        -->
+        <div class="doc-buttons">
+          <n-button
+            size="small"
+            type="primary"
+            :disabled="!orders.length"
+            @click="openReceiptPreview"
+          >
+            查看回执单
+          </n-button>
+          <n-button
+            size="small"
+            type="primary"
+            :disabled="!orders.length"
+            @click="openReceiptOther"
+          >
+            回执单-其它
+          </n-button>
+        </div>
 
         <div v-for="g in DOC_GROUPS" :key="g.title" class="doc-group">
           <div class="doc-group-title">{{ g.title }}</div>
@@ -65,6 +101,13 @@ const emit = defineEmits<{
    * `entry` 只有合格标签族用（`'all' | 'ping' | 'diao'`，三个入口共用一张单据）。
    */
   openDoc: [doc: string, entry?: string]
+  /**
+   * 点了顶部那颗「回执单-其它」（旧版 `Nn`，:8184）—— Home 开 `ReceiptOtherDialog`。
+   *
+   * ⚠️ 旧版是**嵌套**抽屉（外层「打印选项」不关，内层直接叠上去）；新版由 Home 关掉本抽屉再开，
+   * 与本文件的 `onOpenDoc` 同一个口径（两层 `n-drawer` 都从右侧出会互相压）。
+   */
+  openReceiptOther: []
 }>()
 
 /**
@@ -150,6 +193,20 @@ const DOC_GROUPS: { title: string; items: DocEntry[] }[] = [
 /** 点 hiprint 模板入口 → 交给 Home 开预览弹窗（本抽屉不关自己，由 Home 决定）。 */
 function openMode(mode: string, title: string) {
   emit('openMode', mode, title)
+}
+
+/**
+ * 「查看回执单」（旧版 `ki`）—— 实质就是**用回执模板开预览**，
+ * 所以直接复用 `openMode` 那条路（mode = `receipt`，与「收据类」分组里那张同一个模板）。
+ * 标题取该模板在分组里的中文名，别写「查看回执单」——那是按钮名，不是单据名。
+ */
+function openReceiptPreview() {
+  openMode('receipt', '客户回执单')
+}
+
+/** 「回执单-其它」（旧版 `Nn`）→ 交给 Home 开 `ReceiptOtherDialog`。 */
+function openReceiptOther() {
+  emit('openReceiptOther')
 }
 
 /** 点自绘单据入口 → 交给 Home 开对应的抽屉。 */

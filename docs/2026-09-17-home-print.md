@@ -76,10 +76,17 @@ product2                          payloads=4 rows=4      product3 payloads=2 row
 - `Gi`：建 socket.io 云打印通道（`$t` 默认 `http://localhost:17521`；`mutilPrintService` 内默认
   `https://v4.printjs.cn:17521`，token = `ds` 数字段 + 1088）→ 聚合选中订单 → 打开「打印选项」抽屉。
 - 抽屉内 24 个按钮，按钮 handler 内部同时写 `ic`（1–16，默认 1）；操作按钮栏随 `ic` 变。
-- 「查看回执单」是抽屉里**另一个**按钮：`It.preview("receipt", …)` 出 HTML → 回执单预览弹窗
-  （打印 / 手动打印 / 编辑回执单 / 复制）。
-- 「回执单-其它」是第二层抽屉：直接打印 / 手动打印 / 复制（html2canvas → `ClipboardItem`）/
-  分享（`navigator.share`）/ 下载（PNG）。
+- **抽屉最上面**还有一组（`ki` / `Nn`，`div.drawer-content`）：
+  - 「查看回执单」`ki`：`It.preview("receipt", …)` 出 HTML → **它自己的**预览弹窗（`Ai`，宽 1180px；
+    工具条 = 关闭 / 打印(= `zi`) / 手动打印(= `Fi`) / 编辑回执单 / 复制回执单(`!z`)）。
+  - 「回执单-其它」`Nn`：只 `Mn.value = true` → 开第二层**嵌套**抽屉（`size:350`，与外层同宽同侧）。
+    工具条 = 直接打印(`zi`,`Yt`) / 手动打印(`Fi`,`Yt`) / 复制(`Mi`,`!z`) / 分享(`Ni`) / 下载(`xi`,`Yt`)。
+    `z` = 手机端（`isNativePlatform() || /iPad|iPhone|iPod/.test(ua)`，:7579）；
+    `Yt` = 工厂态（:7581 `ref(true)`，仅 `userinfo.defaulted === 3` 终端账号置 false，:8147/:7885）。
+  - `zi`（直接打印回执单，:8691）**是静默直打、不是本机对话框**：`ElLoading` → 取 `registrant.pagesize.receipt`
+    /`registrant.copy.receipt` 作 printer/copies → `ll`(云打印开关，默认 false) ? `Ut.transitPrintMultiple`
+    (printjs 云中转, `silent:true`) : `It.printLandscape`(桌面 hiprint 客户端 localhost:17521)。
+    源码里那句「正在尝试本地打印」**只是文案，catch 里没有任何本地打印调用**。
 - 终端用户：只有「查看回执单」+「回执单-其它」，Yt 专属按钮全部隐藏。
 
 ## 5. 未做（有意）
@@ -89,6 +96,7 @@ product2                          payloads=4 rows=4      product3 payloads=2 row
 | **收据单2**（`ic=12`，`Receipt2PrintManager`） | 不是 hiprint 模板，是 Home 里一个自绘组件（手拼 HTML + 十项元素级偏移/字号配置 + 就地 `contentEditable` 编辑 + 复制 PNG）。工作量与 17 张模板之和相当，需要单独排期。见 `docs/2026-09-16-print-font.md` |
 | 云打印（socket.io → `v4.printjs.cn:17521`） | 依赖第三方服务与账号；新版只用本机 hiprint |
 | 合格标签 / 生产单2 / 玻璃合片单2（`ic=13–16`） | 旧版是自绘 HTML 组件，不在 17 张模板里 |
-| 「查看回执单」预览弹窗 | **已由「电子回执单」覆盖**：Home 行操作列的「电子回执单」进 `/receipt-view/:回执单号`，可复制分享链接发客户。旧版那个弹窗的实质价值（给客户看 + 分享）都在 |
-| 复制/下载单据为 PNG（html2canvas） | 需引入新依赖 `html2canvas`；先看实际需不需要 |
+| 「查看回执单」预览弹窗 | **已由「电子回执单」覆盖**：Home 行操作列的「电子回执单」进 `/receipt-view/:回执单号`，可复制分享链接发客户。旧版那个弹窗的实质价值（给客户看 + 分享）都在。⚠️ **2026-09-18 更新**：抽屉顶部的「查看回执单」入口**已做**（走 `openMode('receipt')`），只是与「电子回执单」并存 |
+| 回执单-其它里的「直接打印回执单」(`zi`) | 它是**云中转/hiprint 客户端静默打印**（见 §4），新版两条载体都没有 ⇒ 与「云打印」同理省略。其余四颗（手动打印 / 复制 / 分享 / 下载）**2026-09-18 已做**：`ReceiptOtherDialog.vue` + `utils/receiptImage.ts` |
+| 复制/下载单据为 PNG（html2canvas） | **2026-09-18 已做**（仅限回执族，`utils/receiptImage.ts`）：html2canvas 早已作为依赖装上（`utils/receipt2/print.ts` 在用） |
 | `orderQrcode`（订单查询二维码 / 终端只读页） | 终端页新版未做，模板里那一格留空（旧版取不到值时也是空） |

@@ -143,7 +143,16 @@
       :orders="printOrders"
       @open-mode="onOpenMode"
       @open-doc="onOpenDoc"
+      @open-receipt-other="onOpenReceiptOther"
     />
+
+    <!--
+      「回执单-其它」（旧版「打印选项」抽屉顶部的第二颗，`Nn` :8184）：
+      手动打印 / 复制 / 分享 / 下载 四颗单据动作，**没有预览**
+      （旧版还有第五颗「直接打印回执单」，是云中转/hiprint 客户端静默打印，新版无载体 ⇒ 略，见组件头注释）。
+      旧版它是「打印选项」抽屉里**嵌套**的第二层抽屉；新版按本文件 `onOpenDoc` 的口径先关外层再开。
+    -->
+    <ReceiptOtherDialog v-model:show="receiptOtherShow" :orders="receiptOtherOrders" />
 
     <!-- 打印预览弹窗（旧版那个 `el-dialog`，宽 1180px）：预览 + 该单据的操作栏 -->
     <PrintPreviewDialog
@@ -207,6 +216,7 @@ import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
 import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
+import ReceiptOtherDialog from '../components/ReceiptOtherDialog.vue'
 import Receipt2Dialog from '../components/Receipt2Dialog.vue'
 import GlassSheet2Dialog from '../components/GlassSheet2Dialog.vue'
 import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
@@ -521,6 +531,9 @@ const printOrders = ref<OrderDto[]>([])
 const previewShow = ref(false)
 const previewMode = ref('')
 const previewTitle = ref('')
+/** 「回执单-其它」抽屉（旧版嵌套在「打印选项」里的第二层，`Mn`）。 */
+const receiptOtherShow = ref(false)
+const receiptOtherOrders = ref<OrderDto[]>([])
 const receipt2Show = ref(false)
 const receipt2Orders = ref<OrderDto[]>([])
 const glassSheet2Show = ref(false)
@@ -574,6 +587,21 @@ function onOpenMode(mode: string, title: string) {
   previewMode.value = mode
   previewTitle.value = title
   previewShow.value = true
+}
+
+/**
+ * 「打印选项」抽屉顶部点了「回执单-其它」（旧版 `Nn`，:8184）。
+ *
+ * 旧版那里只是 `Mn.value = true` —— **外层抽屉不关**，第二层嵌套抽屉直接叠上去
+ * （`append-to-body` + `direction:"rtl"` + `size:350`，与外层同宽同侧）。
+ * 新版沿用本文件 `onOpenDoc` 的口径：先关外层再开 —— 两层 `n-drawer` 都从右侧出，叠着会互相压。
+ *
+ * 数据复用 `printOrders`（`openPrint` 已做过明细兜底），不重复请求。
+ */
+function onOpenReceiptOther() {
+  receiptOtherOrders.value = printOrders.value
+  printShow.value = false
+  receiptOtherShow.value = true
 }
 
 function onOpenDoc(doc: string, entry?: string) {
