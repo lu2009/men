@@ -776,6 +776,15 @@ const order = reactive({
   remark: '',
   salesperson: '',
   install_address: '', // 表头全局默认安装地址（仿原版 _0x17ac36）
+  // ⚠️ 下面三个是 **Home 那边在写的头字段**（打单操作 / 单号集 / 锁向）。
+  // Hui 界面不显示、也不编辑它们，但**必须原样带回去** —— 因为
+  // `PUT /orders/{id}` 是**整头覆盖**（`orders/service.rs:456-465` 无条件
+  // `SET ... order_no_set=$11, install_address=$12, production_status=$13, lock_direction=$14`），
+  // 而 `model.rs` 里这几个字段是 `#[serde(default)]` ⇒ 载荷里缺键 = 反序列化成 `""` = **抹空**。
+  // 见 `docs/home-audit/hui-save-clobber-check.mjs`（实测：存一次抹掉四个字段）。
+  order_no_set: '',
+  production_status: '',
+  lock_direction: '',
 })
 
 // 收款码（原版 `getImage('qrcode')`）：
@@ -1668,6 +1677,10 @@ function resetOrder() {
   order.remark = ''
   order.salesperson = ''
   order.install_address = ''
+  // ⚠️ 这三个同上：忘一个，保存时那一个就被抹空（见 `order` 声明处的说明）。
+  order.order_no_set = ''
+  order.production_status = ''
+  order.lock_direction = ''
   lines.value = []
   lastAppliedClient = ''
   markSaved()
@@ -2995,6 +3008,12 @@ async function saveOrder() {
       deposit: order.deposit,
       remark: order.remark,
       salesperson: order.salesperson,
+      // ⚠️ 这四个 Hui 界面上没有、也编辑不了，但**必须原样回传** —— PUT 是整头覆盖，
+      // 少一个就抹空一个（实测见 `docs/home-audit/hui-save-clobber-check.mjs`）。
+      install_address: order.install_address,
+      order_no_set: order.order_no_set,
+      production_status: order.production_status,
+      lock_direction: order.lock_direction,
       lines: lines.value.map(lineInputOf),
     }
     const saved =
@@ -3076,6 +3095,12 @@ async function loadOrder(id: number) {
     order.deposit = o.deposit
     order.remark = o.remark
     order.salesperson = o.salesperson
+    // ⚠️ 四个「Hui 不显示但 Home 在写」的头字段必须读回来，否则保存时被整头覆盖抹空。
+    // （`install_address` 原先就漏在这里 + 漏在载荷里，是同一个坑的另一半。）
+    order.install_address = o.install_address
+    order.order_no_set = o.order_no_set
+    order.production_status = o.production_status
+    order.lock_direction = o.lock_direction
     lines.value = o.lines.map((l) => ({
       id: l.id,
       line_type: l.line_type === 'diao' ? 'diao' : 'ping',
