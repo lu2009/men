@@ -134,7 +134,24 @@
     <FinanceDrawer v-model:show="financeShow" :order="financeOrder" @saved="onFinanceSaved" />
 
     <!-- 打印选项抽屉（§4.2 打印选中订单） -->
-    <PrintDrawer v-model:show="printShow" :orders="printOrders" @open-doc="onOpenDoc" />
+    <!--
+      「打印选项」抽屉只列入口；点了 hiprint 模板走 `openMode` → 下面的预览弹窗，
+      点了自绘单据走 `openDoc` → 各自那张的抽屉（见 `onOpenDoc`）。
+    -->
+    <PrintDrawer
+      v-model:show="printShow"
+      :orders="printOrders"
+      @open-mode="onOpenMode"
+      @open-doc="onOpenDoc"
+    />
+
+    <!-- 打印预览弹窗（旧版那个 `el-dialog`，宽 1180px）：预览 + 该单据的操作栏 -->
+    <PrintPreviewDialog
+      v-model:show="previewShow"
+      :orders="printOrders"
+      :mode="previewMode"
+      :title="previewTitle"
+    />
 
     <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
     <Receipt2Drawer v-model:show="receipt2Show" :orders="receipt2Orders" />
@@ -189,6 +206,7 @@ import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
+import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
 import Receipt2Drawer from '../components/Receipt2Drawer.vue'
 import GlassSheet2Drawer from '../components/GlassSheet2Drawer.vue'
 import ProductionSheet2Drawer from '../components/ProductionSheet2Drawer.vue'
@@ -499,6 +517,10 @@ async function onFinanceSaved() {
 // ---------------------------------------------------------------------------
 const printShow = ref(false)
 const printOrders = ref<OrderDto[]>([])
+/** 打印预览弹窗（旧版那个 `el-dialog`）：入口在「打印选项」抽屉里，点 hiprint 模板即开。 */
+const previewShow = ref(false)
+const previewMode = ref('')
+const previewTitle = ref('')
 const receipt2Show = ref(false)
 const receipt2Orders = ref<OrderDto[]>([])
 const glassSheet2Show = ref(false)
@@ -539,6 +561,21 @@ async function openPrint() {
  *
  * ⚠️ **先关自己再开目标**：两个 `n-drawer` 都从右侧出，叠着会互相压。
  */
+/**
+ * 「打印选项」抽屉里点了 **hiprint 模板** → 开打印预览弹窗。
+ *
+ * 结构照原版：抽屉只列入口，点了设 `ic`（这里是 `mode`）并开预览弹窗，
+ * 该单据的操作按钮栏长在**弹窗**里（见 `PrintPreviewDialog.vue`）。
+ *
+ * ⚠️ 与 `onOpenDoc` 一样**复用 `printOrders`**：打开打印抽屉时已做过明细兜底。
+ */
+function onOpenMode(mode: string, title: string) {
+  printShow.value = false // 先关抽屉再开弹窗，两者都占屏幕
+  previewMode.value = mode
+  previewTitle.value = title
+  previewShow.value = true
+}
+
 function onOpenDoc(doc: string, entry?: string) {
   const orders = printOrders.value
   printShow.value = false
