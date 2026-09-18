@@ -23,8 +23,14 @@
 //
 // ⚠️ 文件名里的时间戳旧版用的是 **UTC**（`new Date().toISOString()`），不是本地时区。
 // 逐字照抄（`dr[1382]`+`dr[936]`）：`回执单_` + ISO 串把 `[T:]` 换成 `-`、去掉毫秒、截前 16 位 + `.png`。
+//
+// ★ 2026-09-18 扩参：**打印预览弹窗工具条**那三颗复制按钮（`Ei`/`vc`/`hc`）与上面三条路
+//   共用本文件的「离屏挂载 → html2canvas → toBlob」骨架，但**容器样式与 scale 各不相同**
+//   （旧版是三段各写各的字面量，见下面三个 `*_CSS` 常量与 `OffscreenRenderOptions`）。
+//   所以这里把骨架参数化，**没有**复制出三份实现。
 
 import html2canvas from 'html2canvas'
+import type { Options } from 'html2canvas'
 
 /** 分享出去的文件名（旧版 `dr[1442]`）。 */
 const SHARE_FILE_NAME = 'receipt.png'
@@ -36,16 +42,75 @@ const SHARE_TEXT = '请分享到微信或其他应用'
 /** 文件下载名前缀（旧版 `dr[1382]`）。 */
 const DOWNLOAD_PREFIX = '回执单_'
 
+// ------------------------------------------------------- 预览工具条三条路的容器样式 //
+// 三处字面量逐字照抄旧版（不是同一套 —— 别合并成一个常量）。
+
+/**
+ * 「复制成图片」（订单汇总，旧版 `Ei` @375712）的离屏容器。
+ *
+ * 旧版是**逐条属性赋值**：`position:absolute`(`dr[1014]`)、`left:-9999px`(`dr[1069]`)、
+ * `width = "1123px"`(`dr[910]` + 字面量)、`backgroundColor = "white"`(`dr[526]`/`dr[950]`)。
+ * 等价 cssText，逐字。
+ */
+export const SUMMARY_COPY_CSS = 'position: absolute; left: -9999px; width: 1123px; background-color: white;'
+
+/**
+ * 「复制玻璃单」（玻璃订单，旧版 `vc` @424179）的离屏容器。
+ *
+ * 旧版 `r.style.cssText = "\n  position: absolute;\n  left: -9999px;\n  width: 1200px;\n
+ *  font-size: 30px;\n  font-family: Arial, sans-serif;\n  line-height: 3.5;\n"` —— 去掉缩进空白后的等价值。
+ */
+export const GLASS_COPY_CSS =
+  'position: absolute; left: -9999px; width: 1200px; font-size: 30px; font-family: Arial, sans-serif; line-height: 3.5;'
+
+/**
+ * 「复制收据单」（收据单，旧版 `hc` @427351）的离屏容器（`dr[704]`，逐字）。
+ *
+ * ⚠️ 与 `GLASS_COPY_CSS` 只差一个 `width: 1200px` ↔ `width: auto; display: inline-block` ——
+ *   旧版就是这么写的，照抄（`width:auto` + `inline-block` 让容器贴内容宽，故 `hc` 才要显式传
+ *   `width: scrollWidth`）。
+ */
+export const RECEIPT_COPY_CSS =
+  'position: absolute; left: -9999px; width: auto; display: inline-block; font-size: 30px; font-family: Arial, sans-serif; line-height: 3.5;'
+
+/** 离屏截图的参数（每一档都对应旧版某一处的字面量，见各字段注释）。 */
+export interface OffscreenRenderOptions {
+  /**
+   * 容器 `style.cssText`。**不给** = 收据族那套：只 `position:absolute; left:-9999px`，
+   * 不设宽高、不设背景（旧版 `:8761`/`:8843`/`:8888` 三处逐字相同）——
+   * html2canvas 按节点自然尺寸截，跟旧版截出来的图一致。
+   */
+  cssText?: string
+  /**
+   * html2canvas 的 `scale`。**不给就不传这个键**（旧版复制/分享只传 `{useCORS:true}`），
+   * 别统一成 1 —— 传与不传在 html2canvas 里不是一回事。
+   */
+  scale?: number
+  /** html2canvas 的 `backgroundColor`。不给就不传（旧版只有「复制成图片」传 `'white'`）。 */
+  backgroundColor?: string
+  /**
+   * 截图前先 `await document.fonts.ready`。
+   * 旧版：`vc`(玻璃单) / `hc`(收据单) **有**，`Ei`(汇总) / `Mi`(回执单) **没有** —— 照抄。
+   */
+  awaitFonts?: boolean
+  /** 显式传 `width: el.scrollWidth, height: el.scrollHeight`（旧版只有 `hc` 这么做）。 */
+  useElementScrollSize?: boolean
+}
+
 /**
  * 把渲染好的回执 HTML 挂进一个离屏 `<div>`（旧版 `:8761`/`:8843`/`:8888`，三处逐字相同）。
  *
- * ⚠️ 只设 `position:absolute; left:-9999px` —— **不设宽高、不设背景**。
- * html2canvas 会按节点自然尺寸截，跟旧版截出来的图一致。
+ * `cssText` 给了就用它（旧版 `vc`/`hc` 是直接写 `style.cssText` 的），否则退回收据族那套
+ * 只设 `position/left` 的写法。
  */
-function mountOffscreen(html: string): HTMLDivElement {
+function mountOffscreen(html: string, cssText?: string): HTMLDivElement {
   const el = document.createElement('div')
-  el.style.position = 'absolute'
-  el.style.left = '-9999px'
+  if (cssText) {
+    el.style.cssText = cssText
+  } else {
+    el.style.position = 'absolute'
+    el.style.left = '-9999px'
+  }
   el.innerHTML = html
   document.body.appendChild(el)
   return el
@@ -59,13 +124,30 @@ function unmountOffscreen(el: HTMLDivElement): void {
 /**
  * 离屏渲染 → canvas。
  *
- * ⚠️ `scale` 照旧版分档：**复制 / 分享用默认 1**（`:8844` / `:8875` 都只传 `{useCORS:true}`），
- * **下载用 2**（`:8765` 的 `{useCORS:true, scale:2}`）。别图省事统一 —— 下载件是给客户的高清图。
+ * ⚠️ `scale` 照旧版分档，**不传与传值是两回事**：
+ *   · 收据族复制 / 分享 —— 不传（`:8844` / `:8875` 只传 `{useCORS:true}`）；
+ *   · 下载 —— `2`（`:8765` 的 `{useCORS:true, scale:2}`，下载件是给客户的高清图）；
+ *   · 预览工具条三颗复制 —— 都是 `2`（`Ei` @375712 / `vc` @424179 / `hc` @427351）。
  */
-async function renderOffscreenCanvas(html: string, scale?: number): Promise<{ el: HTMLDivElement; canvas: HTMLCanvasElement }> {
-  const el = mountOffscreen(html)
+async function renderOffscreenCanvas(
+  html: string,
+  opts: OffscreenRenderOptions = {},
+): Promise<{ el: HTMLDivElement; canvas: HTMLCanvasElement }> {
+  const el = mountOffscreen(html, opts.cssText)
   try {
-    const canvas = await html2canvas(el, scale ? { useCORS: true, scale } : { useCORS: true })
+    // 旧版 `vc`/`hc` 在挂载之后、截图之前等字体（`await document.fonts.ready`）——
+    // 30px Arial 的度量直接决定换行位置，不等会用回退字体截出另一版排版。
+    if (opts.awaitFonts) await document.fonts.ready
+    const options: Partial<Options> = { useCORS: true }
+    if (opts.scale !== undefined) options.scale = opts.scale
+    if (opts.backgroundColor !== undefined) options.backgroundColor = opts.backgroundColor
+    // 旧版 `hc` 显式传 `width: scrollWidth, height: scrollHeight` —— 容器是 `width:auto`，
+    // 不传的话 html2canvas 会按窗口/body 那套算尺寸，右边和下边会多出空白。
+    if (opts.useElementScrollSize) {
+      options.width = el.scrollWidth
+      options.height = el.scrollHeight
+    }
+    const canvas = await html2canvas(el, options)
     return { el, canvas }
   } catch (e) {
     unmountOffscreen(el)
@@ -93,9 +175,12 @@ export function receiptPngName(): string {
  * 由调用方回退到下载。新版把这一步显式化，抛的文案取旧版 `Bi` 里那句能力提示（`dr[1203]`）。
  *
  * ⚠️ 需要安全上下文（https / localhost），否则 `navigator.clipboard` 是 `undefined`。
+ *
+ * `opts` 供**打印预览弹窗工具条**那三颗复制按钮（`Ei` / `vc` / `hc`）按各自旧版口径调用；
+ * 不传就是收据族/回执单那条路（`Mi`）的口径。
  */
-export async function copyReceiptImage(html: string): Promise<void> {
-  const { el, canvas } = await renderOffscreenCanvas(html)
+export async function copyReceiptImage(html: string, opts: OffscreenRenderOptions = {}): Promise<void> {
+  const { el, canvas } = await renderOffscreenCanvas(html, opts)
   try {
     const blob = await canvasToBlob(canvas)
     if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
@@ -143,7 +228,7 @@ export async function shareReceiptImage(html: string): Promise<void> {
  * （Capacitor 那条 `Filesystem.writeFile` 分支无载体，见文件头。）
  */
 export async function downloadReceiptImage(html: string): Promise<void> {
-  const { el, canvas } = await renderOffscreenCanvas(html, 2)
+  const { el, canvas } = await renderOffscreenCanvas(html, { scale: 2 })
   try {
     const dataUrl = canvas.toDataURL('image/png')
     const a = document.createElement('a')
