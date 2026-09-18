@@ -144,7 +144,49 @@ toNum(order.totalAmount) || (allocatedAmount + unpaidAmount + orderAdjustTotal)
 
 ---
 
-## 8. 待办
+## 8. ⭐ 存量列是怎么维护的（决定「我们架构要不要改」）
+
+这是**最要紧的一条结构结论**。旧版那两个关键存量列由 `addToCustomerBalance`(svc:248-259) 维护：
+
+```js
+const topupDelta = amount > 0 ? amount : 0;
+prepaidBalance += amount                 // 正负都加
+totalTopup     += topupDelta             // ★ 负数**不减** —— 只增
+```
+
+`addPayment` 里的落库（svc:386-427）同构：
+
+```js
+const prepaidDelta = amount - allocatedTotal;          // svc:386「没分到具体订单的那部分」= 池子充值
+prepaidBalance += prepaidDelta
+totalTopup     += (prepaidDelta > 0 ? prepaidDelta : 0)
+customerFundFlow.create({ amount: prepaidDelta, flowType: prepaidDelta >= 0 ? '预付款' : '预付款冲销' })   // svc:414-427
+```
+
+### ⇒ 三条结论
+
+1. **`CustomerFundFlow` 与 `prepaidDelta` 一一对应**（同一个数），
+   所以 `prepaidBalance = Σ flow.amount`、`totalTopup = Σ max(0, flow.amount)` ——
+   **存量列可以从流水完整推导**。
+   ⇒ **我们的「纯追加流水 + 实时聚合」架构不用改**，改公式即可。
+2. ⭐ **`实收金额` 是「累计充值」，不是「净收款」** —— 红冲**不减它**
+   （`totalTopup += max(0, delta)`，svc:257/398/409）。
+   我们的 `Σ finance_payments.amount` **是净额、红冲会减** ⇒ **口径不同，要改**。
+3. `prepaidDelta` 的定义：**本次收款里没有分配到具体订单的那部分**（svc:386）——
+   这正是我们 `finance_allocations` 之外那笔「客户级收款」的对应物。
+
+## 9. 事务边界（补全，svc 实读）
+
+| 函数 | 事务 | 失败形态 |
+|---|---|---|
+| `addPayment`(:325) | ✅ `tx` | 全回滚 |
+| `executePrepaymentAllocation`(:805) | ❌ 逐个 await | 可能「前几单已分配、池子未扣」 |
+| `clearSelectedOrders`(:867) | ❌ 逐个 await | 可能只清了一部分 |
+
+⇒ 旧版自己不一致。**不该照抄「没有事务」**，但要记下旧版的失败形态，
+我们这边可以用事务做得更强（属有意的改进，写进注释）。
+
+## 10. 待办
 
 - [ ] 等 `01-read.md` / `02-write.md` / `03-allocation.md`，与本稿对表，冲突处回源码裁决
 - [ ] 对关键结论做**对抗验证**（派独立 agent 试着推翻）
