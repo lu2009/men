@@ -104,7 +104,6 @@
         :scroll-x="1750"
         :checked-row-keys="checkedRowKeys"
         :expanded-row-keys="expandedRowKeys"
-        :row-props="rowProps"
         :bordered="false"
         size="small"
         @update:checked-row-keys="onCheckedKeys"
@@ -777,29 +776,42 @@ watch(searchText, (v) => {
 // ---------------------------------------------------------------------------
 // 行状态色（§3 有 CSS 语义的部分；.paid-row/.paid-customer/.duplicate 无清晰口径，暂不实现）
 // ---------------------------------------------------------------------------
-function isDueSoon(due: string): boolean {
-  if (!due) return false
+/**
+ * 日期单元格的状态类（旧版 `Ls`，`:11221-11227`）—— **两个类互斥**，且**挂在单元格上**（不是整行）。
+ *
+ * ```js
+ * Ls = e => bs(e) ? "date-audit"                       // 未审核优先，命中就 return
+ *                : (0 !== so(e) && 截止日期 &&
+ *                   Math.floor((new Date(截止日期) - now) / 864e5) < 4) ? "date-warning"
+ *                : ""
+ * ```
+ *
+ * ⚠️ **与旧版对齐时踩过三处，别再改回去**：
+ *   ① **`< 4` 没有下界** ⇒ **已逾期（负数）同样命中**。先前写成 `diff >= 0 && diff <= 4`，
+ *      把逾期的排除了 —— 而逾期恰恰是最该标红的。
+ *   ② **开区间** `< 4`，先前 `<= 4` 多含一天。
+ *   ③ 要求 **`未收 != 0`**（已付清不加），先前完全不看付款状态。
+ *   另：`Ls` 是**互斥**的（`date-audit` 命中就 return）；先前两个类可以同时命中，
+ *      而 CSS 里 `.date-warning` 在后面 ⇒ 后者胜，于是「未审核 + 临近截止」的行颜色也错了。
+ *
+ * ⚠️ 层级：旧版 CSS 是 **cell 级**（`.date-audit` / `.date-warning`），挂在日期那一格上。
+ *    先前用 `rowProps` 挂到了整行 —— 一并改成挂在日期单元格。
+ */
+function dateCellClass(r: OrderSummaryDto): string {
+  if (isUnaudited(r)) return 'date-audit'
+  const due = r.due_date
+  if (!due || unpaidOf(r) === 0) return ''
   const [y, m, d] = due.split('-').map(Number)
-  if (!y || !m || !d) return false
-  const dueDate = new Date(y, m - 1, d)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.floor((dueDate.getTime() - today.getTime()) / 86400000)
-  return diff >= 0 && diff <= 4
+  if (!y || !m || !d) return ''
+  const diff = Math.floor((new Date(y, m - 1, d).getTime() - Date.now()) / 86400000)
+  return diff < 4 ? 'date-warning' : ''
 }
 
 /**
- * 「未审核」判据（旧版 `bs`）。`rowProps` 与「审核确认」按钮两处共用 —— 抽出来免得两处漂开。
+ * 「未审核」判据（旧版 `bs`）。`dateCellClass` 与「审核确认」按钮两处共用 —— 抽出来免得两处漂开。
  */
 function isUnaudited(r: OrderSummaryDto): boolean {
   return !r.production_status?.trim() && !r.order_no_set?.trim()
-}
-
-function rowProps(r: OrderSummaryDto) {
-  const cls: string[] = []
-  if (isUnaudited(r)) cls.push('date-audit')
-  if (isDueSoon(r.due_date)) cls.push('date-warning')
-  return { class: cls.join(' ') }
 }
 
 // ---------------------------------------------------------------------------
@@ -873,6 +885,13 @@ const dateTarget = ref<OrderSummaryDto | null>(null)
 const dateValue = ref<number | null>(null)
 
 function openDate(row: OrderSummaryDto) {
+  // 旧版 `:11412-11419`：**只有「打单操作」为空（未生产）才让改生产日期**，
+  // 否则 `ElMessage.warning("已生产的单不能修改生产日期")` 并**不开弹窗**。
+  // 判据逐字：`"" === (打单操作 ?? "").toString().trim()` 才放行。
+  if ((row.production_status ?? '').toString().trim() !== '') {
+    message.warning('已生产的单不能修改生产日期')
+    return
+  }
   dateTarget.value = row
   dateValue.value = row.order_date ? Date.parse(row.order_date) : null
   dateShow.value = true
@@ -2161,7 +2180,11 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     filterOptionValues: columnFilterValues('order_date'),
     render: (row) => {
       const cells: ReturnType<typeof h>[] = [
-        h('div', { class: 'clickable-cell', onClick: () => openDate(row) }, row.order_date),
+        h(
+          'div',
+          { class: `clickable-cell ${dateCellClass(row)}`, onClick: () => openDate(row) },
+          row.order_date,
+        ),
       ]
       // 旧版 `:11423-11438`（G1）：**未审核**时在日期下方追加一颗 `el-button primary small`
       // 「审核确认」，`margin-top:4px`。
@@ -2486,11 +2509,25 @@ const tableHeight = 'calc(100vh - 300px)'
   gap: 8px;
 }
 
-/* 行状态色（§3：.date-audit 未审核 / .date-warning 临近截止） */
-:deep(.date-audit) td {
-  background: #ffb6c1 !important;
+/*
+ * 日期单元格状态色（旧版**单元格级**，样式逐字取自 `legacy/css/Home-97d96482.css`）。
+ *
+ * ⚠️ 先前写成了行级（`:deep(.date-audit) td`）且**只有背景色** —— 旧版是挂在日期那一格上的
+ * 完整样式（含 `color`/`padding`/`border-radius`/`font-weight`），两者观感不同。
+ * 现在类挂在日期单元格内层的 `div` 上（见 `dateCellClass` 与日期列的 `render`）。
+ */
+:deep(.date-audit) {
+  background-color: #ffb6c1 !important;
+  color: #721c24;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 700;
 }
-:deep(.date-warning) td {
-  background: #fff3cd !important;
+:deep(.date-warning) {
+  background-color: #fff3cd !important;
+  color: #856404;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 700;
 }
 </style>
