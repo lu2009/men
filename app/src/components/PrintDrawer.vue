@@ -163,7 +163,9 @@ const DOC_GROUPS: { title: string; items: DocEntry[] }[] = [
   {
     title: '收据类',
     items: [
-      { mode: 'receipt', label: '客户回执单' },
+      // ⚠️ 这里**没有** `receipt`（客户回执单）—— 它与抽屉顶部那颗「查看回执单」开的是
+      // 同一个模板（旧版 `ki` 与本组入口落到同一个弹窗），**重复**，按用户要求移除。
+      // 要打客户回执单走顶部那颗。
       { mode: 'FinalReceipt', label: '收据单' },
       { mode: 'ReceiptList', label: '出货清单' },
     ],
@@ -198,7 +200,8 @@ function openMode(mode: string, title: string) {
 /**
  * 「查看回执单」（旧版 `ki`）—— 实质就是**用回执模板开预览**，
  * 所以直接复用 `openMode` 那条路（mode = `receipt`，与「收据类」分组里那张同一个模板）。
- * 标题取该模板在分组里的中文名，别写「查看回执单」——那是按钮名，不是单据名。
+ * 标题取**单据名**「客户回执单」，别写「查看回执单」—— 那是按钮名，不是单据名。
+ * （该模板原先在「收据类」分组里也有一颗，2026-09-18 因与本颗重复而移除，所以这里写死。）
  */
 function openReceiptPreview() {
   openMode('receipt', '客户回执单')
