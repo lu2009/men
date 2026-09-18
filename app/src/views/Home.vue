@@ -2264,23 +2264,25 @@ async function deleteManualProgress() {
 // ---------------------------------------------------------------------------
 // 列定义（§3；Phase 1 = 工厂视图 Yt）
 // ---------------------------------------------------------------------------
-function statusStyle(text: string): string {
-  if (!text) return ''
-  if (text.includes('收据单')) return BG_RECEIPT
-  if (text.includes('标签')) return BG_LABEL
-  if (text.includes('玻璃订单')) return BG_GLASS_ORDER
-  if (text.includes('生产单')) return BG_PRODUCT
-  if (text.includes('自助下单')) return BG_SELF
-  return ''
-}
-// 旧版 `la`（`:7940-7942`）五个分支的**完整内联样式**（`dr` 表解出，每支的后缀相同）。
-// ⚠️ 不是只给颜色 —— `padding/border-radius/font-weight` 是样式的一部分，只给色会少一圈观感。
-const BG_SUFFIX = ' padding: 4px 8px; border-radius: 4px; font-weight: bold;'
-const BG_RECEIPT = `background-color: #90EE90;${BG_SUFFIX}`
-const BG_LABEL = `background-color: #FFC0CB;${BG_SUFFIX}`
-const BG_GLASS_ORDER = `background-color: #87CEEB;${BG_SUFFIX}`
-const BG_PRODUCT = `background-color: #FFFF99;${BG_SUFFIX}`
-const BG_SELF = `background-color: #FFA500;${BG_SUFFIX}`
+/*
+ * ⚠️ 旧版 `la`（`:7940-7942`）那套底色（收据单/标签/玻璃订单/生产单/自助下单）
+ * **本系统里不渲染，已删** —— 不是漏做，是**到不了**。
+ *
+ * `la()` 全组件只有两个调用点（`grep` 实测：`:11589` 业务员、`:11597` 打单人），
+ * 两处都长这样：
+ *   ```js
+ *   qt.value ? <el-input class="borderless-input" onFocus={nn}>
+ *            : <div style={la(row["业务员"])}>{row["业务员"]}</div>
+ *   ```
+ * 即带底色的 `div` 是 **`!qt`（只读）分支**。而 `qt`（`:8147`）是
+ *   `qt.value = data.registrant === userinfo.name`
+ * ——「**正在看的这份数据是不是自己租户的**」，是旧版**租户切换/代看**的只读闸门。
+ * 新版没有租户切换 ⇒ **`qt ≡ true`** ⇒ 永远走输入框那一支，`la()` 分支不可达。
+ *
+ * ★ 这同时更正了本文件先前的一处改动（`a70ac477`）：那次把 `la()` 的底色挂到了
+ *   业务员/打单人的「非编辑态显示」上 —— 挂是挂对了函数，但**挂到了一个我们永远进不去的分支**。
+ *   正确形态是这两列**常驻输入框**（见 `renderEditable`），没有任何底色。
+ */
 
 // 旧版 `ua`（`:7964-7970`）：5 固定段 + 自定义段（flex = 3/个数，色 `#531dab`）。
 type ProgressSegment = { label: string; color: string; flex: number; done: boolean }
@@ -2371,47 +2373,51 @@ function renderProgress(row: OrderSummaryDto) {
   ]
 }
 
+/**
+ * 可编辑单元格：**常驻一个无边框输入框**（旧版 `订单备注`/`安装地址` `:11527-11531`、
+ * `业务员`/`打单人` `:11583-11598`）。旧版**没有「先显示文本、点击才变输入框」这一态**：
+ *
+ * ```js
+ * // 订单备注 / 安装地址（无条件）
+ * <el-input type="textarea" autosize={{minRows:1,maxRows:3}} class="input-style"
+ *           modelValue={row[字段]} onUpdate:modelValue={v => row[字段] = v} onFocus={() => nn(row)} />
+ * // 业务员 / 打单人
+ * qt ? <el-input class="borderless-input" onFocus={() => nn(row)} /> : <div style={la(值)}>…
+ * ```
+ *
+ * `nn(row)`（`:8112-8114`）就是「进编辑态」：`za.value = row` 并把
+ * 定金/订单备注/安装地址三个字段快照进草稿（`:8112-8114`）。`qt` 恒真，见上面那段说明。
+ *
+ * 所以这里也**始终**渲染输入框：
+ *   · 非编辑态 → 显示行上的值，`onFocus` 进编辑态（旧版的 `onFocus={nn}`）；
+ *   · 编辑态   → 绑定草稿。
+ *
+ * ⚠️ `onUpdate:value` 里要**先确保已进编辑态**再写草稿：极快的一次输入可能赶在
+ *    `editingId` 触发的重渲染之前到达，那时 `draft` 还没快照过。先 `startEdit` 再写，两种情况都对。
+ */
 function renderEditable(
   row: OrderSummaryDto,
   field: 'install_address' | 'remark' | 'salesperson' | 'creator_name',
 ) {
   const editing = editingId.value === row.id
-  if (editing) {
-    const d = draft as unknown as Record<string, string>
-    return h(NInput, {
-      value: d[field],
-      size: 'small',
-      type: field === 'install_address' || field === 'remark' ? 'textarea' : 'text',
-      autosize: { minRows: 1 },
-      borderless: true,
-      'onUpdate:value': (v: string) => {
-        d[field] = v
-      },
-    })
-  }
-  const text = row[field] || ''
-  // 旧版 `:11589`/`:11597`：业务员 / 打单人两列的**非编辑态**不是裸文本，而是
-  // `<span style={la(值)}>{值}</span>` —— 那几个底色（收据单/标签/玻璃订单/生产单/自助下单）
-  // 其实是**按这些列的内容**上的，不是按生产状态。编辑态才是输入框。
-  if (field === 'salesperson' || field === 'creator_name') {
-    return h('div', { class: 'editable-cell', onClick: () => startEdit(row) }, [
-      h('span', { style: { whiteSpace: 'pre-wrap' }, ...styleObject(statusStyle(text)) }, text),
-    ])
-  }
-  return h('div', { class: 'editable-cell', onClick: () => startEdit(row) }, text)
-}
-
-/** 把 `la()` 那种「`a: b; c: d;`」样式串转成 Vue 的style 对象（保持原样，不做解析以外的加工）。 */
-function styleObject(css: string): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const part of css.split(';')) {
-    const i = part.indexOf(':')
-    if (i < 0) continue
-    const k = part.slice(0, i).trim()
-    const v = part.slice(i + 1).trim()
-    if (k && v) out[k] = v
-  }
-  return out
+  // 旧版这两列是 `type="textarea"`、`autosize {minRows:1, maxRows:3}`、`class="input-style"`；
+  // 业务员/打单人是单行 `el-input`、`class="borderless-input"`。
+  const isTextarea = field === 'install_address' || field === 'remark'
+  return h(NInput, {
+    value: editing ? (draft as unknown as Record<string, string>)[field] : row[field] || '',
+    size: 'small',
+    type: isTextarea ? 'textarea' : 'text',
+    autosize: isTextarea ? { minRows: 1, maxRows: 3 } : undefined,
+    borderless: true,
+    class: isTextarea ? 'input-style' : 'borderless-input',
+    onFocus: () => {
+      if (editingId.value !== row.id) startEdit(row)
+    },
+    'onUpdate:value': (v: string) => {
+      if (editingId.value !== row.id) startEdit(row)
+      ;(draft as unknown as Record<string, string>)[field] = v
+    },
+  })
 }
 
 /**
@@ -2840,9 +2846,10 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
         'div',
         {
           class: 'progress-cell',
-          // ⚠️ **这里没有底色** —— 先前挂了 `statusBg(production_status)`，那是**挂错列**了。
-          // 旧版 `la()` 全组件只在**业务员 / 打单人**两列的「非编辑态显示」上被调用
-          // （`:11589` / `:11597`），打单操作格子只设 `cursor:pointer`。见 `statusStyle`。
+          // ⚠️ **这里没有底色** —— 先前挂了 `statusBg(production_status)`，那是挂错列了。
+          // 旧版 `la()` 全组件只有两个调用点（`:11589` 业务员 / `:11597` 打单人），
+          // 而且都在 **`!qt`（代看别的租户）** 那一支 ⇒ 本系统里不可达，已整体删掉。
+          // 详见「可编辑单元格」上方那段说明；打单操作格子旧版只设 `cursor:pointer`。
           style: { cursor: 'pointer' },
           onClick: (e: MouseEvent) => {
             e.stopPropagation()
@@ -2951,7 +2958,48 @@ const tableHeight = 'calc(100vh - 300px)'
   gap: 8px;
 }
 
-/* 可编辑格：无边框，hover 提示 */
+/*
+ * 可编辑列的**常驻输入框**（旧版 `[data-v] .el-input__inner` / `.el-textarea__inner`，
+ * 见 `legacy/css/Home-97d96482.css`）：
+ *   border:none; padding:2px 5px; transition:all .3s; background-color:transparent
+ *   :hover        → background-color:#f5f7fa
+ *   :focus        → background-color:#ecf5ff; box-shadow:0 0 0 2px #409eff33
+ *   `.input-style`（textarea 两列）= 额外 `font-size:16px` + `word-break:break-all; white-space:pre-wrap`
+ *
+ * ⚠️ 旧版那两条 `[data-v-…] .el-input__inner{…}` 是**全局**的（Home 里所有输入框都吃），
+ *    这里只上到这两个类上 —— 见 `renderEditable`。差别只在别处的输入框（工具栏搜索框等）
+ *    有没有同样的无边框观感，属另一条线，不在本次审计条目里。
+ */
+.input-style :deep(.n-input__textarea-el) {
+  padding: 2px 5px;
+  transition: all 0.3s;
+  background-color: transparent;
+  resize: none;
+  font-size: 16px;
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.input-style:hover :deep(.n-input__textarea-el) {
+  background-color: #f5f7fa;
+}
+.input-style:focus-within :deep(.n-input__textarea-el) {
+  background-color: #ecf5ff;
+  box-shadow: 0 0 0 2px #409eff33;
+}
+.borderless-input :deep(.n-input__input-el) {
+  padding: 2px 5px;
+  transition: all 0.3s;
+  background-color: transparent;
+}
+.borderless-input:hover :deep(.n-input__input-el) {
+  background-color: #f5f7fa;
+}
+.borderless-input:focus-within :deep(.n-input__input-el) {
+  background-color: #ecf5ff;
+  box-shadow: 0 0 0 2px #409eff33;
+}
+
+/* 其余可点击格（客户 / 日期 / 单号集 / 定金）：无边框，hover 提示 */
 .editable-cell,
 .clickable-cell {
   min-height: 26px;
