@@ -1,0 +1,663 @@
+# 生产进度（`/Progress`）逆向分析
+
+> 源文件：`legacy/js/Progress-f4bdef35.js`（164919 字节，**单行**混淆）
+> 路由：`legacy/js/index-c3b16e3f.js` @73662 —— `{path:"/Progress",name:"Progress",component:()=>import("./Progress-f4bdef35.js")}`
+> 样式：`legacy/css/Progress-4dee25cf.css`（含两个 scopeId：`data-v-95ebc180` = 页面，`data-v-720e8586` = 看板）
+> 旧版**服务端源码**：`/Users/aaa/Downloads/server`（本次已用来把「推断」升级为「证实」）
+>
+> 本文所有结论都带证据。证据形式：
+> `@NNNNN` = 在 `Progress-fb4def35.js` 里的**字节偏移**（单行文件）；`E(n)` / `de(n)` 等 = 解码表下标（解码表由
+> `legacy/decode-progress-map.mjs` 跑出来）；服务端结论给文件+行号。
+
+---
+
+## 0. 一句话结论
+
+`/Progress` **不是**一张独立的新表，也**不是**首页的一个视图 —— 它是**把「订单管理」（Home）整页复制一份改出来的**
+「生产进度」页：同一套工序/打单数据结构，换了一套**读接口**（`getProgress` / `getProgressForTerminal`）、
+一套**专为工序链设计的列集**（14 列，PC），外加一个内嵌的**「生产分析看板」**（`ProductionDashboard`，echarts 大屏）。
+
+它**只读 + 只改进度**：没有新建订单、没有编辑门款字段的入口；能做的是
+「更新进度 / 删除进度 / 收款 / 打印各类单据 / 查询更多 / 导出表格 / 看板」。
+
+---
+
+## 1. 这是什么页、给谁用、入口在哪
+
+### 1.1 入口（结论）
+
+旧版**桌面版左侧菜单**第 `index:"9"` 项：**⏳ 生产进度**。
+
+```js
+// 菜单项（index 包反混淆后的渲染原文）
+fe["value"] && !ve["value"]
+  ? createBlock(o, { key: 4, index: "9", onClick: me }, { default: withCtx(() => [
+      createElementVNode("span", { class: "desktop-icon" }, "⏳"),
+      createElementVNode("span", null, "生产进度")
+    ])})
+  : createCommentVNode("", true)
+
+// 点击回调
+me = () => { const e = n; T(), r["push"]("/Progress") }
+```
+
+证据：`legacy/js/index-c3b16e3f.js` 里 `setup(e,{expose:t}){const n=X,...}` @15381（`X` 是解码器 `R` 的别名，
+`legacy/js/index-c3b16e3f.js` @12233 `const X=R;`）；菜单项渲染在反混淆后的 `onClick: me` 处。
+
+### 1.2 菜单可见性（与账号类型绑定）
+
+```js
+const n = t.userinfo.defaulted
+if (n == 2 || n == 3) {
+  de.value = false
+  if (n == 3) { we.value = false; ve.value = true }   // 3 = 终端账号
+  if (n == 2) { fe.value = false }                    // 2 = 受限账号
+} else de.value = true
+```
+
+- `defaulted == 3`（**终端账号**）→ `ve = true`：菜单换成「📋 订单管理 → `/terminal-orders`」，
+  **⏳ 生产进度 不出现**。
+- `defaulted == 2` → `fe = false`：**生产管理 / 生产进度 都不出现**。
+- 其它（正常 PC 账号）→ 两个都出现。
+
+⚠️ 注意：**页面本身没有再做一次拦截** —— 手工敲 `/Progress` 仍能进（终端账号进去后会自动落到终端模式，见 §6）。
+
+### 1.3 页面职责
+
+给**老板 / 生产管理者**看「哪些单做到哪道工序了」，并且直接在这里推进工序。
+生产终端（车间）用的是同一组件但走 `getProgressForTerminal` 且列更少（见 §6）。
+
+---
+
+## 2. 页面骨架
+
+页面组件 = `ml = Vue.defineComponent({name:"Progress", __name:"Progress", ...})`
+（`@63437` `ml=Vue.defineComponent(`，`@63461` `name:ce(710),__name:ce(710)`，`de(710) === "Progress"`；
+导出 `const pl=n(ml,[["__scopeId","data-v-95ebc180"]]);export{pl as default}` @164896）。
+
+### 2.1 顶层结构
+
+```
+<div class="ping-hui-outer-container">      ← margin-top:65px（给顶栏让位）
+  <div class="ping-hui-container">
+    <div class="search-row">                ← 工具条 + 统计行
+    <el-table ...>                          ← 主表（v-if="K2.length > 1"）
+    <div class="table-footer"><el-pagination>
+  </div>
+  ... 各种 el-dialog / el-drawer（打印、更新进度、收款、查询更多、看板）
+</div>
+```
+
+证据：`const Ve={class:"ping-hui-outer-container"},we={class:"ping-hui-container"},ye={class:"search-row"},
+me={key:4,class:"search-info"},ge={class:"total-info"},ve={key:5,class:"search-info"},fe={class:"total-info"}`
+（反混淆源 `const Ve = { class: "ping-hui-outer-container" }, we = ...`）；样式见 `legacy/css/Progress-4dee25cf.css`
+（`[data-v-95ebc180]` 那一段）。
+
+### 2.2 工具条（`search-row`，从左到右）
+
+| 按钮 | 出现条件 | 行为 |
+|---|---|---|
+| 打印选项 | `D2`（PC 模式） | 开打印抽屉 `zl=true` |
+| 批量更新 (n) | `已选条数 > 1` 且 `D2` | 批量改工序 |
+| 查询更多 | 始终 | 开「更多查询」对话框（`Lo`） |
+| 生产分析 | `P2` | 开看板 `B2=true` |
+| 刷新 | 始终 | `pa()` = 重新拉 `getProgress` + 清空勾选 |
+| 导出表格 | `zo`（有搜索词/更多查询条件）非空 | ExcelJS 导出「筛选结果」 |
+| 搜索框 | 始终 | `placeholder="输入关键词搜索（可用空格分隔多个关键词）"`，`clearable` |
+
+统计行两种形态（`zo` 非空时显示「当前筛选」，否则显示「总计」）：
+
+```
+当前筛选: {zo} ({no.length} 条结果)  | 时间: {earliest} 至 {latest} | 移门扇数: {yo} | 平开门扇数: {vo}
+                                     | 移门亮窗个数: {mo} | 淋浴房扇数: {go} | 其它: {fo}
+总计: {no.length} 条记录              | 时间: …（同上）
+```
+
+证据：渲染原文 `默认: … Vue.createTextVNode(" 当前筛选: "+toDisplayString(zo["value"])+" ("+toDisplayString(no.value.length)+" 条结果) ")…`。
+
+### 2.3 主表列集与列顺序（**关键**）
+
+表组件 `el-table`：`data=io`（当前页切片）、`border`、`size="small"`、
+`cell-style=ue2`（只给「生产进度」列上底色）、`height="calc(100vh - 240px)"`、
+**`v-if="K2.value.length > 1"`**（⚠️ 见 §9 的「旧版本身有毛病」）。
+
+列（`el-table-column`）按源码出现顺序，含各自的显示条件：
+
+| # | label | min-width | 出现条件 | 单元格内容 |
+|---|---|---|---|---|
+| 1 | **日期** | 30 | 始终 | `D2` 时表头带「全选/取消全选」checkbox；行内 checkbox；`{日期}`；`D2` 时右侧两个链接 **更新进度** / **删除** |
+| 2 | **客户** | 40 | `D2` | `{客户}` |
+| 3 | **单号** | 30 | `D2` | 表头：`有单号`/`空单号` 列筛（`filters` + `column-key="单号"`）+「查单号」popover（输入 `-` 前数字也可，回车确认）；单元格 `{单号}` + hover tooltip |
+| 4 | **生产进度** | 150 | 始终 | 表头：「颜色筛选」popover；单元格 `innerHTML = va(生产进度)`，含「回款」时加 `.progress-paid`（红字） |
+| 5 | **备注** | — | **`!D2`**（终端） | `{安装地址}` + `{备注}` 两行 |
+| 6 | **型材/颜色** | — | 始终 | `{型材}` / `{颜色}` 两行 |
+| 7 | **玻璃** | — | 始终 | 底玻 / 面玻 / 玻璃厚（`glass-input-label` 小标签） |
+| 8 | **扇数/开向** | — | 始终 | `{扇数}`（可空）/ `{开向}` |
+| 9 | **下轨道/套线** | — | 始终 | `{轨道种类}`（有才显示）/ `{套线种类}`（有才显示） |
+| 10 | **门洞尺寸** | — | 始终 | 门洞高 / 门洞宽 / 墙厚 / 轨道长，`{洞尺}` 有则追加 |
+| 11 | **亮窗信息** | — | 始终 | 亮窗总高 / 亮窗数量 / `{封板高}`（>0 才显示） |
+| 12 | **备注** | — | **`D2`**（PC） | `{安装地址}` + `{备注}` |
+| 13 | **金额** | 45 | 始终 | 单价/数量/平方/金额等 |
+| 14 | **打单人** | 40 | `D2` | `{打单人}` |
+| 15 | **业务员** | 40 | `D2` | `{业务员}` |
+
+- **PC 模式（`D2=true`）共 14 列**：日期、客户、单号、生产进度、型材/颜色、玻璃、扇数/开向、下轨道/套线、门洞尺寸、亮窗信息、备注、金额、打单人、业务员。
+- **终端模式（`D2=false`）共 10 列**：日期、生产进度、**备注（前移到这里）**、型材/颜色、玻璃、扇数/开向、下轨道/套线、门洞尺寸、亮窗信息、金额。
+  （`备注` 在两种模式下**位置不同**，这是同一个 label 出现两次的原因，不是重复列。）
+
+样式补充：`[data-v-95ebc180] .el-table{min-width:1500px}`、表头底色 `#f0f9eb`、`table-layout:fixed`（`Progress-4dee25cf.css`）。
+
+### 2.4 分页
+
+`el-pagination` 在 `.table-footer`（`justify-content:center`）；`page=ro`（初值 1）、`pageSize=uo`（初值 **100**）、
+可选 `[10,20,50,100,200]`；翻页后把 `.table-container` 滚回顶部；改页长重置到第 1 页。
+证据：`ro=Vue.ref(1),uo=Vue.ref(100),so=[10,20,50,100,200],io=computed(()=>no.value.slice((ro.value-1)*uo.value, ro.value*uo.value))`。
+
+---
+
+## 3. 数据来源（**最重要**）
+
+### 3.1 只读接口
+
+前端调用点（`Progress-fb4def35.js`）：
+
+```js
+// @108455
+if (D[t(765)]) a = await fetch(t(259) + l.userinfo.ds);                       // t(765)="value" → D.value
+else {
+  const e = l[t(675)].name[t(720)]("-")[1];                                    // t(675)="userinfo", t(720)="split"
+  a = await fetch(t(777) + (l[t(675)].ds + "_") + e);                          // @108535
+}
+```
+
+解码后：
+
+| 场景 | URL |
+|---|---|
+| PC（`D=true`） | `https://www.samrtdoor.com.cn/1?param1=getProgress&param2={userinfo.ds}` |
+| 终端（`D=false`） | `https://www.samrtdoor.com.cn/1?param1=getProgressForTerminal&param2={userinfo.ds}_{userinfo.name.split("-")[1]}` |
+
+URL 前缀本身也在解码表里：`de(259)="https://www.samrtdoor.com.cn/1?param1=getProgress&param2="`、
+`de(777)="…?param1=getProgressForTerminal&param2="`、`de(299)=getMoreProgress`、`de(387)=getClientsInfo`、
+`de(706)=deleteProgress`、`de(712)=updataProgress`、`de(489)=PaymentCollection`、`de(743)=updataPaymentCollection`、
+`de(446)=finance_getCustomerBalance`、`de(697)=deleteRow`、`de(360)/E(738)=GetProcedures`。
+
+**返回结构（服务端已证实）**
+
+```ts
+// /Users/aaa/Downloads/server/src/modules/progress/progress.service.ts:303
+export async function getProgress(ds: string, orderNo?: string) {
+  const { databaseName } = parseDs(ds)
+  const where = { databaseName }; if (orderNo) where.orderNo = orderNo
+  const orders = await prisma.order.findMany({ where, include: { client: true }, orderBy: { orderNo: 'asc' } })
+  const progressData = []
+  for (const order of orders) progressData.push(...buildProgressRowsForOrder(order))
+  return { code: 200, data: { progressData }, message: '数据获取成功' }
+}
+```
+
+⇒ 前端只认 `{ code, data: { progressData: [...] }, message }`。
+
+末端的 `单号` 排序：前端拿回来后又自己**按单号倒序**排了一遍 —— 把单号按 `^(\d+)-(\d+)\/(\d+)\/(\d+)$`
+解析成 `{序号, 年, 月}`（即 `序号-年/月/日`），依次比 `年 ↓ → 月 ↓ → 序号 ↓`；**没有单号的行排最前**
+（`if(!l3&&!a3)return 0; if(!l3)return -1; if(!a3)return 1;`）。证据：`@108867`
+（原文 `…[t(941)][t(553)]((e=>({...e,isSelected:!1,"生产进度":e[t(432)]||""})))[t(619)](((e,t)=>{const l=e["单号"],a=t["单号"];…`，
+`t(941)`="progressData"、`t(553)`="map"、`t(619)`="sort"）。
+
+**行字段（服务端证实）**：`progressRowFromDoorRow` / `enrichDoorRow` / `buildProgressText`
+（`progress.service.ts:262 / ~150 / ~180`）：
+
+- 关键：**`生产进度` 是 `工序1…工序15` 用 `➞` 拼起来的**：
+  ```ts
+  function buildProgressText(row) {
+    const parts = []
+    for (let i = 1; i <= 15; i++) { const v = row[`工序${i}`]; if (v != null && String(v).trim() !== '') parts.push(String(v).trim()) }
+    return parts.join('➞')
+  }
+  ```
+- 行里带的中文字段（前端直接按这些 key 取值，见 §2.3 与 Excel 导出）：
+  `日期 客户 客户编号 单号 回执单号 型材 颜色 底玻 面玻 玻璃厚 开向 扇数 门洞高 门洞宽 墙厚 轨道长
+   轨道种类 套线种类 套线金额 亮窗总高 亮窗数量 洞尺 封板高 吊脚 数量 单价 平方数 金额 备注 安装地址
+   生产进度 打单人 业务员 打单操作 扫码日期 加价项目 加价项目原始数据 其它费用 计价方式 折扣 边封数
+   五金 formulaid 图片ID imageUrl 工序1..工序15 id`
+- 前端再补：`isSelected:false`、`生产进度 = 生产进度 || ""`。
+
+### 3.2 工序列表
+
+```
+GET /1?param1=GetProcedures&param2={userinfo.registrant}
+```
+调用点：`@76983`、`@133918`；字面 URL 前缀也在解码表 `de(360)`（另有 `E(738)` 同值）。
+
+服务端（`auth.service.ts:295`）返回**扁平 15 槽**：
+
+```ts
+const result = {}; for (let i = 1; i <= 15; i++) result[`工序${i}`] = ''
+for (const p of procedures) if (p.orderIndex) result[`工序${p.orderIndex}`] = p.name
+return result          // { 工序1: '下料', 工序2: '', … 工序15: '打包' }
+```
+
+前端消费（反混淆源，两处同构）：
+```js
+Object.entries(data)                      // [['工序1','下料'], …]
+  .map(([k, v]) => ({ key: k, value: typeof v === 'string' ? v.trim() : '',
+                      order: Number(k.match(/(\d+)/)?.[1] ?? Number.POSITIVE_INFINITY) }))
+  .filter(x => x.value)                   // 丢掉空槽
+  .sort((a, b) => a.order - b.order)      // 按槽号
+for (const x of list) { U.push(x.value); T[x.value] = x.key }   // U=工序名数组, T=名→槽key
+if (!T['回款']) { U.push('回款'); T['回款'] = '工序10' }         // 回款兜底到工序10
+```
+
+⚠️ **`回款` 永远是前端补进去的**，且固定映射到槽 `工序10`。
+
+### 3.3 写接口
+
+**改进度** —— `POST /1?param1=updataProgress&param2={ds}&param3={槽key}&param4={追加段}`，
+body = `JSON.stringify(数组)`：
+
+```js
+const a = userinfo.ds
+const n = (W.operator === '默认' || !W.operator.trim()) ? '' : W.operator
+const r = W.selectedProcedure            // 工序名（显示用）
+const u = T[r]                           // 工序槽 key，如 "工序10"
+let i = r; if (n) i += '_' + n; i += '_' + W.updateDate      // 追加段 = 工序名[_操作员]_YYYY-MM-DD
+// body：工序10（回款）传 id，其它传 单号
+s = (u === '工序10') ? rows.map(x => x.id) : rows.map(x => x['单号'])
+fetch('…?param1=updataProgress&param2=' + a + '&param3=' + u + '&param4=' + i,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s) })
+```
+
+证据：调用点 `@82456`（字面 URL）+ 反混淆源里的 `la` 函数。
+
+服务端语义（`legacy-dispatch.ts:791`）—— **同一个 `updataProgress`，按 `param3` 分流**：
+
+```ts
+if (!isProcedureSlot(p.param3))            // 不是 /^工序\d+$/ ⇒ 是「打单操作」
+  return progServ.updatePrintStatus(p.ds, p.param3, p.body, p.param4 || '')
+if (p.param3 === '工序10' && p.param4)
+  return progServ.updateProgress(...).then(r => progServ.updatePrintStatus(p.ds, p.param4, p.body, '', true).then(() => r))
+return progServ.updateProgress(p.ds, p.param3, p.body, p.param4 || '')
+```
+且 `updateProgress`（`progress.service.ts`）里：`工序10` 走 `mergePrintStatus(row['工序10'], procedureValue)`（**合并**），
+其它槽是**直接覆盖** `[procedureSlot]: procedureValue`。
+
+**删进度** —— `GET /1?param1=deleteProgress&param2={ds}&param3={槽key}&param4={id或单号}&param5={encodeURIComponent(工序名)}`
+（调用点见 §3.4 的「删除」；服务端 `legacy-dispatch.ts:820` → `deleteProgressCell(ds, param3, param4, param5)`）。
+
+**收款**（`回款` 相关）：
+- 读：`GET /1?param1=PaymentCollection&param2={ds}&param3={回执单号}` → `data.tableData[0]` 取
+  `{客户,日期,门数,总价,定金,回执单号}`
+- 写：`GET /1?param1=updataPaymentCollection&param2={ds}&param3={新定金}&param4={回执单号}`（调用点 `@80140`）
+
+**查询更多**：
+```js
+GET /1?param1=getMoreProgress&param2={ds}&param3={客户}&param4={地址}&param5={startDate}&param6={endDate}
+// 调用点 @118671；服务端 progress.service.ts:324 → 同样返回 {code,data:{progressData}}
+```
+返回后前端：按 `parseInt(回执单号)` **倒序**，按 `打单人` 过滤（非注册人时），
+并入 `K2`（已有行保留原对象、新行追加），并把 `zo` 设为 `"{客户} {地址}".trim()`。
+对话框打开时（`Lo`）另拉 `GET /1?param1=getClientsInfo&param2={ds}`（调用点 `@118001`）填客户下拉，
+映射成 `{name:客户, tel:电话, address:地址, id:编号}`。
+
+**其它（同页复用 Home 的那套）**：`getLatestClientsInfo`(@126248)、`getimage`(@126599)、
+`finance_getCustomerBalance`(@127081, 前缀 `de(446)`)、`deleteRow`(@135146, 前缀 `de(697)`)。
+
+### 3.4 请求时序
+
+```
+onMounted  → 读 userinfo；defaulted===3 ⇒ D=false
+             L2 = userinfo.name；b2 = (userinfo.registrant === userinfo.name)
+             P2 = b2 || userinfo.name === '开门红'
+onActivated→ Ta()（拉 getProgress / getProgressForTerminal）+ X2()（重读 localStorage 颜色表）
+```
+证据：`Vue.onMounted(async()=>{ … 3===t2.userinfo.defaulted&&(D2.value=!1); … L2.value=a2; b2.value=l2===a2;
+P2.value=l2===a2||a2==="开门红" })`、`Vue.onActivated(()=>{Ta(),X2()})`。
+
+---
+
+## 4. 交互
+
+### 4.1 筛选与搜索（全部在前端做，不重新请求）
+
+`K2`（原始行）→ `oo` → `no`（最终结果集）→ `io`（当页切片）。链路：
+
+1. `oo = b2 ? K2 : K2.filter(r => r.打单人 === L2)`
+   —— **不是注册人就只看自己打单的行**。
+2. `ia`（单号列筛选，值 ∈ `有单号` / `空单号`）
+3. `Z2`（**生产进度颜色筛选**）：若选的是 `__unproduced__` → 只留 `单号` 为空的行；否则按
+   `R2(row.生产进度) === Z2` 匹配颜色键。
+4. `Va`（「查单号」输入的前缀）→ `单号.toLowerCase().startsWith(v)`
+5. `zo`（搜索框）→ 空格分词，**每个词都要命中**下列任一字段（`includes`，全部 `toLowerCase`）：
+   `客户 日期 型材 安装地址 备注 单号 业务员 打单人 生产进度 回执单号`。
+6. 列筛 `filters`（`单号` 列的表头筛）另经 `fa = ({单号}) => 单号 && (ia.value = 单号)` 回灌。
+
+### 4.2 更新进度（单行）
+
+「日期」列 → **更新进度** 链接（`v-if="单号"`，无单号则提示「未开始生产的单无法更新进度」）：
+
+1. `Y = row`，打开弹窗 `I=true`（标题 `更新进度`，`width:280px`，`class="update-progress-dialog"`，`close-on-click-modal=false`）
+2. 拉 `GetProcedures` 填工序下拉（`U`），重置 `W = {selectedProcedure:'', operator:'默认', updateDate:今天}`
+3. 表单：**选择工序**（必填）/ **操作员**（默认「默认」，可清空）/ **更新日期**（默认今天）
+4. footer：`确认` / `取消`（取消后 `pa()` 刷新）；**非批量**时额外两颗：`收款`（warning）、`删除`（danger）
+5. `确认` → §3.3 的 `updataProgress` → 成功提示「进度更新成功」→ 关弹窗 + `pa()` 刷新
+
+批量模式（工具条「批量更新 (n)」）：标题 `批量更新进度 (n条)`，勾选行取自 `ping_hui + diao_hui`，
+且**勾选里只要有一行缺单号就拒绝**：
+`ElMessage.error("存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单")`。
+
+### 4.3 删除进度
+
+**单行「删除」链接**（日期列，红字）：
+```js
+onClick: async (row) => {
+  await E('删除') && ElMessageBox.confirm('确定要删除这一行吗？', '提示', {...}).then(...)
+}
+```
+⚠️ **`E` 是 `setup` 里 `const { verifyPassword: E } = usePasswordVerify()`** —— 即**删一行要过密码校验**，
+提示语为「删除」。证据：`@63719` `setup(n){const f=ce,{verifyPassword:E}=C(),...`，`C` 来自
+`import{u as C}from"./usePasswordVerify-b6115859.js"`。
+
+**弹窗里的「删除」**（按工序删）：先 `confirm`，若选中的工序是 `回款` 且该行有回执单号，
+再问一次「是否把该门款在已付款中扣除？」，确认则调 `PaymentCollection` 读定金 →
+`updataPaymentCollection` 写回 `max(0, 定金 - 行金额)`；最后 `deleteProgress&…&param5=工序名`。
+
+### 4.4 收款
+
+弹窗（`class="payment-dialog"`）：`此门金额 / 客户 / 日期 / 门数 / 总价 / 已付(输入框) / 未付`。
+`未付 = 总价 - 已付`，`>0` 时加 `.unpaid-warning`（橙）；整单已付清时 dialog 加 `.payment-dialog-paid-full`（绿底）。
+保存 → `updataPaymentCollection&param2=ds&param3=新已付&param4=回执单号`。
+
+### 4.5 打印
+
+工具条「打印选项」→ 抽屉 `class` 里一排按钮（都受「已选条数 > 0」disabled 约束）：
+
+`标签` · `生产标签` · `料标签` · `生产单` · `生产单定制` · `生产单定制(竖版)` · `玻璃合片单` · `玻璃订单` ·
+`平开门生产单` · `移门生产单` · `平开门生产单(定制)` · `收据单`
+
+点任意一个 → 生成 HTML 预览（`commentPreview` + 模板）→ 预览弹窗（`width:1180px`，容器宽 `1123px` 居中），
+弹窗按钮：`关闭` / `云打印` / `手动打印`（loading）/ 依据当前类型出现
+`编辑标签`(4=标签) / `复制收据单`+`编辑收据单`(5=收据单) / `编辑生产单`(2) + `导出扣板`(2) /
+`编辑玻璃合片单`(1) / `编辑玻璃单`(3) / `复制玻璃单`+`导出玻璃订单`。
+本地打印服务地址：`hl = Vue.ref("http://localhost:17521")`，`io(hl)` 建 socket，连上置 `Nl=true`。
+
+证据：`const pl2=Vue.ref(4)`（当前打印类型，默认 **4=标签**），类型名映射 `ne2`：
+
+```
+1→玻璃合片单  2/7/8/9→生产单  3→玻璃订单  4→标签  5→收据单  10→生产标签  11→料标签
+```
+
+### 4.6 导出
+
+- **导出表格**（工具条，`zo` 非空时可见）：ExcelJS 造「筛选结果」表，列 =
+  `日期 客户 单号 生产进度 型材 颜色 底玻 面玻 玻璃厚 开向 扇数 门洞高 门洞宽 墙厚 轨道长 亮窗总高
+   数量 平方数 金额 备注 安装地址 打单人 业务员`；
+  第 1 行标题（合并、蓝底 `FFE6F4FF`）、第 2 行统计（黄底 `FFFFF7E6`，高度按字数 `max(25, 18*ceil(len/80))`）；
+  表头行蓝底 `FFD9ECFF`；「生产进度」列 `wrapText`，行高按 `➞` 数量 `max(22, 18*(n+1))`。
+- **看板各 tab 的「导出表格」**：每个 tab 各一份 xlsx。
+
+### 4.7 分页 / 看板
+
+- 分页见 §2.4。
+- 「生产分析」（`P2`：`registrant === name` 或 `name === '开门红'`）→ 打开
+  `ProductionDashboard`（`production-dashboard-dialog` 里的全屏 `dashboard-container`）。
+- 看板里把时间切到「自定义查询」时不自己查，而是 `emit('customQuery')` →
+  页面 `Lo()` 打开 §4.3 的「更多查询」对话框（`onCustomQuery: Lo`）。
+
+---
+
+## 5. 状态与口径
+
+### 5.1 「生产进度」串的格式
+
+```
+工序名[_操作员]_YYYY-MM-DD  ➞  工序名[_操作员]_YYYY-MM-DD  ➞  …
+```
+- 段由服务端 `buildProgressText` 用 `➞` 拼 `工序1..工序15`（§3.1）。
+- 追加段由前端拼：`工序名` +（操作员非「默认」时 `_操作员`）+ `_YYYY-MM-DD`（§3.3）。
+
+### 5.2 串的渲染 `va()`（**颜色/加粗口径**）
+
+```js
+va(s):
+  s 为空 → ''
+  不含 '➞':
+      含 '_' → 前段 + '_' + 红15px粗体(最后一段)
+      否则   → 原文
+  含 '➞':
+      逐段拆；带日期的段落记 {part, date, index}
+      无日期但含 '_' → 红15px粗体(末段)
+      无日期也无 '_' → 整段红15px粗体
+      然后：带日期的段落里
+        日期全相同 → 取**最后一段**涂红加粗
+        否则       → 取**日期最大**的那段涂红加粗
+      用 '➞' 拼回去
+```
+即：**当前所处工序 = 红字加粗 15px**；判断依据优先看日期，没有日期就退化成「最后一段」。
+红字样式内联：`color: red; font-size: 15px; font-weight: bold`。
+
+### 5.3 颜色（`procedure_name_color_map`）—— 存 localStorage
+
+三个常量（反混淆源）：
+
+```js
+const Vl = 'procedure_name_color_map'   // localStorage key：{工序名: 颜色}
+const wl = 'procedure_name_order_list'  // localStorage key：工序名数组（优先级顺序）
+const yl = '__unproduced__'             // 伪颜色键：未生产
+```
+证据：raw `@63398` `const Vl=ce(582),wl=ce(220),yl=ce(274),…` 且 `de(582)/de(220)/de(274)` 见解码表。
+
+解析顺序：
+1. `X2()` → 读 `procedure_name_color_map`，坏数据返回 `{}`。
+2. `J2(进度串)`：
+   - 先读 `procedure_name_order_list`；**非空**时**从后往前**找第一个「包含在进度串里」的名字 → 返回其颜色；找不到返回 `null`。
+   - 该 List 为空时：把进度串按 `➞` 拆、取「日期最大」的那段（日期全相同取最后一段；都没有日期取最后一段），
+     再用颜色表的 key **按长度倒序**找第一个被该段 `includes` 的 → 返回其颜色。
+3. `R2(进度串)` = 颜色键（`F2` = 去空白 + 小写）；空串 → `#b71c1c`。
+4. **内置兜底**（颜色表没命中时按关键词）：
+   `发货` / `收据单` / `回款` → `#90EE90`；`标签` → `#FFC0CB`；`玻璃订单` → `#87CEEB`；
+   `生产单` → `#FFFF99`；`自助下单` → `#FFA500`。
+
+**「颜色筛选」下拉项**（表头 popover，`$2`）= `[{colorKey:'__unproduced__', color:'#f44336', label:'未生产'}]`
+拼上本地颜色表里出现的颜色（`label` = 该颜色下的所有工序名用 `' / '` 连接）。
+单元格底色由 `re2()` 给：无进度 → `{backgroundColor:'#b71c1c', color:'#fff', fontWeight:'bold'}`（红底白字），
+命中 → `{backgroundColor:<色>, fontWeight:'bold'}`。
+
+### 5.4 统计数字（工具条 + 看板）
+
+工具条统计（全部作用在 `no`，即**筛选后**）：
+
+| 变量 | 含义 | 公式 |
+|---|---|---|
+| `yo` | 移门扇数 | 逐行：`型材` 含「哑口」跳过；按 `扇数` 查表得 r（2轨2扇/单轨2扇/折叠2扇→2；2轨3扇/3轨3扇/折叠3扇/3轨2扇1纱→3；2轨4扇/4轨4扇/折叠4扇→4；3轨4扇2纱/折叠6扇/6轨6扇→6；单轨单扇→1；折叠5扇/5轨5扇→5；折叠7扇/7轨7扇→7；折叠8扇/8轨8扇→8；折叠9扇/9轨9扇→9；查不到→跳过）；累加 `数量 * r` |
+| `vo` | 平开门扇数 | `型材` 含「钻石」跳过；`开向` 归一化后 ∈ {内左,内右,外左,外右,左锁内开,右锁内开,左锁外开,右锁外开} → `+数量`；∈ {双开内开,双开外开,双开内左,双开内右,双开外左,双开外右} → `+2*数量` |
+| `mo` | 移门亮窗个数 | `亮窗总高>0 && 轨道种类` 非空且非 `"NULL"` → `+数量` |
+| `go` | 淋浴房扇数 | `扇数` ∈ {一固一活, 双活} → `+2*数量`；否则 `型材` 含「钻石」→ `+数量` |
+| `fo` | 其它 | 不属于以上任何一类（且非哑口）→ `+数量` |
+| `po` | 时间区间 | `no` 里所有 `日期` 的 min/max（`toISOString().slice(0,10)`） |
+
+⚠️ 这些是**前端逐行算的**，不是后端给的；与看板的 `ke2`（下面）口径**不完全一样**（看板另有「不含单玻」开关）。
+
+### 5.5 看板（`ProductionDashboard`）的口径
+
+`__name:"ProductionDashboard"` @7691（`const z={class:N(743)}` @6955，`E(743)="dashboard-container"`）；
+props `{modelValue:Boolean, tableData}`，
+emits `['update:modelValue','customQuery']`；`data-v-720e8586`。
+
+**数据源**：`tableData` = 页面传进来的 `K2`（**原始未筛选行**，不是 `no`），看板自己在前端聚合。
+
+**筛选条**：时间 radio `全部 / 今天 / 本周 / 本月 / 上月 / (自定义查询 → emit)`；
+`筛选客户`（可搜索）；`筛选业务员`；`生产状态`（`已进入生产` / `未进入生产`，可清空）；`重置`。
+标题随筛选变：`生产分析看板 (start ~ end)`，无区间时 `生产分析看板`。
+
+**5 张 KPI 卡**（`kpi-cards`，`grid-template-columns:repeat(5,1fr)`）：
+
+| class | 标题 | 主值 | 副行 |
+|---|---|---|---|
+| `kpi-card total` | 总门数 | `totalQuantity` | `平开{q} \| 移门{q} \| 淋浴{q} \| 其它{q}` |
+| `kpi-card fans` | 总扇数 | `totalFans` | `平开 \| 移门 \| 亮窗 \| 淋浴 \| 其它`；右上角开关 **不含单玻** |
+| `kpi-card area` | 总平方 | `totalArea.toFixed(2)` | 各项 `.toFixed(1)` |
+| `kpi-card amount` | 总金额 | `¥{totalAmount.toFixed(0)}` | 各项 `.toFixed(0)` |
+| `kpi-card production` | 生产进度 | — | `已生产: {startedCount}`（绿）/ `未生产: {notStartedCount}`（红） |
+
+**4 张饼图**：`按门数` / `按扇数` / `按平方` / `按金额`（echarts，`label.formatter="{b}: {c} ({d}%)"`）。
+**趋势图**：标题 `月度趋势` 或 `每日趋势`（`（门数/扇数/平方/金额）`），受时间筛选影响。
+**4 个 tab**：`按客户统计` / `按业务员统计` / `按工序统计` / `按型材统计`，每个 tab 一张表 + `导出表格` 按钮。
+表列分组固定为：`数量类(总门数/平开/移门/淋浴/其它)`、`扇数类(总扇数/平开扇/移门扇/移门亮/淋浴扇/其它扇)`、
+`面积类(m²)(总面积/平开/移门/淋浴/其它)`、`金额类(元)(总金额/平开/移门/淋浴/其它)`（首列依次是 客户/业务员/工序/型材）。
+「按工序统计」tab 会**另外**拉一次 `GetProcedures` 取工序名。
+
+---
+
+## 6. 权限 / 角色
+
+| 开关 | 来源 | 作用 |
+|---|---|---|
+| `D2`（旧版 Home 里叫 `Yt`） | `userinfo.defaulted === 3 ⇒ false`，否则 `true` | **PC / 终端模式**总开关：读接口、列集、工具条 |
+| `b2` | `userinfo.registrant === userinfo.name` | 数据范围：`true` 看全部，`false` 只看 `打单人 === 自己` |
+| `P2` | `b2 \|\| userinfo.name === '开门红'` | 「生产分析」按钮是否出现 |
+| `Nl` | 本地打印 socket 连上 | 云打印可用性 |
+
+**`D2=false`（终端模式）时**：
+- 读 `getProgressForTerminal&param2={ds}_{name.split('-')[1]}`
+- 隐藏 `客户` / `单号` 列、隐藏「全选」checkbox、隐藏「打印选项」与「批量更新」按钮
+- 表格多出一列 `备注`（位置在「生产进度」之后），PC 模式那列 `备注` 则消失
+- 表体渲染另有 `.mobile-close-radio`（关闭按钮染红，仅 `innerWidth<=768` 时出现）
+
+**⚠️ 与「终端订单页」不是同一样东西**：菜单里的「订单管理 → `/terminal-orders`」是**另一个页面**
+（`legacy/js/TerminalOrders-43b60190.js`）。`/Progress` 的终端模式是**同一组件的另一分支**。
+
+---
+
+## 7. 与 Home / Hui 的关系
+
+### 7.1 结论：`Progress` 是 `Home` 的**整页复制 + 换数据源**
+
+| | Home（订单管理，`/Home`） | Progress（生产进度，`/Progress`） |
+|---|---|---|
+| chunk | `legacy/js/Home-d6b13b9a.js` | `legacy/js/Progress-f4bdef35.js` |
+| 组件名 | `__name:"Home"`（`Home-d6b13b9a.js` @327897） | `__name:"Progress"`（`@63440`，`de(710)="Progress"`） |
+| scopeId | — | `data-v-95ebc180`（`fl(294)`） |
+| 读接口 | `getTableData`（`Home-d6b13b9a.js` @341990） | `getProgress`（`Progress-f4bdef35.js` @108455） |
+| 终端分支 | `getTableDataForTerminal&param2={ds}_{name.split('-')[1]}`，且置 `Yt=false` | `getProgressForTerminal&…`，且置 `D=false` |
+| 复用 | 同一批 Hui chunk 抽屉组件、`printService` / `mutilPrintService`、`usePasswordVerify`、`openDirectionNaming` | 同左（见下） |
+
+**共用的现成件**（两边 import 几乎一样）：
+
+```js
+// Progress-f4bdef35.js 头部
+import{b as c,c as d,d as V,e as w,f as y,s as m}from"./Hui-d088417c.js";   // 收据/玻璃单/标签/生产单 抽屉
+import{_ as g}from"./printService-48210c48.js";                            // commentPreview / 云打印
+import{_ as v}from"./mutilPrintService-0d5f4920.js";
+import{u as C}from"./usePasswordVerify-b6115859.js";                       // 删除时的密码校验
+import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // 开向归一化（统计用）
+```
+`Home-d6b13b9a.js` 也从 `Hui-d088417c.js` 引同一批（`import{u as t,_ as l,a as o,b as a,c as n,d as u,e as r,f as i,g as c,s}`）。
+
+### 7.2 「生产进度」这个字段在两边**语义不同** —— 别类推
+
+- **Progress 页的「生产进度」列** = **工序链**（`工序1..15` 用 `➞` 拼，服务端 `buildProgressText` 证实），
+  渲染用 `va()`（红字加粗**日期最大**那段），底色来自 `procedure_name_color_map`。
+- **Home 页的「生产进度」**（`docs/2026-09-17-home-analysis.md:108`）是**打单操作**那一套
+  （固定项 `已打生产单`/`未打生产单`/`已订玻璃`/`未订玻璃` + localStorage 自定义项），
+  新版已在 `app/src/views/Home.vue:2573 progressSegments` 实现成「5 固定段 + 自定义段」色条。
+- 两者**写的是同一个接口** `updataProgress`，靠 `param3` 是否匹配 `/^工序\d+$/` 分流
+  （匹配 → `updateProgress` 写工序槽；不匹配 → `updatePrintStatus` 写打单操作）——
+  **`legacy-dispatch.ts:791` 已证实**。所以「Progress 页只会写工序」这个说法是对的，但**不能反推 Home 也走工序**。
+
+### 7.3 新版已有的可复用件
+
+| 现有件 | 能否直接复用 |
+|---|---|
+| `app/src/components/DashboardBigScreen.vue`（「经营数据驾驶舱」） | ❌ **不是**这个看板。它是 Home 的经营看板（业务员/客户排行），Progress 要的是「生产分析看板」（工序/型材统计 + 4 饼图 + 趋势）。**只能借布局与 echarts 封装，指标要重写。** |
+| `app/src/views/Home.vue` 的进度串渲染 / 手动更新进度弹窗 / 打印链路 | ✅ 进度串分段、`usePasswordVerify` 用法、`PrintDrawer` / `printPayloads` 可参考；但**列集与筛选链路要另写** |
+| `app/src/api/client.ts` | ⚠️ 没有 `getProgress` 对应端点，需新增 |
+| `backend/src/modules/orders/*` | ⚠️ 没有 `getProgress` / `GetProcedures` 对应端点，需新增 |
+
+---
+
+## 8. 新版实现建议
+
+1. **路由**：`app/src/router/index.ts` 加 `{ path: '/progress', name: 'progress', component: Progress, meta: { requiresAuth: true } }`。
+2. **导航**：`AppHeader.vue` 加菜单项「⏳ 生产进度」，可见性按 `defaulted`（新版若无 `defaulted`，
+   先用「非终端账号」等价条件）。
+3. **后端**（`backend/src/modules/`）新增两个端点，字段名沿用旧版中文 key 最省事（与 Home 的
+   `OrderSummaryDto` 不同，别硬套）：
+   - `GET /v1/progress?ds=…`（PC）/ `?ds=…&terminal=<name-prefix>`（终端）→ `{ progressData: [...] }`
+   - `GET /v1/procedures` → `{ 工序1: '下料', … }`（扁平 15 槽）
+   - `POST /v1/progress/update`（`slot` + `refs[]` + `segment`）、`POST /v1/progress/delete`
+4. **数据流**：页面只拉一次全量 `progressData` → 前端筛选/分页（**与旧版一致**，旧版确实不重新请求）；
+   看板吃**全量**（`K2`），不是筛选后的 `no`。
+5. **列集**：按 §2.3 实现两套（PC 14 列 / 终端 10 列），**备注列位置在两种模式下不同**。
+6. **可复用**：`.ping-hui-outer-container` 布局、`PrintDrawer`、`usePasswordVerify`、开向归一化
+   （`openDirectionNaming`）、`printPayloads`。
+7. **建议顺带修的旧版毛病**（见 §9）：表格 `v-if="K2.length > 1"`、看板标题里 `工序10` 的 `回款` 硬编码。
+
+---
+
+## 9. 不确定清单（⚠️ 未证实）
+
+1. ⚠️ **`procedure_name_color_map` / `procedure_name_order_list` 是谁写进 localStorage 的** ——
+   本 chunk 只读不写。全仓库 `grep` 未找到写入方。**推测**在设置页（`/setting`）或旧版另一个 chunk，
+   **未证实**。
+2. ⚠️ **`userinfo.defaulted` 的取值全集** —— 只从代码见到 `2`（受限）、`3`（终端）两个分支被特判，
+   `1`/其它一律按正常 PC 账号。全集未证实。
+3. ⚠️ **`GetProcedures` 的 `param2` 语义** —— 前端传的是 `userinfo.registrant`，
+   服务端 `legacy-dispatch.ts:364` 把 `param2` 当 `ds`（`databaseName`）。两者在旧数据里恰好相等，
+   但**这是巧合还是约定，未证实**。
+4. ⚠️ **看板 `ke2`（KPI 聚合）的「不含单玻」判定细节** —— 只读到 `h2`（开关）与 `底玻 === '无'` 参与，
+   完整的「单玻」定义未逐行切出来。
+5. ⚠️ **服务端 `updatePrintStatus` 的写入口径** —— 本次只读了 `legacy-dispatch.ts` 的分流与
+   `updateProgress` 的主体，`updatePrintStatus` 内部未展开（它在 Progress 页只在 `工序10` 兜底时被间接调用）。
+6. ⚠️ **`扫码员工` / `扫码日期`** —— 服务端在 `parseScanMarker` 命中时会**额外写这两个字段**，
+   但前端 Progress 页**没有渲染它们**（只用了 `扫码日期` 参与 `enrichDoorRow` 的透传）。是否给别的页用，未证实。
+7. ⚠️ **「移动 Tab」** —— 任务描述里提到的那套。本次在 `index-c3b16e3f.js` 里只找到
+   **桌面菜单**（`class="desktop-icon"`）那一处 `/Progress` 入口；
+   移动端底部 tab（`mobile-bottom-tab`）里**没有**找到指向 `/Progress` 的项。**不足以断言"移动端没有入口"**，
+   只能说「本次没切到」。
+8. ⚠️ **`P2` 里的 `'开门红'`** —— 这是**公司名/注册人名字面量**（`a2 === "开门红"`），
+   用于让特定账号也能看到「生产分析」。新版是否保留这个硬编码需要上游拍板。
+
+### 旧版本身的两处毛病（**不照抄**，已定位）
+
+- **`el-table` 的 `v-if="K2.value.length > 1"`**：结果是 1 条时**整张表不渲染**（连表头都没有），
+  只剩统计行。合理写法应是 `> 0`。新版不要照抄。
+- **`回款` → `工序10` 的硬编码**：前端在 `GetProcedures` 结果里没找到「回款」时，会把它塞进 `工序10`；
+  而服务端 `updateProgress` 对 `工序10` 又走 `mergePrintStatus`（合并而非覆盖）。两处特判是耦合的，
+  新版要么一起保留、要么一起去掉，**不能只改一边**。
+
+---
+
+## 附：本次新增的公共件（可复用）
+
+| 脚本 | 用途 |
+|---|---|
+| `legacy/decode-progress-map.mjs` | 通用**解码表 dumper**：切出包内**全部** 数组/解码器/轮转 IIFE 并真的 eval 跑，dump 出「下标→字符串」。带 6 条已知值自检。 |
+| `legacy/decode-progress-scoped.mjs` | **带词法作用域**的反混淆器（`@babel/parser`）。把 `X(数字)` 就地换成字符串。 |
+| `legacy/lib-break-render.mjs` | 把 Vue 编译产物那种「几千字符一行的 `return a, b(...)`」按括号深度折行，便于人读。 |
+
+用法：
+
+```bash
+node legacy/decode-progress-map.mjs legacy/js/Progress-f4bdef35.js /tmp/progress-map.json
+node legacy/decode-progress-scoped.mjs legacy/js/Progress-f4bdef35.js /tmp/progress-map.json /tmp/progress.decoded.js
+node legacy/lib-break-render.mjs /tmp/progress.decoded.js /tmp/progress.broken.js 3
+# 同样的两个脚本也能吃 index 包（它自己那 12 套解码器会被自动枚举）：
+node legacy/decode-progress-map.mjs legacy/js/index-c3b16e3f.js /tmp/index-map.json
+```
+
+⚠️ 自检只对 **Progress 包**有效（6/6 命中）。跑 index 包时会打印
+「本包没有任何一条自检命中 —— 解码表**没有被钉住**」——
+所以 **index 包的 12 张表尚未被已知值验证过**，本文里引用它的结论（§1 入口、§6 菜单可见性）
+都是靠**语义自洽**（`r.push("/Progress")` 必须是 `push` 而不是 `removeEventListener`）交叉核对过的，
+但不如 Progress 包那几张表钉得死。
+
+### 踩过的坑（写在这里免得下次再踩）
+
+1. **`l[t-=453]` 是相对偏移** —— `f(453+k)` 才等于 `arr[k]`；直接 `f(k)` 一个都取不到。
+2. **数组函数不一定在解码器前面**：主表里解码器 @758、数组 @1284；`dl` 的轮转又夹在两者之间。
+3. **轮转 IIFE 的开头形状每套都不一样**（`for(;;)try{` / `for(var e=se,t=ue();;)try{`），
+   写死一种会让另外几套被判成「无轮转」，解码表**整体错位**却不报错。
+   本次就因此把 `se(413)` 解成了校验和串 `75758DDkOwr`（应为 `__scopeId`）——**靠自检才发现**。
+4. **`!function(){...}()` 里 `function` 后面那个 `()` 是空参数表**，配平要配后面那个 `{`。
+5. **别名必须按作用域解析**：组件里 `const r=N,u=e,s=n` 中的 `u`/`s` 是 **props / emit**，不是解码器；
+   全局做「名字→解码器」的传递闭包会把它们错替（首版就这么错的）。

@@ -87,3 +87,34 @@
 
 **下一步**：拉 `vue-12e1d32f.js`（外壳 import 的就是它）找 `Y`；或者干脆在浏览器里打开旧版
 数一遍顶部导航。
+
+---
+
+## 附：旧版**完整路由表**（从外壳 `legacy/js/index-c3b16e3f.js` 取的，权威）
+
+比按 `legacy/js/` 里的 chunk 文件名去猜准得多 —— 先前那份「哪些模块没做」的清单就是按文件名猜的，
+**已作废**，以本表为准。
+
+| 路由 | 组件 | 新版 |
+|---|---|---|
+| `/login` | `Login` | ✅ `views/Login.vue` |
+| `/home` | `Home` | ✅ `views/Home.vue` |
+| `/hui` | `Hui` | ✅ `views/Hui.vue` |
+| `/Diao` | `Diao` | ❌ 未做 |
+| `/clients_Info` | `ClientsInfo` | ✅ `views/Clients.vue`（⚠️ 内容对不对得上**未核**） |
+| `/setting` | `Setting` | ❌ 未做 |
+| `/Qrscanner` | `Qrscanner` | ❌ 未做 |
+| `/Progress` | `Progress` | ❌ **未做 ← 本次要做** |
+| `/drawDoor` | `drawDoor` | ❌ 未做 |
+| `/test-addprice` | `TestAddPrice` | ❌ 未做（测试页，可能不必做） |
+| `/3d-view` | `3DView` | ❌ 未做 |
+| `/sliding-door-3d` | `SlidingDoor3D` | ❌ 未做 |
+| `/composite-gate-3d` | `CompositeGate3D` | ❌ 未做 |
+| `/share` | `ShareView` | ❌ 未做（⚠️ 与 `/receipt-share` 的关系**未核**） |
+| `/share/:id` | `ShareViewById` | ❌ 未做 |
+| `/receipt-share` | `ReceiptShare` | ✅ `views/ReceiptShare.vue` |
+| `/terminal-orders` | `TerminalOrders` | ❌ 未做 |
+| `/receipt-view/:receiptNo` | `ReceiptView` | ✅ `views/ReceiptView.vue` |
+
+⚠️ 本表来自**本地**那份外壳。上面「本地 vs 线上」那一节说过两版导航有出入 ——
+**路由表这两版是否一致，没核过**。

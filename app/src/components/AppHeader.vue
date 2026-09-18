@@ -1,52 +1,42 @@
 <template>
   <!--
-    全局顶部导航栏 —— 照**线上**旧版的应用外壳。
+    全局顶部导航栏。
 
-    ## 依据（不是 DESIGN-DOC.md，那份已过时）
+    ## 为什么只有 4 项
 
-    直接从线上取：`https://www.19901110.xyz:16666/` → 入口 `/js/index-f9710780.js`
-    （**注意：本地下载的那份是 `index-c3b16e3f.js`，与线上不是同一个** —— 包更新过）。
-    该外壳没混淆，桌面导航项是 `class:"desktop-icon"` 的那一批，按 bundle 顺序取出来是：
+    旧版桌面导航有 12 个位置（线上外壳里 `class:"desktop-icon"` 那一批），但**那些模块本版还没做**
+    （扫码生产 / 画门窗 / 进度 / 制作回执单 …），其中 7 个连文案都还是 token（`o(436)` 等，
+    解码器在另一个 chunk 里，没解出来）。
 
-    | 图标 | 文案 | 本版 |
-    |---|---|---|
-    | ➗ | 公式 | ⇒ `/formulas`（已实现） |
-    | 📋 | **生产**（文案是 `o(443)`，见下） | ⇒ `/`（订单生产总表） |
-    | 👥 | 客户信息 | ⇒ `/clients`（已实现） |
-    | 📱 | 扫码生产 | **未实现** |
-    | ✏️ | 画门窗 | **未实现** |
-    | 🔄 | **进度**（文案是 `o(372)`，见下） | **未实现** |
+    ⇒ **只列本版真有的路由**，标签一律用**能核实到字面量**的那几个：
 
-    ⚠️ **两个文案是推断的**：`📋` 与 `🔄` 两项的 label 在 bundle 里是 `o(443)` / `o(372)`，
-    而那个解码器 `o` 定义在**另一个 chunk** 里（外壳自身没有字符串数组），没解出来。
-    推断依据：外壳里的中文字面量只有「生产 / 进度 / 订单管理 / 参数设定 …」这几个还没安置，
-    按图标配（📋→生产、🔄→进度）。**要较真得再解一次 `o`。**
-    其余四项（公式 / 客户信息 / 扫码生产 / 画门窗）是**字面量**，确凿。
+    | 图标 | 文案 | 核实来源 | 路由 |
+    |---|---|---|---|
+    | 📋 | 订单管理 | 线上外壳**字面量**（移动 Tab 那套） | `/` |
+    | 🧮 | 汇算下单 | **本版新增**（旧版从 Home 里的按钮进） | `/hui` |
+    | ➗ | 公式 | 线上外壳**字面量**（桌面那套） | `/formulas` |
+    | 👥 | 客户信息 | 线上外壳**字面量**（桌面那套） | `/clients` |
 
-    ## 未实现的项
+    ⚠️ **不摆置灰的占位项**：文案解不出、模块也没做，摆上去只是噪音。
+       等那些模块做的时候，按 `docs/2026-09-19-legacy-nav.md` 里记的三套导航清单补。
 
-    不删、不藏 —— 按旧版原样列出来，但**置灰并标「本版未实现」**，点了给提示。
-    理由：死链（点了没反应）比置灰更糟；而直接不显示会让人以为旧版没有。
+    ## 为什么需要它（2026-09-19 用户提）
 
-    ## 本项目自己的入口
+    新版把入口都放在 Home（「汇算下单」→ `/hui`），而 Hui 里**没有任何回头的路**，进去就出不来。
+    旧版靠这条导航栏做页面间跳转。
 
-    「汇算下单」(`/hui`) 是**本版新增**的入口（旧版从 Home 里的按钮进），也列在这里，
-    否则进 Hui 之后又是没有回头路 —— 这正是加这条导航栏的原因。
+    ⚠️ 这里**不放「退出登录」**：`Home.vue` 自己工具条上已经有一颗，会重复。
   -->
   <header class="app-header">
     <nav class="nav">
       <template v-for="it in items" :key="it.label">
         <RouterLink
-          v-if="it.to"
           :to="it.to"
           class="nav-item"
           :class="{ 'is-active': isActive(it) }"
         >
           <span class="ico">{{ it.icon }}</span>{{ it.label }}
         </RouterLink>
-        <span v-else class="nav-item is-todo" :title="'旧版有、本版未实现'" @click="onTodo(it.label)">
-          <span class="ico">{{ it.icon }}</span>{{ it.label }}
-        </span>
       </template>
     </nav>
 
@@ -61,26 +51,17 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { RouterLink } from 'vue-router'
-import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
 
 const route = useRoute()
 const auth = useAuthStore()
-const message = useMessage()
 
-/**
- * 桌面导航项 —— **顺序照线上 bundle 里 `desktop-icon` 的出现顺序**。
- * `to` 缺省 = 旧版有、本版未实现（置灰）。
- */
+/** 导航项 —— **只放本版真有的路由**（见文件头的表）。 */
 const items = [
-  { icon: '➗', label: '公式', to: { name: 'formulas' } as const },
-  { icon: '📋', label: '生产', to: { name: 'home' } as const },
-  { icon: '👥', label: '客户信息', to: { name: 'clients' } as const },
-  { icon: '📱', label: '扫码生产', to: null },
-  { icon: '✏️', label: '画门窗', to: null },
-  { icon: '🔄', label: '进度', to: null },
-  // ⚠️ 本版新增（旧版从 Home 里的按钮进）—— 不放它的话进 Hui 就没回头路了。
+  { icon: '📋', label: '订单管理', to: { name: 'home' } as const },
   { icon: '🧮', label: '汇算下单', to: { name: 'hui' } as const },
+  { icon: '➗', label: '公式', to: { name: 'formulas' } as const },
+  { icon: '👥', label: '客户信息', to: { name: 'clients' } as const },
 ]
 
 function isActive(it: { to: unknown }) {
@@ -88,9 +69,6 @@ function isActive(it: { to: unknown }) {
   return !!name && route.name === name
 }
 
-function onTodo(label: string) {
-  message.info(`「${label}」旧版有，本版还没做`)
-}
 </script>
 
 <style scoped>
@@ -133,15 +111,6 @@ function onTodo(label: string) {
 .nav-item.is-active {
   background: #1a7f3c;
   color: #fff;
-}
-/* 旧版有、本版未实现：置灰但仍可点（点了给提示，不是死链） */
-.nav-item.is-todo {
-  color: #c0c4cc;
-  cursor: pointer;
-}
-.nav-item.is-todo:hover {
-  background: #fafafa;
-  color: #909399;
 }
 .grow {
   flex: 1;
