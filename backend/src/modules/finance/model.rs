@@ -227,7 +227,8 @@ pub struct AllocationPreview {
 }
 
 /// 分配预览里的单条分配结果。
-#[derive(Debug, Serialize)]
+/// `Clone` 是给「同一份计划既当预览返回、又落库」用的（见 `service::PrepaymentPlan`）。
+#[derive(Debug, Clone, Serialize)]
 pub struct AllocationItem {
     pub order_id: i64,
     pub receipt_no: String,
@@ -238,10 +239,16 @@ pub struct AllocationItem {
 }
 
 /// 预付款分配预览结果（finance_previewPrepaymentAllocation）。
+/// 执行（finance_executePrepaymentAllocation）返回的是**同一份**结构 + `saved`，
+/// 旧版也是这么给的（svc:862 把整个 preview 摊在响应里）。
 #[derive(Debug, Serialize)]
 pub struct PrepaymentAllocationPreview {
     pub allocations: Vec<AllocationItem>,
     pub total_allocated: f64,
     pub total_discount: f64,
+    /// **本次拟分配里没分掉的**（旧版 `资金池剩余` = `remaining`，svc:227）。
+    /// 不是「客户池子还剩多少」—— 那是 `available_balance`（旧版 `availableBalance`，svc:800）。
     pub pool_remaining: f64,
+    /// 客户资金池**可用额**（= max(0, 未分配余额)），即这次最多能分出多少（旧版 svc:796/800）。
+    pub available_balance: f64,
 }

@@ -36,16 +36,20 @@ async fn fetch_order(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<
 }
 
 // ---------------------------------------------------------------------------
-// 口径（docs/2026-09-17-home-analysis.md §7.1/§7.3）：
+// 口径（docs/2026-09-17-home-analysis.md §7.1/§7.3；与旧服务端的逐条对照与依据见
+// docs/legacy-finance/08-fix-plan.md，源码简写 `svc:N` = 旧版 finance.service.ts 第 N 行）：
 //   已分配金额 = 本单收款(orders 级 finance_payments) + 预付款/客户收款分配(finance_allocations)
 //   订单调整金额 = Σ finance_order_adjustments.amount（正=减免，负=冲销）
-//   未收金额   = 总价 − 已分配金额 − 订单调整金额
+//   未收金额   = max(0, 总价 − 已分配金额 − 订单调整金额)      ← 夹零，见改动 1（svc:827/829）
 //   订单总额   = Σ orders.total_price（按客户）
-//   实收金额   = Σ finance_payments.amount（按客户，含红冲负数）
+//   实收金额   = Σ **客户级**(order_id IS NULL)且为**正**的收款 = 「累计充值」，红冲不减（svc:257/398/409）
 //   订单调整合计 = Σ finance_order_adjustments.amount（按客户）
 //   客户调整合计 = Σ finance_customer_adjustments.amount（按客户）
-//   客户余额   = 订单总额 − 实收金额 − 订单调整合计 − 客户调整合计
-//   未分配余额 = 实收金额 − 已分配总额（= 已分配到订单的资金，含本单收款+分配）
+//   客户余额   = max(0, Σ 逐单未收 − 客户调整合计) = **客户还欠多少**（svc:763）
+//   未分配余额 = 实收净额 − 已分配总额（= 资金池里还能分配的钱；含红冲负数，**可负**）
+//
+// ⚠️ 「客户余额」与「未分配余额」是两个方向的钱，旧版就这么定义的，别互相替代：
+//    客户余额 = 客户还欠我们多少（≥0）；未分配余额 = 客户放在我们这儿的钱（可负）。
 // ---------------------------------------------------------------------------
 
 /// 订单财务摘要。
@@ -98,6 +102,12 @@ pub async fn order_finance(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiR
     let allocated = round2(paid + alloc);
     let adjustment = round2(adj);
     let unpaid = round2(head.total_price - allocated - adjustment);
+    // 改动 1（旧版 svc:827/829 的 `Math.max(0, fo.unpaidAmount − alloc − discount)`）：
+    // 未收**永远不为负**。旧版每写一次未收都夹零（:235/:349/:373/:827），所以存量列里不可能出现
+    // 负数；而我们是实时聚合，只要多分配/多抹零就会算出负数 —— 那不是「客户倒欠」，
+    // 是账目错误（实测：池子 0 也能分配，未收被算成 −100/−50，见 04-diff-ours.md §9.6）。
+    // 用 `<=` 顺带把 `round2` 可能产生的 −0.0 归一成 0.0。
+    let unpaid = if unpaid <= 0.0 { 0.0 } else { unpaid };
 
     Ok(OrderFinance {
         total_price: round2(head.total_price),
@@ -198,9 +208,25 @@ pub async fn customer_balance(
     .fetch_one(pool)
     .await?;
 
+    // 实收净额（含红冲负数，可负）—— 只给「未分配余额」用，**不是**对外的 `实收金额`。
     let paid: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments \
          WHERE tenant_id = $1 AND customer_code = $2",
+    )
+    .bind(tenant_id)
+    .bind(customer_code)
+    .fetch_one(pool)
+    .await?;
+
+    // 改动 5：对外 `实收金额` = **累计充值**，不是净收款。
+    // 旧版 `totalTopup += (prepaidDelta > 0 ? prepaidDelta : 0)`（svc:257/398/409）——
+    // 只累加**正数**，红冲不减它；且只统计**客户级**那部分（`prepaidDelta` = 本次收款里没分到
+    // 具体订单的钱，svc:384-386），本单收款（order_id 非空）从来不计入 totalTopup。
+    // 我们先前是「Σ 全部收款（净额）」，池子被红冲后会把实收打成负数（实测 1000 → −200）。
+    // ⚠️ 与下面的 `paid`（净额）**分母不同，别合并**：`未分配余额` 必须用净额。
+    let paid_amount: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments \
+         WHERE tenant_id = $1 AND customer_code = $2 AND order_id IS NULL AND amount > 0",
     )
     .bind(tenant_id)
     .bind(customer_code)
@@ -244,16 +270,41 @@ pub async fn customer_balance(
     .fetch_one(pool)
     .await?;
 
+    // 改动 4：`客户余额` = **客户还欠多少**（旧版 svc:763 `Math.max(0, Σ unpaidAmount − Σ 客户调整)`）。
+    // 逐单未收用一条 SQL 算，公式与 `order_finance` 同源（含改动 1 的夹零）：
+    //   未收 = max(0, 总价 − 本单收款 − 池分配 − 订单调整)
+    // 只有**还存在的订单**参与（JOIN orders）——订单删掉后它就不该再算欠款，与旧版的
+    // financeOrder 行随订单消失同构。注意这里**不减** `订单调整合计`：订单调整已经逐单减进
+    // 未收里了，再减一次会重复（旧版 `客户余额` 里也没有 orderAdjust 这一项）。
+    let unpaid_total: f64 = sqlx::query_scalar(
+        "SELECT COALESCE(SUM(GREATEST(0.0::float8, \
+                o.total_price - COALESCE(p.paid, 0.0) - COALESCE(a.alloc, 0.0) - COALESCE(j.adj, 0.0))), 0.0) \
+         FROM orders o \
+         LEFT JOIN (SELECT order_id, SUM(amount) AS paid FROM finance_payments \
+                    WHERE tenant_id = $1 GROUP BY order_id) p ON p.order_id = o.id \
+         LEFT JOIN (SELECT order_id, SUM(amount) AS alloc FROM finance_allocations \
+                    WHERE tenant_id = $1 GROUP BY order_id) a ON a.order_id = o.id \
+         LEFT JOIN (SELECT order_id, SUM(amount) AS adj FROM finance_order_adjustments \
+                    WHERE tenant_id = $1 GROUP BY order_id) j ON j.order_id = o.id \
+         WHERE o.tenant_id = $1 AND o.client_code = $2",
+    )
+    .bind(tenant_id)
+    .bind(customer_code)
+    .fetch_one(pool)
+    .await?;
+
     let allocated_total = round2(order_paid + alloc);
     let unallocated = round2(paid - allocated_total);
-    let balance = round2(order_total - paid - order_adj - cust_adj);
+    // 客户调整是**客户级**的减免，直接减欠款；夹零：多抹了也不会变成「客户倒欠」。
+    let balance = round2(unpaid_total - cust_adj);
+    let customer_balance = if balance <= 0.0 { 0.0 } else { balance };
 
     Ok(CustomerBalance {
         customer_code: customer_code.to_string(),
         customer_name: order_name,
         order_total: round2(order_total),
-        paid_amount: round2(paid),
-        customer_balance: balance,
+        paid_amount: round2(paid_amount),
+        customer_balance,
         unallocated_balance: unallocated,
         order_adjust_total: round2(order_adj),
         customer_adjust_total: round2(cust_adj),
@@ -293,8 +344,11 @@ pub async fn add_order_payment(
     if amount < 0.0 && amount.abs() > of.allocated_amount + 0.005 {
         return Err(ApiError::bad_request("红冲金额绝对值不能超过本单已分配金额"));
     }
+    // 护栏：收款不能超过「客户还欠多少」。旧版 `addOrderPayment`(svc:438-457) 一条校验都没有，
+    // 这是我们有意加的（08-fix-plan.md「不做的」第 3 条）；改动 4 之后 `客户余额` 的语义正是
+    // 「还欠多少」，所以这条依然成立，只是文案得跟着改（别再叫它「客户余额」，那会让人以为是净额）。
     if amount > cb.customer_balance + 0.005 {
-        return Err(ApiError::bad_request("收款金额超过客户余额"));
+        return Err(ApiError::bad_request("收款金额不能超过客户未收合计"));
     }
 
     let mut tx = pool.begin().await?;
@@ -634,6 +688,93 @@ pub async fn reverse_order_allocation(
     Ok(alloc)
 }
 
+/// 该客户的可分配订单，顺序照旧版 `financeOrdersForCustomer`
+/// （`orderBy: [{order:{orderDate:'asc'}}, {createdAt:'asc'}]`，svc:155/165）。
+///
+/// 改动 7：旧版的第二排序键是 **finance_orders 行（财务行）的 `createdAt`**，我们没建单独的
+/// 财务行，只能拿 `orders.created_at` 当替代 —— 这是**近似，不是精确等价**：旧系统里财务行
+/// 是订单落库时一并建的，两者顺序通常一致，但同日补录/导入的订单可能反序。
+/// 末尾补 `id` 只为让顺序**确定**（旧版没这个兜底，同日同秒的行顺序由数据库给）。
+async fn fetch_allocatable_orders(
+    pool: &PgPool,
+    tenant_id: i64,
+    customer_code: &str,
+) -> ApiResult<Vec<OrderHead>> {
+    let rows: Vec<(i64, String, String, f64)> = sqlx::query_as(
+        "SELECT id, receipt_no, to_char(order_date, 'YYYY-MM-DD'), total_price \
+         FROM orders WHERE tenant_id = $1 AND client_code = $2 \
+         ORDER BY order_date, created_at, id",
+    )
+    .bind(tenant_id)
+    .bind(customer_code)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|(id, receipt_no, order_date, total_price)| OrderHead {
+            id,
+            receipt_no,
+            order_date,
+            total_price,
+        })
+        .collect())
+}
+
+/// 贪心分配（旧版 `buildAllocationPreview` svc:201-218 的**非红冲分支**）：订单日期从早到晚，
+/// 每单最多分到「它还没收的部分」。返回 `(分配行, 该行优惠金额)`。
+///
+/// `rate` 是**小数**（旧版口径，0.1 = 10%）；我们对外接口收百分数，换算在调用方做一次。
+///
+/// 优惠公式（旧版 svc:206）：
+/// ```text
+/// discount = rate > 0 ? min(未收 − 分配额, round(分配额 × rate, 2)) : 0
+/// ```
+/// ⚠️ `未收 − 分配额` 这个上限是**关键**：整单被这次分配付清时它恰好是 0 ⇒ **优惠恒为 0**。
+/// 我们先前没有这道上限，于是在「收款刚好覆盖整单」这个最常见场景下给出了旧系统从没给过的
+/// 优惠（实测：收 1000 付清整单，旧版 0 / 我们 100，见 04-diff-ours.md §9.5）。
+async fn build_allocation_rows(
+    pool: &PgPool,
+    tenant_id: i64,
+    customer_code: &str,
+    amount: f64,
+    rate: f64,
+) -> ApiResult<(Vec<(AllocationItem, f64)>, f64)> {
+    let mut remaining = amount;
+    let mut allocations: Vec<(AllocationItem, f64)> = Vec::new();
+    let mut total_discount = 0.0_f64;
+    for o in fetch_allocatable_orders(pool, tenant_id, customer_code).await? {
+        if remaining <= 0.005 {
+            break;
+        }
+        let of = order_finance(pool, tenant_id, o.id).await?;
+        let unpaid = of.unpaid_amount;
+        // 旧版是在 SQL 里 `unpaidAmount > 0` 过滤的（svc:171），我们的未收是实时算的，所以在这儿跳。
+        if unpaid <= 0.005 {
+            continue;
+        }
+        let a = round2(unpaid.min(remaining));
+        let discount = if rate > 0.0 {
+            round2(a * rate).min(round2(unpaid - a)).max(0.0)
+        } else {
+            0.0
+        };
+        allocations.push((
+            AllocationItem {
+                order_id: o.id,
+                receipt_no: o.receipt_no,
+                order_date: o.order_date,
+                total_price: round2(o.total_price),
+                allocated_amount: a,
+                remaining_after: round2(unpaid - a),
+            },
+            discount,
+        ));
+        total_discount = round2(total_discount + discount);
+        remaining = round2(remaining - a);
+    }
+    Ok((allocations, total_discount))
+}
+
 /// 分配预览（finance_previewAllocation）：按「未收 > 0 的订单，最早优先」贪心分配拟收款。
 pub async fn preview_allocation(
     pool: &PgPool,
@@ -641,97 +782,115 @@ pub async fn preview_allocation(
     req: PreviewAllocation,
 ) -> ApiResult<AllocationPreview> {
     let amount = round2(req.amount);
-    let orders: Vec<OrderHead> = {
-        let rows: Vec<(i64, String, String, f64)> = sqlx::query_as(
-            "SELECT id, receipt_no, to_char(order_date, 'YYYY-MM-DD'), total_price \
-             FROM orders WHERE tenant_id = $1 AND client_code = $2 ORDER BY order_date, id",
-        )
-        .bind(tenant_id)
-        .bind(&req.customer_code)
-        .fetch_all(pool)
-        .await?;
-        rows.into_iter()
-            .map(|(id, receipt_no, order_date, total_price)| OrderHead {
-                id,
-                receipt_no,
-                order_date,
-                total_price,
-            })
-            .collect()
-    };
-
-    let mut remaining = amount;
-    let mut allocations = Vec::new();
-    for o in orders {
-        if remaining <= 0.005 {
-            break;
-        }
-        let of = order_finance(pool, tenant_id, o.id).await?;
-        let unpaid = of.unpaid_amount;
-        if unpaid <= 0.005 {
-            continue;
-        }
-        let a = unpaid.min(remaining);
-        allocations.push(AllocationItem {
-            order_id: o.id,
-            receipt_no: o.receipt_no,
-            order_date: o.order_date,
-            total_price: round2(o.total_price),
-            allocated_amount: round2(a),
-            remaining_after: round2(unpaid - a),
-        });
-        remaining = round2(remaining - a);
-    }
+    // 客户收款预览：拟收款额**不按池子封顶**（旧版 `previewAllocation` svc:778-783 也没封）——
+    // 它预览的是「即将收进来的这笔钱怎么摊」，钱还没进池子。同理不给优惠（rate 0）。
+    let (allocations, _) =
+        build_allocation_rows(pool, tenant_id, &req.customer_code, amount, 0.0).await?;
+    let allocated: f64 = allocations.iter().map(|(r, _)| r.allocated_amount).sum();
 
     Ok(AllocationPreview {
-        allocations,
-        remaining_unallocated: round2(remaining),
+        allocations: allocations.into_iter().map(|(r, _)| r).collect(),
+        remaining_unallocated: round2(amount - allocated),
     })
 }
 
+/// 预付款分配计划 = 旧版 `previewPrepaymentAllocation`(svc:788-801) 与
+/// `executePrepaymentAllocation`(svc:805-863) 的**公共前段**。
+/// 预览与执行共用同一份，避免「预览显示的数」和「执行落库的数」各算各的。
+struct PrepaymentPlan {
+    /// 封顶后的分配金额（旧版预览里的 `totalAmount`）。
+    amount: f64,
+    /// 客户资金池可用额（旧版 `availableBalance`，svc:800/862）。
+    available: f64,
+    /// 逐单分配行 + 该行的优惠金额。优惠**不在分配行里**，单独记订单调整（见 execute）。
+    rows: Vec<(AllocationItem, f64)>,
+    total_discount: f64,
+    customer_name: String,
+}
+
+async fn prepayment_plan(
+    pool: &PgPool,
+    tenant_id: i64,
+    req: &PreviewPrepaymentAllocation,
+) -> ApiResult<PrepaymentPlan> {
+    // 改动 1（旧版 svc:796-797 / svc:814-815）：先按客户资金池封顶。
+    // `amount = min(max(0, 请求额), max(0, 池子可用额))` —— 池子里没钱就**一分也分不出去**。
+    // 我们先前完全没有这道闸：池子为 0 也能分配出 660，把池子扣成负数（实测见
+    // 04-diff-ours.md §9.6 场景④/③b）。这不是数字对不上，是**能凭空造出钱**。
+    let cb = customer_balance(pool, tenant_id, &req.customer_code).await?;
+    let available = if cb.unallocated_balance > 0.0 {
+        cb.unallocated_balance
+    } else {
+        0.0
+    };
+    let amount = round2(req.allocate_amount.max(0.0).min(available));
+    // 优惠比例：旧版收的是**小数**（0.05 = 5%，svc:782 直接乘），我们对外收百分数，这里换算一次。
+    let rate = req.discount_rate / 100.0;
+    let (rows, total_discount) =
+        build_allocation_rows(pool, tenant_id, &req.customer_code, amount, rate).await?;
+    Ok(PrepaymentPlan {
+        amount,
+        available,
+        rows,
+        total_discount,
+        customer_name: cb.customer_name,
+    })
+}
+
+/// 把计划摊成对外响应（预览与执行返回的是同一份，旧版 svc:800/862 也是这么给的）。
+fn plan_response(plan: &PrepaymentPlan) -> PrepaymentAllocationPreview {
+    let allocated: f64 = plan.rows.iter().map(|(r, _)| r.allocated_amount).sum();
+    PrepaymentAllocationPreview {
+        allocations: plan.rows.iter().map(|(r, _)| r.clone()).collect(),
+        total_allocated: round2(allocated),
+        total_discount: plan.total_discount,
+        // 改动 6：`资金池剩余` = **本次拟分配里没分掉的**（旧版 `buildAllocationPreview` 返回的
+        // `remaining`，svc:227），不是「客户池子还剩多少」—— 后者是 `available_balance`。
+        // 同名不同物曾是差异⑤（旧版 0 / 我们连字段都没有）。
+        pool_remaining: round2(plan.amount - allocated),
+        available_balance: plan.available,
+    }
+}
+
 /// 预付款分配预览（finance_previewPrepaymentAllocation）。
-/// 分配算法旧版为服务端计算（bundle 内不可见），此处按「订单日期从早到晚」贪心分配，
-/// 优惠金额 = 分配金额 × 优惠比例/100。INTERPRETED。
+/// 分配算法：订单日期从早到晚贪心 + 池子封顶 + 旧版的优惠上限，全部在 `prepayment_plan` 里。
 pub async fn preview_prepayment_allocation(
     pool: &PgPool,
     tenant_id: i64,
     req: PreviewPrepaymentAllocation,
 ) -> ApiResult<PrepaymentAllocationPreview> {
-    let preview = preview_allocation(
-        pool,
-        tenant_id,
-        PreviewAllocation {
-            customer_code: req.customer_code.clone(),
-            amount: req.allocate_amount,
-        },
-    )
-    .await?;
-
-    let total_allocated: f64 = preview.allocations.iter().map(|a| a.allocated_amount).sum();
-    let total_discount = round2(total_allocated * req.discount_rate / 100.0);
-    let cb = customer_balance(pool, tenant_id, &req.customer_code).await?;
-    // 资金池剩余 = 未分配余额 − 分配金额 − 优惠金额（优惠同样从池扣）。
-    let pool_remaining = round2(cb.unallocated_balance - req.allocate_amount - total_discount);
-
-    Ok(PrepaymentAllocationPreview {
-        allocations: preview.allocations,
-        total_allocated: round2(total_allocated),
-        total_discount,
-        pool_remaining,
-    })
+    Ok(plan_response(&prepayment_plan(pool, tenant_id, &req).await?))
 }
 
-/// 预付款分配执行（finance_executePrepaymentAllocation）：按预览结果落分配记录。
-/// 每单 amount = 分配金额 + 优惠金额，discount = 优惠金额。
+/// 预付款分配执行（finance_executePrepaymentAllocation）。
+///
+/// 落库两条（旧版 svc:819-861 的转写）：
+///
+/// ① `finance_allocations` 写 `amount = 分配额`、`discount = 优惠额`。
+///    ⚠️ **`amount` 只写分配额，不含优惠**（改动 2）。我们的资金池是流水推导的
+///    （`未分配余额 = 客户级收款 − 已分配总额`），把优惠塞进 `amount` 等于「优惠从客户池子
+///    转出」；旧版口径是**店家让利**：`newPrepaid = prepaidBalance − totalAllocated` 只减
+///    `Σalloc`（svc:843），优惠一分钱不碰池子。实测两边池子差一个优惠额（差 60，
+///    见 04-diff-ours.md §9.6 场景③）。
+///    `discount` 列保留只为**追溯**，**不参与任何计算**（历史行里还留着旧口径的
+///    `amount = alloc + disc`，所以要改口径时不能拿它反推 amount）。
+///
+/// ② 优惠 > 0 时**另写一条** `finance_order_adjustments`（`type = 预付款优惠`，svc:836-840）——
+///    优惠计入订单的「订单调整金额」，照样减未收，但不动资金池。这样
+///    `未收 = 总价 − Σalloc − Σadj(含优惠)` 与旧版 `nextUnpaid`（svc:827）一致。
+///
+/// ③ 池子不需要显式扣减：它就是 ① 的流水实时聚合出来的。
+///
+/// 返回与预览同一份计划（旧版 svc:862 也是把 preview 整个摊在响应里）。
 pub async fn execute_prepayment_allocation(
     pool: &PgPool,
     tenant_id: i64,
     req: ExecutePrepaymentAllocation,
-) -> ApiResult<()> {
-    let preview = preview_prepayment_allocation(
+) -> ApiResult<PrepaymentAllocationPreview> {
+    let plan = prepayment_plan(
         pool,
         tenant_id,
-        PreviewPrepaymentAllocation {
+        &PreviewPrepaymentAllocation {
             customer_code: req.customer_code.clone(),
             allocate_amount: req.allocate_amount,
             discount_rate: req.discount_rate,
@@ -739,9 +898,11 @@ pub async fn execute_prepayment_allocation(
     )
     .await?;
 
+    // 事务：旧版这里是逐单顺序 await、**没有事务**（svc:805-863），中途失败会留下
+    // 「前几单已分配、池子没扣」的半成品；我们保持事务，是有意的改进，不照抄（见
+    // 04-diff-ours.md §9 与 08-fix-plan.md「不做的」第 1 条）。
     let mut tx = pool.begin().await?;
-    for a in &preview.allocations {
-        let disc = round2(a.allocated_amount * req.discount_rate / 100.0);
+    for (a, disc) in &plan.rows {
         sqlx::query(
             "INSERT INTO finance_allocations \
              (tenant_id, customer_code, order_id, receipt_no, amount, discount) \
@@ -751,13 +912,31 @@ pub async fn execute_prepayment_allocation(
         .bind(&req.customer_code)
         .bind(a.order_id)
         .bind(&a.receipt_no)
-        .bind(round2(a.allocated_amount + disc))
-        .bind(disc)
+        .bind(a.allocated_amount)
+        .bind(*disc)
         .execute(&mut *tx)
         .await?;
+
+        if *disc > 0.0 {
+            sqlx::query(
+                "INSERT INTO finance_order_adjustments \
+                 (tenant_id, customer_code, customer_name, order_id, receipt_no, amount, type, remark) \
+                 VALUES ($1, $2, $3, $4, $5, $6, '预付款优惠', $7)",
+            )
+            .bind(tenant_id)
+            .bind(&req.customer_code)
+            .bind(&plan.customer_name)
+            .bind(a.order_id)
+            .bind(&a.receipt_no)
+            .bind(*disc)
+            .bind(&req.remark)
+            .execute(&mut *tx)
+            .await?;
+        }
     }
     tx.commit().await?;
-    Ok(())
+
+    Ok(plan_response(&plan))
 }
 
 /// 收款趋势（finance_getPaymentStats）：每月/年 拆分 收款(正) 与 红冲(负的绝对值)。

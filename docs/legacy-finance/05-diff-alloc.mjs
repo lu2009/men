@@ -121,6 +121,18 @@ try {
          VALUES (1,'${o.receipt}','${CODE}','临时差分',${o.total},1,'${o.day}')`)
   }
 
+  // ── 夹具必须带资金池（2026-09-18 补）──────────────────────────────────────────
+  // 旧版 `previewPrepaymentAllocation` 是**先按池子封顶、再算分配**的：
+  //   `available = max(0, prepaidBalance)`；`amount = min(max(0, 请求额), available)`（svc:796-797）
+  // 所以「池子 0 却要分配 800」这种输入，在旧版**根本走不到**（会得到空列表）。
+  // 这个台子左边直接调的是封顶**之后**的内层函数 `buildAllocationPreview`，夹具却只给了订单、
+  // 没给池子 ⇒ 右边（我们的接口，已按旧版口径封顶）算出空列表，比的就成了「谁封顶」而不是
+  // 「优惠公式」。**这是夹具与旧版口径不符，不是为了让测试变绿而放松断言**：
+  // 补一笔池子（2000 > 最大场景 1800）让封顶成为恒等映射，本台子专心比优惠；
+  // 封顶本身由 `07-diff-execute.mjs` 的场景 ③b / ④ 把关。
+  SQL(`INSERT INTO finance_payments (tenant_id, customer_code, customer_name, order_id, amount, kind)
+       VALUES (1,'${CODE}','临时差分',NULL,2000,'prepayment')`)
+
   for (const sc of SCENARIOS) {
     const L = await legacyPreview(sc.amount, sc.ratePercent)
     const N = await ourPreview(sc.amount, sc.ratePercent)
@@ -141,8 +153,13 @@ try {
       fail++
       console.log(`  ⛔ **合计优惠不一致** —— 旧版 ${L.totalDiscount} vs 新版 ${N.totalDiscount}`)
     }
+    // `资金池剩余` 两边都该是「本次拟分配里没分掉的」（`amount − Σalloc`）。
+    // 这条 2026-09-18 之后才成立：先前我们的 `pool_remaining` 是「客户池子还剩多少」
+    // （甚至是个负数），旧版是「本次没分掉的」—— 同名不同物（差异⑤），所以当时只敢打 ⚠️。
+    // 口径对齐（改动 6）之后升级成硬断言，这样将来谁再改回去会被这台子抓住。
     if (L.poolRemaining !== N.poolRemaining) {
-      console.log(`  ⚠️ 资金池剩余不一致（旧版语义=本次没分掉的；新版语义=池子还剩多少）`)
+      fail++
+      console.log(`  ⛔ **资金池剩余不一致** —— 旧版 ${L.poolRemaining} vs 新版 ${N.poolRemaining}`)
     }
   }
 } finally {

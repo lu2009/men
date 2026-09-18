@@ -252,6 +252,40 @@ customerFundFlow.create({ amount: prepaidDelta, flowType: prepaidDelta >= 0 ? '�
 
 差异⑤也一并暴露：`资金池剩余` 旧版返回 0（=本次没分掉的），新版连字段都没返（`undefined`）。
 
+## 9.7 ✅ 已补齐（2026-09-18）
+
+按 `08-fix-plan.md` 实施完毕，**7 条改动全部落地**。验收是三台差分台**我自己跑的**：
+```
+05-diff-alloc   ✓ 所有场景优惠一致
+06-diff-balance ✓ 全部一致（6 个字段 × 6 个场景）
+07-diff-execute ✓ 三个场景的落库效果全部一致
+```
+
+| 差异 | 处置 |
+|---|---|
+| ⑥ 池子不封顶 + 未收不夹零 | ✅ 改动 1（`unpaid` 夹零 + `amount = min(请求额, max(0,池子))`） |
+| ③ 优惠扣资金池 | ✅ 改动 2（`amount` 只写分配额；优惠另写 `finance_order_adjustments`） |
+| ③ 优惠多给 | ✅ 改动 3（补 `min(unpaid−alloc, round(alloc×rate))` 上限） |
+| ① `客户余额` 语义 | ✅ 改动 4（`max(0, Σ逐单未收 − 客户调整合计)`，只算**还存在的订单**） |
+| ② `实收金额` | ✅ 改动 5（= 累计充值：只算客户级且只累加正数） |
+| ⑤ `资金池剩余` | ✅ 改动 6（= `amount − Σalloc`），并补返回 `available_balance` |
+| 排序第二键 | ✅ 改动 7（`order_date, created_at, id`，注释标明是**近似**） |
+
+**有意不做的**（见 `08-fix-plan.md`）：不照抄旧版「没有事务」；不照抄 `addPayment` 那两套
+互相打架的优惠；保留我们比旧版多的入参校验。
+
+### ⚠️ 遗留的契约缺口（**未判定**，差分台会一直提示）
+
+旧版 `getCustomerBalance` 还返回一个 `已分配金额`，我们没返回。
+**两边前端都不读它**（只在**订单级**用 `已分配金额`，那是另一个接口），
+所以本轮**不补** —— 加了没人读，是虚的接口面。要补是补 `CustomerBalance`，不是放松差分台。
+
+### ⚠️ 历史数据注意
+
+`finance_allocations` 的**历史行**里，`amount` 是旧口径的 `alloc + discount`。
+改动 2 之后新行是 `amount = alloc`。**不能拿 `discount` 反推历史行的 `amount`**。
+（当前库里财务表为空，没有实际的历史数据要迁。）
+
 ## 10. 待办
 
 - [ ] 等 `01-read.md` / `02-write.md` / `03-allocation.md`，与本稿对表，冲突处回源码裁决

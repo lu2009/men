@@ -203,7 +203,13 @@ const OUR_KEY = {
   客户调整合计: 'customer_adjust_total',
 }
 
-let diffs = 0
+// 判定规则（2026-09-18 改成断言式，写法照 05-diff-alloc.mjs）：
+//   · **两侧都有的字段**值不等 ⇒ 计一处不一致，最后 `process.exit(1)`；
+//   · **我们没返回的字段**（OUR_KEY 为 null）只是契约缺口，标 `—` 单独汇总，**不计入判定** ——
+//     否则这台子会永远红，红久了就没人看了。缺口要补是去补后端，不是来改这台子。
+let mismatch = 0
+const gaps = []
+const CHECKED = FIELDS.filter((f) => OUR_KEY[f])
 try {
   clean()
   for (const sc of SCEN) {
@@ -213,16 +219,31 @@ try {
     for (const f of FIELDS) {
       const lv = L[f]
       const k = OUR_KEY[f]
-      const nv = k ? N[k] : '(我们没这个字段)'
-      const same = k && lv === nv
-      if (!same) diffs++
-      const mark = k ? (same ? '✓' : '✗') : '—'
-      console.log(`   ${mark} ${f.padEnd(6)} 旧版 ${String(lv).padStart(8)}   新版 ${String(nv).padStart(8)}`)
+      if (!k) {
+        gaps.push(f)
+        console.log(`   — ${f.padEnd(6)} 旧版 ${String(lv).padStart(8)}   新版 我们没这个字段`)
+        continue
+      }
+      const nv = N[k]
+      const same = lv === nv
+      if (!same) mismatch++
+      console.log(
+        `   ${same ? '✓' : '✗'} ${f.padEnd(6)} 旧版 ${String(lv).padStart(8)}   新版 ${String(nv).padStart(8)}` +
+          (same ? '' : '   ⛔ 不一致'),
+      )
     }
   }
 } finally {
   clean()
   console.log('\n（一次性数据已清理）')
 }
-console.log(diffs ? `\n⛔ ${diffs} 处字段值不一致` : '\n✓ 全部一致')
-process.exit(0)
+if (gaps.length) {
+  console.log(`\n⚠️ 契约缺口（我们没返回，**未参与判定**）：${[...new Set(gaps)].join('、')}`)
+  console.log('   见 04-diff-ours.md §1；要补是补 backend 的 `CustomerBalance`，不是放松这台子。')
+}
+console.log(
+  mismatch
+    ? `\n⛔ ${mismatch} 处字段值不一致（比了 ${CHECKED.length} 个字段 × ${SCEN.length} 个场景）`
+    : `\n✓ 全部一致（${CHECKED.length} 个字段 × ${SCEN.length} 个场景）`,
+)
+process.exit(mismatch ? 1 : 0)

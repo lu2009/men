@@ -191,22 +191,78 @@ const CASES = [
   { name: '④ 池子 0，分配 600（无池可分配）', pool: 0, amount: 600, ratePercent: 10 },
 ]
 
+// 判定（2026-09-18 改成断言式，写法照 05-diff-alloc.mjs）：任一条不一致就 exit(1)。
+// 比的是**跑完之后的状态**，不是公式 —— 两边的记账表结构不同（旧版没有 allocations 表），
+// 所以「分配行 vs 订单调整」这类只有一边有的东西，比的是**同名的业务量**：
+//   · 旧版 `fo.allocatedAmount` ↔ 我们 `finance_allocations.amount` 的合计（都是「落到订单的分配额」）
+//   · 旧版 `orderAdjustment` ↔ 我们 `finance_order_adjustments`（两边都该只有优惠那笔）
+const adjustmentsOf = (rows) =>
+  JSON.stringify(
+    rows
+      .map((a) => ({ receipt: a.receipt_no ?? a.orderNo, amount: a.amount ?? a.adjustAmount, type: a.type ?? a.adjustType }))
+      .sort((x, y) => (x.receipt < y.receipt ? -1 : x.receipt > y.receipt ? 1 : x.amount - y.amount)),
+  )
+const sumByReceipt = (rows, key, amountKey) => {
+  const out = {}
+  for (const r of rows) out[r[key]] = (out[r[key]] ?? 0) + r[amountKey]
+  return out
+}
+
+let mismatch = 0
+const check = (label, legacy, ours) => {
+  const same = legacy === ours
+  if (!same) mismatch++
+  console.log(
+    `  ${same ? '✓' : '⛔'} ${label.padEnd(12)} 旧版 ${String(legacy).padStart(6)}  |  新版 ${String(ours).padStart(6)}` +
+      (same ? '' : '   ⛔ 不一致'),
+  )
+}
+
 try {
   for (const c of CASES) {
     const L = await legacyExecute(c)
     const N = await ourExecute(c)
     const NUnpaid = { A: await unpaidOf('__TMP_EXEC_A__'), B: await unpaidOf('__TMP_EXEC_B__') }
+
+    const ourAlloc = sumByReceipt(N.allocations, 'receipt_no', 'amount')
+    const legacyAlloc = Object.fromEntries(L.unpaid.map((u) => [u.receipt, u.allocated]))
+
     console.log(`\n■ ${c.name}`)
-    console.log(`  资金池变化   旧版 ${L.poolDelta}  |  新版 ${N.poolDelta}   ${L.poolDelta === N.poolDelta ? '✓' : '⛔'}`)
-    console.log(`  池子余额     旧版 ${L.poolAfter}  |  新版 ${N.poolAfter}   ${L.poolAfter === N.poolAfter ? '✓' : '⛔'}`)
-    console.log(`  A 未收       旧版 ${L.unpaid[0].unpaid}  |  新版 ${NUnpaid.A}`)
-    console.log(`  B 未收       旧版 ${L.unpaid[1].unpaid}  |  新版 ${NUnpaid.B}`)
+    check('资金池变化', L.poolDelta, N.poolDelta)
+    check('池子余额', L.poolAfter, N.poolAfter)
+    check('A 未收', L.unpaid[0].unpaid, NUnpaid.A)
+    check('B 未收', L.unpaid[1].unpaid, NUnpaid.B)
+    check('合计分配金额', L.preview.allocated, N.preview.allocated)
+    check('合计优惠金额', L.preview.totalDiscount, N.preview.totalDiscount)
+    check('资金池剩余', L.preview.poolRemaining, N.preview.poolRemaining)
+    // 每单「落到订单的分配额」：旧版是改完的 fo.allocatedAmount，我们是分配行合计。
+    // ⚠️ 这条就是改动 2 的把关点：我们曾经把 `amount` 写成 `alloc + 优惠`（案例③会是 660 vs 600）。
+    for (const receipt of ['__TMP_EXEC_A__', '__TMP_EXEC_B__']) {
+      check(`${receipt.slice(-2)} 分配额`, legacyAlloc[receipt] ?? 0, ourAlloc[receipt] ?? 0)
+    }
     console.log(`  订单调整记录 旧版 ${JSON.stringify(L.adjustments)}`)
     console.log(`               新版 ${JSON.stringify(N.adjustments)}`)
-    console.log(`  分配行记录   新版 ${JSON.stringify(N.allocations)}   （旧版没有这张表）`)
-    console.log(`  资金池剩余   旧版 ${L.preview.poolRemaining}（=本次没分掉的）  新版 ${N.preview.poolRemaining}（=池子还剩多少）`)
+    if (adjustmentsOf(L.adjustments) !== adjustmentsOf(N.adjustments)) {
+      mismatch++
+      console.log('  ⛔ 订单调整记录不一致（旧版优惠记 orderAdjustment，我们该记 finance_order_adjustments）')
+    }
+    console.log(`  分配行记录   新版 ${JSON.stringify(N.allocations)}   （旧版没有这张表，上面已按金额对照）`)
+    // 分配行的 `discount` 列只作追溯，必须与同单的调整记录对上（优惠额两侧同源）。
+    const adjByReceipt = sumByReceipt(
+      N.adjustments.map((a) => ({ receipt_no: a.receipt_no, amount: a.amount })),
+      'receipt_no',
+      'amount',
+    )
+    for (const r of N.allocations) {
+      if ((adjByReceipt[r.receipt_no] ?? 0) !== r.discount) {
+        mismatch++
+        console.log(`  ⛔ ${r.receipt_no} 的分配行 discount=${r.discount} 与订单调整记录对不上`)
+      }
+    }
   }
 } finally {
   clean()
   console.log('\n（一次性数据已清理）')
 }
+console.log(mismatch ? `\n⛔ ${mismatch} 处不一致` : '\n✓ 三个场景的落库效果全部一致')
+process.exit(mismatch ? 1 : 0)

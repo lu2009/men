@@ -1631,7 +1631,7 @@ function deleteSelected() {
             //  ⚠️ **收款红冲按「来源」拆成两条腿**，这是本文件与旧版唯一实质不同的一处：
             //     旧版把整笔「已分配收款」写成**一条客户级负收款**（`order_id = NULL`）。
             //     在我们的账务模型里那会**同一笔钱扣两次** ——
-            //       `实收金额`  = Σ finance_payments（按客户，含负数）        ← 负收款减的是它
+            //       净收款 = Σ finance_payments（按客户，含负数）              ← 负收款减的是它
             //       `已分配总额` = Σ finance_payments(order_id NOT NULL) + Σ finance_allocations
             //                                                  ↑ 只认带 order_id 的，减不到
             //     被删订单对 `已分配总额` 的贡献仍在（两处都按 order_id 聚合，订单删了行还留着）
@@ -1640,7 +1640,10 @@ function deleteSelected() {
             //     所以：本单直接收款 → 带 `order_id` 的负收款（走 addOrderPayment，它的负数分支
             //     和「红冲金额绝对值不能超过本单已分配金额」那条校验就是为这个留的）；
             //           资金池分配   → 负的分配行（`reverseOrderAllocation`）。
-            //     两条腿各自让「实收」与「已分配总额」同额下降、或只降后者，未分配余额才算得对。
+            //     两条腿各自让「净收款」与「已分配总额」同额下降、或只降后者，未分配余额才算得对。
+            //     ⚠️ 别拿接口上的 `实收金额` 来推这套账：它 2026-09-18 起是**累计充值**
+            //     （只算客户级 `order_id IS NULL` 且只累加正数，红冲不减，对齐旧版 totalTopup），
+            //     与「未分配余额」用的净收款不是同一个数，见 finance/service.rs 文件头的口径块。
             const payDate = new Date().toISOString().slice(0, 10)
             for (const g of groups) {
               for (const o of g.orders) {
@@ -1659,9 +1662,11 @@ function deleteSelected() {
                 }
                 if (o.allocation > 0) await api.reverseOrderAllocation(o.id)
               }
-              // 抹零红冲**保持旧版原样**（客户级负调整）。这里与收款不同：`customer_balance` 里
-              // `order_adj` 与 `cust_adj` 是**同号相减**的两项，所以冲在哪一边、净效果相同
-              // （实测两种写法都得到同一个 `customer_balance`）⇒ 不必拆，照抄旧版 C7。
+              // 抹零红冲**保持旧版原样**（客户级负调整），照抄旧版 C7。理由 2026-09-18 变了，
+              // 结论没变：现在 `customer_balance` = max(0, Σ 逐单未收 − 客户调整合计)（对齐旧版
+              // svc:763），**不再含订单调整那一项**。订单删掉后它就不再贡献「欠款」，而这条
+              // 客户级负调整仍在 ⇒ 两边相抵后的数与旧版同式（旧版删单时 finance_orders 行
+              // 一并消失，同样只剩客户调整）⇒ 冲在客户级才与旧版对得上，别改成订单级。
               if (g.adjustment > 0) {
                 await api.addCustomerAdjustment(g.code, {
                   customer_code: g.code,

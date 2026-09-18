@@ -172,6 +172,7 @@ pub async fn preview_prepayment_allocation(
 }
 
 /// 预付款分配执行（finance_executePrepaymentAllocation）。
+/// 响应 = 预览那份计划（旧版 svc:862 也是把 preview 摊进来）+ `saved`，前端只用 `saved`。
 pub async fn execute_prepayment_allocation(
     State(state): State<AppState>,
     user: CurrentUser,
@@ -179,6 +180,10 @@ pub async fn execute_prepayment_allocation(
     Json(mut req): Json<ExecutePrepaymentAllocation>,
 ) -> ApiResult<Json<Value>> {
     req.customer_code = customer_code;
-    service::execute_prepayment_allocation(&state.pool, user.tenant_id, req).await?;
-    Ok(response::ok(json!({ "saved": true })))
+    let preview = service::execute_prepayment_allocation(&state.pool, user.tenant_id, req).await?;
+    let mut body = serde_json::to_value(preview).unwrap();
+    if let Value::Object(ref mut map) = body {
+        map.insert("saved".into(), json!(true));
+    }
+    Ok(response::ok(body))
 }
