@@ -242,24 +242,55 @@ app/src/utils/glasssheet2/
 
 ---
 
-## 9. 下一步：其余两张
+## 8c. 第 4 张：自定义生产单（ic=14，已完成）
 
-共用骨架与共用编辑器弹窗都已就位，剩下三张按「家族」处理：
+施工图 `docs/custom-docs-recon/01-ps.md`（1192 行）。**这张不属 C 家族**，与前两张的路子完全不同：
+
+| | PS2（C 家族） | **PS（本单）** |
+|---|---|---|
+| 与参照物的差异 | **4 处**（行来源 / 列集 / 空行语义 / 贴皮） | **没有参照物** |
+| 核心层复用 | 前缀替换 | **CSS / HTML / 分页 / 清洗 / profile 全须新写** |
+| 分页 | 量测隐藏 iframe（与 GS2 逐字节同） | **解析式估高，无 iframe**；且**首页与后续页预算不同** |
+| 清洗 | 内联在 `onMounted`，按**下标**合并 | 独立 `z()`，按 **key 白名单**合并，**读盘与写回两端都调用** |
+| 每页条数 | 无 | **`print.itemsPerPage`（1/2）+ 配对** |
+
+**底座能原样用的只有 4 小件**：`escapeHtml` / `waitForImages` / `createQrEncoder` / `storage.ts` 三个函数。
+另加底座 2 处参数化（二维码回退 viewBox、打印的文档构造）。
+
+⚠️ **类名规则对不上**（施工图标为「最容易踩的一处」）：PS 产出 HTML 只有 `ps-root`/`ps-sheet`，
+编辑器类是 **`ps-layout-editor-*`**（带 `editor`、无 `2`），与 C 家族的 `ps2-layout-*` 不同 ——
+底座的 `ns + '-layout-wrap'` 推导对 PS 是错的，必须用**显式常量表** `PS_CLASSES`。
+
+### 验收
+
+| 脚本 | 结果 |
+|---|---|
+| `ps-csscheck` | **逐字节相等**（709 字节 / 8 条规则） |
+| `ps-htmlcheck` / `ps-logiccheck` | 58/58 · 98/98 |
+| `gs2-*` / `ps2-*` 共 7 个 | **全过**（底座被改仍零回归） |
+| `verify/ps-e2e.mjs` | 真实订单通，16 行 → 配对 8 行，渲染含 16 个二维码 |
+
+### 数据层零新代码
+
+行来源是旧版 `calculateReceiptOld()` → 新版 `oldSheetProduces(paired)`（报告做了逐键比对）。
+⚠️ **`orderID` 是小写 d**（ic=15 的 `calculateReceipt` 用大写 `OrderID`）——**两张的数据层不通用**。
+
+### 有意偏离
+
+**不复刻**旧版 ic=14 那处脏数据回环：保存时把「配对过的行」又配对一次 ⇒ 一次汇算 ≥4 张订单
+且开「2 条/页」时多出 `orderID11` 这类脏键。新版配对只在一处做、编辑完不重跑。
+
+---
+
+## 9. 下一步：最后一张
 
 | ic | 组件 | 怎么复用 |
 |---|---|---|
-| 14 | 自定义生产单 | 编辑器是 B 家族（`headerFields`+`tableConfig`+`doorImgBox`），需单独写；但**分页/量测/打印/二维码/清洗那几段可直接用 `utils/docsheet/`** |
-| 13 | 合格标签族 | A 家族，配置最丰富（逐字段字体、固定张数、就地编辑），且**一个组件挂三个入口**；同样能复用底座的那几段 |
+| 13 | 合格标签族 | **A 家族**，配置最丰富（逐字段字体、固定张数、就地编辑），且**一个组件挂三个入口**（自定义合格标签 / 平开合格标签 / 推拉合格标签，同一组件只换数据过滤）。数据源是 `lable()`，新版对应实现**待查**。 |
+
+底座 `utils/docsheet/` 里 `escapeHtml` / `waitForImages` / `createQrEncoder` / `storage` 那几件
+对四张都通用，可直接拿。
 
 ---
 
 ## 附：材料索引
-
-| 文件 | 内容 |
-|---|---|
-| `docs/2026-09-17-custom-documents.md` | 五张的盘点 + 卡片入口→ic 全映射 |
-| `docs/custom-docs-recon/01-skeleton.md` | **共用骨架对照表**（哪些共用/哪些逐张不同） |
-| `docs/custom-docs-recon/02-glasssheet2.md` | **玻璃合片单全量逆向**（含 §12 差异对照 27 条、§15 编辑弹窗） |
-| `docs/custom-docs-recon/gs2-default.css` | 玻璃合片单 CSS 实产原文 |
-| `legacy/js/*.deobfuscated.js` | 五张的已解码源码 |
-| `legacy/decode-home-component.mjs` | 解码脚本（通用版，可重跑） |
