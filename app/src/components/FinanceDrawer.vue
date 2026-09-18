@@ -97,11 +97,7 @@
                   />
                   <!-- `%` 是输入框**后面单独一个 span**（旧版 `margin-left:8px`），不是 placeholder -->
                   <span class="pct">%</span>
-                  <span class="hint">
-                    预计抵扣 ¥{{ fmt(prepayDiscount) }}（预付款可用 ¥{{
-                      fmt(balance?.unallocated_balance)
-                    }}）
-                  </span>
+                  <span class="hint">预计抵扣 ¥{{ fmt(prepayDiscount) }}</span>
                 </span>
                 </n-form-item>
               </n-form>
@@ -632,12 +628,26 @@ const orderPayForm = ref({
   discountRate: 10 as number,
 })
 
+/**
+ * 「预计抵扣」——**必须与后端实际会记的数一致**（`service.rs` 的 `add_order_payment`）：
+ *
+ * ```rust
+ * discount = round2(amount.max(0.0) * req.discount_rate / 100.0)   // 基数 = 本次收款额
+ * ```
+ *
+ * ⚠️ 旧版**前后端用的是两个公式**，而且旧版前端那个还能被薅：
+ *   · 旧版前端：`min(未收 × 比例, 预付款可用)` —— 跟「这次付多少」无关 ⇒ **付 1 元也能拿满额优惠**
+ *   · 旧版后端：`收款额 × 比例`（`svc:346`）—— 跟实付成正比
+ * 两边各自都不自洽（前端那个按池子封顶却不消耗池子）。**取后端那套**（用户拍板）：
+ * 优惠是对**这一笔收款**的让利，基数就该是收款额；比例跟实付挂钩，薅不动。
+ *
+ * 于是「预付款可用」不再是上限，提示语里那半句一并去掉 —— 留着会让人以为它封顶。
+ */
 const prepayDiscount = computed(() => {
-  if (!orderPayForm.value.usePrepay || !orderFinance.value) return 0
-  const unpaid = Math.max(0, orderFinance.value.unpaid_amount)
-  const pool = Math.max(0, balance.value?.unallocated_balance ?? 0)
+  if (!orderPayForm.value.usePrepay) return 0
+  const amount = Math.max(0, orderPayForm.value.amount ?? 0)
   const rate = Math.max(0, orderPayForm.value.discountRate) / 100
-  return Math.round(100 * Math.min(unpaid * rate, pool)) / 100
+  return Math.round(amount * rate * 100) / 100
 })
 
 async function submitOrderPayment() {
