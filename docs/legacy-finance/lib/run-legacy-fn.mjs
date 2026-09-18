@@ -20,8 +20,16 @@ const ROOT = '/Users/aaa/Desktop/door-main'
 const LEGACY_SVC = '/Users/aaa/Downloads/server/src/modules/finance/finance.service.ts'
 export const SVC_SRC = readFileSync(LEGACY_SVC, 'utf8')
 
-/** 花括号配平切出 `name` 的完整定义（含 `function name(...) {...}` / `const name = ... {...}`）。 */
-export function sliceFn(name) {
+/** 别的旧服务端源文件（要切别的模块时用它，见 `sliceFnFrom`）。 */
+export const legacySrc = (rel) =>
+  readFileSync(`/Users/aaa/Downloads/server/src/${rel}`, 'utf8')
+
+/**
+ * 花括号配平切出**任意源文件**里 `name` 的完整定义。
+ * `sliceFn` 是本函数在 finance.service.ts 上的绑定（保持既有调用方不受影响）。
+ */
+export function sliceFnFrom(src, name) {
+  const SVC_SRC = src
   const re = new RegExp(`(?:^|\\n)(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`)
   let at = re.exec(SVC_SRC)?.index ?? -1
   let start = at
@@ -81,13 +89,19 @@ export async function toJs(tsSource) {
     .replace(/^export\s+(?=(async\s+)?(function|const|let|class))/gm, '')
 }
 
+/** `sliceFn` 在 finance.service.ts 上的绑定（既有调用方不变）。 */
+export function sliceFn(name) {
+  return sliceFnFrom(SVC_SRC, name)
+}
+
 /**
  * 把若干函数切出来一起跑。
  * `names` 里每个函数都会按**源码原样**注入；`scope` 里是它们引用的外部量。
+ * `src` 可选 —— 缺省是 finance.service.ts；切别的模块时传 `legacySrc('...')`。
  */
-export async function runLegacyFns(names, scope, body) {
+export async function runLegacyFns(names, scope, body, src = SVC_SRC) {
   const parts = []
-  for (const n of names) parts.push(await toJs(sliceFn(n)))
+  for (const n of names) parts.push(await toJs(sliceFnFrom(src, n)))
   const code = `${parts.join('\n')}\n${body}`
   const keys = Object.keys(scope)
   const fn = new Function(...keys, code)

@@ -168,6 +168,29 @@ export const api = {
     }),
   deleteOrder: (id: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${id}`, { method: 'DELETE' }),
+  /**
+   * 合并订单（旧版 `param1=combine`）。
+   *
+   * ⚠️ 只传**订单 id 列表** —— 存活单由服务端按回执单号取最小算出来。
+   * 旧版是前端算好 `{merged, record}` 交给服务端、服务端照单全收，
+   * 传错就毁数据（源单物理删除、不可恢复），新版把这层堵掉了。
+   */
+  combineOrders: (orderIds: number[]) =>
+    request<OrderDto>('/v1/orders/combine', {
+      method: 'POST',
+      body: JSON.stringify({ order_ids: orderIds }),
+    }),
+  /**
+   * 「填入单号」（旧版 Hui 那颗按钮，走 `param1=getDiaoFormulas` 顺带返回 `data.orderNumbers`）。
+   *
+   * 给本单**还没单号**的明细行补 `N-YY/MM/DD`（序号 = 本租户该年份全局最大 +1，按年重置，
+   * **永不覆盖已有值**），返回 `{行id → 单号}`。
+   * ⚠️ 这是**行级**单号（每樘门一个），不是订单的回执单号。
+   */
+  fillLineNumbers: (orderId: number) =>
+    request<Record<string, string>>(`/v1/orders/${orderId}/fill-line-numbers`, {
+      method: 'POST',
+    }),
   // 订单行：单行删除（行的保存统一走 updateOrder 整单提交）。
   deleteOrderLine: (orderId: number, lineId: number) =>
     request<{ deleted: boolean }>(`/v1/orders/${orderId}/lines/${lineId}`, {

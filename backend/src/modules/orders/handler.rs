@@ -87,6 +87,37 @@ pub async fn update_line(
     Ok(response::ok(json!({ "updated": true })))
 }
 
+/// 合并订单（旧版 `Ii` / `param1=combine`）。
+///
+/// ⚠️ 请求体是**订单 id 列表**，不是旧版那个 `{merged, record}` —— 存活单由服务端自己算
+/// （旧版完全采信客户端，传错即不可恢复）。理由见 `service::combine` 的文档注释。
+#[derive(Debug, serde::Deserialize)]
+pub struct CombineRequest {
+    pub order_ids: Vec<i64>,
+}
+
+pub async fn combine(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Json(req): Json<CombineRequest>,
+) -> ApiResult<Json<Value>> {
+    let item = service::combine(&state.pool, user.tenant_id, &req.order_ids).await?;
+    Ok(response::ok(serde_json::to_value(item).unwrap()))
+}
+
+/// 「填入单号」：给本单还没单号的行补 `N-YY/MM/DD`，返回 `{行id → 单号}`。
+///
+/// 对应旧版 Hui `:8491` 那颗按钮（旧版走 `param1=getDiaoFormulas` 顺带返回
+/// `data.orderNumbers`，新版拆成独立端点 —— 有意偏离，理由见 `service::fill_line_numbers`）。
+pub async fn fill_line_numbers(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(id): Path<i64>,
+) -> ApiResult<Json<Value>> {
+    let map = service::fill_line_numbers(&state.pool, user.tenant_id, id).await?;
+    Ok(response::ok(map))
+}
+
 /// 删除订单内单行（按 line_id）。
 pub async fn delete_line(
     State(state): State<AppState>,

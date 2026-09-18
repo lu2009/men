@@ -24,6 +24,13 @@ pub fn router() -> Router<AppState> {
             "/api/v1/orders/{id}/lines/{line_id}",
             axum::routing::put(handler::update_line).delete(handler::delete_line),
         )
+        // 合并订单（旧版 `param1=combine`，存活单由服务端算 —— 有意偏离，见 handler）。
+        .route("/api/v1/orders/combine", axum::routing::post(handler::combine))
+        // 「填入单号」（旧版 Hui 的那颗按钮；旧版走 getDiaoFormulas 顺带返回）。
+        .route(
+            "/api/v1/orders/{id}/fill-line-numbers",
+            axum::routing::post(handler::fill_line_numbers),
+        )
 }
 
 #[cfg(test)]

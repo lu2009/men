@@ -89,6 +89,13 @@
       <section v-if="showPing" class="table-wrap">
         <div class="table-head">
           <n-button v-if="selectedLines.length" size="tiny" text type="error" @click="batchDeleteRows">批量删除({{ selectedLines.length }})</n-button>
+          <!-- 「 填入单号 」：旧版 Hui `:8491-8524` 那颗（文案 `_0x250a(1010)` = " 填入单号 "）。
+               旧版走 `param1=getDiaoFormulas` 顺带返回 `data.orderNumbers{行id→单号}`；
+               新版拆成独立端点 `POST /orders/{id}/fill-line-numbers`（有意偏离，理由见后端
+               `service::fill_line_numbers`：那个老接口还兼着写副作用，混在一起既难测也危险）。 -->
+          <n-button size="tiny" text type="primary" :loading="fillingLineNo" @click="fillLineNumbers">
+            填入单号
+          </n-button>
           <span class="grow-spacer" />
           <n-button size="tiny" text type="error" @click="toggleShow('ping')">隐藏</n-button>
         </div>
@@ -465,6 +472,7 @@ import type {
   ClientDto,
   FormulaDto,
   FormulaImageDto,
+  OrderDto,
   OrderInput,
   OrderLineInput,
   OrderSummaryDto,
@@ -722,6 +730,41 @@ function sanitizeCustomSquare(v: number | null | undefined): number {
 }
 
 // 行 → 请求体（数字清洗 + 去掉仅前端用的 id）。
+/**
+ * 「填入单号」（旧版 Hui `:8491-8524`）。
+ *
+ * 旧版**前端只做搬运**：调 `getDiaoFormulas` 拿 `data.orderNumbers{行id → 单号}`，
+ * 逐行 `row.id && d[row.id] && (row["单号"] = d[row.id])` —— 序号一律服务端算。
+ * 新版同口径，只是端点拆开了。
+ *
+ * ⚠️ 单号是**行级**的（每樘门一个，`N-YY/MM/DD`），**不是**订单的回执单号。
+ * ⚠️ 必须**先保存**再填 —— 补号是服务端按库里的行做的，未保存的行它看不见。
+ *    所以这里先 `saveOrder()` 拿到 id，再填，再回读。
+ */
+async function fillLineNumbers() {
+  if (fillingLineNo.value) return
+  fillingLineNo.value = true
+  try {
+    // 无论新建还是编辑，**先存一次** —— 补号是服务端按库里的行做的，未保存的行它看不见。
+    // （旧版那颗按钮的前置条件也一样：行得先在库里。）
+    const saved = await saveOrder()
+    const id = saved?.id ?? orderId.value
+    if (id == null) return
+    const map = await api.fillLineNumbers(id)
+    if (!map || Object.keys(map).length === 0) {
+      message.warning('没有可填入的行')
+      return
+    }
+    // 回读（补号结果以服务端为准，不在这里自己拼）。
+    await loadOrder(id)
+    message.success('单号已填入')
+  } catch (e) {
+    message.error((e as Error).message || '获取单号失败')
+  } finally {
+    fillingLineNo.value = false
+  }
+}
+
 function lineInputOf(l: Line): OrderLineInput {
   const { id: _id, ...rest } = l
   return {
@@ -776,13 +819,15 @@ const order = reactive({
   remark: '',
   salesperson: '',
   install_address: '', // 表头全局默认安装地址（仿原版 _0x17ac36）
-  // ⚠️ 下面三个是 **Home 那边在写的头字段**（打单操作 / 单号集 / 锁向）。
+  // ⚠️ 下面两个 + `install_address` 是 **Home 那边在写的头字段**。
   // Hui 界面不显示、也不编辑它们，但**必须原样带回去** —— 因为
-  // `PUT /orders/{id}` 是**整头覆盖**（`orders/service.rs:456-465` 无条件
-  // `SET ... order_no_set=$11, install_address=$12, production_status=$13, lock_direction=$14`），
+  // `PUT /orders/{id}` 是**整头覆盖**（`orders/service.rs` 里无条件
+  // `SET ... install_address=$11, production_status=$12, lock_direction=$13`），
   // 而 `model.rs` 里这几个字段是 `#[serde(default)]` ⇒ 载荷里缺键 = 反序列化成 `""` = **抹空**。
-  // 见 `docs/home-audit/hui-save-clobber-check.mjs`（实测：存一次抹掉四个字段）。
-  order_no_set: '',
+  // 见 `docs/home-audit/hui-save-clobber-check.mjs`（实测：存一次全被抹掉）。
+  //
+  // 📌 `order_no_set` **不在**这一组里：它已改成**服务端派生值**，PUT/PATCH 的 SET 列表
+  //    里都没有它，后端自己会重算 ⇒ 客户端带不带都无所谓（详见 `refresh_order_no_set`）。
   production_status: '',
   lock_direction: '',
 })
@@ -830,6 +875,8 @@ async function removePayQrcode() {
 // 行数据
 const lines = ref<Line[]>([])
 const saving = ref(false)
+/** 「填入单号」进行中（旧版那颗按钮没有 loading 态；新版加，因为它是网络请求）。 */
+const fillingLineNo = ref(false)
 // 当前已保存订单 id（null = 尚未保存的新订单）。保存时据此决定 create 还是 update。
 const orderId = ref<number | null>(null)
 // 两表显隐（仿旧版：平开/移门默认都显示、上下各占整宽）
@@ -1470,6 +1517,7 @@ function newLine(type: 'ping' | 'diao'): Line {
     open_img: '', edge_seal_count: type === 'diao' ? 2 : null, seal_board_height: 0, track_length: 0,
     front_casing_add: null, back_casing_add: null, double_ding: null,
     light_window_count: 0, image_id: null, image_url: null, progress: '', hole_size: '',
+    line_no: '',
   }
 }
 
@@ -1677,8 +1725,7 @@ function resetOrder() {
   order.remark = ''
   order.salesperson = ''
   order.install_address = ''
-  // ⚠️ 这三个同上：忘一个，保存时那一个就被抹空（见 `order` 声明处的说明）。
-  order.order_no_set = ''
+  // ⚠️ 这两个同上：忘一个，保存时那一个就被抹空（见 `order` 声明处的说明）。
   order.production_status = ''
   order.lock_direction = ''
   lines.value = []
@@ -2624,9 +2671,19 @@ const DOUBLE_DING_OPTS = ['正常', '单丁墙', '双丁墙', '上丁墙', '上�
   label: v,
   value: v,
 }))
-// 单号列（只读，显示所属订单回执单号）
-const orderNoCell = () =>
-  h('span', { style: 'font-size:11px;color:#606266' }, order.receipt_no || '—')
+/**
+ * 「单号」列。
+ *
+ * ⚠️ 这里曾显示 `order.receipt_no`（订单的**回执单号**）—— **层级错了**：
+ * 旧版这列是**行级**单号（每樘门一个，`N-YY/MM/DD`），且**可编辑**
+ * （`Hui.formatted.js:2597-2602`，列 label `:6287`）。
+ * 搞混的后果不只是显示错：打印的 `OrderID`/`qrcode` 全取这列，
+ * 于是**二维码扫出来是订单号而不是「哪一樘门」**（见 `docs/2026-09-18-order-no-semantics.md` §4.1）。
+ *
+ * 未填时显示 `—`；「填入单号」按钮会向服务端取号后回填（等同旧版 `:8491` 那颗按钮）。
+ */
+const orderNoCell = (l: Line) =>
+  h('span', { style: 'font-size:11px;color:#606266' }, l.line_no || '—')
 // 金额列（平方+金额 同格）
 // 金额格（原版 :2471-2492）：`金额：`（只读输入框）+ `平方数：`（只读输入框，右键改）
 const moneyCell_2 = (l: Line) => cCol(sub('金额：', amountCell(l)), sub('平方数：', sqCell(l)))
@@ -2764,7 +2821,7 @@ function pingCols(): DataTableColumn<Line>[] {
     { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add') },
     { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add') },
     { title: '单/双丁墙体', key: 'double_ding', width: 96, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
-    { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
+    { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
     { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
@@ -2909,7 +2966,7 @@ function diaoCols(): DataTableColumn<Line>[] {
     { title: '单双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
     { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
     { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount') },
-    { title: '单号', key: 'order_no', width: 78, render: () => orderNoCell() },
+    { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
     // 原版「图片ID」列不可编辑（只展示），故用只读 span
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
@@ -2964,20 +3021,21 @@ function confirmSquare() {
 }
 
 // 保存
-async function saveOrder() {
+/** 保存订单。成功返回服务端结果（**「填入单号」要用它的 id**），被守卫拦下时返回 null。 */
+async function saveOrder(): Promise<OrderDto | null> {
   if (lines.value.length === 0) {
     message.warning('请先添加门类，填写订单信息！')
-    return
+    return null
   }
   if (!order.client_name) {
     message.warning('请先选择客户')
-    return
+    return null
   }
   // 剔除整行空行；其余行按门型检查必填，缺失则拦保存并列出（旧版 makeReceipt 语义）
   lines.value = lines.value.filter(rowHasContent)
   if (lines.value.length === 0) {
     message.warning('请先添加门类，填写订单信息！')
-    return
+    return null
   }
   const problems = lines.value
     .map((l, i) => ({ row: i + 1, missing: missingFieldsOf(l) }))
@@ -2987,7 +3045,7 @@ async function saveOrder() {
       .map((p) => `第${p.row}行缺：${p.missing.join('、')}`)
       .join('\n')
     message.error(`请补充必填信息！\n${detail}`)
-    return
+    return null
   }
   saving.value = true
   try {
@@ -3011,7 +3069,8 @@ async function saveOrder() {
       // ⚠️ 这四个 Hui 界面上没有、也编辑不了，但**必须原样回传** —— PUT 是整头覆盖，
       // 少一个就抹空一个（实测见 `docs/home-audit/hui-save-clobber-check.mjs`）。
       install_address: order.install_address,
-      order_no_set: order.order_no_set,
+      // ⚠️ 这里**不带** `order_no_set` —— 它已改成服务端派生值（后端 PUT/PATCH 的 SET
+      //    列表里都没有它），所以既不需要、也发不进去。
       production_status: order.production_status,
       lock_direction: order.lock_direction,
       lines: lines.value.map(lineInputOf),
@@ -3030,8 +3089,10 @@ async function saveOrder() {
     persistDraft()
     markSaved()
     message.success(`订单已保存（${saved.receipt_no}）`)
+    return saved
   } catch (e) {
     message.error(e instanceof Error ? e.message : '保存失败')
+    return null
   } finally {
     saving.value = false
   }
@@ -3095,10 +3156,10 @@ async function loadOrder(id: number) {
     order.deposit = o.deposit
     order.remark = o.remark
     order.salesperson = o.salesperson
-    // ⚠️ 四个「Hui 不显示但 Home 在写」的头字段必须读回来，否则保存时被整头覆盖抹空。
+    // ⚠️ 三个「Hui 不显示但 Home 在写」的头字段必须读回来，否则保存时被整头覆盖抹空。
     // （`install_address` 原先就漏在这里 + 漏在载荷里，是同一个坑的另一半。）
+    // `order_no_set` 不在此列 —— 服务端派生，见 `order` 声明处的说明。
     order.install_address = o.install_address
-    order.order_no_set = o.order_no_set
     order.production_status = o.production_status
     order.lock_direction = o.lock_direction
     lines.value = o.lines.map((l) => ({
@@ -3118,6 +3179,9 @@ async function loadOrder(id: number) {
       track_length: l.track_length, front_casing_add: l.front_casing_add, back_casing_add: l.back_casing_add,
       double_ding: l.double_ding, light_window_count: l.light_window_count,
       image_id: l.image_id, image_url: l.image_url, progress: l.progress, hole_size: l.hole_size,
+      // ⚠️ 行级单号也**必须读回来**，否则保存时被后端 `#[serde(default)]` 抹空
+      //    （与上面那四个头字段同一个坑）。
+      line_no: l.line_no,
     }))
     void hydrateRowImages(lines.value)
     listOpen.value = false

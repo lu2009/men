@@ -73,6 +73,11 @@ export interface Line {
   image_url: string | null
   progress: string
   hole_size: string
+  /**
+   * 行级「单号」（`N-YY/MM/DD`）—— 每一樘门一个，印在玻璃单/生产单上，也是打印二维码的内容。
+   * 与订单头的 `receipt_no`（回执单号）**不是一个层级**，别混。
+   */
+  line_no: string
   isSelected?: boolean
 }
 

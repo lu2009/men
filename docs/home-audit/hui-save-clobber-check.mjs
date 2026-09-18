@@ -16,8 +16,14 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const ROOT = '/Users/aaa/Desktop/door-main'
-/** Hui 界面上没有、但 Home 在写，因而**必须原样回传**的四个头字段。 */
-const KEYS = ['install_address', 'order_no_set', 'production_status', 'lock_direction']
+/**
+ * Hui 界面上没有、但 Home 在写，因而**必须原样回传**的头字段。
+ *
+ * ⚠️ `order_no_set` **不在这里** —— 它已改成**服务端派生值**（= 各行 `line_no` 去重后
+ * `_` 连接），后端 PUT/PATCH 的 SET 列表里都没有它，客户端带不带都不作数。
+ * 那条更硬的保证由下面 `服务端独占` 那组断言直接钉在 SQL 上。
+ */
+const KEYS = ['install_address', 'production_status', 'lock_direction']
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
 const DB = 'docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc'
@@ -42,9 +48,11 @@ async function call(p, opt = {}) {
   return j?.data ?? j
 }
 
-/** Home 写过的四个头字段（用一个哨兵值，好认）。 */
+/**
+ * Home 写过的、**客户端仍可写**的三个头字段（每个给一个哨兵值，好认）。
+ * `order_no_set` 不在此列：它已是服务端派生值，客户端根本写不进去（那由上面那组静态断言钉住）。
+ */
 const SENTINEL = {
-  order_no_set: '__TMP_199-25_200-25__',
   install_address: '__TMP_安装地址__',
   production_status: '__TMP_确认生产__',
   lock_direction: '__TMP_左开__',
@@ -93,6 +101,27 @@ try {
     ok(`resetOrder 清空 ${k}`, new RegExp(`order\\.${k}\\s*=`).test(resetFn))
   }
 
+  // ── ②b 更硬的一条：`order_no_set` 必须**服务端独占**（客户端写不进去）──
+  // 只靠「前端记得回传」是脆的；真正防住这类坑的是**后端不接这个字段**。
+  const SVC = readFileSync(`${ROOT}/backend/src/modules/orders/service.rs`, 'utf8')
+  const MODEL = readFileSync(`${ROOT}/backend/src/modules/orders/model.rs`, 'utf8')
+  // ⚠️ 别写成「全文不含 `order_no_set = $`」—— `refresh_order_no_set` 自己那句是**合法**的
+  //    服务端写入。这里只针对 **PUT / PATCH 那两条语句**。
+  const putSql = /"UPDATE orders SET receipt_no[\s\S]*?"/.exec(SVC)?.[0] ?? ''
+  const patchSql = /"UPDATE orders SET client_code[\s\S]*?"/.exec(SVC)?.[0] ?? ''
+  ok('抠到了 PUT 的 SQL', putSql.length > 0)
+  ok('抠到了 PATCH 的 SQL', patchSql.length > 0)
+  ok('PUT 不再 SET order_no_set（客户端写不进去）', !/order_no_set/.test(putSql))
+  ok('PATCH 不再 SET order_no_set（客户端写不进去）', !/order_no_set/.test(patchSql))
+  ok(
+    '请求体结构体里没有 order_no_set 字段',
+    !/pub struct (OrderRequest|OrderHeadPatch)[\s\S]*?\n\}/.test(MODEL) ||
+      ![...MODEL.matchAll(/pub struct (OrderRequest|OrderHeadPatch) \{[\s\S]*?\n\}/g)].some((m) =>
+        /pub order_no_set/.test(m[0]),
+      ),
+  )
+  ok('有派生函数 refresh_order_no_set', /async fn refresh_order_no_set/.test(SVC))
+
   // ── ③ 运行时：按 **Hui 现在真的会发** 的形状发一次 PUT ──
   const huiPayload = {
     receipt_no: before.receipt_no,
@@ -122,7 +151,7 @@ try {
   console.log(
     fail
       ? `\n⛔ ${fail} 个字段被静默抹空 —— PUT 是整头覆盖，Hui 的载荷却缺这几个键。`
-      : '\n✓ 四个字段都保住了（说明已修）',
+      : '\n✓ 三个客户端可写的头字段都保住了（说明已修）',
   )
 } finally {
   clean()

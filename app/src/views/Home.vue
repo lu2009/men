@@ -32,6 +32,18 @@
         -->
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
+        <!--
+          「合并订单」（旧版 `:11287-11289`，class `custom-combine-btn`，文案 ` 合并订单 (N) `，
+          onClick `Ii`）。**只在选中 ≥2 条时出现** —— 旧版是 `Fl.value.length>1 ? … : createCommentVNode`。
+        -->
+        <n-button
+          v-if="checkedRowKeys.length > 1"
+          size="small"
+          class="custom-combine-btn"
+          @click="combineSelected"
+        >
+          合并订单 ({{ checkedRowKeys.length }})
+        </n-button>
         <span class="grow-spacer" />
         <n-button size="small" @click="dashboardShow = true">经营看板</n-button>
         <n-button size="small" type="primary" @click="router.push({ name: 'hui' })">汇算下单</n-button>
@@ -1002,7 +1014,8 @@ function startEdit(row: OrderSummaryDto) {
   draft.deposit = row.deposit
   draft.remark = row.remark
   draft.salesperson = row.salesperson
-  draft.order_no_set = row.order_no_set
+  // `order_no_set` 不再抄进草稿 —— 它是服务端派生值（= 各行 line_no 去重后 `_` 连接），
+  // 发回去也不会被采纳。见 `docs/2026-09-18-order-no-semantics.md` §6.B。
   draft.install_address = row.install_address
   draft.production_status = row.production_status
   draft.creator_name = row.creator_name
@@ -1111,6 +1124,42 @@ async function confirmAudit(row: OrderSummaryDto) {
   } catch (e) {
     message.error((e as Error).message || '更新失败')
   }
+}
+
+/**
+ * 「合并订单」（旧版 `Ii`，`Home.formatted.js:9190-9219`）。
+ *
+ * 旧版前端自己算存活单（按 `parseInt(回执单号)` 升序取最小）再 POST `{merged, record}`；
+ * **新版只把 id 列表交给服务端**，存活单由服务端算 —— 见 `api.combineOrders` 的说明。
+ * 所以这里的确认文案「以最早的回执单号为准」是**服务端真的会执行**的规则，不再是前端口头承诺。
+ *
+ * 文案逐字对齐旧版：确认框标题 `dr(1005)`=「合并订单确认」，
+ * 正文 `"确定要合并选中的 N 条订单吗？" + dr(1224)`（=「…合并后将以最早的回执单号为准，合并后不可恢复。」）；
+ * 选不满 2 条时 `dr(639)`=「请选择至少两条数据进行合并」（按钮本身只在 ≥2 条时出现，
+ * 但键盘/程序化触发仍可能到这儿，保留守卫）。
+ */
+function combineSelected() {
+  const ids = checkedRowKeys.value.map(Number)
+  if (ids.length < 2) {
+    message.warning('请选择至少两条数据进行合并')
+    return
+  }
+  dialog.warning({
+    title: '合并订单确认',
+    content: `确定要合并选中的 ${ids.length} 条订单吗？合并后将以最早的回执单号为准，合并后不可恢复。`,
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await api.combineOrders(ids)
+        checkedRowKeys.value = []
+        await load()
+        message.success('合并成功')
+      } catch (e) {
+        message.error((e as Error).message || '订单合并操作失败')
+      }
+    },
+  })
 }
 
 async function submitDate() {
@@ -2251,7 +2300,7 @@ function headWithStatus(row: OrderSummaryDto, productionStatus: string): OrderHe
     deposit: row.deposit,
     remark: row.remark,
     salesperson: row.salesperson,
-    order_no_set: row.order_no_set,
+    // `order_no_set` 是服务端派生值，不回传（发过去也会被忽略）。
     install_address: row.install_address,
     production_status: productionStatus,
     creator_name: row.creator_name,

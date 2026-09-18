@@ -97,6 +97,10 @@ pub struct OrderLineInput {
     pub progress: String,
     #[serde(default)]
     pub hole_size: String,
+    /// 行级「单号」（`N-YY/MM/DD`）。⚠️ 前端**必须回传** —— `#[serde(default)]` 下漏传 =
+    /// 空串 = 把已有的单号抹掉。见 `migrations/0020_order_line_no.sql`。
+    #[serde(default)]
+    pub line_no: String,
 }
 
 /// 新建/更新订单请求体：订单头 + 行列表。
@@ -122,8 +126,10 @@ pub struct OrderRequest {
     pub remark: String,
     #[serde(default)]
     pub salesperson: String,
-    #[serde(default)]
-    pub order_no_set: String,
+    // ⚠️ 这里**没有** `order_no_set` —— 它是**服务端派生值**（= 本单各行 `line_no` 去重后
+    //    `_` 连接），不接受客户端传入，见 `service.rs` 的 `refresh_order_no_set`。
+    //    客户端仍可发这个键（serde 默认忽略未知字段），但**别把它加回来**：
+    //    让客户端能写它，就会重现「漏传即抹空」那个坑。
     #[serde(default)]
     pub install_address: String,
     #[serde(default)]
@@ -177,8 +183,10 @@ pub struct OrderHeadPatch {
     pub remark: String,
     #[serde(default)]
     pub salesperson: String,
-    #[serde(default)]
-    pub order_no_set: String,
+    // ⚠️ 这里**没有** `order_no_set` —— 它是**服务端派生值**（= 本单各行 `line_no` 去重后
+    //    `_` 连接），不接受客户端传入，见 `service.rs` 的 `refresh_order_no_set`。
+    //    客户端仍可发这个键（serde 默认忽略未知字段），但**别把它加回来**：
+    //    让客户端能写它，就会重现「漏传即抹空」那个坑。
     #[serde(default)]
     pub install_address: String,
     #[serde(default)]
@@ -237,6 +245,8 @@ pub struct OrderLineDto {
     pub image_url: Option<String>,
     pub progress: String,
     pub hole_size: String,
+    /// 行级「单号」（`N-YY/MM/DD`）—— 旧版印在玻璃单/生产单上、也是二维码的内容。
+    pub line_no: String,
 }
 
 /// 列表用订单头（不含行）。

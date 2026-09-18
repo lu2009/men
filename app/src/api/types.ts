@@ -153,6 +153,13 @@ export interface OrderLineDto {
   image_url: string | null
   progress: string
   hole_size: string
+  /**
+   * 行级「单号」（`N-YY/MM/DD`，如 `85-26/09/14`），**每一樘门一个**。
+   * 旧版由服务端 `ensureLineNumbers()` 生成／「填入单号」按钮拉取；印在玻璃单/生产单上，
+   * 也是打印二维码的内容。⚠️ 与订单头的 `receipt_no`（回执单号）**不是一个层级**。
+   * ⚠️ 编辑行时**必须原样回传** —— 后端是 `#[serde(default)]`，漏传 = 抹空。
+   */
+  line_no: string
 }
 
 export type OrderLineInput = Omit<OrderLineDto, 'id' | 'row_index'>
@@ -196,7 +203,8 @@ export interface OrderInput {
   deposit: number
   remark: string
   salesperson: string
-  order_no_set?: string
+  // ⚠️ **没有** `order_no_set` —— 它是**服务端派生值**（= 各行 `line_no` 去重后 `_` 连接），
+  //    发过来也不会被采纳。响应里仍然有（`OrderSummaryDto.order_no_set`），别搞混。
   install_address?: string
   production_status?: string
   lock_direction?: string
@@ -214,7 +222,7 @@ export interface OrderHeadInput {
   deposit?: number
   remark?: string
   salesperson?: string
-  order_no_set?: string
+  // ⚠️ 同 `OrderInput`：`order_no_set` 是服务端派生值，不接受客户端写入。
   install_address?: string
   production_status?: string
   creator_name?: string
