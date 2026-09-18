@@ -9,12 +9,13 @@
 | ic | 界面名 | 组件名 | 代码量 | 配置方式 | 新版状态 |
 |---|---|---|---|---|---|
 | 12 | **自定义收据单** | `Receipt2PrintManager` | 1000 行 / 44 KB | 字体调节 + 元素微调 | ✅ **已完成** |
-| 13 | 自定义合格标签 | `QualifiedLabelPrintManager` | 944 行 / 44 KB | 布局编辑 | ⬜ 未做 |
-| 14 | 自定义生产单 | `ProductionSheetPrintManager` | 1189 行 / 58 KB | 布局编辑 | ⬜ 未做 |
-| 15 | 自定义生产单2 | `ProductionSheet2PrintManager` | 609 行 / 28 KB | 布局编辑 | ⬜ 未做 |
-| 16 | 自定义玻璃合片单 | `GlassSheet2PrintManager` | 602 行 / 27 KB | 布局编辑 | ⬜ 未做 |
+| 13 | 自定义合格标签 | `QualifiedLabelPrintManager` | 944 行 / 44 KB | 布局编辑 | ✅ 已完成（一个组件挂三入口） |
+| 14 | 自定义生产单 | `ProductionSheetPrintManager` | 1189 行 / 58 KB | 布局编辑 | ✅ 已完成 |
+| 15 | 自定义生产单2 | `ProductionSheet2PrintManager` | 609 行 / 28 KB | 布局编辑 | ✅ 已完成 |
+| 16 | 自定义玻璃合片单 | `GlassSheet2PrintManager` | 602 行 / 27 KB | 布局编辑 | ✅ 已完成 |
 
-合计 **4344 行 / 201 KB**；收据单那 44 KB 已完成，**剩余约 157 KB**。
+合计 **4344 行 / 201 KB** —— **5 张全部已完成**（2026-09-18）。
+各张的实现路子与验收见 `docs/2026-09-17-custom-docs-analysis.md`。
 
 **ic 的划分很干净**：1–11 是 hiprint 那 17 张模板，**12–16 就是这五张自绘单据**，一一对应。
 
