@@ -15,6 +15,7 @@
  *
  * 用法：node docs/home-audit/orderno-logiccheck.mjs
  */
+import { readFileSync } from 'node:fs'
 import { SRC, assertDecoder, balanced, between, deobf, runLegacy } from './legacy-slice.mjs'
 
 assertDecoder()
@@ -113,9 +114,72 @@ const SPLIT_CASES = ROWS.map((r) => ({ raw: r.order_no_set, row: r })).concat([
 const PO_CASES = ['', '199', '199-26', '199-2', '200', 'abc', 'ABC', ' 199-26 ', 'zzz']
 const YEAR_CASES = ['', '  ', '199', '199-26', '199-2', 'A1', '199-', 'x199', '199-26-01', '12-3']
 
-// -------------------------------------------------------------------- 对照 //
 let pass = 0
 let fail = 0
+
+// ------------------------------------------------- 漂移守卫：对着 Home.vue 真身 //
+/**
+ * ⚠️ 上面「新版实现」那段是**本文件里照抄的一份**（见文件头那句）——
+ * 所以**它能过，不代表 `Home.vue` 没漂**：函数改名、`_` 改成空格、`startsWith`
+ * 改成 `includes`、年份换算法，这里照样全绿。
+ *
+ * 补一层**源码级**断言：直接从 `Home.vue` 真身里抠出对应片段，把**判据本身**钉住。
+ * 这不是重复上面那批对照（那批比的是**行为**，这批比的是**实现里那几个关键 token 还在不在**）。
+ */
+const HOME_SRC = readFileSync(new URL('../../app/src/views/Home.vue', import.meta.url), 'utf8')
+
+/** 取 `function <name>(` 起那段配平的 `{}`（这几个函数体里没有裸 `}` 字面量，够用）。 */
+function fnBody(name) {
+  const at = HOME_SRC.indexOf(`function ${name}(`)
+  if (at < 0) return ''
+  const i = HOME_SRC.indexOf('{', at)
+  let depth = 0
+  for (let k = i; k < HOME_SRC.length; k++) {
+    if (HOME_SRC[k] === '{') depth++
+    else if (HOME_SRC[k] === '}' && --depth === 0) return HOME_SRC.slice(i, k + 1)
+  }
+  return ''
+}
+/** 从 `anchor` 起取一小段，够看清关键 token 即可。 */
+const near = (anchor, len = 400) => {
+  const at = HOME_SRC.indexOf(anchor)
+  return at < 0 ? '' : HOME_SRC.slice(at, at + len)
+}
+
+const drift = []
+const need = (label, body, re) => {
+  if (!body) drift.push(`${label}（**抠不到源码片段**，函数被改名/搬走了？）`)
+  else if (!re.test(body)) drift.push(label)
+}
+
+const SPLIT_BODY = fnBody('splitOrderNos')
+need('splitOrderNos 按 "_" 切', SPLIT_BODY, /split\('_'\)/)
+need('splitOrderNos 逐段 trim', SPLIT_BODY, /\.trim\(\)/)
+need('splitOrderNos 去掉空段', SPLIT_BODY, /filter\(Boolean\)/)
+const CELL_BODY = fnBody('orderNoCell')
+need('orderNoCell 用 startsWith（不是 includes）', CELL_BODY, /startsWith/)
+need('orderNoCell 小写化后再比', CELL_BODY, /toLowerCase/)
+
+const YEAR_SNIP = near('confirmOrderNoQuery', 700)
+need('补年份：已带 -YY 就原样保留', YEAR_SNIP, /\\d\{2\}/)
+need('补年份：取当前年份后两位', YEAR_SNIP, /getFullYear\(\)\)\.slice\(-2\)/)
+
+// `filtered` 里那段 `po` 筛选谓词
+const PO_SNIP = near('orderNosOf(r)', 300)
+need('筛选谓词走 orderNosOf + startsWith', PO_SNIP, /startsWith/)
+need('筛选谓词小写化后再比', PO_SNIP, /toLowerCase/)
+
+if (drift.length) {
+  fail += drift.length
+  console.log('\n⛔ `Home.vue` 与本文档的模型已漂开：')
+  for (const d of drift) console.log(`   ✗ ${d}`)
+  console.log('   （上面那批行为对照**测不出**这个 —— 它比的是本文件里照抄的一份）\n')
+} else {
+  pass++
+  console.log('✓ 漂移守卫：`Home.vue` 真身里那几个判据都还在（_ 切分 / startsWith / 补年份 / 小写化）')
+}
+
+// -------------------------------------------------------------------- 对照 //
 const diff = (label, a, b) => {
   if (JSON.stringify(a) === JSON.stringify(b)) pass++
   else {
