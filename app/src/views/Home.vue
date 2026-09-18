@@ -385,6 +385,7 @@ import {
   NCheckbox,
   NDataTable,
   NDatePicker,
+  NDivider,
   NEmpty,
   NForm,
   NFormItem,
@@ -432,8 +433,13 @@ const dialog = useDialog()
 // ---------------------------------------------------------------------------
 // 常量（文档 §2.2/§2.3/§3 口径）
 // ---------------------------------------------------------------------------
-const PAYMENT_OPTIONS = ['全部显示', '已付', '未付', '部分付']
-const PROGRESS_OPTIONS = ['显示全部', '已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
+// ⚠️ **顺序照抄旧版的渲染顺序**（C7/C13）：清除项（全部显示 / 显示全部）在**最后**。
+//    旧版「未付」列头 `:11482-11507`：已付 → 未付 → 部分付 → 全部显示；
+//    旧版「打单操作」列头 `:11547-11581`：4 固定项 → 分隔线 → 自定义项 → 显示全部。
+const PAYMENT_OPTIONS = ['已付', '未付', '部分付', '全部显示']
+const PAYMENT_CLEAR = '全部显示'
+const PROGRESS_OPTIONS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
+const PROGRESS_CLEAR = '显示全部'
 // 打单操作 5 固定步骤（§3 `ua`）：label + 完成色 + flex 比例。
 const PROGRESS_STEPS = [
   { label: '确认下单', color: '#389e0d', flex: 1 },
@@ -2408,45 +2414,137 @@ function styleObject(css: string): Record<string, string> {
   return out
 }
 
-// 列头 popover（§2.2/§2.3）：手动触发，标题 + 单选列表。
-function popoverTitle(
-  label: string,
-  title: string,
-  options: string[],
-  currentRef: Ref<string>,
-  showRef: Ref<boolean>,
-  onPick: (v: string) => void,
-) {
+/**
+ * 列头筛选 popover（旧版「未付」`:11475-11508`、「打单操作」`:11534-11581`）。
+ *
+ * 结构逐字对齐旧版：
+ * ```html
+ * <div>                                        <!-- 列头容器 -->
+ *   <span>列名</span>
+ *   <el-popover placement="bottom" trigger="click" width="220">
+ *     #reference <el-button text size="small"> 按钮名 (当前值) </el-button>
+ *     #default
+ *       <div>
+ *         固定项…                               <!-- 每项 text 按钮，flex-start / 宽 100% -->
+ *         分隔线                                <!-- 仅当有自定义项（旧版 `La.length`） -->
+ *         自定义项…
+ *         清除项                                <!-- 「全部显示 / 显示全部」，**无**选中色 -->
+ *       </div>
+ *   </el-popover>
+ * </div>
+ * ```
+ *
+ * ⚠️ 三处先前与旧版不符（C7/C8/C13/C14），别再改回去：
+ *   ① **顺序**：旧版清除项「全部显示 / 显示全部」排在**最后**，先前放**最前**。
+ *   ② **当前值回显**：旧版按钮后面带 ` (值)`（`:11481` / `:11541`），先前完全没有。
+ *   ③ **popover 里没有标题**：旧版 `#default` 只有选项；先前多渲染了一行 `filter-title`。
+ *   另：先前触发器自带一个 `▾`，旧版没有 —— 旧版靠 `text` 按钮自己的观感表示可点。
+ *
+ * ⚠️ **选中判定**：旧版比的是 `Mo`/`zo`，而「清除」时它俩被置成**空串** ⇒ 清除项**永不选中**，
+ *    所以它连 `color`/`fontWeight` 两个条件都没有（`:11507` 那条 style 只有布局三项）。
+ *    新版清除态用的是哨兵值（`'全部显示'` / `'显示全部'`，与选项文字同一个串），
+ *    必须**显式排除**，否则没筛选时「全部显示」会一直高亮成蓝色加粗。
+ *
+ * ⚠️ 旧版每个选项的 `onClick` 都带 `.stop`（`:11491` 等的 `withModifiers(..., ["stop"])`）——
+ *    列头在 el-table 里，不拦会冒泡到排序/筛选处理器。这里照抄 `stopPropagation`。
+ */
+function headerFilter(opt: {
+  /** 列名（旧版 `<span>未付</span>` / `打单操作`） */
+  columnLabel: string
+  /** 按钮上的名字（` 付款状态 ` / ` 生产进度 `） */
+  buttonLabel: string
+  /** 全部选项，**按旧版渲染顺序**（清除项在最后） */
+  items: string[]
+  /** 哪一项是「清除」（旧版 `bo`/`Po`：置空 + 关弹窗 + 回第 1 页） */
+  clearLabel: string
+  /** 在这一项**之前**插分隔线（旧版只在「有自定义项」时插；不传就不插） */
+  dividerBefore?: string
+  /**
+   * 当前值那一段要不要高亮。
+   * ⚠️ **两列不一样，别统一**：`打单操作` 的值包在
+   *    `<span style="color:#409eff;font-weight:700;margin-left:4px"> (" 生产进度 " 的 `Ou`，`:11541`)；
+   *    `未付` 的值是**裸文本节点**（`:11481`，无任何样式）。
+   */
+  highlightValue?: boolean
+  current: Ref<string>
+  show: Ref<boolean>
+  onPick: (v: string) => void
+  onClear: () => void
+}) {
   return () =>
-    h(
-      NPopover,
-      { trigger: 'manual', show: showRef.value, 'onUpdate:show': (v: boolean) => (showRef.value = v) },
-      {
-        trigger: () =>
-          h(
-            'div',
-            { class: 'header-filter', onClick: () => (showRef.value = !showRef.value) },
-            [label, h('span', { class: 'header-caret' }, '▾')],
-          ),
-        default: () =>
-          h('div', { class: 'filter-list' }, [
-            h('div', { class: 'filter-title' }, title),
-            ...options.map((o) =>
-              h(
-                'div',
-                {
-                  class: ['filter-item', { active: currentRef.value === o }],
-                  onClick: () => {
-                    onPick(o)
-                    showRef.value = false
-                  },
-                },
-                o,
-              ),
+    h('div', { class: 'header-filter' }, [
+      h('span', null, opt.columnLabel),
+      h(
+        NPopover,
+        {
+          placement: 'bottom',
+          trigger: 'click',
+          width: 220,
+          show: opt.show.value,
+          'onUpdate:show': (v: boolean) => (opt.show.value = v),
+        },
+        {
+          trigger: () =>
+            h(
+              NButton,
+              { text: true, size: 'small' },
+              // 当前值回显（旧版 `dr(779)`「 付款状态 」/ `dr(1216)`「 生产进度 」+ `" ("+值+") "`）
+              {
+                default: () =>
+                  opt.current.value
+                    ? [
+                        opt.buttonLabel,
+                        opt.highlightValue
+                          ? h(
+                              'span',
+                              { style: { color: '#409eff', fontWeight: '700', marginLeft: '4px' } },
+                              ` (${opt.current.value}) `,
+                            )
+                          : ` (${opt.current.value}) `,
+                      ]
+                    : opt.buttonLabel,
+              },
             ),
-          ]),
-      },
-    )
+          default: () =>
+            h(
+              // 旧版选项容器 `Yu`(`:11485 区`) / `Hu`(`:11545 区`)：
+              // `display:flex; flex-direction:column; gap:6px`
+              'div',
+              { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
+              opt.items.flatMap((item) => {
+                const isClear = item === opt.clearLabel
+                // 清除项永不选中（见上方说明）
+                const active = !isClear && opt.current.value === item
+                const node = h(
+                  'div',
+                  {
+                    class: 'filter-item',
+                    style: {
+                      // 旧版四项的布局完全一样，只有 color/fontWeight 分岔
+                      justifyContent: 'flex-start',
+                      width: '100%',
+                      marginLeft: '0',
+                      color: isClear ? undefined : active ? '#409eff' : '#606266',
+                      fontWeight: isClear ? undefined : active ? '700' : '400',
+                    },
+                    onClick: (e: MouseEvent) => {
+                      e.stopPropagation()
+                      opt.show.value = false
+                      if (isClear) opt.onClear()
+                      else opt.onPick(item)
+                    },
+                  },
+                  item,
+                )
+                // 旧版 `<el-divider style="margin:4px 0"/>`，插在自定义项之前
+                return opt.dividerBefore === item
+                  ? [h(NDivider, { style: { margin: '4px 0' } }), node]
+                  : [node]
+              }),
+            ),
+        },
+      ),
+    ])
 }
 
 const paymentPopShow = ref(false)
@@ -2676,7 +2774,16 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     },
   },
   {
-    title: popoverTitle('未付', '付款状态', PAYMENT_OPTIONS, paymentFilter, paymentPopShow, (v) => (paymentFilter.value = v)),
+    title: headerFilter({
+      columnLabel: '未付',
+      buttonLabel: '付款状态',
+      items: PAYMENT_OPTIONS,
+      clearLabel: PAYMENT_CLEAR,
+      current: paymentFilter,
+      show: paymentPopShow,
+      onPick: (v) => (paymentFilter.value = v),
+      onClear: () => (paymentFilter.value = PAYMENT_CLEAR),
+    }),
     key: 'unpaid',
     minWidth: 100,
     // 旧版 `:11475` `filters:wa` + `"filter-method":fa` —— 同样是 `so(row)` 的金额数字。
@@ -2707,8 +2814,21 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     render: (row) => renderEditable(row, 'install_address'),
   },
   {
-    // popover 选项 = `PROGRESS_OPTIONS` + 自定义项（旧版 `Bo` + `La`，`:11558-11573`）。
-    title: popoverTitle('打单操作', '生产进度', [...PROGRESS_OPTIONS, ...customProgressOptions.value], progressFilter, progressPopShow, (v) => (progressFilter.value = v)),
+    // popover 选项 = 固定 4 项(`Bo`) → 分隔线 → 自定义项(`La`) → 显示全部，旧版渲染顺序见 `:11547-11581`。
+    // 分隔线只在**有自定义项时**才插（旧版 `v-if="La.length"`，`:11553`）——
+    // 所以这里把 `dividerBefore` 挂在「第一个自定义项」上：没有自定义项时那个值取不到，自然不插。
+    title: headerFilter({
+      columnLabel: '打单操作',
+      buttonLabel: '生产进度',
+      items: [...PROGRESS_OPTIONS, ...customProgressOptions.value, PROGRESS_CLEAR],
+      clearLabel: PROGRESS_CLEAR,
+      dividerBefore: customProgressOptions.value[0],
+      highlightValue: true,
+      current: progressFilter,
+      show: progressPopShow,
+      onPick: (v) => (progressFilter.value = v),
+      onClear: () => (progressFilter.value = PROGRESS_CLEAR),
+    }),
     key: 'production_status',
     minWidth: 150,
     filterOptions: productionStatusFilterOptions.value,
@@ -2867,39 +2987,35 @@ const tableHeight = 'calc(100vh - 300px)'
   height: 100%;
 }
 
-/* 列头 popover 触发器 */
+/*
+ * 列头筛选（旧版「未付」`:11475-11508` / 「打单操作」`:11534-11581`）。
+ *
+ * 旧版全是**内联样式**，没有可抄的 CSS 类 —— 除了 el-button 自己的默认样式。
+ * 所以这里只补三件 Element 默认给、naive 不给的东西：
+ *   · 列名与按钮**竖排居中**（旧版列头容器 `Su`/`Wu` 是 `display:flex;flex-direction:column;align-items:center`）；
+ *   · 选项是**整行可点**的（旧版 `width:100%;justifyContent:flex-start` 写在按钮 style 上）；
+ *   · hover 底色（el-button 默认的 hover 背景）。
+ * 选中态的 `color`/`fontWeight` 写在 `headerFilter` 的 style 里（逐项不同，不适合进 CSS）。
+ */
 .header-filter {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  cursor: pointer;
-  user-select: none;
-}
-.header-caret {
-  font-size: 10px;
-  color: #909399;
-}
-.filter-list {
-  min-width: 130px;
-}
-.filter-title {
-  font-size: 12px;
-  color: #909399;
-  padding: 6px 12px 4px;
-  border-bottom: 1px solid #ebeef5;
-  margin-bottom: 4px;
+  gap: 4px;
+  text-align: center;
 }
 .filter-item {
-  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+  line-height: 1.5;
+  user-select: none;
 }
 .filter-item:hover {
   background: #f5f7fa;
-}
-.filter-item.active {
-  color: #409eff;
-  font-weight: 700;
 }
 
 .order-no-pop {
