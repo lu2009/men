@@ -213,8 +213,16 @@ div.big-screen-container (深蓝渐变 #0d1b2a→#1a2d42→#0d1b2a, 100vh)
 
 ### 4.7 审核确认 / 手动更新进度
 
-- **审核确认**（日期列内，仅未生产未审核行）：`updateCustomerInfo` + `updataProgress`(工序10, 操作名「确认下单」) → `更新成功`(1279)。
-- **手动更新进度**（打单操作单元格点击 → 弹窗 460px）：回执单号(disabled) + 操作名称(el-autocomplete) + 日期(date-picker) + `记录日期`(585, checkbox, 写 localStorage `gr`)。确认 → `updataProgress`(工序10) → `进度更新成功`(990)；删除 → `deleteProgressForFullOrder` → `进度删除成功`(1148)。
+- **审核确认**（日期列内，仅未生产未审核行）：`updateCustomerInfo` + `Hl("确认下单", [回执单号])`（即 `updataProgress`，`param3` = 操作名）→ `更新成功`(1279)。
+  > ⚠️ **2026-09-18 更正**：此处原先写「`updataProgress`(工序10, 操作名「确认下单」)」—— **「工序10」是错的**，
+  > 这条传的只有操作名。`Hl("工序10", 单号集合, 日期)` 是另一个函数 `Gl` 在调。证据见 `docs/home-audit/02-actions.md` G2。
+- **手动更新进度**（打单操作单元格点击 → 弹窗 460px）：回执单号(disabled) + 操作名称(el-autocomplete) + 日期(date-picker) + `记录日期`(585, checkbox, 写 localStorage `gr`)。确认 → `updataProgress`（`param3 = 记录日期 ? 操作名+日期 : 操作名`）→ `进度更新成功`(990)；删除 → `deleteProgressForFullOrder` → `进度删除成功`(1148)。
+  > **`操作名称` 的下拉是「聚焦即弹」**（2026-09-18 补记）：这一处的三个 `el-autocomplete` 里，它**没写** `trigger-on-focus`，
+  > 而 Element Plus 该 prop 默认 **true**（从旧版随包发的 `legacy/vendor/js/element-plus.min.js` 里读出的
+  > `triggerOnFocus:{type:Boolean,default:!0}`）；候选构造 `Sa` 在查询词为空时**回全量**，
+  > 所以点进空框就看到整份候选（固定 4 项 + localStorage 自定义项），**不必先打字**。
+  > 另两处（`:12058` 客户编辑弹窗、`:12141` 查询订单·客户）是逐字写了 `"trigger-on-focus":!0`，行为相同。
+  > 对照见 `docs/home-audit/autocomplete-logiccheck.mjs`。
 
 ### 4.8 加价
 

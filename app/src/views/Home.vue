@@ -221,6 +221,7 @@
             :value="manualName"
             :options="manualNameOptions"
             :input-props="manualNameInputProps"
+            :get-show="AUTOCOMPLETE_ALWAYS_SHOW"
             placeholder="选择或输入操作名"
             clearable
             @update:value="(v: string | null) => (manualName = v ?? '')"
@@ -282,6 +283,7 @@
           <n-auto-complete
             :value="queryForm.client"
             :options="clientSuggestions"
+            :get-show="AUTOCOMPLETE_ALWAYS_SHOW"
             placeholder="输入客户信息"
             clearable
             @update:value="(v: string | null) => (queryForm.client = v ?? '')"
@@ -479,6 +481,24 @@ const CUSTOM_SEGMENT_COLOR = '#531dab'
 const PROGRESS_FIXED_FILTERS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
 // `ua`（`:7964`）：自定义段总 flex = 3（5 个固定段 1+2+2+2+2 = 9，合计 12）。
 const CUSTOM_SEGMENT_FLEX = 3
+
+/**
+ * Naive 的 `n-auto-complete` **默认「框里有值才弹」** —— `getShow` 缺省是 `!!value`
+ * （`naive-ui/es/auto-complete/src/AutoComplete.mjs` 的 `mergedShowOptionsRef`），
+ * 所以空框聚焦时什么都不显示。
+ *
+ * 旧版用的是 `el-autocomplete`，**聚焦即弹**：Home 里三处（`:12058` 客户编辑弹窗、
+ * `:12097` 手动更新进度的「操作名称」、`:12141` 查询订单的「客户」）前两处逐字写了
+ * `"trigger-on-focus":!0`，第三处没写 —— 而 Element Plus 这个 prop 的默认值就是 `true`
+ * （`element-plus/es/components/autocomplete/src/autocomplete.mjs`，`triggerOnFocus.default = true`）。
+ * 又因为 `Sa`/`jl` 在查询词为空时回的是**全量候选**（`Sa`：`e ? o.filter(...) : o`），
+ * 旧版点进空框就能看到整份下拉。
+ *
+ * 传 `() => true` 把这层补回来。**不会**导致面板乱弹：Naive 真正决定显隐的是
+ * `active = 本函数 && 聚焦中(canBeActivated) && 有候选`，失焦、选中、点面板外都会把它关掉；
+ * 查询词滤不出候选时面板同样不弹（Naive 比旧版少一个「空面板」的瞬间，属有意）。
+ */
+const AUTOCOMPLETE_ALWAYS_SHOW = () => true
 
 // ---------------------------------------------------------------------------
 // 数据 / 加载
