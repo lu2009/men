@@ -104,6 +104,7 @@
         :scroll-x="1750"
         :checked-row-keys="checkedRowKeys"
         :expanded-row-keys="expandedRowKeys"
+        :row-class-name="rowClass"
         :bordered="false"
         size="small"
         @update:checked-row-keys="onCheckedKeys"
@@ -774,7 +775,20 @@ watch(searchText, (v) => {
 })
 
 // ---------------------------------------------------------------------------
-// 行状态色（§3 有 CSS 语义的部分；.paid-row/.paid-customer/.duplicate 无清晰口径，暂不实现）
+// 行状态色（§3）
+//
+// 旧版一共 5 个状态色类，分三层挂钩，新版一一对应：
+//   · **行级** `Qo`（`:7842-7849`，挂在 el-table 的 `row-class-name` 上）——`expanded-row` /
+//     `loaded-row` / `paid-row` / `duplicate-order-row` ⇒ 新版 `rowClass()`，见「展开明细」一节末尾
+//     （它同时依赖 `expandedRowKeys`，所以放在那边）。
+//   · **单元格级** `Ls`（`:11221-11227`）——`date-audit` / `date-warning` ⇒ 下面 `dateCellClass()`。
+//   · **单元格级** `.paid-customer`（`:11402-11404`）——挂在**客户列**的 `render` 上。
+//
+// ⚠️ **更正一条旧注释**：这里先前写着「`.paid-row`/`.paid-customer`/`.duplicate` 无清晰口径、
+//    暂不实现」——**与源码不符**。口径全部写死在 `Zo`(`:7827`) / `Xo`(`:7830`) / `Vo`(`:7664`) /
+//    `Qo`(`:7842`) 里，且 `legacy/css/Home-97d96482.css` 里是**活样式**（不是死码）。
+//    `.paid-row` 现在仍不实现，但理由换成了真实的那个：**`grep -r paid-row legacy/` 零 CSS 命中**，
+//    旧版加了类却没有对应规则，是不生效的死码。
 // ---------------------------------------------------------------------------
 /**
  * 日期单元格的状态类（旧版 `Ls`，`:11221-11227`）—— **两个类互斥**，且**挂在单元格上**（不是整行）。
@@ -1595,6 +1609,13 @@ function clearAccounts() {
 const expandedRowKeys = ref<DataTableRowKey[]>([])
 const details = reactive<Record<number, OrderDto>>({})
 const loadingDetail = reactive<Record<number, boolean>>({})
+/**
+ * 明细**已加载成功**的订单 id（旧版 `_o`，`:7792`）—— 用于行类 `loaded-row`。
+ *
+ * ⚠️ 只有 detail 接口**返回 200** 才加进去（旧版 `:7792` 在 `if(200===o.code)` 分支里 add）；
+ *    失败/报错**不加**。与 `details`（有值即算）不完全等价，所以单独记一个集合。
+ */
+const loadedIds = ref<Set<number>>(new Set())
 
 function onExpandedKeys(keys: DataTableRowKey[]) {
   expandedRowKeys.value = keys
@@ -1608,11 +1629,102 @@ async function loadDetail(id: number) {
   loadingDetail[id] = true
   try {
     details[id] = await api.getOrder(id)
+    // 旧版 `:7792` `_o.value.add(回执单号)` —— 只在 detail 成功那支里做。
+    loadedIds.value = new Set(loadedIds.value).add(id)
   } catch (e) {
     message.error((e as Error).message || '加载明细失败')
   } finally {
     loadingDetail[id] = false
   }
+}
+
+// ---------------------------------------------------------------------------
+// 行级状态类（旧版 `Qo`，`:7842-7849`）
+// ---------------------------------------------------------------------------
+/**
+ * 重复单判据键（旧版 `Zo`，`:7827-7831`）：
+ *
+ * ```js
+ * Ko = e => e == null ? "" : String(e).trim()
+ * Zo = e => { const t=Ko(e.客户), l=Ko(e.门数), o=Ko(e.总价)
+ *             return t && l && o ? t + "__" + l + "__" + o : "" }
+ * ```
+ *
+ * 三个字段**各自 trim 后都非空**才成键；任一个为空（`""` 是 falsy）⇒ 返回 `""` ⇒ **不参与重复判定**。
+ * ⚠️ 数值 `0` 经 `String()` 是 `"0"`（真值）⇒ 门数/总价为 0 的单**仍然参与**。
+ */
+function dupKey(r: OrderSummaryDto): string {
+  const k = (v: unknown) => (v == null ? '' : String(v).trim())
+  const client = k(r.client_name)
+  const doors = k(r.door_count)
+  const total = k(r.total_price)
+  return client && doors && total ? `${client}__${doors}__${total}` : ''
+}
+
+/**
+ * 「重复单」键集合（旧版 `Xo`，`:7830-7841`）—— 在样本里出现**超过 1 次**的键。
+ *
+ * ⚠️ **样本是 `ps`**（旧版 `:7832` 读 `ps.value`）＝ **筛选链的全量结果，不是当前页**
+ *    （分页切片 `Cs` 是 `ps.slice(...)`，`:11180-11183`）。新版对应 `filtered`。
+ *
+ * ⚠️ **有意偏离**：新版 `filtered` 里还含**列头筛选**，而旧版那一步在 el-table 内部、**分页之后**
+ *    （见 `columnFilterState` 的注释）。⇒ 勾了列头筛选时，新版做重复判定的样本**比旧版大**。
+ *    这是「列头筛选改全量」那次拍板（用户 2026-09-18）的连带结果，不另开分支。
+ */
+const duplicateKeys = computed(() => {
+  const counts = new Map<string, number>()
+  for (const r of filtered.value) {
+    const k = dupKey(r)
+    if (!k) continue
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  const out = new Set<string>()
+  counts.forEach((n, k) => {
+    if (n > 1) out.add(k)
+  })
+  return out
+})
+
+/** 当前展开的订单 id（旧版 `jo`，`:7772` 展开时 add、`:7826` 收起时 delete）。 */
+const expandedIds = computed(() => new Set(expandedRowKeys.value.map((k) => Number(k))))
+
+/**
+ * `n-data-table` 的 `row-class-name`（旧版 `Qo`，`:7842-7849`）：
+ *
+ * ```js
+ * Qo = ({ row }) => {
+ *   const l = []
+ *   jo.value.has(row.回执单号) && l.push("expanded-row")
+ *   _o.value.has(row.回执单号) && l.push("loaded-row")
+ *   0 === so(row) && l.push("paid-row")            // ← 死码，不实现，见下
+ *   const o = Zo(row)
+ *   o && Xo.value.has(o) && l.push("duplicate-order-row")
+ *   return l.join(" ")
+ * }
+ * ```
+ *
+ * ⚠️ **`paid-row` 不实现**：`grep -r paid-row legacy/` **零命中** —— 旧版加了类，但
+ *    `legacy/css/*.css`（含 `Home-97d96482.css`）里**没有任何 `.paid-row` 规则**，
+ *    渲染出来不产生任何效果。照抄只会多一个不生效的类名，故略去（旧版侧是死码）。
+ *
+ * ⚠️ **键的等价映射**：旧版这三个集合都按 `回执单号` 建，因为旧版的 `row-key` 就是它
+ *    （`:11300` `"row-key":s(467)`，`dr(467)` = 回执单号）。新版 `row-key` 是 DB `id`
+ *    （见模板）⇒ 这里一并换成 `id`。
+ *    唯一不严格等价的边角：`receipt_no` 在新库里**允许为空串**（`0009_orders.sql:8`
+ *    `TEXT NOT NULL DEFAULT ''`，唯一索引是 `WHERE receipt_no <> ''`）。旧版按 `''` 成键时，
+ *    展开**任意一条**空号单会让**所有**空号单一起亮；新版按 `id` 只亮展开的那一条。
+ *    取值更合理的一侧（真实数据里回执单号必填），且与旧版在「回执单号非空」时逐字一致。
+ *
+ * ⚠️ 类的**顺序**与旧版一致（`expanded-row` → `loaded-row` → `duplicate-order-row`）；
+ *    但 CSS 的层叠不靠顺序，见 `<style>` 里那段说明。
+ */
+function rowClass(r: OrderSummaryDto): string {
+  const classes: string[] = []
+  if (expandedIds.value.has(r.id)) classes.push('expanded-row')
+  if (loadedIds.value.has(r.id)) classes.push('loaded-row')
+  const k = dupKey(r)
+  if (k && duplicateKeys.value.has(k)) classes.push('duplicate-order-row')
+  return classes.join(' ')
 }
 
 function pingOf(id: number): OrderLineDto[] {
@@ -2163,8 +2275,14 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     filterOptions: clientFilterOptions.value,
     filter: (v, row) => textColumnFilter('client_name', v, row),
     filterOptionValues: columnFilterValues('client_name'),
-    render: (row) =>
-      h('div', { class: 'clickable-cell', onClick: () => openRename(row) }, row.client_name),
+    // 旧版 `:11400-11407`（工厂态那一支）：
+    //   `<div :class="{'paid-customer': Vo(row)}" style="cursor:pointer" title="点击修改客户名称">客户</div>`
+    // 三个细节都要：①「已付清」绿块（`Vo(row)` = 未收为 0）；②`cursor:pointer`（新版走 `.clickable-cell`）；
+    // ③ `title`（旧版 `dr(1490)`）。第二轮审计抓到 ②③ 先前都缺。
+    render: (row) => {
+      const cls = unpaidOf(row) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'
+      return h('div', { class: cls, title: '点击修改客户名称', onClick: () => openRename(row) }, row.client_name)
+    },
   },
   {
     title: '日期',
@@ -2529,5 +2647,93 @@ const tableHeight = 'calc(100vh - 300px)'
   padding: 4px 8px;
   border-radius: 4px;
   font-weight: 700;
+}
+
+/*
+ * 客户列「已付清」绿块（旧版 `.paid-customer`，**单元格级**，`:11402-11404` 的 `Vo(row)`）。
+ * 样式逐字取自 `legacy/css/Home-97d96482.css` —— 注意它有 `color`/`padding`/`border-radius`/
+ * `font-weight`，不只是背景色。
+ */
+:deep(.paid-customer) {
+  background-color: #90ee90 !important;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #000;
+  font-weight: 700;
+}
+
+/*
+ * 行状态底色（类由 `rowClass()` 产出）。样式逐字取自 `legacy/css/Home-97d96482.css`：
+ *
+ *   [data-v-…] .el-table__row, [data-v-…] .el-table__row.expanded-row { background-color:#fff!important }
+ *   [data-v-…] .loaded-row                 { background-color:#dbdbd8!important }
+ *   [data-v-…] .loaded-row.expanded-row    { background-color:#e2e2e0!important }
+ *   [data-v-…] .el-table__body tr.duplicate-order-row>td.el-table__cell       { background-color:#ffe4ec!important }
+ *   [data-v-…] .el-table__body tr.duplicate-order-row:hover>td.el-table__cell { background-color:#ffd6e4!important }
+ *
+ * ⚠️ **不能照抄到 `tr` 上。** 旧版挂在 `<tr>` 上能看见，是因为 Element Plus 的 `td` 是透明的；
+ *    而 Naive 的 `.n-data-table-td` **自带** `background-color: var(--n-merged-td-color)`（= `#fff`，
+ *    见 `naive-ui/es/data-table/src/styles/index.cssr.mjs`）⇒ 挂 `tr` 上会被 `td` 整片盖住、**完全看不见**。
+ *    所以改成挂在 `td` 上（用 `>` 与旧版 `>td.el-table__cell` 同构）。
+ *
+ * ⚠️ 权重必须算准 —— 而且**不能靠读源码猜**：`{ a: 1 }` 那种 cssr 写法要展开成选择器才知道
+ *    真实权重（`:not(...)` 是**要计入**的）。下面这张表是**实测**出来的：
+ *    `node docs/home-audit/probe-naive-css.mjs` 把 Naive 真实生成的 CSS 打出来核对。
+ *
+ *   Naive 侧（实测的真实选择器）：
+ *     `.n-data-table .n-data-table-td`                                            (0,2,0)  基准白
+ *     `.n-data-table .n-data-table-tr:not(.n-data-table-tr--summary):hover
+ *        > .n-data-table-td`                                                      (0,5,0)  悬停色
+ *
+ *   新版侧（`:deep(X)` 编译成 `[data-v-…] X`，那个**属性选择器自带 (0,1,0)**）：
+ *     `.n-data-table-tr.loaded-row > .n-data-table-td`                            (0,4,0)
+ *     `.n-data-table-tr.loaded-row.expanded-row > .n-data-table-td`               (0,5,0)
+ *     `.n-data-table-tr.loaded-row:hover > .n-data-table-td`                      (0,5,0)  ↓ 手动还原悬停色
+ *     `.n-data-table-tr.duplicate-order-row > .n-data-table-td`   + `!important`  (0,4,0)
+ *     `.n-data-table-tr.duplicate-order-row:hover > .n-data-table-td` + `!important` (0,5,0)
+ *
+ *   逐种情形核对（「旧版」列＝按旧版 CSS 推出来的可见结果）：
+ *     · 仅 loaded                → (0,4,0) > 基准白 (0,2,0) ⇒ `#dbdbd8` ✓
+ *     · 仅 loaded + 悬停          → 新版那条 (0,5,0) 与 Naive 悬停 (0,5,0) **打平且同值** ⇒ 都对 ✓
+ *     · loaded+expanded          → (0,5,0) 压基准白 ⇒ `#e2e2e0` ✓
+ *     · loaded+expanded + 悬停    → 悬停条与它同为 (0,5,0)，**写在后面**⇒ 悬停色 ✓
+ *     · 仅 expanded（未 loaded）  → 无规则命中 ⇒ 基准白，与旧版
+ *                                  `.el-table__row.expanded-row{background-color:#fff!important}` 同 ✓
+ *     · duplicate（± loaded/expanded）→ `!important` 通吃 ⇒ `#ffe4ec`；悬停 `#ffd6e4` ✓
+ *                                  （旧版靠「`td` 上的 `!important` 盖住 `tr` 上的底色」，
+ *                                    新版两类同落在一个 `td` 上，只能用 `!important` 复现）
+ *
+ *    ⇒ 悬停时回到 Naive 的 hover 底，与旧版等效（旧版底色在 `tr`、hover 把 `td` 涂掉，
+ *      灰底同样被覆盖）。**悬停还原那一条必须显式写**：`.loaded-row.expanded-row` 是 (0,5,0)，
+ *      比 Naive 悬停的旧假设值高，不写的话「已加载+已展开」的行**悬停不变色**（旧版会变）。
+ *
+ * ⚠️ 还原悬停色用了 Naive 自己的变量 `--n-merged-td-color-hover`（不是硬编码颜色）——
+ *    表格在弹窗/气泡里时 Naive 会把它换成对应变体，写死颜色就会串。
+ *    后面的 `#f5f7fa` 只是**兜底**：万一将来 Naive 改了这个变量名，声明会退回它，
+ *    而不是变成 `transparent`（`var()` 无兜底且变量缺失时整个声明按 unset 处理）。
+ */
+:deep(.n-data-table-tr.loaded-row > .n-data-table-td) {
+  background-color: #dbdbd8;
+}
+:deep(.n-data-table-tr.loaded-row.expanded-row > .n-data-table-td) {
+  background-color: #e2e2e0;
+}
+/* 悬停还原：权重 (0,5,0) 与上面 `.loaded-row.expanded-row` 打平 ⇒ 靠**写在后面**决胜。 */
+:deep(.n-data-table-tr.loaded-row:hover > .n-data-table-td) {
+  background-color: var(--n-merged-td-color-hover, #f5f7fa);
+}
+
+/*
+ * 重复单底色。**这两条带 `!important`，是照抄旧版**（旧版就是
+ * `tr.duplicate-order-row>td.el-table__cell{background-color:#ffe4ec!important}`）。
+ * 必须保留，因为它要压过 `loaded-row`：旧版靠「`td` 上的 `!important` 盖住 `tr` 上的底色」
+ * 实现（两个不同元素，`td` 在上层），新版两类落在同一个 `td` 上 ⇒ 只能靠 `!important`
+ * 复现同一结果（`loaded-row.expanded-row` 是 (0,5,0)，比重复单的 (0,4,0) 高）。
+ */
+:deep(.n-data-table-tr.duplicate-order-row > .n-data-table-td) {
+  background-color: #ffe4ec !important;
+}
+:deep(.n-data-table-tr.duplicate-order-row:hover > .n-data-table-td) {
+  background-color: #ffd6e4 !important;
 }
 </style>
