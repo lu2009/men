@@ -67,6 +67,19 @@ pub async fn add_order_payment(
     Ok(response::ok(json!({ "saved": true })))
 }
 
+/// 冲销订单的「资金池分配」—— 删除订单红冲的一条腿（另一半是带 `order_id` 的负收款，
+/// 走 `add_order_payment`）。为什么要拆，见 `service::reverse_order_allocation` 的文档注释。
+///
+/// 无请求体：金额**服务端**按该订单当前的分配合计取，不接受客户端传。
+pub async fn reverse_order_allocation(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Path(order_id): Path<i64>,
+) -> ApiResult<Json<Value>> {
+    let reversed = service::reverse_order_allocation(&state.pool, user.tenant_id, order_id).await?;
+    Ok(response::ok(serde_json::to_value(AllocationReversal { reversed }).unwrap()))
+}
+
 /// 订单抹零/冲销（finance_addOrderAdjustment）。
 pub async fn add_order_adjustment(
     State(state): State<AppState>,

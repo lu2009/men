@@ -1413,7 +1413,12 @@ const dashboardOrders = computed(() =>
 )
 
 // ---------------------------------------------------------------------------
-// 删除选中（§4.3：先查财务记录，删除后自动红冲）
+// 删除选中（§4.3：先查财务记录，红冲，再删除）
+//
+// ⚠️ **红冲必须排在删除之前**（与旧版「先删后冲」的顺序相反，见下）：
+//    `addOrderPayment`（本单收款那条腿）内部要 `order_finance(order_id)` 取「本单已分配金额」
+//    做校验，订单删掉之后那个查询会 `not_found`。
+//    顺带也更安全：红冲失败时订单还在，可以重试；反过来则会留下「删了但没冲」的孤儿。
 // ---------------------------------------------------------------------------
 const checkedRowKeys = ref<DataTableRowKey[]>([])
 
@@ -1544,16 +1549,28 @@ function deleteSelected() {
         name: string
         allocated: number
         adjustment: number
-        receipts: string[]
+        /** 该客户下**逐单**的红冲清单 —— 收款红冲必须逐单做，见下方 `onPositiveClick`。 */
+        orders: { id: number; receipt: string; orderPaid: number; allocation: number }[]
       }
       const byCustomer = new Map<string, Group>()
       let totalAlloc = 0
       let totalAdj = 0
       for (const it of items) {
         const g =
-          byCustomer.get(it.customer_code) ??
-          { code: it.customer_code, name: it.customer_name, allocated: 0, adjustment: 0, receipts: [] }
-        g.receipts.push(rawOrders.value.find((o) => o.id === it.order_id)?.receipt_no ?? String(it.order_id))
+          byCustomer.get(it.customer_code) ?? {
+            code: it.customer_code,
+            name: it.customer_name,
+            allocated: 0,
+            adjustment: 0,
+            orders: [],
+          }
+        const receipt = rawOrders.value.find((o) => o.id === it.order_id)?.receipt_no ?? String(it.order_id)
+        g.orders.push({
+          id: it.order_id,
+          receipt,
+          orderPaid: it.order_paid_amount,
+          allocation: it.allocation_amount,
+        })
         if (it.allocated_amount > 0) {
           g.allocated += it.allocated_amount
           totalAlloc += it.allocated_amount
@@ -1582,30 +1599,54 @@ function deleteSelected() {
         negativeText: '取消',
         onPositiveClick: async () => {
           try {
-            for (const id of ids) await api.deleteOrder(id)
-            // 逐客户红冲：负收款 + 负抹零（§A3）。
+            // ① 先红冲（顺序理由见本函数上方的说明）。
+            //
+            //  ⚠️ **收款红冲按「来源」拆成两条腿**，这是本文件与旧版唯一实质不同的一处：
+            //     旧版把整笔「已分配收款」写成**一条客户级负收款**（`order_id = NULL`）。
+            //     在我们的账务模型里那会**同一笔钱扣两次** ——
+            //       `实收金额`  = Σ finance_payments（按客户，含负数）        ← 负收款减的是它
+            //       `已分配总额` = Σ finance_payments(order_id NOT NULL) + Σ finance_allocations
+            //                                                  ↑ 只认带 order_id 的，减不到
+            //     被删订单对 `已分配总额` 的贡献仍在（两处都按 order_id 聚合，订单删了行还留着）
+            //     ⇒ 未分配余额多降 2×金额。实测（事务内 ROLLBACK）：
+            //       池分配 300 的订单删掉后 700 → 400，正确应为 1000。
+            //     所以：本单直接收款 → 带 `order_id` 的负收款（走 addOrderPayment，它的负数分支
+            //     和「红冲金额绝对值不能超过本单已分配金额」那条校验就是为这个留的）；
+            //           资金池分配   → 负的分配行（`reverseOrderAllocation`）。
+            //     两条腿各自让「实收」与「已分配总额」同额下降、或只降后者，未分配余额才算得对。
+            const payDate = new Date().toISOString().slice(0, 10)
             for (const g of groups) {
-              if (g.allocated > 0) {
-                await api.addCustomerPayment(g.code, {
-                  customer_code: g.code,
-                  customer_name: g.name,
-                  amount: -g.allocated,
-                  pay_date: new Date().toISOString().slice(0, 10),
-                  method: '其他',
-                  remark: '删除订单红冲收款 ' + g.receipts.join(','),
-                  allocations: [],
-                })
+              for (const o of g.orders) {
+                if (o.orderPaid > 0) {
+                  await api.addOrderPayment(o.id, {
+                    customer_code: g.code,
+                    customer_name: g.name,
+                    receipt_no: o.receipt,
+                    amount: -o.orderPaid,
+                    pay_date: payDate,
+                    method: '其他',
+                    remark: '删除订单红冲收款 ' + o.receipt,
+                    use_prepay_discount: false,
+                    discount_rate: 0,
+                  })
+                }
+                if (o.allocation > 0) await api.reverseOrderAllocation(o.id)
               }
+              // 抹零红冲**保持旧版原样**（客户级负调整）。这里与收款不同：`customer_balance` 里
+              // `order_adj` 与 `cust_adj` 是**同号相减**的两项，所以冲在哪一边、净效果相同
+              // （实测两种写法都得到同一个 `customer_balance`）⇒ 不必拆，照抄旧版 C7。
               if (g.adjustment > 0) {
                 await api.addCustomerAdjustment(g.code, {
                   customer_code: g.code,
                   customer_name: g.name,
                   amount: -g.adjustment,
                   type: '删除订单冲销',
-                  remark: '删除订单红冲抹零 ' + g.receipts.join(','),
+                  remark: '删除订单红冲抹零 ' + g.orders.map((o) => o.receipt).join(','),
                 })
               }
             }
+            // ② 再删除。
+            for (const id of ids) await api.deleteOrder(id)
             message.success('删除成功')
             checkedRowKeys.value = []
             await load()

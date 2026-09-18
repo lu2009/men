@@ -16,6 +16,13 @@ pub fn router() -> Router<AppState> {
             "/api/v1/finance/orders/{order_id}/payments",
             post(handler::add_order_payment),
         )
+        // 删除订单红冲的一条腿：冲销该订单的「资金池分配」（写负的 finance_allocations）。
+        // 另一条腿（本单直接收款）复用上面的 `/payments`，金额取负即可 —— 它的负数是允许的
+        // （`add_order_payment` 里那条「红冲金额绝对值不能超过本单已分配金额」的校验就是为它留的）。
+        .route(
+            "/api/v1/finance/orders/{order_id}/allocation-reversal",
+            post(handler::reverse_order_allocation),
+        )
         .route(
             "/api/v1/finance/orders/{order_id}/adjustments",
             post(handler::add_order_adjustment),

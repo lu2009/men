@@ -24,6 +24,7 @@ import type {
   OrderFinance,
   OrderFinanceDetail,
   CheckOrderPaymentItem,
+  AllocationReversal,
   CustomerBalance,
   StatementItem,
   AllocationPreview,
@@ -234,6 +235,12 @@ export const api = {
     request<{ saved: boolean }>(`/v1/finance/orders/${orderId}/payments`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+  // 删除订单红冲的一条腿：冲销该订单的「资金池分配」。
+  // 无请求体 —— 金额由服务端按该订单当前的分配合计取，不接受客户端传。
+  reverseOrderAllocation: (orderId: number) =>
+    request<AllocationReversal>(`/v1/finance/orders/${orderId}/allocation-reversal`, {
+      method: 'POST',
     }),
   addOrderAdjustment: (orderId: number, payload: AddOrderAdjustmentInput) =>
     request<{ saved: boolean }>(`/v1/finance/orders/${orderId}/adjustments`, {

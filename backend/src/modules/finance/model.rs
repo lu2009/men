@@ -27,6 +27,12 @@ pub struct AddOrderPayment {
     pub customer_code: String,
     #[serde(default)]
     pub customer_name: String,
+    /// ⚠️ `#[serde(default)]` **不能去掉**：路由是 `/orders/{order_id}/payments`，
+    /// 这个值由 handler 从**路径**填（`req.order_id = order_id`），请求体里本来就没有它。
+    /// 先前漏了 default ⇒ serde 在 handler 之前就 422（`missing field order_id`），
+    /// **本单收款这条路从 UI 根本调不通**（`FinanceDrawer.vue` 的收款表单按前端类型
+    /// `AddOrderPaymentInput` 发请求，那里没有 `order_id`）。2026-09-18 端到端实测发现。
+    #[serde(default)]
     pub order_id: i64,
     #[serde(default)]
     pub receipt_no: String,
@@ -46,6 +52,8 @@ pub struct AddOrderPayment {
 /// 订单抹零/冲销（finance_addOrderAdjustment）。
 #[derive(Debug, Deserialize)]
 pub struct AddOrderAdjustment {
+    /// 同 `AddOrderPayment::order_id`：由 handler 从路径填，**必须** `#[serde(default)]`。
+    #[serde(default)]
     pub order_id: i64,
     #[serde(default)]
     pub receipt_no: String,
@@ -121,10 +129,24 @@ pub struct CheckOrderPayment {
 #[derive(Debug, Serialize)]
 pub struct CheckOrderPaymentItem {
     pub order_id: i64,
+    /// 本单收款 + 池分配。对话框「已分配收款 ¥x」显示的就是它（口径不变）。
     pub allocated_amount: f64,
+    /// **本单直接收款**（`finance_payments` 里带该 `order_id` 的）。
+    /// 删除订单红冲时，这一段要写成**带 `order_id` 的负收款** —— 分开给，见 `service::reverse_order_allocation`。
+    pub order_paid_amount: f64,
+    /// **来自资金池的分配**（`finance_allocations` 里该 `order_id` 的）。
+    /// 红冲时这一段要写成**负的分配行**，不能混进收款里。
+    pub allocation_amount: f64,
     pub adjustment_amount: f64,
     pub customer_code: String,
     pub customer_name: String,
+}
+
+/// 「删除订单红冲」结果（`service::reverse_order_allocation` 的返回）。
+#[derive(Debug, Serialize)]
+pub struct AllocationReversal {
+    /// 冲销的分配金额（正数，写进库里的是它的相反数）。没有分配时为 0。
+    pub reversed: f64,
 }
 
 /// 预付款分配执行（finance_executePrepaymentAllocation）。

@@ -49,9 +49,17 @@ async fn fetch_order(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<
 // ---------------------------------------------------------------------------
 
 /// 订单财务摘要。
-pub async fn order_finance(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<OrderFinance> {
-    let head = fetch_order(pool, tenant_id, order_id).await?;
-
+/// 订单的两段「已分配」拆开取：`(本单直接收款, 资金池分配)`。
+///
+/// 口径与 `order_finance` 里的两条 SQL **同源**（那里加起来当 `allocated_amount`），
+/// 但删除订单红冲必须知道**哪一段是哪一段**，所以单独抽出来 —— 见 `reverse_order_allocation`。
+///
+/// ⚠️ 只读财务表，**不查 `orders`**：调用方可能已把订单删了（红冲晚于删除时）。
+pub async fn order_allocated_parts(
+    pool: &PgPool,
+    tenant_id: i64,
+    order_id: i64,
+) -> ApiResult<(f64, f64)> {
     let paid: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments \
          WHERE tenant_id = $1 AND order_id = $2",
@@ -69,6 +77,14 @@ pub async fn order_finance(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiR
     .bind(order_id)
     .fetch_one(pool)
     .await?;
+
+    Ok((round2(paid), round2(alloc)))
+}
+
+pub async fn order_finance(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<OrderFinance> {
+    let head = fetch_order(pool, tenant_id, order_id).await?;
+
+    let (paid, alloc) = order_allocated_parts(pool, tenant_id, order_id).await?;
 
     let adj: f64 = sqlx::query_scalar(
         "SELECT COALESCE(SUM(amount), 0.0) FROM finance_order_adjustments \
@@ -528,6 +544,8 @@ pub async fn check_order_payment(
     let mut out = Vec::with_capacity(order_ids.len());
     for &id in order_ids {
         let of = order_finance(pool, tenant_id, id).await?;
+        // 拆开的两段：删除时红冲要**按来源分别入账**，见 `reverse_order_allocation`。
+        let (order_paid_amount, allocation_amount) = order_allocated_parts(pool, tenant_id, id).await?;
         let (customer_code, customer_name): (String, String) = sqlx::query_as(
             "SELECT client_code, client_name FROM orders WHERE id = $1 AND tenant_id = $2",
         )
@@ -538,12 +556,82 @@ pub async fn check_order_payment(
         out.push(CheckOrderPaymentItem {
             order_id: id,
             allocated_amount: of.allocated_amount,
+            order_paid_amount,
+            allocation_amount,
             adjustment_amount: of.adjustment_amount,
             customer_code,
             customer_name,
         });
     }
     Ok(out)
+}
+
+/// 冲销订单的「资金池分配」（**删除订单红冲**的一部分，见 `app/src/views/Home.vue` 的 `deleteSelected`）。
+///
+/// ## 为什么必须单独有这一条
+///
+/// 删除订单时前端要「先红冲再删」。旧版把整笔 `已分配收款` 写成**一条客户级负收款**
+/// （`order_id = NULL`）。在我们的账务模型里那样会**同一笔钱扣两次**：
+///
+/// ```text
+/// 未分配余额 = 实收金额 − 已分配总额
+/// 实收金额   = Σ finance_payments（按客户，含红冲负数）          ← 负收款减的是它
+/// 已分配总额 = Σ finance_payments(order_id IS NOT NULL) + Σ finance_allocations
+///                                            ↑ 只认带 order_id 的收款，减不到
+/// ```
+///
+/// ⇒ 负收款让 `实收` 掉了 A，而被删订单对 `已分配总额` 的贡献 A 仍在（`order_paid` 与
+/// `alloc` 都按 `order_id` 聚合，订单删了行还留着），净效果是**多扣 2A**。
+/// 实测（事务内 `ROLLBACK`，见 `docs/home-audit/`）：池分配 300 的订单删掉后
+/// 未分配余额 700 → 400，正确应为 1000。
+///
+/// 所以红冲按**来源**拆成两条腿：
+///   · 本单直接收款 → 负的 `finance_payments`（**带 `order_id`**）⇒ `实收` 与
+///     `已分配总额` 同时降 d，未分配余额不变（正确：那笔钱本来就不在池子里）；
+///   · 资金池分配   → 负的 `finance_allocations`（**本函数**）⇒ `已分配总额` 降 a、
+///     `实收` 不动，那 a 回到池子里（正确）。
+///
+/// ## 行为
+///
+/// 取该订单当前的 `finance_allocations` 合计（**服务端自己算**，不接受客户端传金额，
+/// 免得两边对不上），写一条等额负数。没有分配时**不写**、返回 0。
+///
+/// ⚠️ **不查 `orders`**：调用方可能把红冲排在删除之后。也正因如此，本函数**不校验订单存在**。
+/// ⚠️ **不做幂等**：连调两次会冲两次（-2a）。与 `add_order_payment` 一致（那条同样是纯追加）。
+///    要幂等得引入「已冲销」标记，超出本次范围。
+pub async fn reverse_order_allocation(
+    pool: &PgPool,
+    tenant_id: i64,
+    order_id: i64,
+) -> ApiResult<f64> {
+    let (_, alloc) = order_allocated_parts(pool, tenant_id, order_id).await?;
+    if alloc.abs() < 0.005 {
+        return Ok(0.0);
+    }
+
+    let (customer_code, receipt_no): (String, String) = sqlx::query_as(
+        "SELECT COALESCE(MAX(customer_code), ''), COALESCE(MAX(receipt_no), '') \
+         FROM finance_allocations WHERE tenant_id = $1 AND order_id = $2",
+    )
+    .bind(tenant_id)
+    .bind(order_id)
+    .fetch_one(pool)
+    .await?;
+
+    sqlx::query(
+        "INSERT INTO finance_allocations \
+         (tenant_id, customer_code, order_id, receipt_no, amount, discount) \
+         VALUES ($1, $2, $3, $4, $5, 0)",
+    )
+    .bind(tenant_id)
+    .bind(&customer_code)
+    .bind(order_id)
+    .bind(&receipt_no)
+    .bind(-alloc)
+    .execute(pool)
+    .await?;
+
+    Ok(alloc)
 }
 
 /// 分配预览（finance_previewAllocation）：按「未收 > 0 的订单，最早优先」贪心分配拟收款。

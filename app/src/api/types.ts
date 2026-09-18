@@ -343,10 +343,21 @@ export interface FinanceRecord {
 // 删除校验结果项（finance_checkOrderPayment）。
 export interface CheckOrderPaymentItem {
   order_id: number
+  /** 本单收款 + 池分配。删除确认框里「已分配收款 ¥x」显示的就是它。 */
   allocated_amount: number
+  /** 本单直接收款。删除时红冲要写成**带 `order_id` 的负收款**。 */
+  order_paid_amount: number
+  /** 来自资金池的分配。删除时红冲要写成**负的分配行**（`reverseOrderAllocation`）。 */
+  allocation_amount: number
   adjustment_amount: number
   customer_code: string
   customer_name: string
+}
+
+/** 「删除订单红冲」里冲销分配那一步的返回。 */
+export interface AllocationReversal {
+  /** 冲销掉的分配金额（正数）。该订单没有分配时为 0。 */
+  reversed: number
 }
 
 // 订单财务明细（finance_getOrderDetail）：totals + 分配明细 + 调整记录。
