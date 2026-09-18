@@ -221,6 +221,19 @@ export interface OrderHeadInput {
   lock_direction?: string
 }
 
+// Home「查询更多」的过滤条件（GET /orders/search）—— 旧版 `getMoreTableDate` 的 param3–param6。
+// 四项皆可缺省，缺省/空串 = 该条件不过滤。旧版坐标：`legacy/js/Home.formatted.js:11074`。
+export interface OrderSearchParams {
+  /** 旧版 param3：客户名（弹窗 autocomplete 选中的值）。 */
+  client_name?: string
+  /** 旧版 param4：安装地址。 */
+  install_address?: string
+  /** 旧版 param5：起始日期 `YYYY-MM-DD`（含当日）。 */
+  start_date?: string
+  /** 旧版 param6：结束日期 `YYYY-MM-DD`（含当日）。 */
+  end_date?: string
+}
+
 // 取价结果：型材 → 单价/计价方式/套线单价/锁定条件。
 export interface PriceResolveDto {
   unit_price: number

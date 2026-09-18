@@ -15,6 +15,7 @@ import type {
   OrderDto,
   OrderHeadInput,
   OrderInput,
+  OrderSearchParams,
   OrderSummaryDto,
   PriceResolveDto,
   PrintTemplateDto,
@@ -138,6 +139,15 @@ export const api = {
   deleteClient: (id: number) =>
     request<{ deleted: boolean }>(`/v1/clients/${id}`, { method: 'DELETE' }),
   listOrders: () => request<OrderSummaryDto[]>('/v1/orders'),
+  // Home「查询更多」（旧版 `getMoreTableDate`）：按客户 / 安装地址 / 日期范围取一批订单头。
+  // 只传非空条件 —— 与旧版「不填就不拼进 URL」等价（后端四个参数也都能缺省）。
+  searchOrders: (params: OrderSearchParams) => {
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null && String(v).trim() !== '') qs.set(k, String(v).trim())
+    }
+    return request<OrderSummaryDto[]>(`/v1/orders/search?${qs.toString()}`)
+  },
   getOrder: (id: number) => request<OrderDto>(`/v1/orders/${id}`),
   createOrder: (payload: OrderInput) =>
     request<OrderDto>('/v1/orders', {
