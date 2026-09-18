@@ -18,60 +18,12 @@
         >
           打印选中订单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
         </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openReceipt2"
-        >
-          自定义收据单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openGlassSheet2"
-        >
-          自定义玻璃合片单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openProductionSheet2"
-        >
-          自定义生产单2{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openProductionSheet"
-        >
-          自定义生产单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
         <!--
-          合格标签族的三颗入口（旧版 `br`/`Dr`/`Ar`，`H@356456 / 357247 / 358009`）。
-          ★ 三者打开的是**同一个抽屉**，差别只有 `entry`（决定行集合）——
-          旧版是 `lable()` / `lable({ping:!0,diao:!1})` / `lable({ping:!1,diao:!0})`，见 `qualifiedLabelUiProfile.ts`。
+          ⚠️ 自定义单据与标签的入口**不在这里** —— 它们在「打印选项」抽屉里。
+          旧版工具栏**只有一个**按钮（工厂「打印选中订单」/ 终端「查看回执单」，onClick 是同一个 `Gi`），
+          那 ~24 个单据入口（含 `自定义单据：` 分组）全在抽屉内。我们先前平铺在工具条上是偏离，
+          2026-09-18 按用户要求改回原样。见 `docs/2026-09-17-home-print.md` §4。
         -->
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openQualifiedLabel('all')"
-        >
-          自定义合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openQualifiedLabel('ping')"
-        >
-          平开合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openQualifiedLabel('diao')"
-        >
-          推拉合格标签{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
         <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
         <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
         <span class="grow-spacer" />
@@ -182,7 +134,7 @@
     <FinanceDrawer v-model:show="financeShow" :order="financeOrder" @saved="onFinanceSaved" />
 
     <!-- 打印选项抽屉（§4.2 打印选中订单） -->
-    <PrintDrawer v-model:show="printShow" :orders="printOrders" />
+    <PrintDrawer v-model:show="printShow" :orders="printOrders" @open-doc="onOpenDoc" />
 
     <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
     <Receipt2Drawer v-model:show="receipt2Show" :orders="receipt2Orders" />
@@ -577,119 +529,47 @@ async function openPrint() {
 }
 
 /**
- * 收据单2（旧版 `ic=12` 的那张自绘单据）。
+ * 「打印选项」抽屉里点了**自绘单据**的入口 —— 开对应的抽屉。
  *
- * 与「打印选中订单」共用同一套选中订单与明细兜底逻辑，只是走另一条渲染/打印链路：
- * 收据单2 不经过 hiprint，是自带样式的自绘单据。
+ * 旧版工具栏只有一个按钮，那 ~24 个单据入口全在抽屉里（含 `自定义单据：` 分组），
+ * 所以这一层是**入口分派**，与「打印选中订单」共用同一套选中订单。
+ *
+ * ⚠️ **复用 `printOrders`，不再重新请求** —— 打开打印抽屉时已经做过明细兜底
+ * （未展开过的订单会 `getOrder` 补全），这里重复拉一遍是白费。
+ *
+ * ⚠️ **先关自己再开目标**：两个 `n-drawer` 都从右侧出，叠着会互相压。
  */
-async function openReceipt2() {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打单的订单')
-    return
-  }
-  try {
-    receipt2Orders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  receipt2Show.value = true
-}
+function onOpenDoc(doc: string, entry?: string) {
+  const orders = printOrders.value
+  printShow.value = false
 
-/**
- * 自定义玻璃合片单（旧版 `ic=16` 的自绘单据）。
- *
- * 与收据单同构：共用同一套选中订单与明细兜底逻辑，只是走另一条渲染/打印链路。
- * 注意它的行数据**与收据单不同源** —— 新版复用 `printPayloads.ts` 的 `glassProduces()`
- * （引擎 A），由抽屉内部装配，这里只负责把订单给过去。
- */
-async function openGlassSheet2() {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打单的订单')
-    return
+  const open = (
+    target: typeof receipt2Orders,
+    show: typeof receipt2Show,
+  ) => {
+    target.value = orders
+    show.value = true
   }
-  try {
-    glassSheet2Orders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  glassSheet2Show.value = true
-}
 
-/**
- * 自定义生产单2（旧版 `ic=15`）。
- *
- * 与玻璃合片单同属「C 家族」（骨架逐字相同），差别在：
- * · **行数据来源**：本单用 `productionProduces()`（旧版 `calculateReceipt`），
- *   而玻璃合片单用 `glassProduces()`（旧版 `calculateGlass`）；
- * · 列集 8 → 9 列；空段渲染补 `&nbsp;` 占位。
- * 这些都封装在各自的抽屉里，Home 只负责把订单给过去。
- */
-async function openProductionSheet2() {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打单的订单')
-    return
+  switch (doc) {
+    case 'receipt2':
+      open(receipt2Orders, receipt2Show)
+      break
+    case 'glassSheet2':
+      open(glassSheet2Orders, glassSheet2Show)
+      break
+    case 'productionSheet2':
+      open(productionSheet2Orders, productionSheet2Show)
+      break
+    case 'productionSheet':
+      open(productionSheetOrders, productionSheetShow)
+      break
+    case 'qlabel':
+      // 合格标签族三个入口共用同一个抽屉，只差 `entry`（= 行过滤）
+      qualifiedLabelEntry.value = (entry ?? 'all') as QualifiedLabelEntry
+      open(qualifiedLabelOrders, qualifiedLabelShow)
+      break
   }
-  try {
-    productionSheet2Orders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  productionSheet2Show.value = true
-}
-
-/**
- * 自定义生产单（旧版 `ic=14`）—— **B 家族**，与前三张都不同族。
- *
- * 三点与前几张的区别（都封装在抽屉里，Home 只负责把订单给过去）：
- * · 行数据来源 `calculateReceiptOld()` → 新版 `oldSheetProduces(paired)`；
- * · 配置是三块（`headerFields` + `tableConfig` + `doorImgBox`）而非纯列模型；
- * · 独有的「每页条数（1/2）」会把行**配对**成两联。
- */
-async function openProductionSheet() {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打单的订单')
-    return
-  }
-  try {
-    productionSheetOrders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  productionSheetShow.value = true
-}
-
-/**
- * 合格标签族的**三个入口**（旧版 `br` / `Dr` / `Ar`）。
- *
- * ★ 它们打开的是**同一个抽屉**，唯一的差别是 `entry` —— 旧版是
- * `lable()` / `lable({ping:!0,diao:!1})` / `lable({ping:!1,diao:!0})`，
- * 三者的组件层代码**逐字相同**（施工图 §6.1 CONFIRMED：组件 props 里没有任何入口标识）。
- *
- * ⚠️ `entry` 与 `show` 必须在**同一个 tick** 里设 —— 抽屉重建行的时机是它自己的
- * `show` watcher（`false → true`），那时 `entry` 已经是新值（见 `QualifiedLabelDrawer.vue`）。
- */
-async function openQualifiedLabel(entry: QualifiedLabelEntry) {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打单的订单')
-    return
-  }
-  try {
-    qualifiedLabelOrders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  qualifiedLabelEntry.value = entry
-  qualifiedLabelShow.value = true
 }
 
 // ---------------------------------------------------------------------------

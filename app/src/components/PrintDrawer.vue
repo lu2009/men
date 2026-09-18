@@ -18,13 +18,17 @@
           <div v-for="g in DOC_GROUPS" :key="g.title" class="doc-group">
             <div class="doc-group-title">{{ g.title }}</div>
             <div class="doc-buttons">
+              <!--
+                两种按钮：`mode` 的是 hiprint 模板（点了在本抽屉里渲染预览）；
+                `doc` 的是**自绘单据**（点了抛给 Home 去开它自己的抽屉 —— 见 `openDoc`）。
+              -->
               <n-button
                 v-for="d in g.items"
-                :key="d.mode"
+                :key="d.mode ?? d.doc"
                 size="small"
-                :type="mode === d.mode ? 'primary' : 'default'"
+                :type="(d.mode && mode === d.mode) ? 'primary' : 'default'"
                 :disabled="loading"
-                @click="selectMode(d.mode)"
+                @click="d.doc ? openDoc(d.doc) : selectMode(d.mode as string)"
               >
                 {{ d.label }}
               </n-button>
@@ -82,17 +86,43 @@ const props = defineProps<{
   /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
   orders: OrderDto[]
 }>()
-const emit = defineEmits<{ 'update:show': [boolean] }>()
+const emit = defineEmits<{
+  'update:show': [boolean]
+  /**
+   * 点了**自绘单据**的入口（旧版 `ic=12–16`）。
+   *
+   * 本抽屉只负责列入口、不负责渲染它们 —— 那五张各有自己的抽屉组件与打印链路。
+   * 由 Home 接住、关掉本抽屉、开对应的那个。
+   *
+   * `entry` 只有合格标签族用（`'all' | 'ping' | 'diao'`，三个入口共用一张单据）。
+   */
+  openDoc: [doc: string, entry?: string]
+}>()
 
 const message = useMessage()
 const auth = useAuthStore()
 
 /**
- * 单据清单 = 后端 `print_templates` 的 17 张，按用途分组。
+ * 单据按钮的一项。`mode` 与 `doc` **二选一**：
+ * · `mode` = hiprint 模板（17 张之一），点了在本抽屉里渲染预览；
+ * · `doc`  = 自绘单据（旧版 `ic=12–16`），点了抛 `openDoc` 给 Home 去开它自己的抽屉。
+ */
+interface DocEntry {
+  label: string
+  /** hiprint 模板 mode（与 `doc` 二选一） */
+  mode?: string
+  /** 自绘单据 key（与 `mode` 二选一） */
+  doc?: string
+  /** 只有合格标签族用：`'all' | 'ping' | 'diao'`（三个入口共用一张单据） */
+  entry?: string
+}
+
+/**
+ * 单据清单 = 后端 `print_templates` 的 17 张 + 5 张自绘单据，按用途分组。
  * 标签里写死 mode（而不去后端拉列表）是**有意**的：分组与中文名是产品语义，
  * 后端只有 mode/name；拉列表再分组反而多一次请求、还得分派。
  */
-const DOC_GROUPS = [
+const DOC_GROUPS: { title: string; items: DocEntry[] }[] = [
   {
     title: '生产类',
     items: [
@@ -128,6 +158,29 @@ const DOC_GROUPS = [
       { mode: 'receipt', label: '客户回执单' },
       { mode: 'FinalReceipt', label: '收据单' },
       { mode: 'ReceiptList', label: '出货清单' },
+    ],
+  },
+  /**
+   * **自绘单据**（旧版 Home 抽屉里的 `自定义单据：` 分组，`dr[972]`）。
+   *
+   * ⚠️ 它们**不是 hiprint 模板**（旧版 `ic=12–16`），各有自己的抽屉组件与打印链路，
+   * 所以这里点下去**不发渲染**，而是抛 `openDoc` 给 Home 去开对应的抽屉。
+   *
+   * 合格标签族三个入口**共用同一个抽屉**（旧版同一个组件、同一个 `ic`，只差数据过滤，
+   * 已由施工图 §6.1 证实组件对入口完全无感），所以这里传的是同一个 `qlabel` + 不同 `entry`。
+   *
+   * 分组顺序照旧版：生产类 / 玻璃类 / 标签类 / 收据类 / **自定义单据**。
+   */
+  {
+    title: '自定义单据',
+    items: [
+      { doc: 'receipt2', label: '自定义收据单' },
+      { doc: 'glassSheet2', label: '自定义玻璃合片单' },
+      { doc: 'productionSheet2', label: '自定义生产单2' },
+      { doc: 'productionSheet', label: '自定义生产单' },
+      { doc: 'qlabel', label: '自定义合格标签', entry: 'all' },
+      { doc: 'qlabel', label: '平开合格标签', entry: 'ping' },
+      { doc: 'qlabel', label: '推拉合格标签', entry: 'diao' },
     ],
   },
 ]
@@ -245,6 +298,15 @@ async function doPrint() {
  * 数据还没就绪（`loading` / `prereqs` 为空）时只选中、不渲染，避免白报一次错；
  * 等就绪后用户再点一次即可（抽屉打开时那一下很快，正常看不到这个分支）。
  */
+/**
+ * 点**自绘单据**入口 —— 交给 Home 去开对应的抽屉。
+ *
+ * 本抽屉**不关自己**：由 Home 决定（它会先关本抽屉再开目标抽屉，避免两个抽屉叠着）。
+ */
+function openDoc(doc: string, entry?: string) {
+  emit('openDoc', doc, entry)
+}
+
 function selectMode(m: string) {
   mode.value = m
   previewHtml.value = ''
