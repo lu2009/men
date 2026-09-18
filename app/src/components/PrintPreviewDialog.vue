@@ -57,6 +57,22 @@
         <n-button v-if="editSpec" size="small" :disabled="loading" @click="openEdit">
           {{ editSpec.label }}
         </n-button>
+        <!--
+          「复制回执单」—— 旧版「查看回执单」那颗开的弹窗（`Ai`）工具条上的一颗（`hc`，:497024），
+          排在「编辑回执单」之后。新版这条路落到本共用弹窗，所以**只在收据族 mode 上出现**。
+          ⚠️ 旧版另有一颗名字不同的「复制收据单」(`hc`) 在按 `ic` 分支的那个弹窗上 ——
+             两条路在新版合并到本弹窗，这里取 `ki` 那条路的名字。
+          动作 = 把当前预览整份渲染成 PNG 进剪贴板（复用 `utils/receiptImage.ts`）。
+        -->
+        <n-button
+          v-if="canCopyReceipt"
+          size="small"
+          :disabled="!ready || loading"
+          :loading="copying"
+          @click="doCopyReceipt"
+        >
+          {{ copying ? '复制中...' : '复制回执单' }}
+        </n-button>
       </div>
 
       <div v-if="emptyHint" class="pp-empty">{{ emptyHint }}</div>
@@ -129,6 +145,7 @@ import {
   loadPrintPrereqs,
   type PrintPrereqs,
 } from '../composables/useOrderPrint'
+import { copyReceiptImage } from '../utils/receiptImage'
 import DocEditDialog from './DocEditDialog.vue'
 import QualifiedLabelEditDialog from './QualifiedLabelEditDialog.vue'
 import ProductionSheetEditDialog from './ProductionSheetEditDialog.vue'
@@ -230,6 +247,14 @@ const editSpec = computed<EditSpec | null>(() => EDIT_SPECS[props.mode] ?? null)
 const editTitle = computed(() => editSpec.value?.label.trim() || '编辑')
 
 const editShow = ref(false)
+/** 「复制回执单」的进行中态（旧版 `wl`，文案「复制中...」↔「复制回执单」）。 */
+const copying = ref(false)
+
+/**
+ * 只有**收据族**有这颗。目前只给 `receipt` —— `FinalReceipt`/`ReceiptList` 对应旧版哪个 ic
+ * 仍未查实（见 `EDIT_SPECS` 的 TODO），按「别猜」不给。
+ */
+const canCopyReceipt = computed(() => props.mode === 'receipt')
 /**
  * 预览渲染时产出的行（`buildBatchPayload` 的 `rows`）—— 编辑弹窗读的就是这份
  * （对应旧版 Home 的内存 ref：ic=1/2 的 `uc`、ic=4 的 `bc`、ic=8/9 的 `uc`）。
@@ -340,6 +365,25 @@ async function render(mode0: string, token: number) {
     message.error((e as Error).message || '渲染失败')
   } finally {
     if (token === renderToken) rendering.value = false
+  }
+}
+
+/**
+ * 复制回执单（旧版 `hc`，:497024；「查看回执单」那条路的弹窗上叫 `Mi`）。
+ *
+ * 把**当前预览整份**渲染成 PNG 进剪贴板 —— 与「回执单-其它」抽屉里那颗是同一个动作、
+ * 同一份实现（`utils/receiptImage.ts`），只是入口不同（这里是预览弹窗的工具条）。
+ */
+async function doCopyReceipt() {
+  if (!previewHtml.value) return
+  copying.value = true
+  try {
+    await copyReceiptImage(previewHtml.value)
+    message.success('回执单图片已复制，可直接粘贴到微信')
+  } catch (e) {
+    message.error('复制失败，请重试' + ((e as Error).message ? '：' + (e as Error).message : ''))
+  } finally {
+    copying.value = false
   }
 }
 
