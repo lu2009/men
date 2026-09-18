@@ -38,7 +38,11 @@
             <template v-if="loading"> · 正在读取数据…</template>
           </span>
           <span class="grow" />
-          <n-button size="small" :disabled="!mode || loading" :loading="rendering" @click="doPreview">
+          <!--
+            「预览」保留为**手动重渲**用（点单据已会自动出预览，见 `selectMode`）。
+            `@click` 必须包一层：`doPreview(mode0?)` 直接绑会把 MouseEvent 当 mode 传进去。
+          -->
+          <n-button size="small" :disabled="!mode || loading" :loading="rendering" @click="() => doPreview()">
             预览
           </n-button>
           <n-button size="small" type="primary" :disabled="!mode || loading" @click="doPrint">
@@ -128,7 +132,14 @@ const DOC_GROUPS = [
   },
 ]
 
-const mode = ref<string>('product')
+/**
+ * 当前选中的单据 mode。**初值空串** —— 打开抽屉时一张都不选。
+ *
+ * ⚠️ 这里刻意不预设默认单据：单据按钮的选中态是绑 `mode` 的，
+ * 若预设成 `product`，打开抽屉就会看到「生产单」显示为选中、而预览区是空的，
+ * 界面在骗人。空着 → 点谁就选中谁、同时立刻出预览。
+ */
+const mode = ref<string>('')
 const loading = ref(false)
 const rendering = ref(false)
 const previewLoading = ref(false)
@@ -138,12 +149,21 @@ let prereqs: PrintPrereqs | null = null
 /** 兜底拉齐明细后的订单（`props.orders` 里未展开过的那些只有表头）。 */
 const fullOrders = ref<OrderDto[]>([])
 
+/**
+ * 渲染竞态令牌。点单据即渲染之后，用户可能**连点**不同单据 ——
+ * 渲染是异步的（拉模板 + hiprint 渲染），慢的那次若不丢弃，会覆盖快的那次，
+ * 导致「选中的是 A、预览显示的是 B」。每次渲染领一个号，落地前比对。
+ */
+let renderToken = 0
+
 watch(
   () => props.show,
   async (open) => {
     if (!open) return
     previewHtml.value = ''
     emptyHint.value = ''
+    mode.value = '' // 打开时一张都不选（见 `mode` 的声明处说明）
+    renderToken++ // 作废可能还在飞的那次渲染
     if (!props.orders.length) {
       emptyHint.value = '请先在订单列表里勾选要打印的订单'
       return
@@ -165,8 +185,7 @@ watch(
 )
 
 /** 每张订单 → 各自的 payload（`templatePayload` 的分发逻辑与 Hui 完全同一份）。 */
-async function buildPayloads(forPreview: boolean) {
-  const mode0 = mode.value
+async function buildPayloads(forPreview: boolean, mode0: string = mode.value) {
   const templates = await api.getPrintTemplatesByMode(mode0)
   const tpl = templates[0]?.template
   if (!tpl) throw new Error(`未配置打印模板：${mode0}`)
@@ -181,20 +200,32 @@ async function buildPayloads(forPreview: boolean) {
   )
 }
 
-async function doPreview() {
-  if (!mode.value) return
+/**
+ * 渲染预览。
+ *
+ * `mode0` 显式传入（而不是读 `mode.value`）—— 这样「选中态」与「正在渲染的那张」
+ * 在异步过程中不会被用户的后续点击改掉；配合 `renderToken` 丢弃过期结果。
+ */
+async function doPreview(mode0: string = mode.value) {
+  if (!mode0) return
+  const token = ++renderToken
   previewLoading.value = true
   rendering.value = true
   try {
-    const { payload } = await buildPayloads(true)
-    previewHtml.value = (await renderByMode(mode.value, payload)) || ''
-    if (!previewHtml.value) message.warning('该模板渲染为空')
+    const { payload } = await buildPayloads(true, mode0)
+    const html = (await renderByMode(mode0, payload)) || ''
+    if (token !== renderToken) return // 已被更新的一次点击取代，丢弃
+    previewHtml.value = html
+    if (!html) message.warning('该模板渲染为空')
   } catch (e) {
+    if (token !== renderToken) return
     previewHtml.value = ''
     message.error((e as Error).message || '渲染失败')
   } finally {
-    previewLoading.value = false
-    rendering.value = false
+    if (token === renderToken) {
+      previewLoading.value = false
+      rendering.value = false
+    }
   }
 }
 
@@ -208,10 +239,18 @@ async function doPrint() {
   }
 }
 
+/**
+ * 点单据按钮 —— **选中并立刻渲染**，不用再点一次「预览」。
+ *
+ * 数据还没就绪（`loading` / `prereqs` 为空）时只选中、不渲染，避免白报一次错；
+ * 等就绪后用户再点一次即可（抽屉打开时那一下很快，正常看不到这个分支）。
+ */
 function selectMode(m: string) {
   mode.value = m
   previewHtml.value = ''
   emptyHint.value = ''
+  if (loading.value || !prereqs) return
+  void doPreview(m)
 }
 </script>
 
