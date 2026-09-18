@@ -58,7 +58,7 @@
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
 | B12 | 列定义 | `:11400` `{key:2,label:"客户",prop:"客户","min-width":100,filters:ta("客户"),"filter-method":ga,"filter-placement":"bottom-start"}` | `Home.vue:1053-1059` | ⚠️ 偏离 | 列本身在、minWidth 100 对；**`filters` 整套没做**（详见 C11）。 |
-| B13 | 已付清绿标 `.paid-customer` | `:11402-11404` `class:{"paid-customer":Vo(row)}`；CSS `.paid-customer{background-color:#90ee90!important;padding:4px 8px;border-radius:4px;color:#000;font-weight:700}` | 无 | ❌ 未做 | `Vo(e)` = `Number(so(e))===0`（`:7671`，即未收为 0）。新版没有任何「已付清」标记。**注意**：旧版 CSS 在 `legacy/css/Home-97d96482.css`，是活样式不是死码。 |
+| B13 | 已付清绿标 `.paid-customer` | `:11402-11404` `class:{"paid-customer":Vo(row)}`；CSS `.paid-customer{background-color:#90ee90!important;padding:4px 8px;border-radius:4px;color:#000;font-weight:700}` | `Home.vue` 客户列 `render`（`unpaidOf(row)===0` → `clickable-cell paid-customer`） | ✅ 已做（2026-09-18） | `Vo(e)` = `Number(so(e))===0`（`:7664`，即未收为 0）。样式逐字取自 `legacy/css/Home-97d96482.css`。 |
 | B14 | 单元格点击 → 改客户名 | `:11298` `onCellClick:en`，`:8067-8069` `en` → `property==="客户"` → `Qa(e)` 开「修改客户名称」弹窗 | `Home.vue:1058` `onClick: () => openRename(row)` + `Home.vue:88-108` | ✅ 已做 | 行为一致（弹窗标题、原客户 disabled、提交走更新接口）。差异：旧版「修改为」是 `el-autocomplete`（`finance_updateOrderCustomer`），新版是普通 `n-input` + `updateOrderHead`（`Home.vue:463`），见 §4.4 那条；弹窗形态本身对得上。 |
 | B15 | 单元格 `title` 提示 | `:11405` `title:"点击修改客户名称"` | 无 | ⚠️ 偏离 | 少了原生 tooltip。 |
 
@@ -200,7 +200,7 @@
 | F3 | 展开内容 = 平开/移门两张子表 | `:11306-11317`（`home.txt:3740-3750`）：渲染 Hui 的平开门组件 `l`(`_`) 与移门组件 `o`，props = `add-price-items` / `showCheckbox:true` / `oderColumn` / `disable-editing` / `highlight-order-query` / `v-model:showPingkai` / `v-model:showDiao` + `onRefresh` / `onUnselect` / `onCalculateSingleRow` | `Home.vue:896-926`：两个只读 `n-data-table` | ⚠️ 偏离 | **复用策略不同**（且是大差异）：旧版直接把 Hui 的**可编辑明细表**整只挂进来（能加价、能勾选、能改行、能算单行）；新版是自绘的**只读** 13 列小表。功能上少了：加价项目、勾选、行内编辑、单行计算、刷新回写。 |
 | F4 | 子表列集 | 由 Hui 组件决定（列集见 `Hui.formatted.js`，本次未展开核） | `Home.vue:879-893`：型材/颜色/开向/扇数/五金/面玻/底玻/门洞宽/门洞高/数量/单价/金额/备注 | ⚠️ 偏离 | 新版列集明显是**自选子集**（旧版 Hui 表列更多：含 玻璃厚/墙厚/亮窗总高/洞尺/吊脚/轨道长/轨道种类/套线种类/套线单价/边封数/亮窗数量/平方数/打折/计价方式 等，见分析文档 §7.2）。 |
 | F5 | 平开/移门切换 | `:11308` `v-model:showPingkai`（`uo(row,"ping")`）、`:11313` `v-model:showDiao`（`uo(row,"diao")`）+ `v-show` | 无 | ❌ 未做 | 旧版两张子表用 `v-show` 互斥/切换显示（`no[回执单号] = {ping,diao}`，`:7625-7629`）；新版是「有就渲染两张、都展示」。 |
-| F6 | 展开行底色 `loaded-row` / `expanded-row` | `:7842-7849` `Qo`：已加载 → `loaded-row`、已展开 → `expanded-row`；CSS `.loaded-row{background-color:#dbdbd8!important}`、`.loaded-row.expanded-row{background-color:#e2e2e0!important}`、`.expanded-row{background-color:#fff!important}` | 无 | ❌ 未做 | 新版展开行没有 `loaded-row`/`expanded-row` 类，展开后行的底色不变。 |
+| F6 | 展开行底色 `loaded-row` / `expanded-row` | `:7842-7849` `Qo`：已加载 → `loaded-row`、已展开 → `expanded-row`；CSS `.loaded-row{background-color:#dbdbd8!important}`、`.loaded-row.expanded-row{background-color:#e2e2e0!important}`、`.expanded-row{background-color:#fff!important}` | `Home.vue` `rowClass()` + `:row-class-name` | ✅ 已做（2026-09-18） | ⚠️ 实现见 `Home.vue` `<style>` 里那段：Naive 的 `td` **不透明**（自带 `background-color`），照抄挂 `tr` 会**完全看不见**，改挂 `td` 并还原层叠。`loaded` 集合只在 detail **成功**时写入（`:7792`）。 |
 | F7 | 展开时清掉该行在明细子表里的选中 | `:7771-7775`（`Jo` 内 `t.unselectAll()` / `l.unselectAll()`）、`:7775` `jo.add` | 无 | ✅ 已做 | 不适用：新版没有可选的明细子表（随 F3 一起缺），这条本身无从偏离。 |
 | F8 | 展开态与「导入中」互斥 | `:7777-7782` `An.value=true`（`An` = 导入中标志） | 无 | ❓ 未确认 | 新版没有「导入」这个动作（属打印/导入维度），我读不出旧版这条在什么时机真正生效，不判定。 |
 
@@ -210,13 +210,13 @@
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| G1 | `row-class-name` 函数 | `:11298` `"row-class-name":Qo`；`:7842-7849` `Qo({row})` 汇总 4 个类 | `Home.vue:67` `:row-props="rowProps"`（`Home.vue:399-404`） | ⚠️ 偏离 | 挂钩等价，但**产出的类集差很多**：旧版 `expanded-row` / `loaded-row` / `paid-row` / `duplicate-order-row`；新版 `date-audit` / `date-warning`。**两边的类几乎不重叠**（旧版这两个是**单元格**类，不是行类）。 |
+| G1 | `row-class-name` 函数 | `:11298` `"row-class-name":Qo`；`:7842-7849` `Qo({row})` 汇总 4 个类 | `Home.vue` `:row-class-name="rowClass"` | ✅ 已做（2026-09-18） | 类集已对齐：`expanded-row` / `loaded-row` / `duplicate-order-row`（`paid-row` 除外，见 G3 旁注）。⚠️ 原文把行类与 `date-audit`/`date-warning` 对比是**比错了层** —— 那两个是**单元格**类（`Ls`），不是 `Qo` 的产物。 |
 | G2 | `.paid-row`（未付清） | `:7843` `0===so(e) && l.push("paid-row")` | 无 | ✅ 已做 | 复核：`legacy/css/` 全目录 `grep -rl paid-row` **无命中** → 旧版只加类、没有任何 CSS，是**死样式**。新版不做不算漏（`Home.vue:386-387` 注释说的「.paid-row 无清晰口径」措辞不准确 —— 口径是清楚的 `未收==0`，只是**没有样式**）。 |
-| G3 | `.duplicate-order-row`（重复订单） | `:7767-7780` `Zo`(`:7767-7770`) = `客户+"__"+门数+"__"+总价`；`Xo`(`:7771-7780`) = 在**当前过滤结果 `ps`** 中出现 >1 次的键集合；`Qo` 据此加类。CSS `.duplicate-order-row>td{background:#ffe4ec!important}` / `:hover>td{background:#ffd6e4!important}`（活样式） | 无 | ❌ 未做 | **口径是明确的**（同客户同名同门数同总价即视为重复，按当前筛选结果实时重算），且 CSS 是活的。`Home.vue:386-387` 注释把它归为「无清晰口径、暂不实现」，与源码不符 —— 如果是有意不做，理由得另写。 |
-| G4 | `.paid-customer`（客户列已付清绿块） | `:11402-11404` + CSS（活样式） | 无 | ❌ 未做 | 见 B13。 |
+| G3 | `.duplicate-order-row`（重复订单） | `:7827-7831` `Zo` = `客户+"__"+门数+"__"+总价`；`Xo`(`:7830-7841`) = 在**当前过滤结果 `ps`** 中出现 >1 次的键集合；`Qo` 据此加类。CSS `tr.duplicate-order-row>td{background:#ffe4ec!important}` / `:hover>td{background:#ffd6e4!important}`（活样式） | `Home.vue` `dupKey()` / `duplicateKeys` / `rowClass()` | ✅ 已做（2026-09-18） | 三个字段**各自 trim 后都非空**才成键（空串 falsy ⇒ 不参与）；数值 `0` 是 `"0"`（真值）⇒ **仍参与**。⭐ `paid-row` 不实现：`grep -r paid-row legacy/` **零 CSS 命中**，旧版加了类却不产生任何效果，是死码。 |
+| G4 | `.paid-customer`（客户列已付清绿块） | `:11402-11404` + CSS（活样式） | `Home.vue` 客户列 `render` | ✅ 已做（2026-09-18） | 见 B13。同一格还一并补了 `title="点击修改客户名称"`（`dr(1490)`，见 02-actions D1）。 |
 | G5 | `.date-audit` | `:11221` + CSS（活样式，**cell 级**） | `Home.vue:401`、`1283-1285`（**行级**） | ⚠️ 偏离 | 见 B19。 |
 | G6 | `.date-warning` | `:11221-11227` + CSS（活样式，**cell 级**） | `Home.vue:402`、`1286-1288`（**行级**） | ⚠️ 偏离 | 见 B20。 |
-| G7 | `.loaded-row` / `.expanded-row` 底色 | `:7843` + CSS | 无 | ❌ 未做 | 见 F6。 |
+| G7 | `.loaded-row` / `.expanded-row` 底色 | `:7846` + CSS | `Home.vue` `rowClass()` + `<style>` | ✅ 已做（2026-09-18） | 见 F6。 |
 | G8 | `.date-danger` | CSS 有、`Ls` 未引用 | 无 | ✅ 已做 | 死样式，不做正确。 |
 
 ---
@@ -249,12 +249,14 @@
 - ❌ 未做：**23** 条
 - ❓ 未确认：**1** 条
 
-**最该先修的（用户一眼能看出来）**：
-1. **B31 打单操作格底色用错了列** —— 旧版这格没底色；有底色的是业务员/打单人（新版又没做）。同一条错在两个方向上都可见。
-2. **B32/B33 打单操作格子只有色条** —— 旧版条下面还有一行「`前段_`」+「**深红加粗的末段**」和绿色 `✓已付` 徽标，现在整格信息量只剩一半。
-3. **B13/G4 已付清标记全无** —— 客户列绿块 `.paid-customer` + 打单操作格 `✓已付`，旧版两处都在，新版两处都没有。
-4. **B1 列序** —— 工厂视图下「安装地址 / 打单操作」的位置错了一整段（旧版在订单备注之后）。
-5. **G3 重复订单底色** —— 口径清楚、CSS 是活的，代码注释「口径不清」与源码不符。
+**最该先修的（用户一眼能看出来）** —— 括号里是 2026-09-18 的补做情况：
+
+1. ~~**B31 打单操作格底色用错了列**~~ —— ✅ 已修（`a70ac477`）。旧版这格没底色；有底色的是业务员/打单人。
+2. **B32/B33 打单操作格子只有色条** —— 旧版条下面还有一行「`前段_`」+「**深红加粗的末段**」和绿色 `✓已付` 徽标，现在整格信息量只剩一半。（`✓已付` 徽标已补，进度条文字段仍缺）
+3. ~~**B13/G4 已付清标记全无**~~ —— ✅ 已补（`39c1db54`）。客户列绿块 `.paid-customer`（含 `title="点击修改客户名称"`）。
+4. ~~**B1 列序**~~ —— ✅ 已修（`a70ac477`）。工厂视图下「安装地址 / 打单操作」已移到订单备注之后。
+5. ~~**G3 重复订单底色**~~ —— ✅ 已补（`39c1db54`）。口径写死在 `Zo`/`Xo` 里，CSS 是活样式；原注释「口径不清」与源码不符，注释一并改正。
+   ⭐ 同批还补齐了 **F6/G7 `loaded-row`/`expanded-row`**；**`paid-row` 经实测判定为死码**（旧版加类但全库无对应 CSS 规则），有意不做。
 6. **C16–C18 列头原生筛选整块缺失**（9 个文本列 + 已付/未付两个金额列）与 **C21「查询更多」弹窗**（唯一的日期范围筛选）。
 7. **B19/B20 `date-audit`/`date-warning` 做成了整行**（旧版是日期格里的一个小色块），且 **`date-warning` 把「已逾期」的行排除掉了**（旧版恰恰包含）。
 8. **E3 分页条**：少了「共 N 条」，多了「跳至第 N 页」。
