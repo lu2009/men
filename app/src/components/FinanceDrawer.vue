@@ -32,6 +32,21 @@
               </div>
             </div>
 
+            <!--
+              「新增抹零」摆在这里 —— **在收款分配记录表的上面**，不是和「本单收款」挤一起。
+              旧版的渲染顺序（`legacy/js/Home.formatted.js` 的 FinanceDrawer 段，按**源码顺序**读）：
+                  `Zl` 按钮行（含两颗按钮）  →  `el-table`（收款记录）  →  `el-form`（本单收款录入）
+              文案也对回旧版：`To(509)` = 「新增抹零」。
+              ⚠️ 先前放成了「本单收款」标题的内联按钮，且文案写成「订单抹零 / 冲销」—— 两处都不对。
+            -->
+            <div class="action-row">
+              <!-- 顺序照旧版：切换按钮先、新增抹零后（`:588` 的 `type:"primary"` → `:592` 的 `type:warning`） -->
+              <n-button type="primary" size="small" @click="orderPayFormOpen = !orderPayFormOpen">
+                {{ orderPayFormOpen ? '收起' : '录入本单收款' }}
+              </n-button>
+              <n-button size="small" type="warning" @click="openOrderAdjust">新增抹零</n-button>
+            </div>
+
             <!-- 收款分配记录 -->
             <div class="section-title">收款分配记录</div>
             <n-data-table
@@ -41,18 +56,13 @@
               :max-height="180"
             />
 
-            <!-- 本单收款表单 -->
-            <!-- 次要按钮内联在标题行（与「客户收款」tab 同一模式，旧版 `Zl`/`io` 都是这么放的） -->
-            <div class="section-title">
-              <span>本单收款</span>
-              <n-button size="small" type="warning" class="title-btn" @click="openOrderAdjust">
-                订单抹零 / 冲销
-              </n-button>
-            </div>
-            <n-form label-placement="left" label-width="80" size="small">
-              <n-form-item label="收款金额">
-                <n-input-number v-model:value="orderPayForm.amount" style="width: 100%" :precision="2" />
-              </n-form-item>
+            <!-- 本单收款表单（默认收起，点上面那颗「录入本单收款」才展开 —— 旧版 `f` 初值是 `!1`） -->
+            <template v-if="orderPayFormOpen">
+              <div class="section-title">本单收款</div>
+              <n-form label-placement="left" label-width="80" size="small">
+                <n-form-item label="收款金额">
+                  <n-input-number v-model:value="orderPayForm.amount" style="width: 100%" :precision="2" />
+                </n-form-item>
               <n-form-item label="收款日期">
                 <n-date-picker v-model:value="orderPayForm.dateTs" type="date" style="width: 100%" />
               </n-form-item>
@@ -75,18 +85,14 @@
                   />
                   <span class="hint">预计抵扣 ¥{{ fmt(prepayDiscount) }}</span>
                 </span>
-              </n-form-item>
-            </n-form>
-            <!--
-              操作按钮**不放在 `n-form-item` 里** —— 放进去会被 `label-width="80"` 缩进 80px，
-              而同一页的「其他操作」行是贴左的 ⇒ 一个面板两个左边界。
-              旧版也是把按钮放在独立的 flex 行里（`zo` = `margin-top:10px;display:flex;gap:8px`，`:924`）。
-            -->
-            <div class="action-row">
-              <n-button type="primary" size="small" :loading="saving" @click="submitOrderPayment">
-                确认本单收款
-              </n-button>
-            </div>
+                </n-form-item>
+              </n-form>
+              <div class="action-row">
+                <n-button type="primary" size="small" :loading="saving" @click="submitOrderPayment">
+                  确认本单收款
+                </n-button>
+              </div>
+            </template>
 
             <!-- 订单调整记录 -->
             <div class="section-title">订单调整记录</div>
@@ -479,6 +485,12 @@ onMounted(loadMethods)
 // ---------------------------------------------------------------------------
 // Tab1 本单收款
 // ---------------------------------------------------------------------------
+/**
+ * 「本单收款」录入表单是否展开（旧版 `f = Vue.ref(!1)` —— **默认收起**）。
+ * 控制它的就是上面那颗 `收起 / 录入本单收款` 按钮；表单收起时整块不渲染。
+ */
+const orderPayFormOpen = ref(false)
+
 const orderPayForm = ref({
   amount: null as number | null,
   dateTs: null as number | null,
