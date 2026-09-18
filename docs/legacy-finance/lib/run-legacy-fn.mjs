@@ -75,7 +75,10 @@ export async function toJs(tsSource) {
   const require_ = createRequire(`${ROOT}/app/`)
   const esbuild = require_('esbuild')
   const out = await esbuild.transform(tsSource, { loader: 'ts', format: 'esm', target: 'es2020' })
+  // esbuild 会给带 `export` 的函数补一个尾部 `export { … };` 块，`new Function` 里不认 ⇒ 剥掉。
   return out.code
+    .replace(/^export\s*\{[^}]*\};?\s*$/gm, '')
+    .replace(/^export\s+(?=(async\s+)?(function|const|let|class))/gm, '')
 }
 
 /**
