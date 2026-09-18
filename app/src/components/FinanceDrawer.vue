@@ -42,7 +42,13 @@
             />
 
             <!-- 本单收款表单 -->
-            <div class="section-title">本单收款</div>
+            <!-- 次要按钮内联在标题行（与「客户收款」tab 同一模式，旧版 `Zl`/`io` 都是这么放的） -->
+            <div class="section-title">
+              <span>本单收款</span>
+              <n-button size="small" type="warning" class="title-btn" @click="openOrderAdjust">
+                订单抹零 / 冲销
+              </n-button>
+            </div>
             <n-form label-placement="left" label-width="80" size="small">
               <n-form-item label="收款金额">
                 <n-input-number v-model:value="orderPayForm.amount" style="width: 100%" :precision="2" />
@@ -78,9 +84,8 @@
             -->
             <div class="action-row">
               <n-button type="primary" size="small" :loading="saving" @click="submitOrderPayment">
-                收款
+                确认本单收款
               </n-button>
-              <n-button size="small" @click="openOrderAdjust">订单抹零 / 冲销</n-button>
             </div>
 
             <!-- 订单调整记录 -->
@@ -105,7 +110,30 @@
               <div class="pcell"><span>未分配余额</span><b>¥{{ fmt(balance?.unallocated_balance) }}</b></div>
             </div>
 
-            <div class="section-title">录入收款</div>
+            <!--
+              本 tab 的摆放**照旧版**（`legacy/js/Home.formatted.js` 的 FinanceDrawer 段）：
+                · 顶部**单摆一行**：`分配预付款`（旧版 `ro` = `{style:{margin-top:10px}}`，`:774`）
+                · 次要按钮**内联在小节标题行**：旧版 `io` = `{class:"section-title",style:{margin-top:16px}}`
+                  里是「 录入新收款 」+ `新增抹零` + `客户抹零`，后两颗带 `margin-left:8px`（`:782`/`:788`）
+                · 表单
+                · `预览自动分配`
+                · 「 剩余未分配: 」+ **`确认提交收款`** —— 主操作在**预览结果下面**，不是和预览并排
+              ⚠️ 先前我们把三颗一次性和「预览/提交」并排塞在两个 `.action-row` 里，
+                 与旧版顺序不同；先后顺序在旧版是有意义的（确认发生在看过预览之后）。
+            -->
+            <div class="action-row">
+              <n-button size="small" @click="openPrepayAllocate">预付款分配</n-button>
+            </div>
+
+            <div class="section-title">
+              <span>录入收款</span>
+              <n-button size="small" type="warning" class="title-btn" @click="openCustomerAdjust">
+                客户抹零 / 冲销
+              </n-button>
+              <n-button size="small" type="success" class="title-btn" @click="openPrepayment">
+                录入预付款
+              </n-button>
+            </div>
             <n-form label-placement="left" label-width="80" size="small">
               <n-form-item label="收款金额">
                 <n-input-number v-model:value="customerPayForm.amount" style="width: 100%" :precision="2" />
@@ -122,7 +150,6 @@
             </n-form>
             <div class="action-row">
               <n-button type="primary" size="small" :loading="saving" @click="previewAllocation">预览分配</n-button>
-              <n-button size="small" :loading="saving" @click="submitCustomerPayment">提交收款</n-button>
             </div>
 
             <template v-if="allocationPreview">
@@ -139,14 +166,13 @@
                   ¥{{ fmt(allocationPreview.remaining_unallocated) }}
                 </b>
               </div>
+              <!-- 主操作放在预览**下面**：旧版也是「先看预览、再确认提交」 -->
+              <div class="action-row">
+                <n-button type="primary" size="small" :loading="saving" @click="submitCustomerPayment">
+                  提交收款
+                </n-button>
+              </div>
             </template>
-
-            <div class="section-title">其他操作</div>
-            <div class="action-row">
-              <n-button size="small" @click="openCustomerAdjust">客户抹零 / 冲销</n-button>
-              <n-button size="small" @click="openPrepayment">录入预付款</n-button>
-              <n-button size="small" @click="openPrepayAllocate">预付款分配</n-button>
-            </div>
           </div>
         </n-tab-pane>
 
@@ -949,6 +975,10 @@ async function reload() {
   margin-bottom: 8px;
   display: flex;
   align-items: center;
+}
+/* 挂在标题行里的次要按钮（旧版 `margin-left:8px`，见 `.section-title` 的用法） */
+.title-btn {
+  margin-left: 8px;
 }
 .filter-row {
   display: flex;
