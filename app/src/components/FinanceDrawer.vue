@@ -388,18 +388,49 @@
 
   <!-- ───────────────────────── 弹窗：预付款分配 ───────────────────────── -->
   <n-modal v-model:show="prepayAllocateShow" preset="card" title="预付款分配" style="width: 560px">
-    <n-form label-placement="left" label-width="80" size="small">
+    <!-- 旧版弹窗顶部先摆一条 alert（`type=info`、不可关、`margin-bottom:14px`） -->
+    <n-alert type="info" :closable="false" style="margin-bottom: 14px">
+      当前未分配余额：¥{{ fmt(balance?.unallocated_balance) }}
+    </n-alert>
+    <n-form label-placement="left" label-width="90" size="small">
       <n-form-item label="分配金额">
         <n-input-number
-          v-model:value="prepayAllocateForm.amount"
+          :value="prepayAllocateForm.amount"
           style="width: 100%"
           :precision="2"
+          :controls="false"
           :min="0.01"
+          :max="balance?.unallocated_balance ?? 0"
           placeholder="不超过未分配余额"
+          @update:value="(v: number | null) => {
+            prepayAllocateForm.amount = v
+            invalidatePrepayPreview()
+          }"
         />
       </n-form-item>
-      <n-form-item label="优惠比例">
-        <n-input-number v-model:value="prepayAllocateForm.discountRate" style="width: 100%" :min="0.1" :max="99" :precision="1" />
+      <!-- 旧版是「启用优惠」开关，打开才显示优惠比例 -->
+      <n-form-item label="启用优惠">
+        <n-switch
+          :value="prepayAllocateForm.useDiscount"
+          @update:value="(v: boolean) => {
+            prepayAllocateForm.useDiscount = v
+            invalidatePrepayPreview()
+          }"
+        />
+      </n-form-item>
+      <n-form-item v-if="prepayAllocateForm.useDiscount" label="优惠比例">
+        <n-input-number
+          :value="prepayAllocateForm.discountRate"
+          style="width: 140px"
+          :min="0.1"
+          :max="99"
+          :precision="1"
+          :controls="false"
+          @update:value="(v: number | null) => {
+            prepayAllocateForm.discountRate = v ?? 0
+            invalidatePrepayPreview()
+          }"
+        />
       </n-form-item>
     </n-form>
     <div class="action-row">
@@ -441,6 +472,7 @@
 <script setup lang="ts">
 import { computed, h, ref, watch, onMounted } from 'vue'
 import {
+  NAlert,
   NButton,
   NDataTable,
   NDatePicker,
@@ -836,13 +868,45 @@ async function submitPrepayment() {
 // 预付款分配（preview → execute）
 // ---------------------------------------------------------------------------
 const prepayAllocateShow = ref(false)
-const prepayAllocateForm = ref({ amount: null as number | null, discountRate: 10 as number })
+const prepayAllocateForm = ref({
+  amount: null as number | null,
+  /** 旧版 `P["启用优惠"]`：默认关；关着时不显示优惠比例。 */
+  useDiscount: false,
+  /** 旧版 `P["优惠比例"]` 初值就是 2。 */
+  discountRate: 2,
+})
 const prepayAllocatePreview = ref<PrepaymentAllocationPreview | null>(null)
 
+/**
+ * 打开「预付款分配」弹窗 —— 逐字照旧版的 `ye()`：
+ *
+ * ```js
+ * P["分配金额"] = s["未分配余额"] ?? 0   // ★ 默认就是「当前未分配余额」
+ * P["启用优惠"] = false
+ * P["优惠比例"] = 2                      // ★ 默认 2，不是 10
+ * I.value = []                           // 清空预览
+ * U["合计分配金额"] = 0; U["合计优惠金额"] = 0; U["资金池剩余"] = 0
+ * ```
+ *
+ * ⚠️ 旧版有「启用优惠」开关（默认关），**优惠比例只在开关打开时才显示**；
+ *    先前我们没有这个开关、优惠比例恒显示，默认值也写成了 10。
+ */
 function openPrepayAllocate() {
-  prepayAllocateForm.value = { amount: null, discountRate: 10 }
+  prepayAllocateForm.value = {
+    amount: balance.value?.unallocated_balance ?? 0,
+    useDiscount: false,
+    discountRate: 2,
+  }
   prepayAllocatePreview.value = null
   prepayAllocateShow.value = true
+}
+
+/**
+ * 改动任一字段就**清空预览**（旧版 `ve()`：`I.value = []`）——
+ * 逼你按新参数重新预览，免得拿着旧方案直接执行。
+ */
+function invalidatePrepayPreview() {
+  prepayAllocatePreview.value = null
 }
 
 async function previewPrepayAllocate() {
@@ -857,7 +921,8 @@ async function previewPrepayAllocate() {
     prepayAllocatePreview.value = await api.previewPrepaymentAllocation(props.order.client_code, {
       customer_code: props.order.client_code,
       allocate_amount: amount,
-      discount_rate: prepayAllocateForm.value.discountRate,
+      // 「启用优惠」关着就送 0（旧版那个开关关掉时 `优惠比例` 根本不参与计算）
+      discount_rate: prepayAllocateForm.value.useDiscount ? prepayAllocateForm.value.discountRate : 0,
     })
   } catch (e) {
     message.error((e as Error).message || '预览失败')
@@ -873,7 +938,8 @@ async function submitPrepayAllocate() {
     await api.executePrepaymentAllocation(props.order.client_code, {
       customer_code: props.order.client_code,
       allocate_amount: prepayAllocateForm.value.amount ?? 0,
-      discount_rate: prepayAllocateForm.value.discountRate,
+      // 「启用优惠」关着就送 0（旧版那个开关关掉时 `优惠比例` 根本不参与计算）
+      discount_rate: prepayAllocateForm.value.useDiscount ? prepayAllocateForm.value.discountRate : 0,
       remark: `优惠${prepayAllocateForm.value.discountRate}%`,
     })
     message.success('分配成功')
