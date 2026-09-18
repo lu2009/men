@@ -37,15 +37,15 @@ import type { PrintContext } from '../utils/printPayloads'
  */
 export interface DocSheetUiClasses {
   /** 抽屉内容列 */
-  drawerWrap: string
+  dialogWrap: string
   /** 抽屉工具条 */
-  drawerToolbar: string
+  dialogToolbar: string
   /** 空数据提示条 */
-  drawerEmpty: string
+  dialogEmpty: string
   /** 「正在生成…」行 */
-  drawerLoading: string
+  dialogLoading: string
   /** 预览容器（横向宽表靠它滚动） */
-  drawerPreview: string
+  dialogPreview: string
   /** 打印设置：常用尺寸按钮行 */
   settingsPresets: string
   /** 打印设置：footer 按钮行 */
@@ -83,11 +83,11 @@ export interface DocSheetUiClasses {
 export function createDocSheetUiClassesFromNs(ns: string): DocSheetUiClasses {
   const layout = (suffix: string): string => ns + '-layout-' + suffix
   return {
-    drawerWrap: ns + '-wrap',
-    drawerToolbar: ns + '-toolbar',
-    drawerEmpty: ns + '-empty',
-    drawerLoading: ns + '-loading',
-    drawerPreview: ns + '-preview',
+    dialogWrap: ns + '-wrap',
+    dialogToolbar: ns + '-toolbar',
+    dialogEmpty: ns + '-empty',
+    dialogLoading: ns + '-loading',
+    dialogPreview: ns + '-preview',
     settingsPresets: ns + '-settings-presets',
     settingsFooter: ns + '-settings-footer',
     layoutWrap: layout('wrap'),
@@ -148,7 +148,7 @@ export const PRODUCTION_SHEET_UI_CLASSES: DocSheetUiClasses = createDocSheetUiCl
  */
 export interface DocSheetUiText {
   /** 抽屉标题。旧版组件没有抽屉（它把 HTML 推回 Home），所以取核心层文档标题（= `<title>` 字面量） */
-  drawerTitle: string
+  dialogTitle: string
   /**
    * 工具栏那颗「编辑」按钮的文案，**同时**当 `DocEditDialog` 的标题。
    * 旧版：Home 工具条的 ` 编辑合片单 `(key 23) / ` 编辑生产单 `(key 18) —— 两边不同，是 §10 表中的一条。
@@ -171,8 +171,8 @@ export interface DocSheetUiText {
    *
    * ⚠️ **旧版四张单据这条文案互不相同**（`docs/custom-docs-recon/01-skeleton.md` §7.3）：
    * C 家族（GS2/PS2）是 ` 打印设置 `、ic=14 是 ` 生产单设置 `、**合格标签族是 ` 标签机设置 `**。
-   * 本字段是 2026-09-18 为 ic=13 加的 —— 在此之前这三个字面量写死在 `DocSheetDrawer.vue` 里。
-   * ⚠️ ic=14（`ProductionSheetDrawer`）**暂时仍吃缺省值**：它的按钮文案也应当是「生产单设置」，
+   * 本字段是 2026-09-18 为 ic=13 加的 —— 在此之前这三个字面量写死在 `DocSheetDialog.vue` 里。
+   * ⚠️ ic=14（`ProductionSheetDialog`）**暂时仍吃缺省值**：它的按钮文案也应当是「生产单设置」，
    *    但那是它自己的一处待办，本次不动（改它会改到已交付的产物的 DOM 文案）。
    */
   settingsActionLabel?: string
@@ -190,7 +190,7 @@ export interface DocSheetUiText {
  *
  * ⚠️ **三个类型形参（决策 2026-09-18，为 ic=14 加）**：`C` 配置 / `R` 行 / `O` 渲染选项。
  * 全部**带默认值 = C 家族的类型**，所以 GS2 / PS2 的一切既有写法（`DocSheetUiProfile`、
- * `DocSheetUiApi` 裸用）**一个字都不用改**。加形参的原因见 `DocSheetDrawerProfile`。
+ * `DocSheetUiApi` 裸用）**一个字都不用改**。加形参的原因见 `DocSheetDialogProfile`。
  */
 export interface DocSheetRenderApi<
   C = DocSheetConfig,
@@ -222,7 +222,7 @@ export interface DocSheetRenderApi<
  * `loadProductionSheet2Settings`）。
  *
  * ★ 它是 `DocSheetRenderApi` 的**超集**：多出来的两条只被**布局编辑器**（C 家族）消费，
- *   抽屉不碰 —— 这正是 ic=14 能复用抽屉却不用为这两条造假实现的原因，见 `DocSheetDrawerProfile`。
+ *   抽屉不碰 —— 这正是 ic=14 能复用抽屉却不用为这两条造假实现的原因，见 `DocSheetDialogProfile`。
  *
  * 参数类型统一成底座的 `DocSheetRow` / `DocSheetConfig`：两张单据的类型都是它们的
  * 别名或子类型（见 `utils/docsheet/types.ts`），所以这里是**收窄方向**、不是放宽。
@@ -239,7 +239,7 @@ export interface DocSheetUiApi<
 }
 
 /**
- * **抽屉（`DocSheetDrawer.vue`）真正消费的**那一份档案。
+ * **抽屉（`DocSheetDialog.vue`）真正消费的**那一份档案。
  *
  * ★ 为什么要有这一层（决策 2026-09-18，为 ic=14 加）：自定义生产单（ic=14）的配置模型
  *   与 C 家族**完全无一处同构**（§0.1：B 家族 vs C 家族），既没有 `DocSheetProfile`
@@ -252,7 +252,7 @@ export interface DocSheetUiApi<
  *
  * ⚠️ 三个形参的默认值 = C 家族的类型 ⇒ GS2 / PS2 的 `DocSheetUiProfile` 天然是它的子类型。
  */
-export interface DocSheetDrawerProfile<
+export interface DocSheetDialogProfile<
   C = DocSheetConfig,
   R = DocSheetRow,
   O = RenderOptions,
@@ -282,7 +282,7 @@ export interface DocSheetUiProfile<
   C = DocSheetConfig,
   R = DocSheetRow,
   O = RenderOptions,
-> extends DocSheetDrawerProfile<C, R, O> {
+> extends DocSheetDialogProfile<C, R, O> {
   /** 核心层档案（同一个「单据档案」）—— 组件层读它的 `prefix` 与 `documentTitle`。 */
   core: DocSheetProfile
   /** 由 `core.prefix` 派生的外壳 class 名。 */
@@ -306,7 +306,7 @@ export interface DocSheetUiProfile<
    * ⚠️ 拿到的 `config` 是**生效配置**（抽屉里的 `config.value`），不是任何草稿 ——
    * 与 `renderPreview` 读的那份一致。
    *
-   * ⚠️ 形参被**重声明**（而不是靠继承）是必须的：`DocSheetDrawerProfile` 里的 `config: C`
+   * ⚠️ 形参被**重声明**（而不是靠继承）是必须的：`DocSheetDialogProfile` 里的 `config: C`
    * 在子接口里要收窄成 `DocSheetConfig`，不重写会被 TS 判为「不兼容地扩展父接口」。
    */
   produceRows(ctx: PrintContext, config: C): R[]
@@ -320,7 +320,7 @@ export interface DocSheetUiProfile<
    * 保存设置后不白跑一遍汇算。
    *
    * ⚠️ **只在「配置保存后」重建行**，**不在「编辑行数据后」重建** —— 见
-   * `DocSheetDrawer.onRowsSaved` 的注（那是有意偏离旧版的一处）。
+   * `DocSheetDialog.onRowsSaved` 的注（那是有意偏离旧版的一处）。
    */
   rowsDependOnConfig?: boolean
 }
@@ -341,7 +341,7 @@ export function createDocSheetUiProfile(input: {
     /**
      * C 家族的渲染选项只有一个键 `qr`（旧版两张单据都是模块级单例 `k`/`I` + Map 缓存）。
      * 这里**不给调用方留口子** —— ic=14 的选项键叫 `qrSvg`（`ProductionSheetRenderOptions`），
-     * 它走自己那份 `ProductionSheetUiProfile`，不经过本工厂（见 `DocSheetDrawerProfile`）。
+     * 它走自己那份 `ProductionSheetUiProfile`，不经过本工厂（见 `DocSheetDialogProfile`）。
      */
     createRenderOpts: () => ({
       qr: input.api.createQrSvgProvider(input.api.createQrEncoder()),

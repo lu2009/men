@@ -154,22 +154,22 @@
     />
 
     <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
-    <Receipt2Drawer v-model:show="receipt2Show" :orders="receipt2Orders" />
+    <Receipt2Dialog v-model:show="receipt2Show" :orders="receipt2Orders" />
 
     <!-- 自定义玻璃合片单（旧版 ic=16）：入口文案取自 `dr[529]` = ` 自定义玻璃合片单 ` -->
-    <GlassSheet2Drawer v-model:show="glassSheet2Show" :orders="glassSheet2Orders" />
+    <GlassSheet2Dialog v-model:show="glassSheet2Show" :orders="glassSheet2Orders" />
 
     <!-- 自定义生产单2（旧版 ic=15）：与玻璃合片单同属 C 家族，差在行数据来源与列集 -->
-    <ProductionSheet2Drawer v-model:show="productionSheet2Show" :orders="productionSheet2Orders" />
+    <ProductionSheet2Dialog v-model:show="productionSheet2Show" :orders="productionSheet2Orders" />
 
     <!-- 自定义生产单（旧版 ic=14）：B 家族，行数据来自 oldSheetProduces() -->
-    <ProductionSheetDrawer v-model:show="productionSheetShow" :orders="productionSheetOrders" />
+    <ProductionSheetDialog v-model:show="productionSheetShow" :orders="productionSheetOrders" />
 
     <!--
       自定义合格标签族（旧版 ic=13）：**三个入口共用这一个抽屉**，只差 `entry`（= 行过滤）。
       旧版三个 handler 打开的就是同一个组件实例（施工图 §6.1 CONFIRMED），新版照此。
     -->
-    <QualifiedLabelDrawer
+    <QualifiedLabelDialog
       v-model:show="qualifiedLabelShow"
       :orders="qualifiedLabelOrders"
       :entry="qualifiedLabelEntry"
@@ -207,11 +207,11 @@ import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
 import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
-import Receipt2Drawer from '../components/Receipt2Drawer.vue'
-import GlassSheet2Drawer from '../components/GlassSheet2Drawer.vue'
-import ProductionSheet2Drawer from '../components/ProductionSheet2Drawer.vue'
-import ProductionSheetDrawer from '../components/ProductionSheetDrawer.vue'
-import QualifiedLabelDrawer from '../components/QualifiedLabelDrawer.vue'
+import Receipt2Dialog from '../components/Receipt2Dialog.vue'
+import GlassSheet2Dialog from '../components/GlassSheet2Dialog.vue'
+import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
+import ProductionSheetDialog from '../components/ProductionSheetDialog.vue'
+import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
 import type { QualifiedLabelEntry } from '../components/qualifiedLabelUiProfile'
 import type { OrderDto, OrderFinance, OrderHeadInput, OrderLineDto, OrderSummaryDto } from '../api/types'
 

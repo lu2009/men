@@ -1,6 +1,6 @@
 <!--
   「自定义生产单2」抽屉 —— 旧版 Home 上那一套（组件叫 `ProductionSheet2PrintManager`，`ic=15`）。
-  **本文件是薄包装**：整套外壳在共用的 `DocSheetDrawer.vue` 里，这里只递三样东西 ——
+  **本文件是薄包装**：整套外壳在共用的 `DocSheetDialog.vue` 里，这里只递三样东西 ——
   本单据的组件层档案（`productionSheet2UiProfile.ts`）+ 两个设置弹窗的 PS2 包装组件。
 
   ⚠️ **本组件尚未接进 Home**（Home 的 `ic=15` 分支还没做）—— 这次只交付组件层，
@@ -18,7 +18,7 @@
   后者的 `doorframe`/`windows` 恒为 `""`（§7.3），换过去会让「外框」「亮窗/扣板」两列整片塌掉。
 -->
 <template>
-  <DocSheetDrawer
+  <DocSheetDialog
     :show="show"
     :orders="orders"
     width="95%"
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import type { OrderDto } from '../api/types'
-import DocSheetDrawer from './DocSheetDrawer.vue'
+import DocSheetDialog from './DocSheetDialog.vue'
 import ProductionSheet2LayoutDialog from './ProductionSheet2LayoutDialog.vue'
 import ProductionSheet2SettingsDialog from './ProductionSheet2SettingsDialog.vue'
 import { PRODUCTIONSHEET2_UI_PROFILE } from './productionSheet2UiProfile'

@@ -34,7 +34,7 @@ export const PRODUCTIONSHEET2_UI_PROFILE: DocSheetUiProfile = createDocSheetUiPr
   core: PRODUCTIONSHEET2_PROFILE,
   text: {
     // 文档 `<title>` 字面量（§3.1 / PS2:703）—— 也是抽屉标题。
-    drawerTitle: PRODUCTIONSHEET2_PROFILE.documentTitle, // 「自定义生产单2」
+    dialogTitle: PRODUCTIONSHEET2_PROFILE.documentTitle, // 「自定义生产单2」
     // Home 工具条 key 18（§15.5 映射表 ic=15）—— GS2 是「编辑合片单」。
     editActionLabel: '编辑生产单',
     // 旧版 Home `Xr`（`Home.formatted.js:8448`，源码 @448504 附近）：

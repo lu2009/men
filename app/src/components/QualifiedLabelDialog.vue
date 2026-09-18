@@ -1,6 +1,6 @@
 <!--
   「自定义合格标签族」抽屉 —— 旧版 Home 上那一套（组件叫 `QualifiedLabelPrintManager`，`ic=13`）。
-  **本文件是薄包装**：整套外壳在共用的 `DocSheetDrawer.vue` 里，这里只递四样东西 ——
+  **本文件是薄包装**：整套外壳在共用的 `DocSheetDialog.vue` 里，这里只递四样东西 ——
   本单据的组件层档案（`qualifiedLabelUiProfile.ts`）+ 两个设置弹窗 + 一个行数据弹窗。
 
   ★★ **本单据最要紧的特性：三个入口共用同一个实现**（施工图 §6.1，CONFIRMED）。
@@ -27,7 +27,7 @@
   行构造（= 旧版 `onFixedQuantityChange` → `Cc = Cr(zc)` 那条链）。
 -->
 <template>
-  <DocSheetDrawer
+  <DocSheetDialog
     :show="show"
     :orders="orders"
     :profile="uiProfile"
@@ -42,7 +42,7 @@
 import { computed } from 'vue'
 
 import type { OrderDto } from '../api/types'
-import DocSheetDrawer from './DocSheetDrawer.vue'
+import DocSheetDialog from './DocSheetDialog.vue'
 import QualifiedLabelEditDialog from './QualifiedLabelEditDialog.vue'
 import QualifiedLabelLayoutDialog from './QualifiedLabelLayoutDialog.vue'
 import QualifiedLabelSettingsDialog from './QualifiedLabelSettingsDialog.vue'
@@ -73,7 +73,7 @@ const emit = defineEmits<{ 'update:show': [boolean] }>()
  * 「设 `entry`」与「设 `show = true`」在**同一个 tick** 里发生 ⇒ watcher 跑时档案已是新的。
  *
  * TODO(未确认): 若将来出现「抽屉**已经开着**时直接切入口」的用法（当前 UI 走不到：
- * 抽屉遮住右侧、三个入口都要先勾选订单），`DocSheetDrawer` 不会自动重建行 ——
+ * 抽屉遮住右侧、三个入口都要先勾选订单），`DocSheetDialog` 不会自动重建行 ——
  * 届时需要给它加一个「档案变了就重建」的 watcher（属它的事，不在本次范围）。
  */
 const uiProfile = computed(() => createQualifiedLabelUiProfile(props.entry))

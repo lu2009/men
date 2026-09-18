@@ -5,8 +5,8 @@
 //   · 本单据**没有 `core`**（核心层 `utils/productionsheet/profile.ts` 头注已判定：底座的
 //     `DocSheetProfile` 表达不了 B 家族的配置模型，§0.1），且编辑器 class 是
 //     `ps-layout-**editor**-*`，**不能**从前缀派生（§0.3）。
-//   ⇒ 这里是一份**显式的对象字面量**，类型是 `DocSheetDrawerProfile`（抽屉真正消费的那一面），
-//     而不是 `DocSheetUiProfile`。原因与取舍写在 `docSheetUi.ts` 的 `DocSheetDrawerProfile` 头注。
+//   ⇒ 这里是一份**显式的对象字面量**，类型是 `DocSheetDialogProfile`（抽屉真正消费的那一面），
+//     而不是 `DocSheetUiProfile`。原因与取舍写在 `docSheetUi.ts` 的 `DocSheetDialogProfile` 头注。
 //
 // 施工图：`docs/custom-docs-recon/01-ps.md`（§6.1 expose 清单 / §6.2 Home 调用点 / §3.1 / §3.7）。
 
@@ -28,16 +28,16 @@ import type {
 import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
 import {
   PRODUCTION_SHEET_UI_CLASSES,
-  type DocSheetDrawerProfile,
+  type DocSheetDialogProfile,
 } from './docSheetUi'
 
 /**
  * ic=14 的组件层档案**类型**（显式起个名字，好用在本单据的四个组件里）。
  *
- * ⚠️ 它是 `DocSheetDrawerProfile` 而不是 `DocSheetUiProfile` —— 本单据没有 `core`、
+ * ⚠️ 它是 `DocSheetDialogProfile` 而不是 `DocSheetUiProfile` —— 本单据没有 `core`、
  *    也没有 C 家族那两条只有布局编辑器才用的方法（见 `docSheetUi.ts` 的头注）。
  */
-export type ProductionSheetUiProfile = DocSheetDrawerProfile<
+export type ProductionSheetUiProfile = DocSheetDialogProfile<
   ProductionSheetConfig,
   ProductionSheetRow,
   ProductionSheetRenderOptions
@@ -59,7 +59,7 @@ export const PRODUCTION_SHEET_UI_PROFILE: ProductionSheetUiProfile = {
   text: {
     // 文档 `<title>` 字面量（`PS:1332`）—— 旧版组件没有抽屉（它把 HTML 推回 Home），
     // 所以抽屉标题取它。本单据**没有标题行**（§7「无页码 / 无标题行」）。
-    drawerTitle: PS_DOCUMENT_TITLE, // 「自定义生产单」
+    dialogTitle: PS_DOCUMENT_TITLE, // 「自定义生产单」
     // Home 工具条 key 18（§骨架 §7.3）—— PS2 那条也是「编辑生产单」，GS2 是「编辑合片单」。
     editActionLabel: '编辑生产单',
     // 旧版 Home `mc`（`HOME:10053`）：`Array.isArray(t) && t.length ? 开窗 : ElMessage.warning("暂无生产单数据")`
@@ -114,7 +114,7 @@ export const PRODUCTION_SHEET_UI_PROFILE: ProductionSheetUiProfile = {
    *
    * ⚠️ 配对**只在这一处做**（决策 D2/D3 + §9.2）：旧版是 Home 的 `Sr()`→`sc()` 配对、
    * 编辑弹窗保存后 `wc` 又跑一次 `Sr()` ⇒ **二次配对**（一次汇算 ≥4 张订单且开「2 条/页」时
-   * 会产出 `orderID11` 这类脏键）。新版不复刻这条缺陷，见 `DocSheetDrawer.onRowsSaved` 的注。
+   * 会产出 `orderID11` 这类脏键）。新版不复刻这条缺陷，见 `DocSheetDialog.onRowsSaved` 的注。
    */
   produceRows: (ctx: PrintContext, config: ProductionSheetConfig): ProductionSheetRow[] =>
     createPrintPayloads(ctx).oldSheetProduces(config.print.itemsPerPage === 2),

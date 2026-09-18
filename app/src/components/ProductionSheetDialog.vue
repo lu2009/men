@@ -1,12 +1,12 @@
 <!--
   「自定义生产单」抽屉 —— 旧版 Home 上那一套（组件叫 `ProductionSheetPrintManager`，`ic=14`）。
 
-  **本文件是薄包装**：整套外壳在共用的 `DocSheetDrawer.vue` 里，这里只递四样东西 ——
+  **本文件是薄包装**：整套外壳在共用的 `DocSheetDialog.vue` 里，这里只递四样东西 ——
   本单据的组件层档案 + **三个**弹窗组件。
 
   ⚠️ **为什么 C 家族只递两个、这里要递三个**：ic=14 的「编辑XX」是旧版的**另一个组件**
   （`ProductionEditOld`，oldSheet 嵌套族 + 双联），与 `ProductionEdit`（平铺行）不是一回事
-  （施工图 §6.5）。`DocSheetDrawer` 为此留了 `editDialog` 注入口 —— 方案选择与理由写在
+  （施工图 §6.5）。`DocSheetDialog` 为此留了 `editDialog` 注入口 —— 方案选择与理由写在
   `ProductionSheetEditDialog.vue` 的文件头注里。
 
   ⚠️ **本组件尚未接进 Home**（Home 的 `ic=14` 分支还没做）—— 这次只交付组件层，接线是下一步。
@@ -22,7 +22,7 @@
   且 `rowsDependOnConfig: true` —— 改了「每页数据数」会重跑配对（决策 D2/D3）。
 -->
 <template>
-  <DocSheetDrawer
+  <DocSheetDialog
     :show="show"
     :orders="orders"
     :profile="PRODUCTION_SHEET_UI_PROFILE"
@@ -35,7 +35,7 @@
 
 <script setup lang="ts">
 import type { OrderDto } from '../api/types'
-import DocSheetDrawer from './DocSheetDrawer.vue'
+import DocSheetDialog from './DocSheetDialog.vue'
 import ProductionSheetEditDialog from './ProductionSheetEditDialog.vue'
 import ProductionSheetLayoutDialog from './ProductionSheetLayoutDialog.vue'
 import ProductionSheetSettingsDialog from './ProductionSheetSettingsDialog.vue'

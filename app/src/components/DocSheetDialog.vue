@@ -41,11 +41,11 @@
     preset="card"
     :style="{ width: dialogWidth }"
     :bordered="false"
-    :title="profile.text.drawerTitle"
+    :title="profile.text.dialogTitle"
     @update:show="(v: boolean) => emit('update:show', v)"
   >
-      <div :class="cls.drawerWrap">
-        <div :class="cls.drawerToolbar">
+      <div :class="cls.dialogWrap">
+        <div :class="cls.dialogToolbar">
           <span class="hint">
             已选 {{ orders.length }} 张订单
             <template v-if="loading"> · 正在读取数据…</template>
@@ -71,9 +71,9 @@
           </n-button>
         </div>
 
-        <div v-if="emptyHint" :class="cls.drawerEmpty">{{ emptyHint }}</div>
+        <div v-if="emptyHint" :class="cls.dialogEmpty">{{ emptyHint }}</div>
 
-        <div v-if="rendering" :class="cls.drawerLoading">
+        <div v-if="rendering" :class="cls.dialogLoading">
           <n-spin size="small" />
           <span>正在生成…</span>
         </div>
@@ -83,7 +83,7 @@
           （见各单据 `utils/<doc>/css.ts`），这里只负责「横向宽表靠容器滚动」——
           照 Home 那个容器的三个属性（`@499768`）：`width:fit-content` + `overflowX:auto` + `maxWidth:100%`。
         -->
-        <div v-show="!rendering && !!previewHtml" :class="cls.drawerPreview" v-html="previewHtml" />
+        <div v-show="!rendering && !!previewHtml" :class="cls.dialogPreview" v-html="previewHtml" />
       </div>
   </n-modal>
 
@@ -159,7 +159,7 @@ import {
   UI_NO_ORDERS_HINT,
   UI_PRINT_FAIL_PREFIX,
   UI_PRINT_OK,
-  type DocSheetDrawerProfile,
+  type DocSheetDialogProfile,
 } from './docSheetUi'
 
 /**
@@ -177,7 +177,7 @@ const props = withDefaults(defineProps<{
   /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
   orders: OrderDto[]
   /** 本单据的组件层档案（文案 / 外壳 class / 模块转出 / **行来源**）。 */
-  profile: DocSheetDrawerProfile<C, R, O>
+  profile: DocSheetDialogProfile<C, R, O>
   /**
    * 两个设置弹窗的**具体单据包装组件**（`GlassSheet2LayoutDialog` / `ProductionSheet2LayoutDialog` …）。
    *
@@ -250,7 +250,7 @@ const docEditRows = computed(() => rows.value as unknown as Record<string, unkno
  * 整份文档一套渲染选项（旧版是模块级单例 + 一张 Map 缓存，这里按抽屉实例一份）。
  *
  * ⚠️ 由**档案**构造而不是在这里拼：两张单据的选项**键名不同**（C 家族 `{qr}` /
- * ic=14 `{qrSvg}`），本组件不知道 `O` 的具体形状 —— 见 `DocSheetDrawerProfile.createRenderOpts`。
+ * ic=14 `{qrSvg}`），本组件不知道 `O` 的具体形状 —— 见 `DocSheetDialogProfile.createRenderOpts`。
  */
 const renderOpts: O = props.profile.createRenderOpts()
 
@@ -402,9 +402,9 @@ async function doPrint(): Promise<void> {
       PS2 的核心层前缀也是 `ps`，外壳若共用 `ps2-*` 两张单子在 DOM 里就同名了。
       常量见 `docSheetUi.ts` 的 `PS_SHELL_NS` / `PRODUCTION_SHEET_UI_CLASSES`。
       **落地情况（2026-09-18）**：`ps1-*` 这一组**已经是活的** ——
-      `ProductionSheetDrawer.vue` 复用本组件、递的是 `PRODUCTION_SHEET_UI_PROFILE`
+      `ProductionSheetDialog.vue` 复用本组件、递的是 `PRODUCTION_SHEET_UI_PROFILE`
       （`classes` 走显式的 `PRODUCTION_SHEET_UI_CLASSES`，不派生自 `core.prefix`，
-      因为 ic=14 没有 `core`，见 `DocSheetDrawerProfile` 的头注）。
+      因为 ic=14 没有 `core`，见 `DocSheetDialogProfile` 的头注）。
       它下面 5 条样式随之生效，**不是死代码**。
 
   下面 5 条全部是**新版自己的排版胶水**：旧版组件只把 HTML 推回 Home，没有抽屉外壳，

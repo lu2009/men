@@ -6,7 +6,7 @@
 //   · 产出 HTML 的 class 是 `qlabel-root`/`qlabel`/`qfield`（**另一套命名**，不从任何前缀派生）；
 //   · 布局编辑器的 class 是**裸的** `layout-editor-*` / `layout-canvas*` / `layout-node*`
 //     （`QL_LAYOUT_CLASSES`），同样与前缀无关。
-//   ⇒ 这里是一份**显式的对象字面量**，类型是 `DocSheetDrawerProfile`（抽屉真正消费的那一面），
+//   ⇒ 这里是一份**显式的对象字面量**，类型是 `DocSheetDialogProfile`（抽屉真正消费的那一面），
 //     与 `productionSheetUiProfile.ts`（ic=14）同一形态。
 //
 // 施工图：`docs/custom-docs-recon/01-ql.md`（§3 布局编辑器 / §5.2 固定张数 / §6 三入口 / §9 数据源）。
@@ -53,7 +53,7 @@ import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
  * 这一层就够（`Line` 在 `printPayloads.ts` 里只是 `import type` 进来的、没有转出）。
  */
 type LabelLine = PrintContext['lines'][number]
-import { createDocSheetUiClassesFromNs, type DocSheetDrawerProfile } from './docSheetUi'
+import { createDocSheetUiClassesFromNs, type DocSheetDialogProfile } from './docSheetUi'
 
 /**
  * **三个入口**（§6.1 的表格，CONFIRMED）。
@@ -63,7 +63,7 @@ import { createDocSheetUiClassesFromNs, type DocSheetDrawerProfile } from './doc
 export type QualifiedLabelEntry = 'all' | 'ping' | 'diao'
 
 /** ic=13 的组件层档案类型（显式起名，好用在三个组件里）。 */
-export type QualifiedLabelUiProfile = DocSheetDrawerProfile<
+export type QualifiedLabelUiProfile = DocSheetDialogProfile<
   QualifiedLabelConfig,
   LabelRow,
   QualifiedLabelRenderOptions
@@ -73,8 +73,8 @@ export type QualifiedLabelUiProfile = DocSheetDrawerProfile<
  * 合格标签族的外壳 class（**只有抽屉那 5 条**）。
  *
  * ⚠️ 本单**没有 `core.prefix`** ⇒ 走显式的 `ns = 'ql'`。
- * ⚠️ 这里**只**覆盖 `DocSheetDrawer.vue` 真正读的那 5 个成员（`drawerWrap`/`drawerToolbar`/
- *    `drawerEmpty`/`drawerLoading`/`drawerPreview`）—— 接口里剩下的 `layout*`/`settings*`/
+ * ⚠️ 这里**只**覆盖 `DocSheetDialog.vue` 真正读的那 5 个成员（`dialogWrap`/`dialogToolbar`/
+ *    `dialogEmpty`/`dialogLoading`/`dialogPreview`）—— 接口里剩下的 `layout*`/`settings*`/
  *    `columnOrder` 成员是被派生出来但**本单不会用到**的（本单的布局编辑器用核心层的
  *    `QL_LAYOUT_CLASSES`，设置弹窗没有任何 scoped 样式），照抄 `createDocSheetUiClassesFromNs`
  *    的结果即可，别拿它们去当 `layout-editor-*` 的替代品。
@@ -100,7 +100,7 @@ export function filterLabelLines(lines: LabelLine[], entry: QualifiedLabelEntry)
 }
 
 /**
- * 造一张**按入口绑定**的组件层档案（`QualifiedLabelDrawer.vue` 每次切换入口时调一次）。
+ * 造一张**按入口绑定**的组件层档案（`QualifiedLabelDialog.vue` 每次切换入口时调一次）。
  *
  * @param entry 三个入口之一（`all` / `ping` / `diao`）。
  */
@@ -111,7 +111,7 @@ export function createQualifiedLabelUiProfile(entry: QualifiedLabelEntry): Quali
     text: {
       // 抽屉标题。旧版组件**没有抽屉**（它把 HTML 字符串推回 Home 的预览容器），
       // 所以取核心层的文档 `<title>` 字面量 —— ★ 它在三个入口下**恒为这四个字**（§6.1 证据链 3）。
-      drawerTitle: QL_DOCUMENT_TITLE, // 「自定义合格标签」
+      dialogTitle: QL_DOCUMENT_TITLE, // 「自定义合格标签」
       // 工具条 key 13 的「 编辑标签 」按钮（§7.3 / §8.2 的 `kc`）。
       editActionLabel: '编辑标签',
       // 旧版 Home `kc`：`Cc.length ? 开窗 : ElMessage.warning("暂无标签数据")`
@@ -189,12 +189,12 @@ export function createQualifiedLabelUiProfile(entry: QualifiedLabelEntry): Quali
      *    设置弹窗点「保存并应用」→ `if (props.isActive?.())` → `props.onFixedQuantityChange()`
      *    → Home 侧 `Cc = Cr(zc)` → 重建 HTML → 刷预览）。
      *    ⚠️ 旧版 **`k` 无条件调** `onFixedQuantityChange`（不判断固定张数是否真的变了）——
-     *    新版判据同样**不看配置内容是否真的变了**（`DocSheetDrawer.onConfigSaved` 的既有口径：
+     *    新版判据同样**不看配置内容是否真的变了**（`DocSheetDialog.onConfigSaved` 的既有口径：
      *    `produceRows` 对同一份输入是纯函数，多跑一次无副作用）。
      * ⚠️ 与 ic=14 的区别：那边随配置变的是**行形状**（配对），这边变的是**行数**（补齐）。
      *
      * ⚠️⚠️ **有意偏离（一处，由 `true` 带来的副作用，必须记一笔）**：
-     *    `DocSheetDrawer.onConfigSaved` **不区分是哪个弹窗保存的**，所以**布局编辑器**保存时
+     *    `DocSheetDialog.onConfigSaved` **不区分是哪个弹窗保存的**，所以**布局编辑器**保存时
      *    也会重建一次行。于是这条链路：
      *      「编辑标签」改过行 → 保存 → 再开「布局编辑」/「标签机设置」并保存
      *    在新版里会把**编辑标签的改动冲掉**（行被重新推导），而旧版**不会** ——
@@ -204,7 +204,7 @@ export function createQualifiedLabelUiProfile(entry: QualifiedLabelEntry): Quali
      *    为什么仍然这么做：①**没有别的钩子** —— 抽屉只有在「配置保存后」这一个时机重建行，
      *    而固定张数是本次唯一能让抽屉感知到变化的通道；②**改动本来就是会话级的** ——
      *    旧版下次进入三个入口时 `Cc = Cr(zc)` 同样会从零重算，编辑结果从不落库；
-     *    ③ 与 ic=14 的既有处置同源（`DocSheetDrawer.onRowsSaved` 的注：编辑结果只活在本抽屉的
+     *    ③ 与 ic=14 的既有处置同源（`DocSheetDialog.onRowsSaved` 的注：编辑结果只活在本抽屉的
      *    这一次会话里，不复刻旧版的二次配对缺陷）。
      *    ⇒ 差异只在「编辑过行 **且** 之后又保存过某个设置弹窗」这一组合下可见，
      *    且**不涉及任何落库产物**（配置与固定张数两个键的写入都与它无关）。

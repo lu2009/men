@@ -34,7 +34,7 @@ export const GLASSSHEET2_UI_PROFILE: DocSheetUiProfile = createDocSheetUiProfile
   core: GLASSSHEET2_PROFILE,
   text: {
     // 旧版组件把 HTML 推回 Home，自己没有标题栏 —— 取文档 `<title>` 字面量（§3.1）。
-    drawerTitle: GLASSSHEET2_PROFILE.documentTitle, // 「自定义玻璃合片单」
+    dialogTitle: GLASSSHEET2_PROFILE.documentTitle, // 「自定义玻璃合片单」
     // Home 工具条 key 23（§11.4）—— PS2 是「编辑生产单」，两边不同。
     editActionLabel: '编辑合片单',
     // 旧版 Home `ii`（@363242）的整句：`oi.value.length ? … : ElMessage.warning(e(646))`，
