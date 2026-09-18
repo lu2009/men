@@ -1908,14 +1908,23 @@ async function deleteManualProgress() {
 // ---------------------------------------------------------------------------
 // 列定义（§3；Phase 1 = 工厂视图 Yt）
 // ---------------------------------------------------------------------------
-function statusBg(status: string): string {
-  if (status.includes('收据单')) return '#90EE90'
-  if (status.includes('标签')) return '#FFC0CB'
-  if (status.includes('玻璃订单')) return '#87CEEB'
-  if (status.includes('生产单')) return '#FFFF99'
-  if (status.includes('自助下单')) return '#FFA500'
+function statusStyle(text: string): string {
+  if (!text) return ''
+  if (text.includes('收据单')) return BG_RECEIPT
+  if (text.includes('标签')) return BG_LABEL
+  if (text.includes('玻璃订单')) return BG_GLASS_ORDER
+  if (text.includes('生产单')) return BG_PRODUCT
+  if (text.includes('自助下单')) return BG_SELF
   return ''
 }
+// 旧版 `la`（`:7940-7942`）五个分支的**完整内联样式**（`dr` 表解出，每支的后缀相同）。
+// ⚠️ 不是只给颜色 —— `padding/border-radius/font-weight` 是样式的一部分，只给色会少一圈观感。
+const BG_SUFFIX = ' padding: 4px 8px; border-radius: 4px; font-weight: bold;'
+const BG_RECEIPT = `background-color: #90EE90;${BG_SUFFIX}`
+const BG_LABEL = `background-color: #FFC0CB;${BG_SUFFIX}`
+const BG_GLASS_ORDER = `background-color: #87CEEB;${BG_SUFFIX}`
+const BG_PRODUCT = `background-color: #FFFF99;${BG_SUFFIX}`
+const BG_SELF = `background-color: #FFA500;${BG_SUFFIX}`
 
 // 旧版 `ua`（`:7964-7970`）：5 固定段 + 自定义段（flex = 3/个数，色 `#531dab`）。
 type ProgressSegment = { label: string; color: string; flex: number; done: boolean }
@@ -2024,7 +2033,29 @@ function renderEditable(
       },
     })
   }
-  return h('div', { class: 'editable-cell', onClick: () => startEdit(row) }, row[field] || '')
+  const text = row[field] || ''
+  // 旧版 `:11589`/`:11597`：业务员 / 打单人两列的**非编辑态**不是裸文本，而是
+  // `<span style={la(值)}>{值}</span>` —— 那几个底色（收据单/标签/玻璃订单/生产单/自助下单）
+  // 其实是**按这些列的内容**上的，不是按生产状态。编辑态才是输入框。
+  if (field === 'salesperson' || field === 'creator_name') {
+    return h('div', { class: 'editable-cell', onClick: () => startEdit(row) }, [
+      h('span', { style: { whiteSpace: 'pre-wrap' }, ...styleObject(statusStyle(text)) }, text),
+    ])
+  }
+  return h('div', { class: 'editable-cell', onClick: () => startEdit(row) }, text)
+}
+
+/** 把 `la()` 那种「`a: b; c: d;`」样式串转成 Vue 的style 对象（保持原样，不做解析以外的加工）。 */
+function styleObject(css: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const part of css.split(';')) {
+    const i = part.indexOf(':')
+    if (i < 0) continue
+    const k = part.slice(0, i).trim()
+    const v = part.slice(i + 1).trim()
+    if (k && v) out[k] = v
+  }
+  return out
 }
 
 // 列头 popover（§2.2/§2.3）：手动触发，标题 + 单选列表。
@@ -2152,38 +2183,6 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     },
   },
   {
-    title: '安装地址',
-    key: 'install_address',
-    minWidth: 220,
-    filterOptions: addressFilterOptions.value,
-    filter: (v, row) => textColumnFilter('install_address', v, row),
-    filterOptionValues: columnFilterValues('install_address'),
-    render: (row) => renderEditable(row, 'install_address'),
-  },
-  {
-    // popover 选项 = `PROGRESS_OPTIONS` + 自定义项（旧版 `Bo` + `La`，`:11558-11573`）。
-    title: popoverTitle('打单操作', '生产进度', [...PROGRESS_OPTIONS, ...customProgressOptions.value], progressFilter, progressPopShow, (v) => (progressFilter.value = v)),
-    key: 'production_status',
-    minWidth: 150,
-    filterOptions: productionStatusFilterOptions.value,
-    filter: (v, row) => textColumnFilter('production_status', v, row),
-    filterOptionValues: columnFilterValues('production_status'),
-    // 旧版 `:11571-11582`：整格 `cursor:pointer`，点击（`.stop`）→ 开「手动更新进度」弹窗（`Ha`）。
-    render: (row) =>
-      h(
-        'div',
-        {
-          class: 'progress-cell',
-          style: { cursor: 'pointer', background: statusBg(row.production_status || '') },
-          onClick: (e: MouseEvent) => {
-            e.stopPropagation()
-            openManualProgress(row)
-          },
-        },
-        renderProgress(row),
-      ),
-  },
-  {
     title: '门数',
     key: 'door_count',
     minWidth: 80,
@@ -2266,6 +2265,41 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     filter: (v, row) => textColumnFilter('remark', v, row),
     filterOptionValues: columnFilterValues('remark'),
     render: (row) => renderEditable(row, 'remark'),
+  },
+  {
+    title: '安装地址',
+    key: 'install_address',
+    minWidth: 220,
+    filterOptions: addressFilterOptions.value,
+    filter: (v, row) => textColumnFilter('install_address', v, row),
+    filterOptionValues: columnFilterValues('install_address'),
+    render: (row) => renderEditable(row, 'install_address'),
+  },
+  {
+    // popover 选项 = `PROGRESS_OPTIONS` + 自定义项（旧版 `Bo` + `La`，`:11558-11573`）。
+    title: popoverTitle('打单操作', '生产进度', [...PROGRESS_OPTIONS, ...customProgressOptions.value], progressFilter, progressPopShow, (v) => (progressFilter.value = v)),
+    key: 'production_status',
+    minWidth: 150,
+    filterOptions: productionStatusFilterOptions.value,
+    filter: (v, row) => textColumnFilter('production_status', v, row),
+    filterOptionValues: columnFilterValues('production_status'),
+    // 旧版 `:11571-11582`：整格 `cursor:pointer`，点击（`.stop`）→ 开「手动更新进度」弹窗（`Ha`）。
+    render: (row) =>
+      h(
+        'div',
+        {
+          class: 'progress-cell',
+          // ⚠️ **这里没有底色** —— 先前挂了 `statusBg(production_status)`，那是**挂错列**了。
+          // 旧版 `la()` 全组件只在**业务员 / 打单人**两列的「非编辑态显示」上被调用
+          // （`:11589` / `:11597`），打单操作格子只设 `cursor:pointer`。见 `statusStyle`。
+          style: { cursor: 'pointer' },
+          onClick: (e: MouseEvent) => {
+            e.stopPropagation()
+            openManualProgress(row)
+          },
+        },
+        renderProgress(row),
+      ),
   },
   {
     title: '业务员',
