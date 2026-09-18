@@ -14,11 +14,8 @@ import type { LabelFieldKey, LabelRow } from './types'
  *   （空串 `""` 算命中 —— 见 `readFieldValue`）。
  *
  * ⚠️ 只有 `qrcode` 这一行是**多字母大小写变体**；其余都是「英文 key + 中文 key」两三个候选。
- * ⚠️ **别名表里没有 `storeAddress`** —— 旧版 `lable()` 的行对象**不带**这个键
- *   （§4.2 的注），所以别名表里没有它、也**不需要**加：它命中下面「分支 C」的同名回退
- *   （`FIELD_ALIASES[key] || [key]`），直接读 `row.storeAddress` 即可。
- *   2026-09-18 起 `printPayloads.ts` 的 `lableRow` **已补上这个键**
- *   （取**客户资料地址**），所以「位置」现在既能进「编辑标签」弹窗那一列、也能当版式字段用。
+ * ⚠️ **别名表里没有 `storeAddress`** —— 旧 `lable()` 行对象带的 `storeAddress` 在本单
+ *   **永远用不到**（§4.2 的注）。
  * ⚠️ `orderID` 的最后一个候选是中文 **`编号`**（不是「订单号」）—— 照抄。
  */
 export const FIELD_ALIASES: Record<string, readonly string[]> = {

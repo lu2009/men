@@ -99,13 +99,6 @@ export const QL_STORAGE_KEYS = {
   fixedQuantityEnabled: 'qualified_label_quantity_enabled',
   /** 固定标签数数量，裸串数字（旧版 `Ia`） */
   fixedQuantityValue: 'qualified_label_quantity_value',
-  /**
-   * 「编辑标签」弹窗「位置」列的显隐开关，裸串 `"1"` / `"0"`。
-   *
-   * ⚠️ **新版新增的键，旧版没有**（旧版把这一列的显隐硬编码在门店名上）。
-   * 见 `locationColumn.ts` 顶部说明。
-   */
-  locationColumn: 'qualified_label_location_column',
 } as const
 
 /**

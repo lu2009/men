@@ -275,15 +275,11 @@ eq('写：localStorage 抛错不抛异常（空 catch）',
 storageThrows = false
 
 // ================================================================ //
-console.log('—— 配置/打印机的键 ——')
+console.log('—— 配置/打印机的 4 个键 ——')
 // ================================================================ //
-// ⚠️ 旧版是 4 个键；新版**多了第 5 个** `qualified_label_location_column`
-//    ——「编辑标签」弹窗「位置」列的显隐开关（用户 2026-09-18 拍板：把旧版按门店名
-//    硬编码的特判改成用户可控开关）。这条断言随之更新，**不是放宽**：
-//    前 4 个仍是逐字照旧版。
-eq('键名逐字（前 4 个照旧版，第 5 个为新版新增）',
+eq('键名逐字（含 §2.6 的两个裸串键）',
   Object.values(QL_STORAGE_KEYS).join(','),
-  'qualified_label_template_v2,qualified_label_printer,qualified_label_quantity_enabled,qualified_label_quantity_value,qualified_label_location_column')
+  'qualified_label_template_v2,qualified_label_printer,qualified_label_quantity_enabled,qualified_label_quantity_value')
 store.clear()
 deepEq('读：无存盘 → 默认配置 + 空打印机名', loadQualifiedLabelSettings(), { config: DEF, selectedPrinter: '' })
 store.set('qualified_label_template_v2', JSON.stringify({ paper: { widthMm: 100 } }))

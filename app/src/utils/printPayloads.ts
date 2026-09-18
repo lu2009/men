@@ -530,12 +530,6 @@ export function createPrintPayloads(ctx: PrintContext) {
       color: `颜色:${l.color}`,
       glass: `玻璃:${l.bottom_glass || ''}-${l.face_glass || ''}`,
       address: `地址:${l.install_address || ''}`,
-      // 门店地址（= **客户资料里的地址**，与上面那个「安装地址」是两回事）。
-      // 旧版 `customerInfo.storeAddress` 逐字是 `E?.["地址"] || ""`（E = 客户记录），
-      // 对应新版 `clientAddress()`。
-      // 用途是「合格标签」的「编辑标签」弹窗里那一列「位置」（门店特判才出现的），
-      // 但**本身是通用字段**，所以无条件产出 —— 其余模板不引用它就等于多一个不用的键。
-      storeAddress: clientAddress(),
       remark: [l.hardware || null, l.remark ? `备注:${l.remark}` : null].filter(Boolean).join('<br>'),
       package: '',
     }
