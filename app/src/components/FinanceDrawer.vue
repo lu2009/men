@@ -61,16 +61,26 @@
               <div class="section-title">本单收款</div>
               <n-form label-placement="left" label-width="80" size="small">
                 <n-form-item label="收款金额">
-                  <n-input-number v-model:value="orderPayForm.amount" style="width: 100%" :precision="2" />
+                  <n-input-number
+                    v-model:value="orderPayForm.amount"
+                    style="width: 100%"
+                    :precision="2"
+                    :placeholder="`正数收款 / 负数红冲，最多可收 ¥${fmt(orderFinance.unpaid_amount)}`"
+                  />
                 </n-form-item>
-              <n-form-item label="收款日期">
-                <n-date-picker v-model:value="orderPayForm.dateTs" type="date" style="width: 100%" />
-              </n-form-item>
+                <n-form-item label="收款日期">
+                  <n-date-picker
+                    v-model:value="orderPayForm.dateTs"
+                    type="date"
+                    style="width: 100%"
+                    placeholder="选择收款时间"
+                  />
+                </n-form-item>
               <n-form-item label="收款方式">
                 <n-select v-model:value="orderPayForm.method" :options="methodOptions" />
               </n-form-item>
               <n-form-item label="备注">
-                <n-input v-model:value="orderPayForm.remark" />
+                <n-input v-model:value="orderPayForm.remark" placeholder="备注（可选）" />
               </n-form-item>
               <n-form-item label="预付优惠">
                 <n-switch v-model:value="orderPayForm.usePrepay" />
@@ -142,16 +152,26 @@
             </div>
             <n-form label-placement="left" label-width="80" size="small">
               <n-form-item label="收款金额">
-                <n-input-number v-model:value="customerPayForm.amount" style="width: 100%" :precision="2" />
+                <n-input-number
+                  v-model:value="customerPayForm.amount"
+                  style="width: 100%"
+                  :precision="2"
+                  placeholder="正数=收款；负数=红冲（冲销错误收款）"
+                />
               </n-form-item>
               <n-form-item label="收款日期">
-                <n-date-picker v-model:value="customerPayForm.dateTs" type="date" style="width: 100%" />
+                <n-date-picker
+                  v-model:value="customerPayForm.dateTs"
+                  type="date"
+                  style="width: 100%"
+                  placeholder="选择收款时间"
+                />
               </n-form-item>
               <n-form-item label="收款方式">
                 <n-select v-model:value="customerPayForm.method" :options="methodOptions" />
               </n-form-item>
               <n-form-item label="备注">
-                <n-input v-model:value="customerPayForm.remark" />
+                <n-input v-model:value="customerPayForm.remark" placeholder="备注（可选）" />
               </n-form-item>
             </n-form>
             <div class="action-row">
@@ -192,7 +212,18 @@
               <div class="pcell"><span>客户余额</span><b>¥{{ fmt(balance?.customer_balance) }}</b></div>
             </div>
 
-            <div class="section-title">收款趋势</div>
+            <!-- 旧版把「刷新图表」内联在「收款趋势」标题行里（`:944`，`onClick: ae(客户编号)`） -->
+            <div class="section-title">
+              <span>收款趋势</span>
+              <n-button
+                size="small"
+                class="title-btn"
+                :loading="statsLoading"
+                @click="refreshStats"
+              >
+                刷新图表
+              </n-button>
+            </div>
             <div v-if="stats && stats.monthly.length" class="chart">
               <div v-for="m in stats.monthly" :key="m.month" class="chart-row">
                 <span class="chart-label">{{ m.month }}</span>
@@ -209,6 +240,26 @@
             </div>
             <n-empty v-else-if="!loading" description="暂无收款记录" size="small" />
 
+            <!--
+              对账明细上方那排按钮（旧版容器 `zo` = `{style:{margin-top:10px;display:flex;gap:8px}}`，`:924`）：
+                [月度抹零]        type=warning，开客户抹零弹窗（默认类型就是「月度抹零」）
+                [刷新对账单]      重拉对账明细
+                [仅看近365天/查看全部历史]  切换，`F` 真时 `type="warning"`
+            -->
+            <div class="action-row">
+              <n-button size="small" type="warning" @click="openCustomerAdjust">月度抹零</n-button>
+              <n-button size="small" :loading="statementLoading" @click="refreshStatement">
+                刷新对账单
+              </n-button>
+              <n-button
+                size="small"
+                :type="stmtShowAll ? 'warning' : 'default'"
+                @click="stmtShowAll = !stmtShowAll"
+              >
+                {{ stmtShowAll ? '仅看近365天' : '查看全部历史' }}
+              </n-button>
+            </div>
+
             <div class="section-title">对账明细（按日期降序）</div>
             <div class="filter-row">
               <n-select
@@ -220,7 +271,7 @@
               <n-input
                 v-model:value="stmtKeyword"
                 size="small"
-                placeholder="筛选 单据号/日期/地址/备注"
+                placeholder="筛选：单号 / 日期 / 地址 / 备注"
                 clearable
               />
             </div>
@@ -240,7 +291,12 @@
   <n-modal v-model:show="orderAdjustShow" preset="card" title="订单抹零 / 冲销" style="width: 380px">
     <n-form label-placement="left" label-width="80" size="small">
       <n-form-item label="调整金额">
-        <n-input-number v-model:value="orderAdjustForm.amount" style="width: 100%" :precision="2" />
+        <n-input-number
+          v-model:value="orderAdjustForm.amount"
+          style="width: 100%"
+          :precision="2"
+          placeholder="正数=减免，负数=冲销错误抹零"
+        />
       </n-form-item>
       <n-form-item label="调整类型">
         <n-select v-model:value="orderAdjustForm.type" :options="orderAdjustTypes" />
@@ -252,7 +308,7 @@
     <template #footer>
       <div class="modal-footer">
         <n-button size="small" @click="orderAdjustShow = false">取消</n-button>
-        <n-button size="small" type="primary" :loading="saving" @click="submitOrderAdjust">确认</n-button>
+        <n-button size="small" type="primary" :loading="saving" @click="submitOrderAdjust">确认抹零</n-button>
       </div>
     </template>
   </n-modal>
@@ -261,7 +317,12 @@
   <n-modal v-model:show="customerAdjustShow" preset="card" title="客户抹零 / 冲销" style="width: 380px">
     <n-form label-placement="left" label-width="80" size="small">
       <n-form-item label="调整金额">
-        <n-input-number v-model:value="customerAdjustForm.amount" style="width: 100%" :precision="2" />
+        <n-input-number
+          v-model:value="customerAdjustForm.amount"
+          style="width: 100%"
+          :precision="2"
+          placeholder="如：2025年3月月结尾款抹零"
+        />
       </n-form-item>
       <n-form-item label="调整类型">
         <n-select v-model:value="customerAdjustForm.type" :options="customerAdjustTypes" />
@@ -273,7 +334,7 @@
     <template #footer>
       <div class="modal-footer">
         <n-button size="small" @click="customerAdjustShow = false">取消</n-button>
-        <n-button size="small" type="primary" :loading="saving" @click="submitCustomerAdjust">确认</n-button>
+        <n-button size="small" type="primary" :loading="saving" @click="submitCustomerAdjust">确认抹零</n-button>
       </div>
     </template>
   </n-modal>
@@ -282,10 +343,25 @@
   <n-modal v-model:show="prepaymentShow" preset="card" title="录入预付款" style="width: 400px">
     <n-form label-placement="left" label-width="80" size="small">
       <n-form-item label="收款金额">
-        <n-input-number v-model:value="prepaymentForm.amount" style="width: 100%" :precision="2" :min="0.01" />
+        <n-input-number
+          v-model:value="prepaymentForm.amount"
+          style="width: 100%"
+          :precision="2"
+          :min="0.01"
+          :placeholder="
+            prepaymentForm.isRefund
+              ? `输入冲销金额（最大 ¥${fmt(balance?.unallocated_balance ?? 0)}）`
+              : '输入预付款金额'
+          "
+        />
       </n-form-item>
       <n-form-item label="收款日期">
-        <n-date-picker v-model:value="prepaymentForm.dateTs" type="date" style="width: 100%" />
+        <n-date-picker
+          v-model:value="prepaymentForm.dateTs"
+          type="date"
+          style="width: 100%"
+          placeholder="选择收款时间"
+        />
       </n-form-item>
       <n-form-item label="收款方式">
         <n-select v-model:value="prepaymentForm.method" :options="methodOptions" />
@@ -301,7 +377,7 @@
     <template #footer>
       <div class="modal-footer">
         <n-button size="small" @click="prepaymentShow = false">取消</n-button>
-        <n-button size="small" type="primary" :loading="saving" @click="submitPrepayment">确认</n-button>
+        <n-button size="small" type="primary" :loading="saving" @click="submitPrepayment">确认录入</n-button>
       </div>
     </template>
   </n-modal>
@@ -310,7 +386,13 @@
   <n-modal v-model:show="prepayAllocateShow" preset="card" title="预付款分配" style="width: 560px">
     <n-form label-placement="left" label-width="80" size="small">
       <n-form-item label="分配金额">
-        <n-input-number v-model:value="prepayAllocateForm.amount" style="width: 100%" :precision="2" :min="0.01" />
+        <n-input-number
+          v-model:value="prepayAllocateForm.amount"
+          style="width: 100%"
+          :precision="2"
+          :min="0.01"
+          placeholder="不超过未分配余额"
+        />
       </n-form-item>
       <n-form-item label="优惠比例">
         <n-input-number v-model:value="prepayAllocateForm.discountRate" style="width: 100%" :min="0.1" :max="99" :precision="1" />
@@ -345,7 +427,7 @@
       <div class="modal-footer">
         <n-button size="small" @click="prepayAllocateShow = false">取消</n-button>
         <n-button size="small" type="primary" :disabled="!prepayAllocatePreview" :loading="saving" @click="submitPrepayAllocate">
-          执行分配
+          确认分配
         </n-button>
       </div>
     </template>
@@ -797,6 +879,43 @@ const adjustTotal = computed(() =>
   (balance.value?.order_adjust_total ?? 0) + (balance.value?.customer_adjust_total ?? 0),
 )
 
+/**
+ * 对账明细是否显示全部历史。
+ * 旧版是 `F`：`false` = 只看近 365 天（默认），`true` = 全部。
+ * 那颗按钮的文案/类型都跟着它走：`F ? "仅看近365天" : "查看全部历史"`、`:type="F ? 'warning' : ''"`
+ * （`:932`）。⚠️ 服务端的 `getCustomerStatement` 收 `_days` 但**不使用**（下划线前缀），
+ * 所以这层过滤是**前端**做的。
+ */
+const stmtShowAll = ref(false)
+const statementLoading = ref(false)
+const statsLoading = ref(false)
+
+/** 重拉对账明细（旧版 `$`）。 */
+async function refreshStatement() {
+  if (!props.order) return
+  statementLoading.value = true
+  try {
+    statement.value = await api.getCustomerStatement(props.order.client_code)
+  } catch (e) {
+    message.error((e as Error).message || '刷新对账单失败')
+  } finally {
+    statementLoading.value = false
+  }
+}
+
+/** 重拉收款趋势（旧版 `ae`）。 */
+async function refreshStats() {
+  if (!props.order) return
+  statsLoading.value = true
+  try {
+    stats.value = await api.getPaymentStats(props.order.client_code)
+  } catch (e) {
+    message.error((e as Error).message || '刷新图表失败')
+  } finally {
+    statsLoading.value = false
+  }
+}
+
 const stmtTypeFilter = ref('全部类型')
 const stmtTypeOptions = computed(() =>
   [
@@ -811,7 +930,14 @@ const stmtTypeOptions = computed(() =>
 const stmtKeyword = ref('')
 
 const filteredStatement = computed(() => {
+  // 「仅看近365天」是**前端**过滤（服务端不用 `_days`，见 `stmtShowAll` 的注释）
+  const cutoff = new Date()
+  cutoff.setFullYear(cutoff.getFullYear() - 1)
+  const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`
   let list = statement.value
+  if (!stmtShowAll.value) {
+    list = list.filter((r) => (r.date ?? '') >= cutoffStr)
+  }
   if (stmtTypeFilter.value !== '全部类型') {
     list = list.filter((r) => r.kind === stmtTypeFilter.value)
   }
