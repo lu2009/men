@@ -116,6 +116,24 @@ export function buildOrderPrintContext(
 export interface BuiltPrintPayload {
   payload: PrintPayload
   wrap: boolean
+  /**
+   * 载荷里那一段**整批共用**的行数组（`produces` 合并后的行 / 扁平行数组）——
+   * 编辑弹窗读它、保存后也替换它（见 `buildBatchPayload` 的 `overrideRows`）。
+   *
+   * ⚠️ 与返回值里那个 `wrap` 标志**不是**一回事：`produces` 表那支也返回 `wrap:true`
+   * （它的载荷同样是「一个元素包着行数组」），但行是整批一份。
+   * · **玻璃订单**（`wrap` + `key` = `glassInfoList`）→ 取**首单**那份（旧版也只编辑 `rc[0]`）；
+   * · **回执族**（`wrap` 无 `key`）→ 恒为 `[]`，那类的可编辑对象在 `header`（见下）。
+   */
+  rows: Record<string, unknown>[]
+  /**
+   * 「载荷对象本身就是编辑对象」那一类（**回执族**：`receipt` / `FinalReceipt` / `ReceiptList`）
+   * 可供编辑的**首个**对象 —— 对应旧版的 `jn[0]` / `qn[0]`。其余两类恒为 `null`。
+   *
+   * ⚠️ 回执族的载荷是「**每单一个对象**」（表头 + `receipt` 行数组），没有「整批共用的行」，
+   * 所以这类走 `header` 而不是 `rows`；旧版也只编辑 `jn[0]`（首单）。
+   */
+  header: Record<string, unknown> | null
 }
 
 /**
@@ -125,6 +143,16 @@ export interface BuiltPrintPayload {
  *   · `wrap`（回执族 / 玻璃订单：表头 + 行数组）→ **每单一个对象**，一份单据一页；
  *   · 有 `key`（`produces` 表）→ 各单的行**拼成一张表**，模板的 `maxRows` 负责翻页；
  *   · 无 `key`（标签 / oldSheet，本身就是行数组）→ 各单的行直接串起来，一行一页。
+ *
+ * `overrideRows` = **编辑弹窗改过的那份行**（旧版 Home 各 ic 的内存态行数组：ic=1/2 的 `uc`、
+ * ic=4 的 `bc`、ic=8/9 的 `uc`、ic=15/16 的 `qr`/`oi`）。给了它就**不再汇算合并**，
+ * 直接把它当作那一段行 —— 对应旧版保存回调的统一形态「写回 ref → 用同一模板重渲」（§4）。
+ *
+ * `overrideHeader` = 回执族那种「**载荷对象本身就是编辑对象**」的覆盖（旧版 `jn[0] = e`）。
+ *
+ * ⚠️ 三类形状各自的可编辑面不同：`produces`/扁平行数组 → `rows` 整批一份；
+ *    `wrap`+`key`（玻璃订单）→ `rows` 是**首单**那份、也只替换首单；
+ *    `wrap` 无 `key`（回执族）→ 走 `header`。
  */
 export function buildBatchPayload(
   orders: OrderDto[],
@@ -133,6 +161,8 @@ export function buildBatchPayload(
   template: unknown,
   mode: string,
   forPreview = false,
+  overrideRows: Record<string, unknown>[] | null = null,
+  overrideHeader: Record<string, unknown> | null = null,
 ): BuiltPrintPayload {
   const perOrder = orders.map((o) =>
     createPrintPayloads(buildOrderPrintContext(o, prereqs, who)).templatePayload(template, mode, forPreview),
@@ -143,13 +173,27 @@ export function buildBatchPayload(
     const payload = perOrder.map((p) =>
       (p.key ? { ...p.extra, [p.key]: p.data } : p.data) as Record<string, unknown>,
     )
-    return { payload, wrap: true }
+    const key = perOrder[0].key as string | undefined
+
+    // —— 有 key（玻璃订单 `glassHole`）：行在对象自己的 key 下 ——
+    // 旧版 `Uc`(ic=3) 只编辑 `rc[0].glassInfoList`（**首组**），改的也是它
+    // （`Ac` 保存时「写回 `Nc` **并回写 `rc[0].glassInfoList`**」，施工图 §1/§4）。
+    // 新版照此：行 = 首单那份，编辑结果也只替换首单。
+    if (key) {
+      if (overrideRows) payload[0] = { ...payload[0], [key]: overrideRows }
+      return { payload, wrap: true, rows: rows(payload[0]?.[key]), header: null }
+    }
+
+    // —— 无 key（回执族 `receipt` 等）：载荷对象**本身就是**编辑对象 ——
+    // 旧版 `jn[0]` / `qn[0]`（`customerInfo` + `receipt` 行），`qi` 保存时 `jn[0] = e`。
+    if (overrideHeader) payload[0] = overrideHeader
+    return { payload, wrap: true, rows: [], header: payload[0] ?? null }
   }
   if (perOrder[0]?.key) {
     const key = perOrder[0].key as string
-    const merged = perOrder.flatMap((p) => rows(p.data))
-    return { payload: [{ ...perOrder[0].extra, [key]: merged }], wrap: true }
+    const merged = overrideRows ?? perOrder.flatMap((p) => rows(p.data))
+    return { payload: [{ ...perOrder[0].extra, [key]: merged }], wrap: true, rows: merged, header: null }
   }
-  const merged = perOrder.flatMap((p) => rows(p.data))
-  return { payload: merged as Record<string, unknown>[], wrap: false }
+  const merged = overrideRows ?? perOrder.flatMap((p) => rows(p.data))
+  return { payload: merged as Record<string, unknown>[], wrap: false, rows: merged, header: null }
 }
