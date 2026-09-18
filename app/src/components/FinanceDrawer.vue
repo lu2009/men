@@ -69,9 +69,11 @@
                   />
                 </n-form-item>
                 <n-form-item label="收款日期">
+                  <!-- 旧版是 `type="datetime"` + `format="YYYY-MM-DD HH:mm"`（日期**加时间**） -->
                   <n-date-picker
                     v-model:value="orderPayForm.dateTs"
-                    type="date"
+                    type="datetime"
+                    format="yyyy-MM-dd HH:mm"
                     style="width: 100%"
                     placeholder="选择收款时间"
                   />
@@ -162,7 +164,8 @@
               <n-form-item label="收款日期">
                 <n-date-picker
                   v-model:value="customerPayForm.dateTs"
-                  type="date"
+                  type="datetime"
+                  format="yyyy-MM-dd HH:mm"
                   style="width: 100%"
                   placeholder="选择收款时间"
                 />
@@ -358,7 +361,8 @@
       <n-form-item label="收款日期">
         <n-date-picker
           v-model:value="prepaymentForm.dateTs"
-          type="date"
+          type="datetime"
+          format="yyyy-MM-dd HH:mm"
           style="width: 100%"
           placeholder="选择收款时间"
         />
@@ -499,10 +503,16 @@ const stats = ref<PaymentStatsDto | null>(null)
 // ---------------------------------------------------------------------------
 const pad = (n: number) => String(n).padStart(2, '0')
 const fmt = (v: number | undefined | null) => (v ?? 0).toFixed(2)
+/**
+ * 时间戳 → `YYYY-MM-DD HH:mm`（旧版收款日期是 `type="datetime"`、`format="YYYY-MM-DD HH:mm"`）。
+ * ⚠️ 后端 `pay_date` 是 TEXT，且**本来就按带时间的形态处理**
+ *    （`finance/service.rs:966` 注释：「存 'YYYY-MM-DD' 或 'YYYY-MM-DD HH:mm:ss'，取前 7/4 位即可」），
+ *    按月/按年聚合用的是 `left(pay_date, 7)`，所以带时间不影响趋势统计。
+ */
 const dateStr = (ts: number | null) => {
   if (ts == null) return ''
   const d = new Date(ts)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 const todayTs = () => Date.now()
 
@@ -575,7 +585,8 @@ const orderPayFormOpen = ref(false)
 
 const orderPayForm = ref({
   amount: null as number | null,
-  dateTs: null as number | null,
+  // 默认「现在」—— 旧版是 `(new Date).toISOString().slice(0,16)`，打开就是当前时间，不用手动选
+  dateTs: Date.now() as number | null,
   method: '微信',
   remark: '',
   usePrepay: false,
@@ -611,9 +622,11 @@ async function submitOrderPayment() {
       discount_rate: orderPayForm.value.discountRate,
     })
     message.success('收款成功')
+    // 旧版提交后把表单整个重置（`收款金额=null` / `备注=""` / 日期回到当前时间）
     orderPayForm.value.amount = null
     orderPayForm.value.usePrepay = false
     orderPayForm.value.remark = ''
+    orderPayForm.value.dateTs = Date.now()
     await reload()
   } catch (e) {
     message.error((e as Error).message || '收款失败')
@@ -627,7 +640,7 @@ async function submitOrderPayment() {
 // ---------------------------------------------------------------------------
 const customerPayForm = ref({
   amount: null as number | null,
-  dateTs: null as number | null,
+  dateTs: Date.now() as number | null,
   method: '微信',
   remark: '',
 })
@@ -686,6 +699,7 @@ async function submitCustomerPayment() {
     customerPayForm.value.amount = null
     customerPayForm.value.remark = ''
     allocationPreview.value = null
+    customerPayForm.value.dateTs = Date.now()
     await reload()
   } catch (e) {
     message.error((e as Error).message || '收款失败')
