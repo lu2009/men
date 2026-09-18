@@ -465,6 +465,12 @@
         打开 <span class="ui">预付优惠</span> 开关后可以填优惠比例（0.1%–99%），
         旁边会实时显示「预计抵扣 ¥多少」。填完点 <span class="ui">收款</span>。
       </p>
+      <p>
+        这个抵扣额按 <strong>收款金额 × 优惠比例</strong> 算。
+        它有一个前提：<strong>收款金额 + 抵扣额 不能超过这张单的未收</strong> ——
+        也就是说<strong>收满这张单时用不了优惠</strong>（没有可减的了），
+        系统会提示你。那种情况把开关关掉即可。
+      </p>
       <p>表单下面那颗 <span class="ui">订单抹零 / 冲销</span> 按钮，打开第 4 节的弹窗。</p>
 
       <h3>💰 客户收款 —— 管这个客户的钱</h3>
@@ -608,6 +614,14 @@
               <td>各单的（已分配 + 未收 + 订单调整）相加</td>
             </tr>
             <tr>
+              <td><strong>预付优惠（本单收款）</strong></td>
+              <td>收款金额 × 优惠比例<br><span style="color:var(--muted)">前提：收款金额 + 抵扣额 ≤ 本单未收</span></td>
+            </tr>
+            <tr>
+              <td><strong>预付优惠（预付款分配）</strong></td>
+              <td>分配额 × 优惠比例，再取「不超过这单剩余未减部分」<br><span style="color:var(--muted)">所以整单被付清时它是 0</span></td>
+            </tr>
+            <tr>
               <td><strong>订单调整合计</strong></td>
               <td>所有订单抹零 / 优惠 / 补贴 / 冲销相加</td>
             </tr>
@@ -633,8 +647,8 @@
       <ul class="rules">
         <li><span class="mark">1</span><span><strong>未收永远不会是负数。</strong>多收了、多抹了，系统会按 0 截住，不会出现「客户倒欠」这种账。</span></li>
         <li><span class="mark">2</span><span><strong>池子里有多少，才能分多少。</strong>申请分配 100000 但池子只有 2000，实际只会按 2000 处理，不会把池子扣成负数。</span></li>
-        <li><span class="mark">3</span><span><strong>优惠只在「这张单没被一次付清」时才产生。</strong>收款刚好把整张单付清时，优惠是 0；只有「钱不够、这张单只付了一部分」时才有优惠。</span></li>
-        <li><span class="mark">4</span><span><strong>优惠是店里让利，不动客户的钱。</strong>给客户优惠 50，客户池子里的钱一分不少，只是这张单少收 50。</span></li>
+        <li><span class="mark">3</span><span><strong>收满的单没有优惠。</strong>预付款分配时，优惠按「分配额 × 比例」算，且不会超过这单剩下没减完的部分 —— 所以<strong>被一次付清的单优惠恒为 0</strong>。本单收款时，如果收款额加抵扣额超过了未收，系统会直接拦下不让你提交。</span></li>
+        <li><span class="mark">4</span><span><strong>优惠是店里让利，不动客户的钱。</strong>不管在本单收款还是在预付款分配里给优惠，客户池子里的钱一分不少，只是这张单少收那么多 —— 优惠会单独记一条「订单调整」。</span></li>
         <li><span class="mark">5</span><span><strong>收款不能超过欠款。</strong>本单收款不能超过这张单的未收；客户级操作不能超过客户还欠的总额。</span></li>
         <li><span class="mark">6</span><span><strong>红冲用负数。</strong>录错了不要想着「再录一笔抵掉」—— 直接在原处填负数，账面上才留得下痕迹。</span></li>
       </ul>
