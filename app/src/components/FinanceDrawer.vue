@@ -70,13 +70,18 @@
                   <span class="hint">预计抵扣 ¥{{ fmt(prepayDiscount) }}</span>
                 </span>
               </n-form-item>
-              <n-form-item>
-                <n-button type="primary" size="small" :loading="saving" @click="submitOrderPayment">
-                  收款
-                </n-button>
-                <n-button size="small" class="ml8" @click="openOrderAdjust">订单抹零 / 冲销</n-button>
-              </n-form-item>
             </n-form>
+            <!--
+              操作按钮**不放在 `n-form-item` 里** —— 放进去会被 `label-width="80"` 缩进 80px，
+              而同一页的「其他操作」行是贴左的 ⇒ 一个面板两个左边界。
+              旧版也是把按钮放在独立的 flex 行里（`zo` = `margin-top:10px;display:flex;gap:8px`，`:924`）。
+            -->
+            <div class="action-row">
+              <n-button type="primary" size="small" :loading="saving" @click="submitOrderPayment">
+                收款
+              </n-button>
+              <n-button size="small" @click="openOrderAdjust">订单抹零 / 冲销</n-button>
+            </div>
 
             <!-- 订单调整记录 -->
             <div class="section-title">订单调整记录</div>
@@ -114,11 +119,11 @@
               <n-form-item label="备注">
                 <n-input v-model:value="customerPayForm.remark" />
               </n-form-item>
-              <n-form-item>
-                <n-button type="primary" size="small" :loading="saving" @click="previewAllocation">预览分配</n-button>
-                <n-button size="small" class="ml8" :loading="saving" @click="submitCustomerPayment">提交收款</n-button>
-              </n-form-item>
             </n-form>
+            <div class="action-row">
+              <n-button type="primary" size="small" :loading="saving" @click="previewAllocation">预览分配</n-button>
+              <n-button size="small" :loading="saving" @click="submitCustomerPayment">提交收款</n-button>
+            </div>
 
             <template v-if="allocationPreview">
               <div class="section-title">分配预览（按订单日期从早到晚）</div>
@@ -278,10 +283,10 @@
       <n-form-item label="优惠比例">
         <n-input-number v-model:value="prepayAllocateForm.discountRate" style="width: 100%" :min="0.1" :max="99" :precision="1" />
       </n-form-item>
-      <n-form-item>
-        <n-button type="primary" size="small" :loading="saving" @click="previewPrepayAllocate">预览分配方案</n-button>
-      </n-form-item>
     </n-form>
+    <div class="action-row">
+      <n-button type="primary" size="small" :loading="saving" @click="previewPrepayAllocate">预览分配方案</n-button>
+    </div>
 
     <template v-if="prepayAllocatePreview">
       <n-data-table
@@ -291,10 +296,16 @@
         size="small"
         :max-height="200"
       />
+      <!--
+        ⚠️ 「资金池剩余」这个标签 2026-09-18 改过：`pool_remaining` 对齐旧版口径之后
+        = **本次拟分配里没分掉的**（`amount − Σ分配`），**不是**「客户池子还剩多少」。
+        后者现在单独返回 `available_balance`。两个都显示，并写清各自是什么。
+      -->
       <div class="preview-footer">
         <span>合计分配：¥{{ fmt(prepayAllocatePreview.total_allocated) }}</span>
         <span class="ml8">优惠：¥{{ fmt(prepayAllocatePreview.total_discount) }}</span>
-        <span class="ml8">资金池剩余：¥{{ fmt(prepayAllocatePreview.pool_remaining) }}</span>
+        <span class="ml8">本次未分掉：¥{{ fmt(prepayAllocatePreview.pool_remaining) }}</span>
+        <span class="ml8">资金池可用：¥{{ fmt(prepayAllocatePreview.available_balance) }}</span>
       </div>
     </template>
 
@@ -924,13 +935,20 @@ async function reload() {
 .pcell b {
   font-size: 16px;
 }
+/*
+ * 小节标题 —— 逐字取自旧版 `legacy/css/Home-97d96482.css`：
+ *   `.section-title[data-v-97a9ce53]{font-size:13px;font-weight:600;color:#303133;
+ *     margin-bottom:8px;display:flex;align-items:center}`
+ * ⚠️ 旧版**没有**左边那条蓝色竖条，也没有 `padding-left` —— 那是本文件先前自己加的。
+ * `margin-bottom:8px` 保留；`margin-top` 不用（父级 `.finance-body` 的 `gap:12px` 已经隔开了）。
+ */
 .section-title {
   font-size: 13px;
   font-weight: 600;
   color: #303133;
-  margin-top: 4px;
-  padding-left: 8px;
-  border-left: 3px solid #409eff;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
 }
 .filter-row {
   display: flex;
@@ -951,6 +969,8 @@ async function reload() {
   justify-content: flex-end;
   gap: 8px;
 }
+/* 行内文字之间的左间距。⚠️ **按钮之间不要用它** —— 按钮行一律靠 `.action-row` 的 `gap:8px`，
+   逐个加 `margin-left` 会让第一个按钮也带上左边距、把整行推歪。 */
 .ml8 {
   margin-left: 8px;
 }

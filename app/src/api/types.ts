@@ -422,7 +422,14 @@ export interface PrepaymentAllocationPreview {
   allocations: AllocationItem[]
   total_allocated: number
   total_discount: number
+  /**
+   * **本次拟分配里没分掉的**（`amount − Σ分配`）。
+   * ⚠️ **不是**「客户池子还剩多少」—— 名字容易误会，那是下面的 `available_balance`。
+   * 口径对齐旧版 `buildAllocationPreview` 返回的 `资金池剩余`（`svc:227`）。
+   */
   pool_remaining: number
+  /** 客户资金池**可用额**（= `max(0, 未分配余额)`），即这次最多能分出多少。 */
+  available_balance: number
 }
 
 // 本单收款（finance_addOrderPayment）。
