@@ -27,12 +27,24 @@ const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
  * `buildOrderPrintContext` 在 `composables/useOrderPrint`、`createPrintPayloads` 在 `utils/printPayloads`，
  * 所以走一个**两行入口**把它们一起打出来（同 `docs/custom-docs-recon/verify/entry.ts` 的手法）。
  */
-globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+/**
+ * ⚠️ **不能一路返回 null** —— 打进来的 `api` 是从 `localStorage` 取登录 token 的
+ * （`client.ts` 的 `TOKEN_KEY = 'smartdoor_token'`）。给 null 的话，
+ * `ensureLineNumbersForPrint` 里那个 `api.fillLineNumbers()` 会 401，
+ * 而它**把异常吞掉**（补号失败不拦打印）⇒ 测试看到的是「没补上」，
+ * 排查半天才发现是夹具没给 token。所以这里在登录后回填真 token。
+ */
+let AUTH_TOKEN = null
+globalThis.localStorage = {
+  getItem: (k) => (k === 'smartdoor_token' ? AUTH_TOKEN : null),
+  setItem: () => {},
+  removeItem: () => {},
+}
 
 const ENTRY = '/tmp/print-verify/entry.ts'
 writeFileSync(
   ENTRY,
-  `export { buildOrderPrintContext } from '${ROOT}/app/src/composables/useOrderPrint'\n` +
+  `export { buildOrderPrintContext, ensureLineNumbersForPrint } from '${ROOT}/app/src/composables/useOrderPrint'\n` +
     `export { createPrintPayloads } from '${ROOT}/app/src/utils/printPayloads'\n`,
 )
 const out = `${ROOT}/app/node_modules/.cache/print-lineno-check.mjs`
@@ -71,7 +83,8 @@ const login = await (await fetch(`${API}/v1/auth/login`, {
   method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify({ username: 'admin', password: 'Admin@12345' }),
 })).json()
-const H = { authorization: `Bearer ${login?.data?.token || login?.token}`, 'content-type': 'application/json' }
+AUTH_TOKEN = login?.data?.token || login?.token
+const H = { authorization: `Bearer ${AUTH_TOKEN}`, 'content-type': 'application/json' }
 const call = async (p, o = {}) => {
   const r = await fetch(`${API}${p}`, { headers: H, ...o })
   const j = await r.json().catch(() => ({}))
@@ -181,13 +194,44 @@ try {
     }
   }
 
-  // ── ④ 源码静态守卫：不该再有行级位置喂 receipt_no ──
+  // ── ④ 打印前自动补号（旧版是「一打印就补」，见 useOrderPrint 的 ensureLineNumbersForPrint）──
+  {
+    // 造一张**行全都没单号**的订单：模拟「刚建完、还没点过填入单号」
+    const blank = await call('/v1/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        receipt_no: RUN + '2', client_code: '__TMP_PL__', client_name: '临时', phone: '', brand: '品牌X',
+        order_date: '2026-09-14', production_days: 7, deposit: 0, remark: '', salesperson: '',
+        install_address: '地址X',
+        lines: [mkLine('', 'ping', pingF?.id ?? null), mkLine('', 'ping', pingF?.id ?? null)],
+      }),
+    })
+    createdIds.push(blank.id)
+    eq('④ 新单的行本来没有单号', blank.lines.map((l) => l.line_no), ['', ''])
+
+    // 打一次「打印前置」—— 应当**就地**把单号补上
+    await M.ensureLineNumbersForPrint([blank])
+    const filled = blank.lines.map((l) => l.line_no)
+    eq('④ 走一遍打印前置后，行级单号被补上', filled.every((v) => /^\d+-\d{2}\/\d{2}\/\d{2}$/.test(v)), true)
+    console.log(`  ✓ 补出来的单号：${JSON.stringify(filled)}`)
+
+    // 幂等：再走一遍不该改号（「永不覆盖已有值」）
+    await M.ensureLineNumbersForPrint([blank])
+    eq('④ 再走一遍不改已有单号（永不覆盖）', blank.lines.map((l) => l.line_no), filled)
+
+    // 补完之后，打印载荷里的 OrderID 就该是这些号
+    const ctx2 = M.buildOrderPrintContext(await call(`/v1/orders/${blank.id}`), prereqs, who)
+    const ids2 = collectIds(M.createPrintPayloads(ctx2).labelRows('lable'))
+    eq('④ 补号后标签载荷用的是补出来的单号', ids2.every(([, v]) => filled.includes(v)), true)
+  }
+
+  // ── ⑤ 源码静态守卫：不该再有行级位置喂 receipt_no ──
   const SRC = readFileSync(`${ROOT}/app/src/utils/printPayloads.ts`, 'utf8')
   const badLines = SRC
     .split('\n')
     .map((l, i) => [i + 1, l])
     .filter(([, l]) => /^\s*(OrderID|orderID|qrcode):\s*(String\()?ctx\.order\.receipt_no/.test(l))
-  eq('④ 源码里没有「行级键喂回执单号」的残留', badLines, [])
+  eq('⑤ 源码里没有「行级键喂回执单号」的残留', badLines, [])
 } finally {
   if (createdIds.length) {
     const { execSync } = await import('node:child_process')

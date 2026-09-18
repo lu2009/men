@@ -350,6 +350,25 @@ body: { formula: [...distinct(row.formulaid)], id: [...distinct(row.id)] }
 正常路径下两者结果相同（都取最早那条），但「传错就毁数据」这条路堵掉了。
 所以前端确认文案里那句「以最早的回执单号为准」现在**名副其实** —— 服务端真的这么算。
 
+### 单号的**分配时机**：打印时自动补（已查实并落地）
+
+用户实测报「新建了订单 看不到单号」。查证结论 —— **旧版也不在建单时分配**：
+
+- 旧服务端 `ensureLineNumbers` 全服务端只有 **2 个调用点**（`progress.service.ts:667` 改打印状态前、
+  `formula.service.ts:201` 公式接口里），**建单/保存路径都不是调用方**
+  （`client.service.ts:414` 只是 `'单号': firstNonBlank(row['单号'], '')` 原样收下客户端给的）。
+- 前端 `getDiaoFormulas` 有 **6 处调用**（`Hui.formatted.js:9219/9852/10607/11037/11632/12195`），
+  形状全是「取这批行的 `formulaid` + `id` → 拿回 `data.orderNumbers` → 逐行搬运」，
+  **全在单据生成路径上**。
+
+⇒ **旧版是「一打印就顺带把单号补上」**，建单不补。
+新版对应落地：`useOrderPrint.ts` 的 `ensureLineNumbersForPrint()`，
+在 `loadPrintPrereqs()` 开头调用 —— 那是四条打印链路
+（`PrintPreviewDialog` / `ReceiptOtherDialog` / `Receipt2Dialog` / `DocSheetDialog`）的**共同入口**，
+且各链路随后都用**同一批行对象**去 `buildBatchPayload`，所以就地改 `line_no` 四处一起生效。
+⚠️ 该函数**有副作用（就地改行对象）**，代码注释里写明了。
+补号失败**不拦打印**（与旧版一致）。手动「填入单号」按钮保留，用于**提前**拿号。
+
 ### 打印链路（`printPayloads.ts`）同步改完
 
 `OrderID` / `orderID` / `qrcode`（共 12 处）改用行级单号；`orderPrefix` 改用行级单号前缀。

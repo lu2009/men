@@ -29,8 +29,47 @@ function today(): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-/** 拉齐打印所需的公共数据（公式 / 客户 / 收款码 / 挖孔图）。 */
+/**
+ * 打印前给**还没单号**的明细行补 `N-YY/MM/DD`。
+ *
+ * ## 为什么在打印这里补（这是照旧版的）
+ *
+ * 旧版的「单号」**不在建单时分配** —— 旧服务端 `ensureLineNumbers` 全服务端只有两个调用点
+ * （改打印状态前、公式接口里），前端 `getDiaoFormulas` 那 **6 处调用全在单据生成路径上**
+ * （`Hui.formatted.js:9219/9852/10607/11037/11632/12195`，每处的形状都是
+ * 「取这批行的 formulaid + id → 拿回 `data.orderNumbers` → 逐行搬运」）。
+ * 也就是说：**旧版一打印就顺带把单号补上了**，建单本身不补。
+ * 见 `docs/2026-09-18-order-no-semantics.md`。
+ *
+ * ## ⚠️ 副作用：**就地改 `orders` 里那些行对象的 `line_no`**
+ *
+ * 名字看不出来，所以写在这儿。之所以就地改：四条打印链路
+ * （`PrintPreviewDialog` / `ReceiptOtherDialog` / `Receipt2Dialog` / `DocSheetDialog`）
+ * 都是「先 `await loadPrintPrereqs(orders)`，再拿**同一批对象**去 `buildBatchPayload`」，
+ * 在这里补号四处一起生效，不必挨个改。`loadPrintPrereqs` 开头会调它。
+ *
+ * 补号失败**不拦打印**（单号留空照打）—— 旧版那个接口挂了也是照样往下走。
+ */
+export async function ensureLineNumbersForPrint(orders: OrderDto[]): Promise<void> {
+  const need = orders.filter((o) => (o.lines ?? []).some((l) => !String(l.line_no ?? '').trim()))
+  await Promise.all(
+    need.map(async (o) => {
+      try {
+        const map = await api.fillLineNumbers(o.id)
+        for (const l of o.lines ?? []) {
+          const v = map?.[String(l.id)]
+          if (v) l.line_no = v
+        }
+      } catch {
+        // 静默：补号失败不该让用户打不出单。
+      }
+    }),
+  )
+}
+
+/** 拉齐打印所需的公共数据（公式 / 客户 / 收款码 / 挖孔图）；顺带补行级单号（见上）。 */
 export async function loadPrintPrereqs(orders: OrderDto[]): Promise<PrintPrereqs> {
+  await ensureLineNumbersForPrint(orders)
   const [formulas, clients, payQrcode] = await Promise.all([
     api.listFormulas().catch(() => [] as FormulaDto[]),
     api.listClients().catch(() => [] as ClientDto[]),
