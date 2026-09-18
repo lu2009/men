@@ -142,11 +142,7 @@
       样式逐字取自旧版那串内联样式；位置只在**进入单元格那一刻**取一次（旧版的跟手函数 `Va` 是死码）。
     -->
     <Teleport to="body">
-      <div
-        v-if="rowTipShow"
-        class="row-tip"
-        :style="{ left: rowTipPos.x + 'px', top: rowTipPos.y + 'px' }"
-      >
+      <div v-if="rowTipShow" ref="rowTipEl" class="row-tip" :style="rowTipInitStyle">
         <div v-for="(l, i) in rowTipLines" :key="i">
           <span :style="{ color: l.done ? '#52c41a' : '#bbb' }">
             {{ (l.done ? '✓' : '○') + '\u00a0' + l.text }}
@@ -2404,50 +2400,95 @@ function renderProgress(row: OrderSummaryDto) {
 // ---------------------------------------------------------------------------
 /** 是否显示（旧版 `ra`）。 */
 const rowTipShow = ref(false)
-/** 内容节点（旧版 `ia`，那边存的是 HTML 串）。 */
+/** 内容（旧版 `ia`，那边存的是 HTML 串；我们用 VNode 渲染）。 */
 const rowTipLines = ref<{ text: string; done: boolean }[]>([])
 const rowTipPaid = ref(false)
-/** 位置（旧版 `ca`，取 `clientX/clientY`）。 */
-const rowTipPos = reactive({ x: 0, y: 0 })
+/** 提示元素本身 —— 位置**直接写它的 `style`**，不走响应式（见下）。 */
+const rowTipEl = ref<HTMLElement | null>(null)
+/** 首帧位置。只在**刚显示**那一下用；之后跟随鼠标都是直接改 DOM。 */
+const rowTipInitStyle = reactive({ left: '0px', top: '0px' })
 
 /**
- * 鼠标进入单元格（旧版 `sa`，`:7973-7980`）：
+ * 打单操作 / 客户两列 hover 时的进度提示（旧版 `sa`/`da`，`:7973-7985`）。
  *
+ * ## 旧版行为
  * ```js
- * sa = (row, column, event) => {
- *   if (column.property !== "客户" && column.property !== "打单操作") return   // 只这两列
- *   const html = ua(row).map(s => `<span style="color:${s.done ? "#52c41a" : "#bbb"}">`
- *                                  + (s.done ? "✓" : "○") + "&nbsp;" + s.label + "</span>").join("<br/>")
- *                + (Vo(row) ? '<span style="color:#52c41a;font-weight:700;">✓ 已付清</span>' : "")
- *   if (html) { ca.x = event.clientX; ca.y = event.clientY; ia.value = html; ra.value = true }
- * }
+ * sa = (row, column, event) => { …… ca.x = event.clientX; ca.y = event.clientY; ra.value = true }
+ * da = () => { ra.value = false }
  * ```
+ * 内容为空时不显示（旧版 `n && (…)`）。
  *
- * ⚠️ 两点照抄：
- *   ① **位置只在进入那一刻取一次**，不跟着鼠标走。旧版另有个 `Va`（`:7983`）像是做这个的，
- *      但 `Va(` 全文件**零调用** —— 是死码，所以那个 `transform: translateX(12px)…` 的
- *      跟手效果从来没生效过。这里**不做**跟手。
- *   ② 内容为空时不显示（旧版 `n && (…)`）—— 生产进度为空且未付清时就没有 tooltip。
+ * ## ⚠️ 三处**有意偏离**（先前照着旧版做，用户实测报了三样毛病）
  *
- * ★ **有意偏离**：旧版把这段拼成 HTML 串再 `innerHTML`；新版用 VNode 渲染。
- *   观感一致，且避开了 `innerHTML` —— 段名里含用户自己填的**自定义进度项**（localStorage）。
+ * ① **跟随鼠标**。旧版另有个 `Va`（`:7983`）就是干这个的
+ *    （`ra.value && (ca.x = e.clientX, ca.y = e.clientY)`），但 **`Va(` 全文件零调用**——
+ *    写了没接上。结果是提示只在鼠标**进入单元格那一刻**的位置出现、之后不动，
+ *    鼠标一动就显得「挂在那儿」。这里把旧版的意图接上：**跟随鼠标**。
+ *
+ * ② **收起不再依赖单元格的 `mouseleave`**。先前把它挂在单元格内层 div 上，
+ *    而 `rowTipShow` 一变 Home 就整体重渲染 ⇒ Naive 重建那一行 ⇒ **承载 `mouseleave`
+ *    的节点被换掉**。节点被移除时浏览器**不会**补发 `mouseleave` ⇒ 提示**永远收不掉**。
+ *    现在改为：显示期间挂一个 **document 级 `mousemove`**，每次移动检查指针是否还在
+ *    触发格（`.tip-cell`）里，不在就收 —— 不管节点有没有被重建都能收尾。
+ *
+ * ③ **位置直接写 DOM，不走响应式**。先前坐标是 `reactive`，鼠标每动一次就触发一轮
+ *    Vue 重渲染（整个表格跟着重渲）⇒ 卡顿。现在 `mousemove` 里只改 `el.style.left/top`，
+ *    零重渲染。内容仍然走响应式（它变得少）。
  */
-function showRowTip(row: OrderSummaryDto, ev: MouseEvent) {
+function rowTipContent(row: OrderSummaryDto) {
   const segs = progressSegments(row.production_status)
-  if (!segs.length && unpaidOf(row) !== 0) return
-  rowTipLines.value = segs.map((s) => ({ text: s.label, done: s.done }))
-  rowTipPaid.value = unpaidOf(row) === 0
-  rowTipPos.x = ev.clientX
-  rowTipPos.y = ev.clientY
-  rowTipShow.value = true
+  if (!segs.length && unpaidOf(row) !== 0) return null
+  return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row) === 0 }
 }
 
-/** 鼠标离开单元格（旧版 `da`，`:7981-7982`）。 */
+/** 把提示挪到鼠标处（和旧版 `Va` 的意图一致）。 */
+function moveRowTip(ev: MouseEvent) {
+  const el = rowTipEl.value
+  if (!el) return
+  el.style.left = `${ev.clientX}px`
+  el.style.top = `${ev.clientY}px`
+}
+
+/** 显示期间挂在 document 上的移动监听（一次性装上，收起时摘掉）。 */
+let rowTipMove: ((ev: MouseEvent) => void) | null = null
+
 function hideRowTip() {
   rowTipShow.value = false
+  if (rowTipMove) {
+    document.removeEventListener('mousemove', rowTipMove)
+    document.removeEventListener('mouseleave', hideRowTip)
+    rowTipMove = null
+  }
 }
 
-/** 挂在「客户」「打单操作」两列单元格上的鼠标处理。 */
+/** 鼠标进入「客户」「打单操作」两列的单元格（旧版 `sa`）。 */
+function showRowTip(row: OrderSummaryDto, ev: MouseEvent) {
+  const content = rowTipContent(row)
+  if (!content) return
+  rowTipLines.value = content.lines
+  rowTipPaid.value = content.paid
+  rowTipInitStyle.left = `${ev.clientX}px`
+  rowTipInitStyle.top = `${ev.clientY}px`
+  rowTipShow.value = true
+
+  if (!rowTipMove) {
+    rowTipMove = (e: MouseEvent) => {
+      const t = e.target
+      // 指针已经离开触发格（或跑出文档）⇒ 收掉。**不依赖节点还在**，所以重建也能收。
+      // `e.target` 可能是 document/Window，`closest` 得先确认是 Element。
+      if (!(t instanceof Element) || !t.closest('.tip-cell')) {
+        hideRowTip()
+        return
+      }
+      moveRowTip(e)
+    }
+    document.addEventListener('mousemove', rowTipMove, { passive: true })
+    // 指针直接移出整个窗口时不会有 mousemove，再兜一层
+    document.addEventListener('mouseleave', hideRowTip, { passive: true })
+  }
+}
+
+/** 挂在「客户」「打单操作」两列单元格上的处理（`mouseleave` 只作兜底）。 */
 const rowTipHandlers = {
   onMouseenter: (row: OrderSummaryDto) => (ev: MouseEvent) => showRowTip(row, ev),
   onMouseleave: () => hideRowTip,
@@ -2755,7 +2796,8 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     // ③ `title`（旧版 `dr(1490)`）。第二轮审计抓到 ②③ 先前都缺。
     // ④ hover tooltip（旧版 `sa`/`da` 挂在 el-table 的 `onCellMouseEnter/Leave` 上，只对这两列生效）
     render: (row) => {
-      const cls = unpaidOf(row) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'
+      // `tip-cell` 是给 document 级 mousemove 判断「指针还在不在触发格里」用的（见 `showRowTip`）
+      const cls = `tip-cell ${unpaidOf(row) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'}`
       return h(
         'div',
         {
@@ -2936,7 +2978,7 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
       h(
         'div',
         {
-          class: 'progress-cell',
+          class: 'progress-cell tip-cell',
           onMouseenter: rowTipHandlers.onMouseenter(row),
           onMouseleave: rowTipHandlers.onMouseleave,
           // ⚠️ **这里没有底色** —— 先前挂了 `statusBg(production_status)`，那是挂错列了。
