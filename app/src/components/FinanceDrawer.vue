@@ -50,7 +50,7 @@
             <!-- 收款分配记录 -->
             <div class="section-title">收款分配记录</div>
             <n-data-table
-              :columns="recordColumns"
+              :columns="paymentRecordColumns"
               :data="orderFinance.payment_records"
               size="small"
               :max-height="180"
@@ -109,7 +109,7 @@
             <!-- 订单调整记录 -->
             <div class="section-title">订单调整记录</div>
             <n-data-table
-              :columns="recordColumns"
+              :columns="adjustRecordColumns"
               :data="orderFinance.adjustment_records"
               size="small"
               :max-height="160"
@@ -967,23 +967,42 @@ const filteredStatement = computed(() => {
 // ---------------------------------------------------------------------------
 // 表格列
 // ---------------------------------------------------------------------------
-const recordColumns: DataTableColumns<FinanceRecord> = [
-  { title: '类型', key: 'kind', width: 70 },
+/*
+ * 「收款分配记录」与「订单调整记录」**两张表的列不一样**（旧版就是分开定义的）：
+ *
+ *   收款分配记录：`收款日期 | 方式 | 分配金额 | 备注`
+ *     —— 旧版列定义见 `createVNode(D,{label:"收款日期"...})` 一组
+ *   订单调整记录：`日期 | 类型 | 减免金额 | 备注`
+ *     —— 旧版那一列的 `label` 是 **「减免金额」**、渲染写死 **`"-¥" + 调整金额`**
+ *
+ * ⚠️ 先前两张表共用 `recordColumns`（`类型 | 日期 | 金额`），既不旧版也不自洽：
+ *    调整表少了负号、列名也错（「金额」不是「减免金额」）。
+ */
+const paymentRecordColumns: DataTableColumns<FinanceRecord> = [
+  { title: '收款日期', key: 'date', width: 100 },
+  { title: '方式', key: 'kind', width: 70 },
+  { title: '分配金额', key: 'amount', width: 110, render: (row) => `¥${fmt(row.amount)}` },
+  { title: '备注', key: 'remark', ellipsis: { tooltip: true } },
+]
+
+const adjustRecordColumns: DataTableColumns<FinanceRecord> = [
   { title: '日期', key: 'date', width: 100 },
+  { title: '类型', key: 'kind', width: 80 },
   {
-    title: '金额',
+    // 旧版是**写死的 `-¥` 前缀**（不是按正负动态加）—— 抹零在账上就是「减掉多少」
+    title: '减免金额',
     key: 'amount',
-    width: 110,
-    render: (row) =>
-      h('span', { style: { color: row.amount < 0 ? '#f56c6c' : '#000' } }, `¥${fmt(row.amount)}`),
+    width: 90,
+    render: (row) => `-¥${fmt(row.amount)}`,
   },
   { title: '备注', key: 'remark', ellipsis: { tooltip: true } },
 ]
 
+// 列名逐字取自旧版 `createVNode(D,{label:"订单日期"...})` / `{label:"订单总价"...}`
 const allocationColumns: DataTableColumns<AllocationItem> = [
   { title: '回执单号', key: 'receipt_no', width: 120 },
-  { title: '日期', key: 'order_date', width: 100 },
-  { title: '总价', key: 'total_price', width: 90, render: (r) => `¥${fmt(r.total_price)}` },
+  { title: '订单日期', key: 'order_date', width: 100 },
+  { title: '订单总价', key: 'total_price', width: 90, render: (r) => `¥${fmt(r.total_price)}` },
   {
     title: '本次分配',
     key: 'allocated_amount',
@@ -1022,7 +1041,7 @@ const statementColumns: DataTableColumns<StatementItem> = [
     },
   },
   {
-    title: '单据号·地址',
+    title: '单据号/地址',
     key: 'receipt_no',
     render: (r) => (r.install_address ? `${r.receipt_no} · ${r.install_address}` : r.receipt_no),
   },
