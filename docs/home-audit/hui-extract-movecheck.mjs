@@ -35,7 +35,12 @@ import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 
 const ROOT = '/Users/aaa/Desktop/door-main'
-const REF = process.argv[2] || 'HEAD'
+/**
+ * ⚠️ 参照**必须钉在本次重构之前的那个提交**（`d6057283`，2026-09-19）。
+ * 不能用 `HEAD` —— 重构提交一落，HEAD 就是「搬完」的状态，两个文件的函数都已经被删了，
+ * 全部会报「HEAD 里找不到」。
+ */
+const REF = process.argv[2] || 'd6057283'
 const OLD_PATH = 'app/src/views/Hui.vue'
 const NEW_PATH = `${ROOT}/app/src/composables/useOrderLines.ts`
 
@@ -256,17 +261,32 @@ const COMPONENT_REWRITES = [
  * 它证明的是「切出来之后到落进组件之间没被手改」—— 与 HEAD 那一路的证明力不同，
  * 但也够：那批代码本身的正确性由 `hui-row-save-check.mjs` 与 `hui-engine-logiccheck.mjs` 管。
  */
-const SNAPSHOT = '/tmp/moved3b.ts'
+const SNAPSHOT = `${ROOT}/docs/home-audit/fixtures/hui-pre-3b.ts`
 let snapSrc = ''
 try {
   snapSrc = readFileSync(SNAPSHOT, 'utf8')
 } catch {
-  console.log(`  ⚠️ 找不到 ${SNAPSHOT}（第 2 步那批的参照），这一路跳过`)
+  // ⚠️ 找不到就**退回过期会话**（下面会打印用的是哪个参照）—— 别当成通过。
+  snapSrc = ''
 }
+
+/**
+ * **搬迁之后有意改过的**（不是搬迁失真，因此不再逐字比；但**必须列出来**，别让它变成
+ * 「反正检查器不看」的暗区 —— 脚本会把它们打印出来）。
+ *
+ * 2026-09-19 用户实测报「点确认修改没反应」，查下来两处：
+ *  · `confirmLeaveDirtyRow` 漏了旧版 `It` 的第二个判据（同一行里换格子不算切行）⇒ 补上，并加 `target` 形参；
+ *  · `saveRow` 的前置不满足时**静默 return**（表现就是「点了没反应」）⇒ 改成出声提示。
+ *  `enterEdit` 随之改成把当前行传给守卫。
+ */
+const POST_MOVE_EDITS = new Set(['confirmLeaveDirtyRow', 'enterEdit', 'saveRow'])
 
 let pass2 = 0
 const fail2 = []
+const skipped = []
 for (const name of MOVED_TO_COMPONENT) {
+  if (POST_MOVE_EDITS.has(name)) { skipped.push(name); continue }
+
   // ⚠️ **快照优先**：第 1/2/3a 步的改动都还没提交，`HEAD` 对「被那三步动过的函数」是过期的
   //    （`opsCol`/`rowClassName` 在步骤 2 改过、`pingCols` 在 3a 改过）。
   //    快照是 3b 动手**前一刻**的工作区原文，才是这批的真参照。
@@ -291,6 +311,7 @@ for (const name of MOVED_TO_COMPONENT) {
   fail2.push(`${name}: 归一化后仍不一致（旧 ${A.length} 行 / 新 ${B.length} 行）\n${diffs.join('\n')}`)
 }
 console.log(`  组件（列/单元格/编辑态）逐字一致：${pass2} 个`)
+if (skipped.length) console.log(`  ⚠️ 搬迁后有意改过、**不在逐字比对内**：${skipped.join(', ')}`)
 if (fail2.length) {
   console.log(`\n✗ 组件侧 ${fail2.length} 处不符：`)
   fail2.forEach((f) => console.log('  - ' + f))

@@ -1928,9 +1928,8 @@ const homeDetailHooks = {
   removeDoorImg: (l: Line) => homeDialogs.removeDoorImg(l),
   openTextImg: (l: Line) => homeDialogs.openTextImg(l),
   previewImage: (url: string) => homeDialogs.previewImage(url),
-  calcSingleRow: (l: Line) => void homeCalcEngine.calcRowParts(l).then((ok) => {
-    if (ok) message.success(`算料完成：${l.parts.length} 个部件`)
-  }),
+  // 占位：展开行是**每张单一份 hooks**（下面 `renderExpandDetail` 会覆盖它，好把 id 绑进去）
+  calcSingleRow: (l: Line) => void homeCalcEngine.calcRowParts(l),
   // 勾选计数是**每张单各一份**（Home 的展开行各是独立的表）—— 用 tick 触发重算。
   onSelectChange: () => {
     homeSelectTick.value++
@@ -2148,7 +2147,8 @@ function renderExpandDetail(row: OrderSummaryDto) {
       savedOrderId: id,
       selectedCount,
       filling: false,
-      hooks: homeDetailHooks,
+      // ⚠️ hooks 是**每张单一份**：`calcSingleRow` 要绑上本单 id（算完要开这一单的生产单预览）
+      hooks: { ...homeDetailHooks, calcSingleRow: (l: Line) => void calcSingleRowInExpand(id, l) },
       'onAdd-row': () => addRowToExpand(id, kind),
       'onBatch-delete': () => batchDeleteInExpand(id),
       'onToggle-show': () => (shown[kind] = !shown[kind]),
@@ -2193,11 +2193,32 @@ function batchDeleteInExpand(id: number) {
             // 单行失败继续（与 Hui 的 batchDeleteRows 同）
           }
         }
-        r.value = r.value.filter((x) => x !== l)
+        // ⚠️ 用 splice 而不是 r.value = filter(...)：后者会把 ref 换成**新数组**，
+        // 与 `details[id].lines` 脱钩，打印链路就读不到删干净的行了。
+        const i = r.value.indexOf(l)
+        if (i >= 0) r.value.splice(i, 1)
       }
       message.success('已删除选中行')
     },
   })
+}
+
+/**
+ * 展开行的「算料」：算完**顺手开「生产单」预览**。
+ *
+ * 旧版 Home 就是这么做的（`Home.formatted.js:8221-8263`：调内嵌 Hui 页面的 `calculateReceipt`
+ * → 拿 `produces` → 用「生产单」模板构造 → 开预览弹窗）。新版不内嵌 Hui 页面，
+ * 改成「引擎算料 + 复用本页现成的打印预览弹窗」—— 结果一样，路更短。
+ */
+async function calcSingleRowInExpand(id: number, l: Line) {
+  const ok = await homeCalcEngine.calcRowParts(l)
+  if (!ok) return
+  message.success(`算料完成：${l.parts.length} 个部件`)
+  const detail = details[id]
+  if (!detail) return
+  // 预览读的是 `printOrders`（与「打印选项」抽屉同一条链路），这里换成这一张单。
+  printOrders.value = [detail]
+  onOpenMode('product', '生产单')
 }
 
 /** 展开行「填入单号」（只有平开表有这颗按钮，见组件内 `kind === 'ping'`）。 */

@@ -1,169 +1,3 @@
-<template>
-  <!--
-    明细表（平开 / 移门共用，由 `kind` 分派）—— 模板 + 列定义 + 全部单元格 + 行级编辑态。
-
-    从 `app/src/views/Hui.vue` **整段搬来**（2026-09-19，分 3a/3b 两步），
-    目的是让 Home 的展开行也能挂同一张表 —— 旧版那两张明细表本来就是两个独立 SFC
-    （`Ping_hui` / `Diao_hui`），被 Hui 页与 Home 展开行同时使用
-    （`legacy/js/Home.formatted.js:9`）。见 `docs/2026-09-18-detail-table-extraction.md`。
-
-    搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对（第二轮：51 个定义逐字比）。
-  -->
-  <section class="table-wrap">
-    <div class="table-head">
-      <n-button v-if="selectedCount" size="tiny" text type="error" @click="emit('batch-delete')">
-        批量删除({{ selectedCount }})
-      </n-button>
-      <!-- ⚠️ 「填入单号」**只有平开表有**（旧版移门那份没有这颗按钮，别顺手统一） -->
-      <n-button
-        v-if="kind === 'ping'"
-        size="tiny"
-        text
-        type="primary"
-        :loading="filling"
-        @click="emit('fill-line-numbers')"
-      >
-        填入单号
-      </n-button>
-      <span class="grow-spacer" />
-      <n-button size="tiny" text type="error" @click="emit('toggle-show')">隐藏</n-button>
-    </div>
-    <n-data-table
-      :columns="kind === 'diao' ? diaoColumns : pingColumns"
-      :data="rows"
-      :bordered="true"
-      :row-key="rowKey"
-      :row-class-name="rowClassName"
-      :row-props="rowPropsOf"
-      size="small"
-      :max-height="560"
-      :scroll-x="scrollX"
-    />
-    <!-- 「 添加行 」在**表格下方**居中，蓝色实心带 + 图标（原版 :2635-2639：
-         `div.table-footer > el-button.custom-button-btn(icon=plus) 文案 " 添加行 "`） -->
-    <div class="table-footer">
-      <n-button class="custom-button-btn" size="small" @click="emit('add-row')">＋ 添加行 </n-button>
-    </div>
-  </section>
-</template>
-
-<script setup lang="ts">
-import { computed, h, reactive, watch } from 'vue'
-import {
-  NButton, NCheckbox, NDataTable, NInput, NInputNumber,
-  NSelect, NTooltip, useDialog, useMessage,
-} from 'naive-ui'
-import type { DataTableColumn } from 'naive-ui'
-import { api } from '../api/client'
-import type { OrderLineInput } from '../api/types'
-import { markupLines } from '../utils/markupLines'
-import type { Line } from '../utils/partsEngine'
-import { diaoDirImage } from '../utils/printPayloads'
-import { PING_DIRECTION_IMAGES } from '../data/directionImages'
-import { markupCatalog, markupCatalogOptions } from '../composables/useMarkupCatalog'
-import type { Ref } from 'vue'
-import type { FormulaDto } from '../api/types'
-import { useOrderLines, type OrderLines } from '../composables/useOrderLines'
-
-const props = defineProps<{
-  kind: 'ping' | 'diao'
-  rows: Line[]
-  /** 本表可显隐列。平开传 props.colVis、移门传 props.colVis（两表各一份）。 */
-  colVis: Record<string, boolean>
-  /** 订单级的「客户 / 客户编号」—— 列上直接显示，行上没有这两个字段。 */
-  client: { name: string; code: string }
-  /**
-   * 行编辑引擎（`composables/useOrderLines`）。
-   *
-   * · **Hui 页**：传页面那份 —— 页面自己的 `saveOrder`/打印/脏检查都要用同一个引擎。
-   * · **Home 展开行**：**不传**，改用下面的 `engineDeps` 让组件自己建一份。
-   *   原因是 Home 每个展开行各有自己的 `lines`（同一时刻可能展开多张单），
-   *   而引擎的依赖里 `lines` 是**一个** ref —— 共享一份会张冠李戴。
-   *   也不违反「引擎唯一」那条：`createPartsEngine(formulas)` 对同一份 `formulas` 是确定性的，
-   *   两份实例算出来的 `isDiamond`/候选/算料结果一致（旧版两个 SFC 本来就是各持一套）。
-   */
-  engine?: OrderLines
-  /** 不传 `engine` 时用它自建（两者**二选一**；都不给会在运行时报错）。 */
-  engineDeps?: {
-    lines: Ref<Line[]>
-    formulas: Ref<FormulaDto[]>
-    order: { client_code: string }
-    orderId: Ref<number | null>
-    disableAutoMarkup: Ref<boolean>
-  }
-  /** 已保存订单 id；`null` = 还没落库（行级保存与删除走不了接口）。 */
-  savedOrderId: number | null
-  /** 跨两表的勾选数（表头「批量删除(N)」）。两表共用一个计数。 */
-  selectedCount: number
-  /** 「填入单号」进行中。 */
-  filling: boolean
-  /** 页面级的回调。组件不持有这些弹窗/流程（它们跨两表或在页面里）。 */
-  hooks: {
-    openSquareDialog: (l: Line) => void
-    openAddMarkup: (l: Line) => void
-    pickDoorImg: (l: Line) => void
-    removeDoorImg: (l: Line) => void
-    openTextImg: (l: Line) => void
-    previewImage: (url: string) => void
-    calcSingleRow: (l: Line) => void
-    onSelectChange: () => void
-    lineInputOf: (l: Line) => OrderLineInput
-  }
-}>()
-
-const emit = defineEmits<{
-  (e: 'add-row'): void
-  (e: 'batch-delete'): void
-  (e: 'toggle-show'): void
-  (e: 'fill-line-numbers'): void
-}>()
-
-// ── 组件化时补进来的引用（原来靠 Hui.vue 的页面作用域，现在两边都要用）──
-import { CASING_OPTIONS, DIRECTION_SUFFIXES, FANS, FOLD_DIRECTION_SUFFIXES, GLASS_OPTIONS, GLASS_THICKNESS_OPTIONS } from '../utils/detailOptions'
-import { displayDirection, getOriginalOpenDirection, openOpenDirSettings, pingDirectionOptions } from '../composables/useOpenDirection'
-import type { SizeField } from '../composables/useOrderLines'
-
-const fansOptions = FANS.map((f) => ({ label: f, value: f }))
-const glassOptions = GLASS_OPTIONS.map((g) => ({ label: g, value: g }))
-const glassThicknessOptions = GLASS_THICKNESS_OPTIONS.map((g) => ({ label: g, value: g }))
-const casingKindOptions = CASING_OPTIONS.map((e) => ({ label: e, value: e }))
-const priceTypeOptions = [
-  { label: '套', value: '套' },
-  { label: '方', value: '方' },
-]
-const directionSuffixOptions = computed(() =>
-  [...DIRECTION_SUFFIXES, ...FOLD_DIRECTION_SUFFIXES].map((d) => ({ label: displayDirection(d), value: d })),
-)
-
-const message = useMessage()
-const dialog = useDialog()
-
-// ⚠️ 全部**解构成与迁出前同名的局部变量**，所以下面 900 行搬迁过来的函数体一个字都不用改
-//    （同 `useOrderLines.ts` 的手法；搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机核）。
-/**
- * 引擎：Hui 传进来的那份，或（Home 展开行）自己建一份。
- *
- * ⚠️ `??` 是**短路**的：传了 `engine` 就不会调 `useOrderLines()` —— 与 `message`/`dialog`
- *    同一手法（那边也是传了就不调 `useMessage()`）。
- */
-const engine: OrderLines =
-  props.engine ?? useOrderLines(props.engineDeps as NonNullable<typeof props.engineDeps>)
-
-const {
-  lineRefresh, isDiamond, needsMotherWidth,
-  partsTrackOptions, hardwareOptionsFor, pingProfileOptions, diaoProfileOptions,
-  pingCasingOptions, colorOptions, rememberField, rememberDefaultBottomGlass,
-  rememberDefaultGlassThickness, resolveRow, removeLine, copyRow,
-  syncSizeMarkup, onGlassSelection, markupError, sanitizeNum, sanitizeFloat,
-} = engine
-
-/** 列显隐：缺省都显示（与页面同名同义）。 */
-function colVis(map: Record<string, boolean>, key: string): boolean {
-  return map[key] !== false
-}
-
-/** 两表不同的 `scroll-x`（旧版列宽不同：平开 2000 / 移门 2200）。 */
-const scrollX = computed(() => (props.kind === 'diao' ? 2200 : 2000))
 
 // ════ 搬迁自 Hui.vue 1442-1701：A 单元格 ════
 function wallThicknessCell(l: Line) {
@@ -440,7 +274,7 @@ const selCol = (): DataTableColumn<Line> => ({
       checked: !!l.isSelected,
       onUpdateChecked: (v: boolean) => {
         l.isSelected = v
-        props.hooks.onSelectChange()
+        checkboxTick.value++
       },
     }),
 })
@@ -532,15 +366,11 @@ const isDirty = (l: Line) => {
  * 旧版 `ElMessageBox.confirm(…, { distinguishCancelAndClose: true })`：
  * 确认 → 保存并切换；**取消与关闭都算「继续编辑」**（`catch` 一支）。
  */
-async function confirmLeaveDirtyRow(target?: Line): Promise<boolean> {
+async function confirmLeaveDirtyRow(): Promise<boolean> {
   for (const st of [pingEdit, diaoEdit]) {
     const key = st.editing.keys().next().value as string | undefined
     if (!key || !st.dirty.has(key)) continue
-    // ⚠️ **同一行里换格子不算「切行」**，直接放行 —— 旧版 `It` 的第二个判据
-    //    `if (!a || !_ || a === _ || !vt.has(a)) return true`（`Hui.formatted.js:1362-1368`）。
-    //    2026-09-19 补：漏了它，在同一行里点第二个格子就会莫名弹「未保存提醒」。
-    if (target && rowKeyOf(target) === key) continue
-    const row = engine.lines.value.find((x) => rowKeyOf(x) === key)
+    const row = lines.value.find((x) => rowKeyOf(x) === key)
     if (!row) continue
     const go = await new Promise<boolean>((resolve) => {
       dialog.warning({
@@ -573,12 +403,12 @@ async function confirmLeaveDirtyRow(target?: Line): Promise<boolean> {
  *    只有 `row-props`，拿不到列信息）。
  */
 async function enterEdit(l: Line) {
-  if (!(await confirmLeaveDirtyRow(l))) return
+  if (!(await confirmLeaveDirtyRow())) return
   const st = editOf(l)
   st.editing.clear()
   const k = rowKeyOf(l)
   if (!k) return
-  const rows = l.line_type === 'diao' ? props.rows : props.rows
+  const rows = l.line_type === 'diao' ? diaoRows.value : pingRows.value
   st.snapshot[k] = { ...l }
   st.editing.set(k, rows.indexOf(l))
   recomputeDirty(l)
@@ -605,22 +435,13 @@ function cancelEdit(l: Line) {
  *    `ElMessage.warning` 是最后一个操作数，没有 `return`）。移门侧**没有这条**。
  */
 async function saveRow(l: Line) {
-  if (l.line_type === 'ping' && colVis(props.colVis, 'track') && !(l.track || '').trim()) {
+  if (l.line_type === 'ping' && colVis(pingColVis, 'track') && !(l.track || '').trim()) {
     message.warning('锁具没有指定，请确认是否遗漏！')
   }
   const k = rowKeyOf(l)
-  // ⚠️ 这三条**必须出声**：静默 return 会表现成「点了没反应」，查起来极费劲
-  //    （2026-09-19 踩过）。用户点了按钮就该有反馈，哪怕是「这行还没落库」。
-  if (!k || l.id == null) {
-    message.warning('该行还没落库，无法单独保存 —— 请先用页面上的「保存回执单」整单保存')
-    return
-  }
-  if (props.savedOrderId == null) {
-    message.warning('该订单还没落库，无法单独保存 —— 请先整单保存')
-    return
-  }
+  if (!k || l.id == null || orderId.value == null) return
   try {
-    await api.updateOrderLine(props.savedOrderId, l.id, props.hooks.lineInputOf(l))
+    await api.updateOrderLine(orderId.value, l.id, lineInputOf(l))
     message.success('数据更新成功')
     const st = editOf(l)
     st.editing.delete(k)
@@ -663,7 +484,7 @@ const opsCol = (label: string): DataTableColumn<Line> => ({
               { trigger: 'hover', placement: 'left', rawContent: false },
               {
                 trigger: () =>
-                  h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void props.hooks.calcSingleRow(l) }, { default: () => '算料' }),
+                  h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void calcSingleRow(l) }, { default: () => '算料' }),
                 default: () => h('pre', { style: 'margin:0;font-size:12px;white-space:pre-wrap;max-width:340px' }, partsTooltip(l)),
               },
             ),
@@ -681,7 +502,7 @@ const sqCell = (l: Line) =>
     {
       onContextmenu: (e: MouseEvent) => {
         e.preventDefault()
-        props.hooks.openSquareDialog(l)
+        openSquareDialog(l)
       },
     },
     [h(NInput, { ...CELL, readonly: true, value: l.square.toFixed(2) })],
@@ -728,7 +549,7 @@ function markupSelectCell(l: Line) {
   return h('div', { class: 'extra-items-container' }, [
     h(
       'div',
-      { class: 'glass-input-label', style: { cursor: 'pointer' }, onClick: () => props.hooks.openAddMarkup(l) },
+      { class: 'glass-input-label', style: { cursor: 'pointer' }, onClick: () => openAddMarkup(l) },
       ' 点击添加： ',
     ),
     h(NSelect, {
@@ -779,12 +600,13 @@ function doorImgCell(l: Line) {
         src: l.image_url,
         style: 'display:block;width:76px;height:52px;object-fit:contain;border:1px solid #dcdfe6;border-radius:3px;cursor:zoom-in;background:#fff',
         onClick: () => {
-          props.hooks.previewImage(l.image_url ?? '')
+          previewImg.value = l.image_url
+          previewOpen.value = true
         },
       }),
       h(
         NButton,
-        { size: 'tiny', quaternary: true, circle: true, type: 'error', title: '删除门图', style: 'position:absolute;top:-6px;right:-6px', onClick: () => props.hooks.removeDoorImg(l) },
+        { size: 'tiny', quaternary: true, circle: true, type: 'error', title: '删除门图', style: 'position:absolute;top:-6px;right:-6px', onClick: () => removeDoorImg(l) },
         { icon: () => '×' },
       ),
     ])
@@ -798,8 +620,8 @@ function doorImgCell(l: Line) {
       onClick: (e: MouseEvent) => e.stopPropagation(),
     },
     [
-      h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => props.hooks.pickDoorImg(l) }, { default: () => '传图' }),
-      h(NButton, { size: 'tiny', text: true, onClick: () => props.hooks.openTextImg(l) }, { default: () => '文字' }),
+      h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => pickDoorImg(l) }, { default: () => '传图' }),
+      h(NButton, { size: 'tiny', text: true, onClick: () => openTextImg(l) }, { default: () => '文字' }),
     ],
   )
 }
@@ -900,10 +722,10 @@ function pingCols(): DataTableColumn<Line>[] {
         //    `C` = `getOriginalOpenDirection`）。直接用显示名查会漏图。
         const img = PING_DIRECTION_IMAGES[getOriginalOpenDirection(l.direction)]
         return cCol(
-          ...(colVis(props.colVis, 'casing')
+          ...(colVis(pingColVis, 'casing')
             ? [sub('包边：', optCell(l, 'casing', pingCasingOptions(l, casingKindOptions), undefined, true, 'casing'))]
             : []),
-          ...(colVis(props.colVis, 'track') ? [sub('锁具：', trackCell(l))] : []),
+          ...(colVis(pingColVis, 'track') ? [sub('锁具：', trackCell(l))] : []),
           sub('开向：', optCell(l, 'direction', pingDirectionOptions.value, undefined, true)),
           h('div', { class: 'image-cell2 image-cell2--ping' }, [
             img ? h('img', { src: img, alt: l.direction, class: 'direction-image' }) : null,
@@ -933,7 +755,7 @@ function pingCols(): DataTableColumn<Line>[] {
           ...(isDiamond(l) ? [sub('右宽：', intCell(l, 'light_window_height'))] : []),
           // ⚠️ 「洞尺」**不是独立列**，而是门洞尺寸格里的最后一块（原版 :2336-2346，
           //    `_["value"]["洞尺"]` 闸门 + `"洞/净尺："` 标签 + 下拉「洞尺/净尺」两项）。
-          ...(colVis(props.colVis, 'hole_size')
+          ...(colVis(pingColVis, 'hole_size')
             ? [sub('洞/净尺：', holeCell(l, PING_HOLE_SIZE_OPTS))]
             : []),
         ),
@@ -974,8 +796,8 @@ function pingCols(): DataTableColumn<Line>[] {
     { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
-    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, props.client.name || '—') },
-    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, props.client.code || '—') },
+    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
+    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
     { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee') },
   ]
 }
@@ -1075,7 +897,7 @@ function diaoCols(): DataTableColumn<Line>[] {
           sub('宽度：', intCell(l, 'door_width')),
           // 移门表墙厚标签**不分支**（原版恒为 '墙厚：'，:3458）
           sub('墙厚：', wallThicknessCell(l)),
-          ...(colVis(props.colVis, 'hole_size')
+          ...(colVis(diaoColVis, 'hole_size')
             ? [sub('洞/净尺：', holeCell(l, DIAO_HOLE_SIZE_OPTS))]
             : []),
         ),
@@ -1090,7 +912,7 @@ function diaoCols(): DataTableColumn<Line>[] {
           sub('亮窗总高：', intCell(l, 'light_window_height')),
           sub('亮窗数量：', intCell(l, 'light_window_count')),
           // 「封板高」也挂在 列显隐表['封板高'] 闸门上（原版 :5147 / :5165）
-          ...(colVis(props.colVis, 'seal_board') ? [sub('封板高：', intCell(l, 'seal_board_height'))] : []),
+          ...(colVis(diaoColVis, 'seal_board') ? [sub('封板高：', intCell(l, 'seal_board_height'))] : []),
         ),
     },
     // 原版「五金」是独立列（`["五金"]` 闸门）
@@ -1120,8 +942,8 @@ function diaoCols(): DataTableColumn<Line>[] {
     // 原版「图片ID」列不可编辑（只展示），故用只读 span
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
-    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, props.client.name || '—') },
-    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, props.client.code || '—') },
+    { title: '客户', key: 'client', width: 88, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_name || '—') },
+    { title: '客户编号', key: 'client_code', width: 84, render: () => h('span', { style: 'font-size:11px;color:#606266' }, order.client_code || '—') },
     { title: '其它费用', key: 'other_fee', width: 78, render: (l) => moneyCell(l, 'other_fee') },
   ]
 }
@@ -1145,243 +967,17 @@ const rowPropsOf = (row: Line) => ({ onClick: () => void enterEdit(row) })
 
 // 行内任何改动 → 重算所有已开编辑态行的脏标记（旧版 `Vue.watch(ue, …, {deep:true})`，`:1394-1400`）。
 watch(
-  () => engine.lines.value,
+  lines,
   () => {
-    for (const l of engine.lines.value) if (rowKeyOf(l) && editOf(l).snapshot[rowKeyOf(l)]) recomputeDirty(l)
+    for (const l of lines.value) if (rowKeyOf(l) && editOf(l).snapshot[rowKeyOf(l)]) recomputeDirty(l)
   },
   { deep: true },
 )
 
 type KeyedCol = DataTableColumn<Line> & { key: string }
 const pingColumns = computed<DataTableColumn<Line>[]>(() =>
-  pingCols().filter((c) => colVis(props.colVis, (c as KeyedCol).key ?? '')),
+  pingCols().filter((c) => colVis(pingColVis, (c as KeyedCol).key ?? '')),
 )
 const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
-  diaoCols().filter((c) => colVis(props.colVis, (c as KeyedCol).key ?? '')),
+  diaoCols().filter((c) => colVis(diaoColVis, (c as KeyedCol).key ?? '')),
 )
-</script>
-
-<style scoped>
-/* ── 搬迁：原 Hui.vue 3234-3280（单元格 :deep 组（.glass-inputs-container 等））── */
-:deep(.glass-inputs-container) {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  width: 100%;
-}
-:deep(.glass-input-group) {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-:deep(.glass-input) {
-  flex: 1;
-  min-width: 0;
-}
-/* 「 开向 」列表头是个可点链接（旧版 `.clickable-header{cursor:pointer;display:inline-flex;
-   align-items:center;gap:4px;color:#409eff}`，hover #66b1ff） */
-:deep(.clickable-header) {
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: #409eff;
-}
-:deep(.clickable-header:hover) {
-  color: #66b1ff;
-}
-:deep(.extra-items-container) {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-:deep(.glass-input-label) {
-  font-size: 11px;
-  white-space: nowrap;
-  color: #1302fa;
-  min-width: 0px;
-}
-:deep(.extra-items-expressions) {
-  margin-top: 4px;
-  white-space: pre-line;
-  font-size: 12px;
-  line-height: 1.5;
-}
-:deep(.expression-line) {
-  margin-bottom: 2px;
-}
-
-/* ── 搬迁：原 Hui.vue 3342-3344（.grow-spacer（与页面共用，组件内重复一份））── */
-.grow-spacer {
-  flex: 1;
-}
-
-/* ── 搬迁：原 Hui.vue 3371-3376（.table-head）── */
-.table-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-/* ── 搬迁：原 Hui.vue 3387-3398（.table-wrap / .table-footer）── */
-.table-wrap {
-  border: 1px solid #ebeef5;
-  background: #fff;
-}
-/* 表尾「 添加行 」按钮（旧版 `div.table-footer{margin-top:10px;display:flex;justify-content:center}`
-   + `.custom-button-btn{background-color:#7caaf3;color:#fff;border-color:#7caaf3}`，hover #0965fa） */
-.table-footer {
-  margin-top: 10px;
-  padding-bottom: 10px;
-  display: flex;
-  justify-content: center;
-}
-
-/* ── 搬迁：原 Hui.vue 3399-3409（.table-wrap :deep(.custom-button-btn…)）── */
-.table-wrap :deep(.custom-button-btn.n-button) {
-  background-color: #7caaf3;
-  border-color: #7caaf3;
-  color: #fff;
-}
-.table-wrap :deep(.custom-button-btn.n-button:hover),
-.table-wrap :deep(.custom-button-btn.n-button:focus) {
-  background-color: #0965fa;
-  border-color: #0965fa;
-  color: #fff;
-}
-/* ── 搬迁：原 Hui.vue 3410-3419（.table-wrap .table-head）── */
-.table-wrap .table-head {
-  padding: 6px 8px;
-  background: #f7f8fa;
-  border-bottom: 1px solid #ebeef5;
-}
-/*
- * 表头：照抄旧版 `legacy/css/Hui-39b802eb.css`
- *   .el-table__header-wrapper th{font-weight:700;background-color:#f0f9eb!important;color:#000!important;text-align:center!important}
- *   .el-table__header-wrapper .cell{font-weight:700;color:#000!important;text-align:center!important}
- * （我们原来是浅绿底 + 深绿字，旧版是**浅绿底 + 纯黑加粗居中**。）
- */
-/* ── 搬迁：原 Hui.vue 3421-3498（.table-wrap :deep(表格/控件密度) 大组）── */
-.table-wrap :deep(.n-data-table .n-data-table-th) {
-  background: #f0f9eb;
-}
-.table-wrap :deep(.n-data-table .n-data-table-th .n-data-table-th__title) {
-  font-size: 12px;
-  font-weight: 700;
-  color: #000;
-  justify-content: center;
-  text-align: center;
-}
-/*
- * 单元格内边距：旧版 `cell-style:{padding:"1px"}`（td 内联）+ `.el-table .cell{padding:2px 5px}`
- * + `.el-table__cell{padding-top:5px!important;padding-bottom:5px!important}`（覆盖内联）
- * ⇒ 实际 垂直 5+2=7px、水平 1+5=6px。naive-ui 没有 `.cell` 内层，合并成一条。
- */
-.table-wrap :deep(.n-data-table .n-data-table-td) {
-  padding: 5px 6px;
-  font-size: 12px;
-  line-height: 1.35;
-}
-.table-wrap :deep(.n-data-table .n-data-table-tr .n-data-table-td) {
-  height: auto;
-}
-.table-wrap :deep(.n-input),
-.table-wrap :deep(.n-base-selection),
-.table-wrap :deep(.n-input-number) {
-  font-size: 12px;
-}
-/* 强制输入/下拉高度与内边距收紧 */
-.table-wrap :deep(.n-input .n-input__input-el),
-.table-wrap :deep(.n-input .n-input__border),
-.table-wrap :deep(.n-base-selection .n-base-selection-label) {
-  height: 22px;
-  line-height: 22px;
-  font-size: 12px;
-  padding: 0 4px;
-}
-.table-wrap :deep(.n-input .n-input__state-border),
-.table-wrap :deep(.n-base-selection .n-base-selection__border) {
-  top: 2px;
-  bottom: 2px;
-}
-.table-wrap :deep(.n-base-selection .n-base-selection-input),
-.table-wrap :deep(.n-input-number .n-input__input-el) {
-  height: 22px;
-  font-size: 12px;
-}
-/* 数字类输入右对齐，下拉/文本不被截断 */
-.table-wrap :deep(.n-input-number .n-input__input-el) {
-  text-align: right;
-  padding-right: 6px;
-}
-.table-wrap :deep(.n-input-number .n-input__input-el),
-.table-wrap :deep(.n-input .n-input__input-el) {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-/* 带后缀(㎡)的平方输入不被后缀挤压 */
-.table-wrap :deep(.n-input .n-input__input) {
-  min-width: 0;
-  flex: 1;
-}
-.table-wrap :deep(.n-input .n-input__suffix) {
-  flex: none;
-}
-/* 下拉选中区不再强制裁剪文字 */
-.table-wrap :deep(.n-base-selection-label) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.table-wrap :deep(.n-button--tiny-type-text),
-.table-wrap :deep(.n-button--tiny) {
-  font-size: 12px;
-  padding: 0 2px;
-  height: 18px;
-}
-/* ── 搬迁：原 Hui.vue 3567-3608（unsaved-row / highlight / red-number / image-cell2 / direction-image）── */
-.table-wrap :deep(.n-data-table .unsaved-row .n-data-table-td) {
-  background: #ffe6ef;
-}
-.table-wrap :deep(.n-data-table .unsaved-row:hover .n-data-table-td) {
-  background: #ffd6e6;
-}
-.table-wrap :deep(.n-data-table .highlight-matched-order .n-data-table-td) {
-  background: #d4edda;
-}
-.table-wrap :deep(.n-data-table .highlight-matched-order:hover .n-data-table-td) {
-  background: #c3e6cb;
-}
-/* 尺寸类数字输入红字（旧版 `.red-number-input .el-input__inner{color:red}`）：
-   平开 门洞高/门洞宽/墙厚/钻石型「右宽」；移门 门洞高/门洞宽/墙厚/封板高。 */
-.table-wrap :deep(.n-input-number.red-number-input .n-input__input-el),
-.table-wrap :deep(.n-input.red-number-input .n-input__input-el) {
-  color: red;
-}
-/*
- * 开向示意图。旧版靠 `.image-cell2` 的**百分比宽度**给图封顶：
- *   平开 `.image-cell2{width:70%;height:70%}` ／ 移门 `.image-cell2{width:50%;height:40%}`
- * 加上 `img.direction-image{max-width:100%;object-fit:contain}`。
- * ⚠️ 这两条 width 不能省：图是**原始尺寸**渲染的，而移门那批图最大到 **479×126**
- * （平开那批只有 80~115 宽），不封顶就会把整个格子撑爆。
- * 百分比高度对着 auto 高度的父元素等于没用，真正起作用的是 width —— 照抄即可。
- */
-.table-wrap :deep(.image-cell2) {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin: 0 auto;
-}
-.table-wrap :deep(.image-cell2--ping) {
-  width: 70%;
-}
-.table-wrap :deep(.image-cell2--diao) {
-  width: 50%;
-}
-.table-wrap :deep(.direction-image) {
-  max-width: 100%;
-  object-fit: contain;
-}
-</style>
