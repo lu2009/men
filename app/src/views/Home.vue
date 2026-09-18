@@ -205,12 +205,22 @@
       宽 460px / label-width 110px（旧版 `dr(1294)` / `dr(1335)`）；四个控件逐条对齐旧版：
       回执单号(disabled) · 操作名称(autocomplete，失焦入库、右键删自定义项) · 日期 · 记录日期(持久化偏好)。
       第 4 项旧版是 `<el-form-item label=" ">` 占住那 110px 的 label 列，让勾选框与上面输入框左对齐 —— 照抄。
+
+      ⚠️ `:auto-focus="false"` 是**对齐旧版**，不是随手关的：
+      旧版 `el-dialog` 的 focus-trap 硬编码 `"focus-start-el": "container"`
+      （`element-plus/es/components/dialog/src/dialog.vue_vue_type_script_setup_true_lang.mjs`）
+      ⇒ 开窗时焦点落在**容器**上，**没有任何输入框被聚焦**。
+      Naive 的 `n-modal` 相反（focus-trap `autoFocus` 默认 `true` 且没给 `initialFocusTo`
+      ⇒ `resetFocusTo('first')`），而本弹窗第一个可聚焦控件是「操作名称」（回执单号 disabled）。
+      两者一叠加就出事：开窗即聚焦 ⇒ 聚焦即弹（`:get-show`）⇒ **下拉在弹窗入场动画途中自己弹出来**，
+      浮层按动画中途的位置算 ⇒ 看着还偏。关掉它，下拉就只在**用户真的点进输入框**时才弹。
     -->
     <n-modal
       v-model:show="manualShow"
       preset="card"
       title="手动更新进度"
       style="width: 460px"
+      :auto-focus="false"
     >
       <n-form label-placement="left" label-width="110" label-align="right">
         <n-form-item label="回执单号">
@@ -266,12 +276,16 @@
         · 结束日期   同上，默认 = 今天；两个 picker **各自**挂一份快捷项（旧版 `:12153` 与 `:12160` 各一份）
         · 只含生产单 `Vs.includeProductionOrder`（`:12166`）
       footer：取消 + 「确认」(`ys`)。「确认统计」(`vs`) 分支在旧版不可达，不实现（见脚本区注释）。
+
+      ⚠️ `:auto-focus="false"` 同「手动更新进度」弹窗 —— 旧版 `el-dialog` 只聚焦容器，
+      这里若让 Naive 聚焦第一个控件，客户 autocomplete 会在开窗瞬间自己弹下拉（理由详见上一处注释）。
     -->
     <n-modal
       v-model:show="queryShow"
       preset="card"
       title="查询订单"
       style="width: 500px"
+      :auto-focus="false"
     >
       <n-form label-placement="left" label-width="100">
         <n-form-item label="客户">

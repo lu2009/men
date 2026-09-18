@@ -223,6 +223,12 @@ div.big-screen-container (深蓝渐变 #0d1b2a→#1a2d42→#0d1b2a, 100vh)
   > 所以点进空框就看到整份候选（固定 4 项 + localStorage 自定义项），**不必先打字**。
   > 另两处（`:12058` 客户编辑弹窗、`:12141` 查询订单·客户）是逐字写了 `"trigger-on-focus":!0`，行为相同。
   > 对照见 `docs/home-audit/autocomplete-logiccheck.mjs`。
+  >
+  > ⚠️ **「聚焦即弹」有个陷阱**：光把焦点行为补上还不够 —— 旧版 `el-dialog` 的 focus-trap 硬编码
+  > `"focus-start-el": "container"`，**开窗时只聚焦容器、不聚焦任何输入框**，所以旧版开窗不会自己弹下拉。
+  > 新版若用 Naive 的默认（`n-modal` 的 focus-trap `autoFocus` 默认 `true` ⇒ 聚焦第一个可聚焦控件），
+  > 开窗瞬间就会弹，而且是在入场动画途中弹的、浮层位置也算偏。
+  > **结论：装了 autocomplete 的弹窗必须 `:auto-focus="false"`**（本页「手动更新进度」与「查询订单」两个）。
 
 ### 4.8 加价
 

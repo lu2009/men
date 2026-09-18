@@ -153,6 +153,33 @@ ok(
   /const AUTOCOMPLETE_ALWAYS_SHOW = \(\) => true/.test(HOME_VUE),
 )
 
+// ⑥ 「聚焦即弹」有个致命副作用：**弹窗开窗时若自动聚焦到输入框，下拉就自己弹出来**
+//    （而且是弹窗入场动画途中弹的，浮层位置也偏）。旧版没这毛病 ——
+//    旧版 `el-dialog` 的 focus-trap 硬编码 `"focus-start-el": "container"`，**只聚焦容器**；
+//    Naive 的 `n-modal` 是 focus-trap `autoFocus` 默认 true 且无 `initialFocusTo` ⇒ 聚焦第一个控件。
+//    ⇒ 两个装了 autocomplete 的弹窗都必须显式 `:auto-focus="false"`。
+const EP_DIALOG = '/Volumes/Untitled 1/deepseek/my-smartdoor-clone/node_modules/element-plus/es'
+try {
+  const EPF = `${EP_DIALOG}/components/dialog/src/dialog.vue_vue_type_script_setup_true_lang.mjs`
+  ok('旧版 el-dialog 硬编码 focus-start-el="container"（所以开窗不聚焦输入框）', /"focus-start-el":\s*"container"/.test(readFileSync(EPF, 'utf8')))
+} catch {
+  console.log('（跳过：那份 element-plus 源码不在本机，只有历史依据可查）')
+}
+{
+  // 两个装了 autocomplete 的弹窗，各自都要 auto-focus=false
+  const modal = (re) => HOME_VUE.match(re)?.[0] ?? ''
+  const manual = modal(/<n-modal\b[^>]*manualShow[\s\S]*?>/)
+  const query = modal(/<n-modal\b[^>]*queryShow[\s\S]*?>/)
+  ok('「手动更新进度」弹窗关掉了自动聚焦', manual.includes(':auto-focus="false"'))
+  ok('「查询订单」弹窗关掉了自动聚焦', query.includes(':auto-focus="false"'))
+  // 反过来钉住：装了 autocomplete 的弹窗**必须**有关掉自动聚焦，否则就是上面那个 bug
+  const acModals = [['手动更新进度', manual], ['查询订单', query]]
+  for (const [name, m] of acModals) {
+    const hasAc = HOME_VUE.slice(HOME_VUE.indexOf(m)).slice(0, 4000).includes('<n-auto-complete')
+    ok(`「${name}」确实装了 autocomplete（所以这条约束需要它）`, hasAc)
+  }
+}
+
 console.log(`\n旧版三个 autocomplete 的 trigger-on-focus:`)
 console.log(`  :${ROW_EDIT}   客户编辑弹窗    逐字写 !0`)
 console.log(`  :${ROW_MANUAL}   手动更新进度·操作名称  未写 ⇒ EP 默认 ${EP_DEFAULT}`)
