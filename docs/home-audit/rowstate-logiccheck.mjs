@@ -16,86 +16,33 @@
  * 用法：node docs/home-audit/rowstate-logiccheck.mjs
  *   前置：/tmp/home-map.json（由 legacy/decode-home-map.mjs 生成）
  */
-import { readFileSync } from 'node:fs'
+import { SRC, assertDecoder, between, deobf, runLegacy } from './legacy-slice.mjs'
 
-const ROOT = '/Users/aaa/Desktop/door-main'
-const map = JSON.parse(readFileSync('/tmp/home-map.json', 'utf8'))
-const src = readFileSync(`${ROOT}/legacy/js/Home.formatted.js`, 'utf8')
-const TABLE = 'dr' // Home 主解码表（1025 项）
+assertDecoder()
 
-/** 旧版里这些函数的局部解码器别名。`g` 是 setup 作用域里指向主表的局部名 —— 断言验证，不靠猜。 */
-const LOCAL_DECODERS = ['g']
-
-const between = (from, to) => {
-  const i = src.indexOf(from)
-  const j = src.indexOf(to, i)
-  if (i < 0 || j < 0) throw new Error(`切不出 [${from} .. ${to}]`)
-  return src.slice(i + from.length, j)
-}
+/** 取 `[from .. to)` 之间的源码（锚点不存在就抛，别静默切错）。 */
+const slice = (from, to) => between(from, to, SRC)
 
 // 各函数的右值源码（**原样**，未反混淆）。
 const RAW = {
-  Ko: between('Ko=e=>', ',Zo=e=>'),
-  Zo: between('Zo=e=>', ',Xo=Vue.computed'),
-  Xo: between('Xo=Vue.computed', ',Qo=({'),
+  Ko: slice('Ko=e=>', ',Zo=e=>'),
+  Zo: slice('Zo=e=>', ',Xo=Vue.computed'),
+  Xo: slice('Xo=Vue.computed', ',Qo=({'),
   // ⚠️ 锚点必须带上前导的 `,`：`Qo=` 在全文出现 **2 次**，只用 `Qo=` 会切到前面那处、切片大得离谱
   //    （实测切出 1600+ 处「未命中」，就是这个原因）。
-  Qo: `({${between(',Qo=({', ',Ro=(e,t)=>')}`,
-  so: between('so=e=>', ',Vo=e=>'),
-  Vo: between('Vo=e=>', ',mo=Vue.reactive'),
+  Qo: `({${slice(',Qo=({', ',Ro=(e,t)=>')}`,
+  so: slice('so=e=>', ',Vo=e=>'),
+  Vo: slice('Vo=e=>', ',mo=Vue.reactive'),
 }
-
-/**
- * 名字 → 解码表。种子是解码器名、别名，以及 `LOCAL_DECODERS`（`g`，断言证明它就是 `dr`）。
- *
- * ⚠️ 关键是**多轮闭包**：这些函数里的局部别名是 `const e=g,t=new Map;` 这种形态
- *    （`t` 不是解码器、`e` 是 `g` 的别名），单看一轮收不全 —— 本项目栽过这个坑
- *    （见 memory `hui-inline-decoder-recipe` 的「作用域局部别名」）。
- */
-function decoderTables(code) {
-  const table = new Map()
-  for (const d of Object.keys(map.decoders)) table.set(d, d)
-  for (const [a, b] of Object.entries(map.aliases)) table.set(a, b)
-  for (const n of LOCAL_DECODERS) table.set(n, TABLE)
-  for (let pass = 0; pass < 6; pass++) {
-    for (const m of code.matchAll(/const (\w+)=(\w+)[,;]/g)) {
-      if (table.has(m[2]) && !table.has(m[1])) table.set(m[1], table.get(m[2]))
-    }
-  }
-  return table
-}
-
-function deobf(code) {
-  const table = decoderTables(code)
-  const names = [...table.keys()].filter((n) => n !== '$n') // `$n` 用不到，且在正则里是锚点字符
-  const re = new RegExp(`(?<![.\\w$])(${names.join('|')})\\((\\d+)\\)`, 'g')
-  let miss = 0
-  const out = code.replace(re, (all, n, idx) => {
-    const v = map.decoders[table.get(n)]?.[idx]
-    if (v === undefined) {
-      miss++
-      return all
-    }
-    return JSON.stringify(v)
-  })
-  if (miss) throw new Error(`反混淆有 ${miss} 处未命中，别继续跑`)
-  return out
-}
-
-// 先自检：`g` 真的等于 `dr`（不然整套对照都是错的）。
-if (map.decoders[TABLE][755] !== 'value') throw new Error(`假设不成立：${TABLE}(755) ≠ "value"`)
-if (deobf('g(958)') !== JSON.stringify('未收金额')) throw new Error('局部解码器 g 解析不对')
 
 const D = Object.fromEntries(Object.entries(RAW).map(([k, v]) => [k, deobf(v)]))
 
-// 旧版函数里还引用的外部量：
-//   `Ht` —— 「启用新财务系统」开关（`:7581`），影响到 `so` 走哪个分支。
+// 旧版函数里还引用的外部量（都由 `runLegacy` 注入）：
+//   `Ht` —— 「启用新财务系统」开关（`:7581`），决定 `so` 走哪个分支。
 //           夹具里取 `false` ⇒ 走**回退分支**（总价-定金），与新版 `unpaidOf` 摘要缺失时一致。
-//   `Vue` / `Set` / `Map` / `Number` / `g` —— 见下面的注入。
-const legacy = new Function(
-  'Vue',
-  'g',
-  'Ht',
+//   `g`  —— 局部解码器；反混淆后已无 `X(n)` 调用，但函数体里的 `const t=g` 还在，得给个值。
+//   `Vue`—— 只需要 `computed`；真 Vue 的 computed 是惰性的，这里给个等价的 getter 版。
+const legacy = runLegacy(
   `
   const Ko = e => ${D.Ko}
   const so = e => ${D.so}
@@ -104,7 +51,7 @@ const legacy = new Function(
   const ps = { value: [] }
   const jo = { value: new Set() }
   const _o = { value: new Set() }
-  const Xo = Vue.computed(${D.Xo})   // 切片是从 \`Vue.computed\` **之后**起的，所以这里补回包装
+  const Xo = Vue.computed(${D.Xo})   // 切片是从 Vue.computed **之后**起的，所以这里补回包装
   const Qo = ${D.Qo}
   return {
     Zo,
@@ -114,9 +61,12 @@ const legacy = new Function(
     setState: (expanded, loaded) => { jo.value = new Set(expanded); _o.value = new Set(loaded) },
   }
 `,
-)({ ref: (v) => ({ value: v }), computed: (fn) => ({ get value() { return fn() } }) }, () => undefined, {
-  value: false,
-})
+  {
+    Vue: { ref: (v) => ({ value: v }), computed: (fn) => ({ get value() { return fn() } }) },
+    g: () => undefined,
+    Ht: { value: false },
+  },
+)
 
 // ------------------------------------------------------------------ 新版实现 //
 // ⚠️ 与 `app/src/views/Home.vue` 的 `dupKey()` / `duplicateKeys` / `rowClass()` / `unpaidOf()` 同逻辑。

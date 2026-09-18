@@ -519,6 +519,58 @@ const onlyUnproduced = ref(false)
 const paymentFilter = ref('全部显示')
 const progressFilter = ref('显示全部')
 
+// ---------------------------------------------------------------------------
+// 「查单号」（§3.2，旧版 `po`/`fo`/`ho`/`Co` @ `:7671`）
+// ---------------------------------------------------------------------------
+/** 生效中的查单号关键字（旧版 `po`）—— 参与筛选，也决定单元格显示哪一段。 */
+const orderNoQuery = ref('')
+/** 弹窗里输入框的内容（旧版 `fo`）。确认时会被补齐年份后缀后写回。 */
+const orderNoInput = ref('')
+/** 「恢复中…」标志（旧版 `ho`）—— 清除按钮在做收起动画期间显示这个字。 */
+const orderNoRestoring = ref(false)
+/** 「查单号」popover 的显隐（旧版 `Co`，受控，因为确认/清除都要主动关它）。 */
+const orderNoPopShow = ref(false)
+
+/**
+ * 单号集 → 单号数组（旧版 `Uo`，`:7694-7697`）：
+ * ```js
+ * Uo = e => { const l = String(e ?? "").trim()
+ *             return l ? l.split("_").map(x => String(x ?? "").trim()).filter(Boolean) : [] }
+ * ```
+ * ⚠️ **按下划线 `_` 切**（不是空白）。`backend/migrations/0018_home_order_head_fields.sql:4`
+ * 的注释写的是「空格串」，与旧版源码不符 —— 这里沿用本文件对 `打单操作` 已经定下的口径
+ * （**以旧版源码为准**，见 `progressPrefix` 上方那段说明），两处保持同一套。
+ */
+function splitOrderNos(v: unknown): string[] {
+  const s = String(v ?? '').trim()
+  if (!s) return []
+  return s
+    .split('_')
+    .map((x) => String(x ?? '').trim())
+    .filter(Boolean)
+}
+const orderNosOf = (r: OrderSummaryDto) => splitOrderNos(r.order_no_set)
+
+/**
+ * 单号集单元格显示什么（旧版 `To`，`:7699-7701`）：
+ * ```js
+ * To = e => { const l = So(e)                       // So = Uo(单号集)
+ *             if (!l.length) return ""
+ *             const o = String(po.value || "").trim().toLowerCase()
+ *             return o ? (l.find(x => String(x||"").toLowerCase().startsWith(o)) || l[0] || "")
+ *                      : (l[0] || "") }
+ * ```
+ * ⇒ **查单号生效时显示「以关键字开头的那一段」**，否则显示第一段。
+ * （旧版 `:7700` 用的是 `startsWith`，不是 `includes` —— 别按「包含」理解。）
+ */
+function orderNoCell(r: OrderSummaryDto): string {
+  const parts = orderNosOf(r)
+  if (!parts.length) return ''
+  const q = orderNoQuery.value.trim().toLowerCase()
+  if (!q) return parts[0] || ''
+  return parts.find((p) => p.toLowerCase().startsWith(q)) || parts[0] || ''
+}
+
 function matchSearch(r: OrderSummaryDto): boolean {
   const q = searchText.value.trim().toLowerCase()
   if (!q) return true
@@ -550,6 +602,12 @@ const filtered = computed(() => {
   }
   if (onlyUnproduced.value) {
     list = list.filter((r) => !r.production_status || r.production_status.trim() === '')
+  }
+  // 查单号（旧版 `ps` 里紧跟「未生产」那一步，`:11160-11163` / `:11176-11179`）：
+  // **单号集里任一段以关键字开头**即命中（`startsWith`，不是 `includes`）。
+  if (orderNoQuery.value) {
+    const q = orderNoQuery.value.toLowerCase()
+    list = list.filter((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(q)))
   }
   if (paymentFilter.value !== '全部显示') {
     list = list.filter((r) => paymentStatus(r) === paymentFilter.value)
@@ -1811,6 +1869,84 @@ function renderExpandDetail(row: OrderSummaryDto) {
 }
 
 // ---------------------------------------------------------------------------
+// 「查单号」的两个动作（旧版 `Yo`/`Wo`，`:7702-7743`）
+// ---------------------------------------------------------------------------
+/**
+ * 「确认」/输入框回车（旧版 `Yo`，`:7702-7729`）。
+ *
+ * 四步，逐字对齐：
+ *  ① **补年份后缀**：输入里若没有 `-两位数字`（正则 `-\d{2}\b`）就补 `-` + 当前年份后两位。
+ *     `String((new Date).getFullYear()).slice(-2)`（`dr(962)`=getFullYear、`dr(1001)`=slice）。
+ *  ② 在「查询结果集 / 全量列表」`gs ? ws : fs` 里找，**再叠「未生产」那一步** ——
+ *     注意：旧版这一步**不含**进度/付款/搜索/列头筛选，与主表 `ps` 的样本不同，照抄。
+ *  ③ 没命中 → `warning("查不到「{关键字}」单号！")`，且 **`po` 清空**（不留下一个筛不出东西的关键字）。
+ *  ④ 命中 → 写 `po`、回第 1 页、关弹窗、**展开筛选结果的第一行**。
+ */
+async function confirmOrderNoQuery() {
+  const raw = orderNoInput.value.trim()
+  // ① 补年份后缀（旧版 :7703-7709）
+  const q = raw ? (/-\d{2}\b/.test(raw) ? raw : `${raw}-${String(new Date().getFullYear()).slice(-2)}`) : ''
+  orderNoInput.value = q
+  if (!q) {
+    orderNoQuery.value = ''
+    page.value = 1
+    orderNoPopShow.value = false
+    return
+  }
+  // ② 找（旧版 :7710-7716）
+  let pool = queryMode.value ? queryRows.value : rawOrders.value
+  if (onlyUnproduced.value) {
+    pool = pool.filter((r) => !r.production_status || r.production_status.trim() === '')
+  }
+  const key = q.toLowerCase()
+  const hit = pool.some((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(key)))
+  // ③ 没命中（旧版 :7717-7718）
+  if (!hit) message.warning(`查不到「${q}」单号！`)
+  orderNoQuery.value = hit ? q : ''
+  page.value = 1
+  orderNoPopShow.value = false
+  if (!hit) return
+  // ④ 展开第一条（旧版 :7719-7728）
+  await nextTick()
+  const first = filtered.value[0]
+  if (!first) return
+  if (!expandedRowKeys.value.some((k) => Number(k) === first.id)) {
+    expandedRowKeys.value = [...expandedRowKeys.value, first.id]
+    if (!details[first.id]) loadDetail(first.id)
+  }
+  // ⚠️ 旧版这里还有一段 800ms 后「滚到居中」：它找的是 `.highlight-matched-order`，
+  //    而那个类由 **Hui 子表**按 `row.单号.startsWith(po)` 加（`Hui.formatted.js:1352-1356`
+  //    / `:3788-3792`，靠 Home 往下传 `highlightOrderQuery`）。**新版做不了**：
+  //    `OrderLineDto` 里**没有「单号」字段**（`app/src/api/types.ts:109-159`）——
+  //    旧版一行明细属于某个单号，新版把单号收在回执单号上了（`0009_orders.sql`：单号不单设列）。
+  //    所以这里**刻意不写**滚动：`Hui.vue:3893` 那两条 `.highlight-matched-order` 样式
+  //    目前也是悬空的（没有任何地方加这个类），补它要先把「明细行的单号」这条数据补回模型。
+  //    （旧版在找不到该元素时同样直接 return，不滚。）
+}
+
+/**
+ * 「清除」（旧版 `Wo`，`:7730-7743`）：清关键字 → 清输入 → 关弹窗 →
+ * **收起所有已展开的行**（`jo` 遍历 → `toggleRowExpansion(row, false)` → `jo.clear()`）。
+ *
+ * ⚠️ 时间轴照抄：先置 `ho=true`（按钮变「恢复中…」），**50ms 后**才干活，干完才 `ho=false`。
+ *    那个 `setTimeout(..., 50)` 是旧版原样（`:7741-7743`），不是我们加的。
+ */
+function clearOrderNoQuery() {
+  orderNoRestoring.value = true
+  setTimeout(async () => {
+    orderNoQuery.value = ''
+    orderNoInput.value = ''
+    orderNoPopShow.value = false
+    await nextTick()
+    if (expandedRowKeys.value.length) {
+      expandedRowKeys.value = []
+    }
+    page.value = 1
+    orderNoRestoring.value = false
+  }, 50)
+}
+
+// ---------------------------------------------------------------------------
 // 手动更新进度 + 自定义进度项（§3 `Ea`/`La`/`ua`；§4.7 `Ha`/`ln`/`on`/`Ua`/`Ia`/`Sa`/`Ta`/`Ya`/`Wa`）
 // ---------------------------------------------------------------------------
 // 旧版 `Ea`（`:8036`）：读 localStorage 的 JSON 数组，只留非空字符串；解析失败/非数组 ⇒ []。
@@ -2254,17 +2390,88 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
           ]),
   },
   {
-    title: '单号集',
+    // 列头（旧版 `:11366-11384`）：`label` 下面挂一块 ——
+    //   `po` 非空 → 一颗 text 按钮（`ho` 时显示「恢复中...」）；
+    //   `po` 为空 → `查单号` 按钮开的 popover（宽 240），内含输入框 + 清除 / 确认。
+    // 旧版这段全是**内联样式**（`Cu`/`zu`/`xu`/`Bu`），不是 CSS 类，所以这里也写内联。
+    title: () =>
+      h(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            alignItems: 'center',
+            textAlign: 'center',
+          },
+        },
+        [
+          h('span', null, '单号集'),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+            orderNoQuery.value
+              ? h(
+                  NButton,
+                  { text: true, size: 'small', onClick: clearOrderNoQuery },
+                  { default: () => (orderNoRestoring.value ? '恢复中...' : '清除') },
+                )
+              : h(
+                  NPopover,
+                  {
+                    show: orderNoPopShow.value,
+                    'onUpdate:show': (v: boolean) => (orderNoPopShow.value = v),
+                    placement: 'bottom',
+                    trigger: 'click',
+                    width: 240,
+                  },
+                  {
+                    trigger: () => h(NButton, { text: true, size: 'small' }, { default: () => '查单号' }),
+                    default: () =>
+                      h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, [
+                        h(NInput, {
+                          value: orderNoInput.value,
+                          'onUpdate:value': (v: string) => (orderNoInput.value = v),
+                          size: 'small',
+                          placeholder: '可只输入单号“-”前数字即可，如199.',
+                          clearable: true,
+                          // 旧版是 `onKeyup:withKeys(Yo,["enter"])`（`:473922`）——
+                          // naive 的 NInput 不接 `onKeyup`，走 `inputProps` 透传到原生 input。
+                          inputProps: {
+                            onKeyup: (e: KeyboardEvent) => {
+                              if (e.key === 'Enter') void confirmOrderNoQuery()
+                            },
+                          },
+                        }),
+                        h('div', { style: { display: 'flex', gap: '8px', justifyContent: 'flex-end' } }, [
+                          h(NButton, { size: 'small', onClick: clearOrderNoQuery }, { default: () => '清除' }),
+                          h(
+                            NButton,
+                            { type: 'primary', size: 'small', onClick: () => void confirmOrderNoQuery() },
+                            { default: () => '确认' },
+                          ),
+                        ]),
+                      ]),
+                  },
+                ),
+          ]),
+        ],
+      ),
     key: 'order_no_set',
     minWidth: 120,
+    // 单元格（旧版 `:11388-11394`）：hover popover 列出**全部**单号，
+    // 引用那一格显示 `To(row)`（查单号生效时是以关键字开头的那一段，否则第一段）。
+    // `placement:bottom`(`dr(886)`)、`width:220`(`dr(1083)`)、引用 span `cursor:pointer`(`Eu`)。
     render: (row) => {
-      const set = (row.order_no_set || '').trim()
-      if (!set) return h('span')
-      const parts = set.split(/\s+/)
-      return h(NPopover, { trigger: 'hover' }, {
-        trigger: () => h('span', parts[0]),
-        default: () => h('div', { class: 'order-no-pop' }, parts.map((s) => h('div', s))),
-      })
+      const parts = orderNosOf(row)
+      if (!parts.length) return h('span')
+      return h(
+        NPopover,
+        { placement: 'bottom', trigger: 'hover', width: 220 },
+        {
+          trigger: () => h('span', { style: { cursor: 'pointer' } }, orderNoCell(row)),
+          default: () => h('div', { class: 'order-no-pop' }, parts.map((s) => h('div', { key: s }, s))),
+        },
+      )
     },
   },
   {
