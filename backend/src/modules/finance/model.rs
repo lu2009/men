@@ -234,7 +234,13 @@ pub struct AllocationItem {
     pub receipt_no: String,
     pub order_date: String,
     pub total_price: f64,
+    /// 该单**分配前**的未收（旧版列「订单未收」）—— 只有预付款分配弹窗那张表用它。
+    pub unpaid_amount: f64,
     pub allocated_amount: f64,
+    /// 该单本次拿到的优惠（旧版列「优惠」）。旧版那列**只在 > 0 时渲染**，写死 `-¥` 前缀。
+    /// 「客户收款」tab 的预览没有优惠，这一项恒为 0。
+    pub discount: f64,
+    /// 旧版列「分配后余额 / 分配后剩余」= `max(0, 未收 − 分配 − 优惠)`（svc:214）。
     pub remaining_after: f64,
 }
 

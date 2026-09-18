@@ -410,7 +410,12 @@ export interface AllocationItem {
   receipt_no: string
   order_date: string
   total_price: number
+  /** 该单**分配前**的未收（旧版列「订单未收」，只有「预付款分配」弹窗那张表用）。 */
+  unpaid_amount: number
   allocated_amount: number
+  /** 该单本次拿到的优惠（旧版列「优惠」）。「客户收款」tab 的预览恒为 0。 */
+  discount: number
+  /** `max(0, 未收 − 分配 − 优惠)` —— 旧版「分配后余额 / 分配后剩余」。 */
   remaining_after: number
 }
 export interface AllocationPreview {

@@ -782,8 +782,14 @@ async fn build_allocation_rows(
                 receipt_no: o.receipt_no,
                 order_date: o.order_date,
                 total_price: round2(o.total_price),
+                // 「预付款分配」弹窗那张表要「订单未收」；「客户收款」tab 那张不要（用不上，但一并给）
+                unpaid_amount: round2(unpaid),
                 allocated_amount: a,
-                remaining_after: round2(unpaid - a),
+                // 「预付款分配」弹窗那张表要逐行「优惠」（旧版只在 > 0 时渲染）
+                discount,
+                // 旧版 `buildAllocationPreview` 的 `分配后余额`：`Math.max(0, unpaid - alloc - discount)`
+                // （svc:214）。客户收款那条路 rate=0 ⇒ discount=0，退化成 `unpaid - a`。
+                remaining_after: round2((unpaid - a - discount).max(0.0)),
             },
             discount,
         ));

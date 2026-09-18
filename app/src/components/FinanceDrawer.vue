@@ -408,7 +408,7 @@
 
     <template v-if="prepayAllocatePreview">
       <n-data-table
-        :columns="allocationColumns"
+        :columns="prepayAllocateColumns"
         :data="prepayAllocatePreview.allocations"
         :row-key="(r: AllocationItem) => r.order_id"
         size="small"
@@ -1028,6 +1028,39 @@ const KIND_TAG_TYPE: Record<string, 'success' | 'warning' | 'info' | 'danger' | 
   客户抹零: 'info',
   红冲单: 'danger',
 }
+
+/*
+ * 「预付款分配」**弹窗**里那张表的列 —— 与「客户收款」tab 那张**不是同一套**。
+ * 旧版两处的列定义各自独立（都是 `createVNode(D,{label:…})`，但列名与字段都不同）：
+ *
+ *   tab 里（点「预览自动分配」）：回执单号 | 订单日期 | 订单总价 | 本次分配 | 分配后余额
+ *   弹窗里（点「预览分配方案」）：回执单号 | 订单未收 | 优惠     | 分配     | 分配后剩余
+ *
+ * ⚠️ 「优惠」那列旧版是**条件渲染**：只在 `优惠金额 > 0` 时出现，写死 `-¥` 前缀。
+ */
+const prepayAllocateColumns: DataTableColumns<AllocationItem> = [
+  { title: '回执单号', key: 'receipt_no', minWidth: 80 },
+  { title: '订单未收', key: 'unpaid_amount', width: 80, render: (r) => `¥${fmt(r.unpaid_amount)}` },
+  {
+    title: '优惠',
+    key: 'discount',
+    width: 80,
+    // 旧版 `v-if="row.优惠金额 > 0"`：为 0 时那一格是空的
+    render: (r) => (r.discount > 0 ? `-¥${fmt(r.discount)}` : ''),
+  },
+  { title: '分配', key: 'allocated_amount', width: 80, render: (r) => `¥${fmt(r.allocated_amount)}` },
+  {
+    title: '分配后剩余',
+    key: 'remaining_after',
+    width: 90,
+    render: (r) =>
+      h(
+        'span',
+        { style: { color: r.remaining_after > 0 ? '#e6a23c' : '#67c23a' } },
+        `¥${fmt(r.remaining_after)}`,
+      ),
+  },
+]
 
 const statementColumns: DataTableColumns<StatementItem> = [
   { title: '日期', key: 'date', width: 100 },

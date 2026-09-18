@@ -83,8 +83,10 @@ async function legacyPreview(amount, ratePercent) {
   )
   // `orderDate` 被 JSON 化后是字符串，`dateText` 照样能处理；这里只取金额字段比。
   return {
+    // 逐行四项都取：未收 / 分配 / 优惠 / 分配后余额（旧版 `buildAllocationPreview` svc:200-214）
     rows: data['分配列表'].map((r) => ({
       receipt: r['回执单号'],
+      unpaid: r['未收金额'],
       alloc: r['分配金额'],
       discount: r['优惠金额'],
       after: r['分配后余额'],
@@ -103,9 +105,9 @@ async function ourPreview(amount, ratePercent) {
   return {
     rows: (d.allocations ?? []).map((a) => ({
       receipt: a.receipt_no,
+      unpaid: a.unpaid_amount,
       alloc: a.allocated_amount,
-      // 我们的 preview 不逐行给优惠，只有合计 —— 这一点本身就是差异，下面单独说明
-      discount: null,
+      discount: a.discount,
       after: a.remaining_after,
     })),
     totalDiscount: d.total_discount,
@@ -136,9 +138,9 @@ try {
   for (const sc of SCENARIOS) {
     const L = await legacyPreview(sc.amount, sc.ratePercent)
     const N = await ourPreview(sc.amount, sc.ratePercent)
-    const sameAlloc =
-      JSON.stringify(L.rows.map((r) => [r.receipt, r.alloc])) ===
-      JSON.stringify(N.rows.map((r) => [r.receipt, r.alloc]))
+    // 逐行**四项**都比（先前只比 receipt+alloc，漏了未收/优惠/分配后余额）
+    const brief = (rows) => JSON.stringify(rows.map((r) => [r.receipt, r.unpaid, r.alloc, r.discount, r.after]))
+    const sameAlloc = brief(L.rows) === brief(N.rows)
     const sameDiscount = L.totalDiscount === N.totalDiscount
 
     console.log(`\n■ ${sc.name}   （收 ${sc.amount}，优惠 ${sc.ratePercent}%）`)
