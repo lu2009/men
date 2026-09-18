@@ -89,13 +89,19 @@
                 <span v-if="orderPayForm.usePrepay" class="prepay-inline">
                   <n-input-number
                     v-model:value="orderPayForm.discountRate"
-                    style="width: 120px"
+                    style="width: 140px"
                     :min="0.1"
                     :max="99"
                     :precision="1"
-                    placeholder="优惠比例%"
+                    :controls="false"
                   />
-                  <span class="hint">预计抵扣 ¥{{ fmt(prepayDiscount) }}</span>
+                  <!-- `%` 是输入框**后面单独一个 span**（旧版 `margin-left:8px`），不是 placeholder -->
+                  <span class="pct">%</span>
+                  <span class="hint">
+                    预计抵扣 ¥{{ fmt(prepayDiscount) }}（预付款可用 ¥{{
+                      fmt(balance?.unallocated_balance)
+                    }}）
+                  </span>
                 </span>
                 </n-form-item>
               </n-form>
@@ -431,6 +437,7 @@
             invalidatePrepayPreview()
           }"
         />
+        <span class="pct">%</span>
       </n-form-item>
     </n-form>
     <div class="action-row">
@@ -1277,6 +1284,11 @@ async function reload() {
 .hint {
   font-size: 12px;
   color: #909399;
+  margin-left: 8px;
+}
+/* 百分比单位 —— 旧版是输入框后面单独一个 `<span style="margin-left:8px">%</span>`
+   （**不是** placeholder 里的字；placeholder 那行字被删掉了） */
+.pct {
   margin-left: 8px;
 }
 .prepay-inline {
