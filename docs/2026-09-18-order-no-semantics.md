@@ -441,3 +441,22 @@ esbuild 把 `printPayloads.ts` 打进 node 直接跑（不是手抄一份），�
 - **回执单号** = 这张**单子**的号（订单头，客户手里那张回执上的号）
 - **单号** = 这**扇门**的号（明细行，印在生产单/玻璃单上）
 - **单号集** = 这张单子**包含的所有门的号**（派生的，给「查单号」反查用）
+
+---
+
+## 补记 2026-09-19：补号时机加了一个**显式例外**（算料不补）
+
+用户实测发现：**在 Home 展开行点一下「算料」，那单的行就被悄悄分配了单号。**
+
+原因：Home 的算料预览复用了 `PrintPreviewDialog` → `loadPrintPrereqs` → 第一行就是
+`ensureLineNumbersForPrint(orders)`，而那是**写库**。旧版 `In`/`Un`（算料）**不补号**
+（`Home.formatted.js:8221-8263` 只调 `calculateReceipt` + `buildPrintData`）——
+补号是**打印时**才做的，与本文件前面记的分配时机一致。
+
+处置：`loadPrintPrereqs(orders, opts?: { autoLineNumbers?: boolean })`，
+**默认 `true`**（打印面四个调用点行为不变），只有 Home 的算料显式传 `false`
+（`PrintPreviewDialog` 加 `autoLineNumbers` prop 透传；`Home.vue` 的
+`previewAutoLineNumbers` 在算料那条路置 `false`、`onOpenMode` 里置回 `true`）。
+
+守卫：`docs/home-audit/print-lineno-check.mjs` 的 **④b**（两条）——
+关掉开关后走一遍不许补号 / 不传开关时仍然补号。做过变异测试（把开关短路 → 报红）。

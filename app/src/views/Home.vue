@@ -382,6 +382,7 @@
       :orders="printOrders"
       :mode="previewMode"
       :title="previewTitle"
+      :auto-line-numbers="previewAutoLineNumbers"
     />
 
     <!-- 收据单2（§旧版 ic=12 的自绘单据）：与打印抽屉并列的另一个入口 -->
@@ -1405,6 +1406,8 @@ const printOrders = ref<OrderDto[]>([])
 const previewShow = ref(false)
 const previewMode = ref('')
 const previewTitle = ref('')
+/** 见 `calcSingleRowInExpand`：**算料**开着预览时**不许补号**（旧版算料不补）。 */
+const previewAutoLineNumbers = ref(true)
 /** 「回执单-其它」抽屉（旧版嵌套在「打印选项」里的第二层，`Mn`）。 */
 const receiptOtherShow = ref(false)
 const receiptOtherOrders = ref<OrderDto[]>([])
@@ -1458,6 +1461,7 @@ async function openPrint() {
  */
 function onOpenMode(mode: string, title: string) {
   printShow.value = false // 先关抽屉再开弹窗，两者都占屏幕
+  previewAutoLineNumbers.value = true // 打印面照旧补号
   previewMode.value = mode
   previewTitle.value = title
   previewShow.value = true
@@ -2219,6 +2223,9 @@ async function calcSingleRowInExpand(id: number, l: Line) {
   // 预览读的是 `printOrders`（与「打印选项」抽屉同一条链路），这里换成这一张单。
   printOrders.value = [detail]
   onOpenMode('product', '生产单')
+  // ⚠️ **算料不补行级单号** —— 旧版 `In`/`Un` 只算料 + 开预览，补号是打印时才做的。
+  //    放在 onOpenMode 之后（它会把标志置回 true）。
+  previewAutoLineNumbers.value = false
 }
 
 /** 展开行「填入单号」（只有平开表有这颗按钮，见组件内 `kind === 'ping'`）。 */

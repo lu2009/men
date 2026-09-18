@@ -44,7 +44,7 @@ globalThis.localStorage = {
 const ENTRY = '/tmp/print-verify/entry.ts'
 writeFileSync(
   ENTRY,
-  `export { buildOrderPrintContext, ensureLineNumbersForPrint } from '${ROOT}/app/src/composables/useOrderPrint'\n` +
+  `export { buildOrderPrintContext, ensureLineNumbersForPrint, loadPrintPrereqs } from '${ROOT}/app/src/composables/useOrderPrint'\n` +
     `export { createPrintPayloads } from '${ROOT}/app/src/utils/printPayloads'\n`,
 )
 const out = `${ROOT}/app/node_modules/.cache/print-lineno-check.mjs`
@@ -223,6 +223,34 @@ try {
     const ctx2 = M.buildOrderPrintContext(await call(`/v1/orders/${blank.id}`), prereqs, who)
     const ids2 = collectIds(M.createPrintPayloads(ctx2).labelRows('lable'))
     eq('④ 补号后标签载荷用的是补出来的单号', ids2.every(([, v]) => filled.includes(v)), true)
+  }
+
+  // ── ④b 退出开关：`autoLineNumbers:false` **不许**补号 ──────────────────────
+  // 起因（2026-09-19 用户实测）：Home 展开行的「算料」复用了 `PrintPreviewDialog`
+  // → `loadPrintPrereqs` → 顺手把单号**写进库**。而旧版 `In`/`Un` 算料**不补号**。
+  // 这条钉住那个开关：关掉之后，走一遍 `loadPrintPrereqs` 不许碰行级单号。
+  {
+    const blank2 = await call('/v1/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        receipt_no: RUN + '3', client_code: '__TMP_PL__', client_name: '临时', phone: '', brand: '品牌X',
+        order_date: '2026-09-14', production_days: 7, deposit: 0, remark: '', salesperson: '',
+        install_address: '地址X',
+        lines: [mkLine('', 'ping', pingF?.id ?? null)],
+      }),
+    })
+    createdIds.push(blank2.id)
+    eq('④b 新单的行本来没有单号', blank2.lines.map((l) => l.line_no), [''])
+
+    await M.loadPrintPrereqs([blank2], { autoLineNumbers: false })
+    const afterSkip = await call(`/v1/orders/${blank2.id}`)
+    eq('④b 关掉开关后**不补号**（行级单号仍为空）', afterSkip.lines.map((l) => l.line_no), [''])
+
+    // 对照：不传开关（默认）→ 应当补上（打印面的既有行为）
+    await M.loadPrintPrereqs([blank2])
+    const afterDefault = await call(`/v1/orders/${blank2.id}`)
+    eq('④b 不传开关时仍然补号（打印面行为不变）',
+      afterDefault.lines.every((l) => /^\d+-\d{2}\/\d{2}\/\d{2}$/.test(l.line_no)), true)
   }
 
   // ── ⑤ 源码静态守卫：不该再有行级位置喂 receipt_no ──

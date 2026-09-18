@@ -245,6 +245,13 @@ const props = defineProps<{
   title: string
   /** 旧版 `15||16 ? 95% : 1180px`；新版这里只服务 hiprint，故固定 1180。 */
   dialogWidth?: string
+  /**
+   * 打开预览时**是否自动补行级单号**（默认 true）。
+   *
+   * ⚠️ 传 `false` 的是**「算料」**那条路 —— 旧版 `In`/`Un` 不补号（补号是打印时才做的），
+   * 而算料复用了本弹窗；不关掉的话点一下算料就把单号静默写进库了。
+   */
+  autoLineNumbers?: boolean
 }>()
 
 const emit = defineEmits<{ 'update:show': [boolean] }>()
@@ -505,7 +512,7 @@ watch(
       fullOrders.value = await Promise.all(
         props.orders.map(async (o) => (o.lines?.length ? o : await api.getOrder(o.id))),
       )
-      prereqs = await loadPrintPrereqs(fullOrders.value)
+      prereqs = await loadPrintPrereqs(fullOrders.value, { autoLineNumbers: props.autoLineNumbers })
       if (token !== renderToken) return
       await render(mode, token)
     } catch (e) {

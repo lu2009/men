@@ -67,9 +67,20 @@ export async function ensureLineNumbersForPrint(orders: OrderDto[]): Promise<voi
   )
 }
 
-/** 拉齐打印所需的公共数据（公式 / 客户 / 收款码 / 挖孔图）；顺带补行级单号（见上）。 */
-export async function loadPrintPrereqs(orders: OrderDto[]): Promise<PrintPrereqs> {
-  await ensureLineNumbersForPrint(orders)
+/**
+ * 拉齐打印所需的公共数据（公式 / 客户 / 收款码 / 挖孔图）；顺带补行级单号（见上）。
+ *
+ * ⚠️ **`autoLineNumbers: false` 是给「算料」那条路用的**（2026-09-19 加）：
+ * 旧版 Home 的「算料」(`In`/`Un`) **不补号**（它只调内嵌 Hui 页面的 `calculateReceipt`），
+ * 补号是**打印时**才做的事。而 Home 的算料预览复用了 `PrintPreviewDialog` →
+ * 这里 → 会把单号**静默写进库**。用户实测点一下算料就发现单号被填了。
+ * 默认 `true`（打印面照旧），只有算料那条显式传 `false`。
+ */
+export async function loadPrintPrereqs(
+  orders: OrderDto[],
+  opts?: { autoLineNumbers?: boolean },
+): Promise<PrintPrereqs> {
+  if (opts?.autoLineNumbers !== false) await ensureLineNumbersForPrint(orders)
   const [formulas, clients, payQrcode] = await Promise.all([
     api.listFormulas().catch(() => [] as FormulaDto[]),
     api.listClients().catch(() => [] as ClientDto[]),
