@@ -1890,8 +1890,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* 减掉全局标题栏的高度（`App.vue` 的 `--app-header-h`）。 */
 .page {
-  min-height: 100vh;
+  min-height: calc(100vh - var(--app-header-h));
   background: #fff;
   padding: 12px 16px 24px;
 }

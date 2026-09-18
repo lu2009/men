@@ -3281,9 +3281,10 @@ const tableHeight = 'calc(100vh - 300px)'
 </script>
 
 <style scoped>
+/* 减掉全局标题栏的高度（`App.vue` 的 `--app-header-h`），否则整页会被顶出去 60px。 */
 .home-container {
   padding: 10px;
-  height: 100vh;
+  height: calc(100vh - var(--app-header-h));
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
