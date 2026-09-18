@@ -881,6 +881,17 @@ function openDate(row: OrderSummaryDto) {
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /**
+ * 「今天」的 **YYYY-MM-DD**，按**本地时区**（旧版口径：`getFullYear/getMonth/getDate`）。
+ *
+ * ⚠️ 别与 `legacyToday()` 混 —— 那个返回的是 date-picker 用的**时间戳**、且走 `toISOString()`（**UTC**）。
+ * 跨层写日期一律用本函数（`submitDate` 早就自己拼了一份等价的，这里抽出来共用）。
+ */
+function localToday(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+/**
  * 「审核确认」（旧版 `Ba`/`Ma`/`rn`，`:476268-476400`，审计 `02-actions.md` G2）。
  *
  * 旧版两步：① 把**下单日期改成今天**（`Ma` = 今天 → `rn()`，那条路会重算截止日期）；
@@ -897,9 +908,13 @@ async function confirmAudit(row: OrderSummaryDto) {
   try {
     await api.updateOrderHead(row.id, {
       ...headWithStatus(row, '确认下单'),
-      // 旧版 `Ma` 是「今天」的 **date-picker 时间戳**；`order_date` 落库要 ISO 串，
-      // 这里用既有的 `toIsoDate` 转（与 `submitDate` 同一口径）。
-      order_date: toIsoDate(legacyToday()),
+      // ⚠️ **必须用本地日期，不能用 `legacyToday()`** —— 那个走 `toISOString()`（UTC）。
+      // 旧版 `:11425-11426` 用的是本地 `getFullYear/getMonth/getDate`。
+      // 实测（`TZ=Asia/Shanghai`）：本地 2026-09-18 03:00 时，
+      //   走 `legacyToday()` 写的是 **2026-09-17**（早一天，推导出的截止日期也跟着早一天）；
+      //   走本地口径写的才是 2026-09-18。
+      // ⇒ UTC+8 每天 00:00–08:00 点「审核确认」，日期与截止日期都会错一天。
+      order_date: localToday(),
     })
     message.success('更新成功')
     await load()
@@ -2105,7 +2120,11 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     title: '日期',
     key: 'order_date',
     minWidth: 90,
-    sortable: true,
+    // ⚠️ naive 的列属性叫 **`sorter`**，不是 `sortable` —— 写错了**会被静默忽略**
+    // （不报错、不警告，只是列头不出排序图标、点了没反应）。第二轮审计用 SSR 探针实测出来的：
+    // `sortable:true` → `<th class="n-data-table-th">`（无图标）；
+    // `sorter:true`   → `<th class="n-data-table-th--sortable">` + `<span class="n-data-table-sorter">`。
+    sorter: true,
     filterOptions: dateFilterOptions.value,
     filter: (v, row) => textColumnFilter('order_date', v, row),
     filterOptionValues: columnFilterValues('order_date'),
