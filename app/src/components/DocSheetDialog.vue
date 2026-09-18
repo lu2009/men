@@ -172,12 +172,7 @@ import {
  */
 const props = withDefaults(defineProps<{
   show: boolean
-  /**
-   * 弹窗宽度。
-   *
-   * ⚠️ **有意偏离旧版**（用户 2026-09-18 拍板）：旧版算式的两个 95% 分支（ic=15/16）
-   * 新版改成 **`100%`**，即铺满屏幕宽度。其余仍是 1180px（= 旧版的非 95% 分支）。
-   */
+  /** 弹窗宽度。旧版算式 `15==ic||16==ic ? "95%" : "1180px"`，由各包装组件传。 */
   width?: string
   /** 选中订单的**完整**明细（由调用方保证已 `getOrder`）。 */
   orders: OrderDto[]
@@ -205,10 +200,7 @@ const props = withDefaults(defineProps<{
 })
 const emit = defineEmits<{ 'update:show': [boolean] }>()
 
-/**
- * 弹窗宽度。旧版 `15==ic||16==ic ? "95%" : "1180px"`；新版把那两个 **95% 提到 100%**
- * （用户 2026-09-18），其余不变。由各包装组件按单据传。
- */
+/** 弹窗宽度（旧版 `15==ic||16==ic ? "95%" : "1180px"`，由各包装组件按 ic 传）。 */
 const dialogWidth = computed(() => props.width || '1180px')
 
 const message = useMessage()

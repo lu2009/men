@@ -21,7 +21,7 @@
   <DocSheetDialog
     :show="show"
     :orders="orders"
-    width="100%"
+    width="95%"
     :profile="PRODUCTIONSHEET2_UI_PROFILE"
     :layout-dialog="ProductionSheet2LayoutDialog"
     :settings-dialog="ProductionSheet2SettingsDialog"
