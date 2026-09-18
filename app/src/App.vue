@@ -39,7 +39,7 @@ const route = useRoute()
 const HEADER_ROUTES = new Set(['home', 'hui', 'formulas', 'clients'])
 const showHeader = computed(() => HEADER_ROUTES.has(String(route.name ?? '')))
 
-// 品牌主色沿用「开门红」的 #409eff。
+// 主色沿用**旧版**的 #409eff（新版不用旧版那个名字）。
 const themeOverrides: GlobalThemeOverrides = {
   common: {
     primaryColor: '#409eff',

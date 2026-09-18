@@ -34,8 +34,6 @@
     否则进 Hui 之后又是没有回头路 —— 这正是加这条导航栏的原因。
   -->
   <header class="app-header">
-    <div class="brand">开门红</div>
-
     <nav class="nav">
       <template v-for="it in items" :key="it.label">
         <RouterLink
@@ -108,12 +106,6 @@ function onTodo(label: string) {
   padding: 6px 16px;
   background: #fff;
   border-bottom: 1px solid #ebeef5;
-}
-.brand {
-  font-size: 17px;
-  font-weight: 700;
-  color: #1a7f3c;
-  letter-spacing: 1px;
 }
 .nav {
   display: flex;
