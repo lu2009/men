@@ -137,6 +137,27 @@
       </n-pagination>
     </div>
 
+    <!--
+      单元格 hover tooltip（旧版 `:11600-11605` 的 `Teleport to="body"`）。
+      样式逐字取自旧版那串内联样式；位置只在**进入单元格那一刻**取一次（旧版的跟手函数 `Va` 是死码）。
+    -->
+    <Teleport to="body">
+      <div
+        v-if="rowTipShow"
+        class="row-tip"
+        :style="{ left: rowTipPos.x + 'px', top: rowTipPos.y + 'px' }"
+      >
+        <div v-for="(l, i) in rowTipLines" :key="i">
+          <span :style="{ color: l.done ? '#52c41a' : '#bbb' }">
+            {{ (l.done ? '✓' : '○') + '\u00a0' + l.text }}
+          </span>
+        </div>
+        <div v-if="rowTipPaid">
+          <span style="color: #52c41a; font-weight: 700">✓ 已付清</span>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 改客户名弹窗 -->
     <n-modal
       v-model:show="renameShow"
@@ -2373,6 +2394,60 @@ function renderProgress(row: OrderSummaryDto) {
   ]
 }
 
+// ---------------------------------------------------------------------------
+// 单元格 hover tooltip（旧版 `sa`/`da`，`:7973-7985`）
+// ---------------------------------------------------------------------------
+/** 是否显示（旧版 `ra`）。 */
+const rowTipShow = ref(false)
+/** 内容节点（旧版 `ia`，那边存的是 HTML 串）。 */
+const rowTipLines = ref<{ text: string; done: boolean }[]>([])
+const rowTipPaid = ref(false)
+/** 位置（旧版 `ca`，取 `clientX/clientY`）。 */
+const rowTipPos = reactive({ x: 0, y: 0 })
+
+/**
+ * 鼠标进入单元格（旧版 `sa`，`:7973-7980`）：
+ *
+ * ```js
+ * sa = (row, column, event) => {
+ *   if (column.property !== "客户" && column.property !== "打单操作") return   // 只这两列
+ *   const html = ua(row).map(s => `<span style="color:${s.done ? "#52c41a" : "#bbb"}">`
+ *                                  + (s.done ? "✓" : "○") + "&nbsp;" + s.label + "</span>").join("<br/>")
+ *                + (Vo(row) ? '<span style="color:#52c41a;font-weight:700;">✓ 已付清</span>' : "")
+ *   if (html) { ca.x = event.clientX; ca.y = event.clientY; ia.value = html; ra.value = true }
+ * }
+ * ```
+ *
+ * ⚠️ 两点照抄：
+ *   ① **位置只在进入那一刻取一次**，不跟着鼠标走。旧版另有个 `Va`（`:7983`）像是做这个的，
+ *      但 `Va(` 全文件**零调用** —— 是死码，所以那个 `transform: translateX(12px)…` 的
+ *      跟手效果从来没生效过。这里**不做**跟手。
+ *   ② 内容为空时不显示（旧版 `n && (…)`）—— 生产进度为空且未付清时就没有 tooltip。
+ *
+ * ★ **有意偏离**：旧版把这段拼成 HTML 串再 `innerHTML`；新版用 VNode 渲染。
+ *   观感一致，且避开了 `innerHTML` —— 段名里含用户自己填的**自定义进度项**（localStorage）。
+ */
+function showRowTip(row: OrderSummaryDto, ev: MouseEvent) {
+  const segs = progressSegments(row.production_status)
+  if (!segs.length && unpaidOf(row) !== 0) return
+  rowTipLines.value = segs.map((s) => ({ text: s.label, done: s.done }))
+  rowTipPaid.value = unpaidOf(row) === 0
+  rowTipPos.x = ev.clientX
+  rowTipPos.y = ev.clientY
+  rowTipShow.value = true
+}
+
+/** 鼠标离开单元格（旧版 `da`，`:7981-7982`）。 */
+function hideRowTip() {
+  rowTipShow.value = false
+}
+
+/** 挂在「客户」「打单操作」两列单元格上的鼠标处理。 */
+const rowTipHandlers = {
+  onMouseenter: (row: OrderSummaryDto) => (ev: MouseEvent) => showRowTip(row, ev),
+  onMouseleave: () => hideRowTip,
+}
+
 /**
  * 可编辑单元格：**常驻一个无边框输入框**（旧版 `订单备注`/`安装地址` `:11527-11531`、
  * `业务员`/`打单人` `:11583-11598`）。旧版**没有「先显示文本、点击才变输入框」这一态**：
@@ -2673,9 +2748,20 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     //   `<div :class="{'paid-customer': Vo(row)}" style="cursor:pointer" title="点击修改客户名称">客户</div>`
     // 三个细节都要：①「已付清」绿块（`Vo(row)` = 未收为 0）；②`cursor:pointer`（新版走 `.clickable-cell`）；
     // ③ `title`（旧版 `dr(1490)`）。第二轮审计抓到 ②③ 先前都缺。
+    // ④ hover tooltip（旧版 `sa`/`da` 挂在 el-table 的 `onCellMouseEnter/Leave` 上，只对这两列生效）
     render: (row) => {
       const cls = unpaidOf(row) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'
-      return h('div', { class: cls, title: '点击修改客户名称', onClick: () => openRename(row) }, row.client_name)
+      return h(
+        'div',
+        {
+          class: cls,
+          title: '点击修改客户名称',
+          onClick: () => openRename(row),
+          onMouseenter: rowTipHandlers.onMouseenter(row),
+          onMouseleave: rowTipHandlers.onMouseleave,
+        },
+        row.client_name,
+      )
     },
   },
   {
@@ -2846,6 +2932,8 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
         'div',
         {
           class: 'progress-cell',
+          onMouseenter: rowTipHandlers.onMouseenter(row),
+          onMouseleave: rowTipHandlers.onMouseleave,
           // ⚠️ **这里没有底色** —— 先前挂了 `statusBg(production_status)`，那是挂错列了。
           // 旧版 `la()` 全组件只有两个调用点（`:11589` 业务员 / `:11597` 打单人），
           // 而且都在 **`!qt`（代看别的租户）** 那一支 ⇒ 本系统里不可达，已整体删掉。
@@ -3064,6 +3152,29 @@ const tableHeight = 'calc(100vh - 300px)'
 }
 .filter-item:hover {
   background: #f5f7fa;
+}
+
+/*
+ * 单元格 hover tooltip —— 逐字取自旧版 `:11602-11604` 那串内联样式：
+ *   position:fixed; transform:translateX(12px) translateY(calc(-100% - 8px));
+ *   background:#fff; border:1px solid #e4e7ed; border-radius:4px; padding:8px 12px;
+ *   box-shadow:0 2px 12px rgba(0,0,0,0.15); font-size:13px; line-height:2;
+ *   zIndex:9999; pointerEvents:none; minWidth:120px
+ * `left/top` 是动态的（进入单元格那一刻的 clientX/clientY），写在行内 `:style` 上。
+ */
+.row-tip {
+  position: fixed;
+  transform: translateX(12px) translateY(calc(-100% - 8px));
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+  line-height: 2;
+  z-index: 9999;
+  pointer-events: none;
+  min-width: 120px;
 }
 
 .order-no-pop {
