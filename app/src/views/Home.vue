@@ -117,13 +117,24 @@
     <div class="pagination-container">
       <n-pagination
         v-model:page="page"
-        v-model:page-size="pageSize"
+        :page-size="pageSize"
         :item-count="filtered.length"
         :page-sizes="[10, 20, 50, 100, 200]"
         show-size-picker
-        show-quick-jumper
+        :display-order="['size-picker', 'pages']"
+        @update:page-size="onPageSizeChange"
         @update:page="onPageChange"
-      />
+      >
+        <!--
+          旧版 `layout: "total,sizes,prev, pager, next"`（`:11607`，`s(531)`）——
+          顺序是「共 N 条 → 每页条数 → 上一页/页码/下一页」，**没有跳页输入框**（E3）。
+          naive 的默认 `displayOrder` 是 `["pages","size-picker","quick-jumper"]` ⇒
+          ① 用 `#prefix` 补「共 N 条」（Element 的 `total` 文案就是「共 {total} 条」）；
+          ② `display-order` 把 size-picker 提到 pages 前面；
+          ③ **不传** `show-quick-jumper`（旧版没有那把输入框；先前新版反而有、且没有总数 —— 正好反过来）。
+        -->
+        <template #prefix>共 {{ filtered.length }} 条</template>
+      </n-pagination>
     </div>
 
     <!-- 改客户名弹窗 -->
@@ -814,8 +825,39 @@ const paged = computed(() => {
 //    等价且不依赖内层 class 名。放在 `nextTick` 里：旧版是同步置 0，但它那层不参与重渲染；
 //    Naive 换页要重渲染 body，渲染后置 0 才不会被 scrollbar 的 sync 覆盖。
 function onPageChange() {
+  // 页大小刚变过 ⇒ 这次 `update:page` 是 naive 的**夹页**，不是用户翻页 —— 不复位滚动条。
+  if (pageSizeJustChanged) return
   void nextTick(() => {
     tableRef.value?.scrollTo({ top: 0 })
+  })
+}
+
+/**
+ * 页大小刚变过的一次性标志（同 tick 内有效）。见 `onPageSizeChange`。
+ * 用普通变量而不是 ref：它不参与渲染，只做「同一次同步流程里传个话」。
+ */
+let pageSizeJustChanged = false
+
+/**
+ * 改页大小（旧版 `Bs`，`:11196-11206`）。
+ *
+ * ⚠️ 旧版末尾是 **`Kl.value = 1`（无条件回第 1 页）**。naive 不是：
+ *    `pagination/src/Pagination.mjs` 的 `doUpdatePageSize` 只在
+ *    `mergedPageCountRef.value < mergedPageRef.value`（当前页超出新页数）时才动 page，
+ *    而且动的是 **`doUpdatePage(mergedPageCount)`——夹到最后一页，不是回第 1 页**。
+ *    ⇒ 「第 3 页 → 换成 200/页」会停在原页码，必须显式置 1。
+ *    （第二轮审计把 E6 记成「✅ 已做」是**错的**：那条 watch 里只有四个筛选条件，没有 `pageSize`。）
+ *
+ * ⚠️ `pageSizeJustChanged`：naive 那次夹页会**发 `update:page`**，而 `onPageChange` 里有滚动复位；
+ *    旧版 `Bs` **不复位滚动条**（只有翻页 `xs` 复位）⇒ 得把它挡掉。
+ *    naive 是先发 size 事件、再做夹页（同一个同步流程），所以在这里置真就能挡住那一次。
+ */
+function onPageSizeChange(size: number) {
+  pageSize.value = size
+  pageSizeJustChanged = true
+  page.value = 1
+  void nextTick(() => {
+    pageSizeJustChanged = false
   })
 }
 
@@ -2731,11 +2773,21 @@ const tableHeight = 'calc(100vh - 300px)'
   font-size: 16px;
 }
 
+/* 旧版 `legacy/css/Home-97d96482.css`：
+     .pagination-container{display:flex;justify-content:center;align-items:center;margin-top:0;padding:5px 0}
+     [data-v-…] .el-pagination{display:flex;align-items:center;gap:8px}
+   元素间距那条：Element 是给 `__total`/`__sizes`/`__jump` 各加 `margin:0 5px`，
+   naive 用自己的 `--n-item-margin`；这里统一成 `gap:8px`（两者的净观感以 8px 为基准）。 */
 .pagination-container {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
-  padding: 10px 0;
+  align-items: center;
+  margin-top: 0;
+  padding: 5px 0;
+}
+.pagination-container :deep(.n-pagination) {
+  gap: 8px;
 }
 
 /* 可编辑格：无边框，hover 提示 */

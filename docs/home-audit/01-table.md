@@ -183,10 +183,10 @@
 |---|---|---|---|---|---|
 | E1 | 默认 pageSize | `:7616`（`home.txt:83`）`Zl=Vue.ref(50)` | `Home.vue:375` `pageSize = ref(50)` | ✅ 已做 | 一致。 |
 | E2 | pageSize 选项 | `:7616` `Xl=[10,20,50,100,200]` | `Home.vue:81` `:page-sizes="[10,20,50,100,200]"` | ✅ 已做 | 一致且顺序相同。 |
-| E3 | layout | `:11607` `layout:"total,sizes,prev, pager, next"`（`s(531)`） | `Home.vue:77-84`：`show-size-picker` + **`show-quick-jumper`**，无总数显示 | ⚠️ 偏离 | 旧版有 **`total`（「共 N 条」）**、**没有跳页输入框**；新版正好**反过来**：有 quick-jumper 跳页框、**没有总数显示**。 |
+| E3 | layout | `:11607` `layout:"total,sizes,prev, pager, next"`（`s(531)`） | `Home.vue` `n-pagination` + `#prefix` | ✅ 已做（2026-09-18） | 三处都补齐了：① `#prefix` 补「共 N 条」；② `display-order="['size-picker','pages']"` 把每页条数提到页码**前面**（naive 默认是 `["pages","size-picker","quick-jumper"]`）；③ **去掉** `show-quick-jumper`（旧版没有）。SSR 探针实测顺序 = `共 N 条 → 每页条数 → prev/页码/next`。 |
 | E4 | 分页方式 | `:11606-11608` `:current-page` / `:page-size` / `:page-sizes` / `:total="zs"` / `onSizeChange:Bs` / `onCurrentChange:xs` | `Home.vue:77-84` `n-pagination` + `Home.vue:376-379` `paged` | ✅ 已做 | 都是**客户端切片**（旧版 `Cs = ps.slice((Kl-1)*Zl, Kl*Zl)`，`home.txt:3613-3615`）。后端 `listOrders` 一次拉全量、无分页参数 ✅ 一致。 |
 | E5 | total 来源 | `:11183` `zs = computed(() => ps.length)`（**过滤后**长度） | `Home.vue:80` `:item-count="filtered.length"` | ✅ 已做 | 一致。 |
-| E6 | 切换筛选时回第 1 页 | `watch(Fc)` → `Kl=1`（`:11207-11209`）；`Lo`/`bo`/`ko`/`Po` 内均 `Kl=1`；`Bs`（改页大小）末尾 `Kl=1` | `Home.vue:381-383` | ✅ 已做 | 一致。 |
+| E6 | 切换筛选时回第 1 页 | `watch(Fc)` → `Kl=1`（`:11207-11209`）；`Lo`/`bo`/`ko`/`Po` 内均 `Kl=1`；`Bs`（改页大小）末尾 `Kl=1` | `Home.vue` `watch([...])` + `onPageSizeChange()` | ✅ 已做（2026-09-18 补齐） | ⚠️ **本条先前是假 ✅**：那条 `watch` 里只有四个筛选条件，**没有 `pageSize`**，而旧版 `Bs` 末尾是**无条件 `Kl=1`**。naive 只在「当前页超出新页数」时才动 page，且是**夹到最后一页**（`Pagination.mjs` 的 `doUpdatePageSize`），不是回第 1 页 ⇒ 「第 3 页 → 换成 200/条」会停在原页码。现已显式置 1。 |
 | E7 | 翻页/改页大小后的「全选模式」重选 + 滚动复位 | `:11184-11199` `xs` / `:11196-11206` `Bs`：`Wl`（跨页全选模式，`:7627` `Wl=Vue.ref(!1)`）为真时，`nextTick` 里 `clearSelection()` 后把 `ps` 中所有行 `toggleRowSelection(row,true)`；随后 `document.querySelector(".table-container").scrollTop = 0` | 无 | ❌ 未做 | 新版既没有「跨页全选」模式，翻页后也不复位滚动条。这是**分页 × 选择**的交互，旧版是实打实实现的（工具栏那颗全选 checkbox 在 `:7695` 附近）。 |
 
 ---
