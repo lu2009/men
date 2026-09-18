@@ -4,7 +4,8 @@ use sqlx::PgPool;
 use crate::core::error::{ApiError, ApiResult};
 
 use super::model::{
-    OrderDto, OrderHeadPatch, OrderLineDto, OrderLineInput, OrderRequest, OrderSummaryDto,
+    OrderDto, OrderHeadPatch, OrderLineDto, OrderLineInput, OrderRequest, OrderSearchQuery,
+    OrderSummaryDto,
 };
 
 /// 订单头 SELECT 列（与 OrderHeaderRow 一一对应）。截止日期由「下单日期 + 生产天数 + 1」推导。
@@ -209,6 +210,95 @@ pub async fn list(pool: &PgPool, tenant_id: i64) -> ApiResult<Vec<OrderSummaryDt
         "SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 ORDER BY id DESC"
     );
     let rows: Vec<OrderHeaderRow> = sqlx::query_as(&sql).bind(tenant_id).fetch_all(pool).await?;
+    Ok(rows.into_iter().map(header_to_summary).collect())
+}
+
+/// 文本过滤条件归一：缺省/空串/纯空白 → `None`（该条件不过滤）。
+fn text_filter(raw: Option<&str>) -> Option<String> {
+    raw.map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// `YYYY-MM-DD` 的结构 + 日历校验（不引时间库；闰年按公历规则）。
+/// 只做形状与「这一天是否真实存在」，不判可用范围。
+fn is_valid_iso_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return false;
+    }
+    // 形状已定，下面按字节切分就是按字符切分（全是 ASCII）。
+    if b.iter()
+        .enumerate()
+        .any(|(i, c)| i != 4 && i != 7 && !c.is_ascii_digit())
+    {
+        return false;
+    }
+    let year: i32 = s[0..4].parse().unwrap_or(0);
+    let month: u32 = s[5..7].parse().unwrap_or(0);
+    let day: u32 = s[8..10].parse().unwrap_or(0);
+    let leap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if leap => 29,
+        2 => 28,
+        _ => return false,
+    };
+    year > 0 && day >= 1 && day <= max_day
+}
+
+/// 日期过滤条件归一：缺省/空串 → `None`；格式或日历非法 → 400。
+///
+/// 有意在入库前拦掉非法日期：SQL 里是 `NULLIF($n,'')::date`，把 `2026-02-30`
+/// 这类串直接丢给 PG 会抛错变成 500，前端只能看到「数据库错误」。
+fn parse_date_filter(raw: Option<&str>) -> ApiResult<Option<String>> {
+    let Some(s) = raw.map(str::trim).filter(|s| !s.is_empty()) else {
+        return Ok(None);
+    };
+    if !is_valid_iso_date(s) {
+        return Err(ApiError::bad_request("日期格式不合法，应为 YYYY-MM-DD"));
+    }
+    Ok(Some(s.to_string()))
+}
+
+/// Home「查询更多」（旧版 `getMoreTableDate`）：按客户 / 安装地址 / 日期范围取订单头。
+///
+/// 旧版坐标 `legacy/js/Home.formatted.js:11074-11090`（`ys`）。旧版是「动作式」端点 +
+/// 前端把结果并进主表 `_l`，这里只负责**取数**，合并留在前端（见 `Home.vue` 的 `submitQuery`）。
+///
+/// 与旧版的已知差异（旧版服务端不可见，只能按 UI 语义定）：
+///   · 客户 / 安装地址用 **ILIKE 子串**（与 `clients::list` 的 `search` 同口径）；
+///   · 日期为**闭区间**（`>= 起始 AND <= 结束`），含首尾两天；
+///   · 排序沿用 `list` 的 `id DESC`（旧版返回顺序不可见）。
+pub async fn search(
+    pool: &PgPool,
+    tenant_id: i64,
+    q: &OrderSearchQuery,
+) -> ApiResult<Vec<OrderSummaryDto>> {
+    let client = text_filter(q.client_name.as_deref()).unwrap_or_default();
+    let address = text_filter(q.install_address.as_deref()).unwrap_or_default();
+    let start = parse_date_filter(q.start_date.as_deref())?.unwrap_or_default();
+    let end = parse_date_filter(q.end_date.as_deref())?.unwrap_or_default();
+
+    // `NULLIF($n,'')::date` 不能换写成 `$n::date`：OR 不保证短路，空串那一支会被求值成非法日期。
+    let sql = format!(
+        "SELECT {HEADER_COLUMNS} FROM orders \
+         WHERE tenant_id = $1 \
+         AND ($2 = '' OR client_name ILIKE '%' || $2 || '%') \
+         AND ($3 = '' OR install_address ILIKE '%' || $3 || '%') \
+         AND ($4 = '' OR order_date >= NULLIF($4, '')::date) \
+         AND ($5 = '' OR order_date <= NULLIF($5, '')::date) \
+         ORDER BY id DESC"
+    );
+    let rows: Vec<OrderHeaderRow> = sqlx::query_as(&sql)
+        .bind(tenant_id)
+        .bind(client)
+        .bind(address)
+        .bind(start)
+        .bind(end)
+        .fetch_all(pool)
+        .await?;
     Ok(rows.into_iter().map(header_to_summary).collect())
 }
 
@@ -669,4 +759,73 @@ async fn insert_line(
     .await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_filter_treats_blank_as_no_filter() {
+        assert_eq!(text_filter(None), None);
+        assert_eq!(text_filter(Some("")), None);
+        assert_eq!(text_filter(Some("   ")), None);
+        assert_eq!(text_filter(Some(" 张三 ")), Some("张三".to_string()));
+    }
+
+    #[test]
+    fn date_filter_treats_blank_as_no_filter() {
+        assert_eq!(parse_date_filter(None).unwrap(), None);
+        assert_eq!(parse_date_filter(Some("")).unwrap(), None);
+        assert_eq!(parse_date_filter(Some("   ")).unwrap(), None);
+        // 前后空白照旧裁掉（前端 date-picker 不会给，但空串判定与 text_filter 保持同一口径）。
+        assert_eq!(
+            parse_date_filter(Some(" 2026-09-18 ")).unwrap(),
+            Some("2026-09-18".to_string())
+        );
+    }
+
+    #[test]
+    fn date_filter_rejects_bad_shape() {
+        for bad in [
+            "2026/09/18",
+            "26-09-18",
+            "20260918",
+            "2026-9-18",
+            "2026-09-18x",
+            "abcd-ef-gh",
+            "2026-09-1",
+        ] {
+            assert!(parse_date_filter(Some(bad)).is_err(), "应拒绝 {bad}");
+        }
+    }
+
+    #[test]
+    fn date_filter_rejects_impossible_calendar_days() {
+        for bad in [
+            "2026-02-30",
+            "2026-04-31",
+            "2026-13-01",
+            "2026-00-10",
+            "2026-09-00",
+            "2026-09-32",
+            "0000-01-01",
+        ] {
+            assert!(parse_date_filter(Some(bad)).is_err(), "应拒绝 {bad}");
+        }
+    }
+
+    #[test]
+    fn date_filter_handles_leap_years() {
+        assert_eq!(
+            parse_date_filter(Some("2024-02-29")).unwrap(),
+            Some("2024-02-29".to_string())
+        );
+        assert_eq!(
+            parse_date_filter(Some("2000-02-29")).unwrap(),
+            Some("2000-02-29".to_string())
+        );
+        assert!(parse_date_filter(Some("2026-02-29")).is_err());
+        assert!(parse_date_filter(Some("1900-02-29")).is_err());
+    }
 }

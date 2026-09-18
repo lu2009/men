@@ -1,4 +1,4 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -7,7 +7,7 @@ use crate::core::error::ApiResult;
 use crate::core::response;
 use crate::core::AppState;
 
-use super::model::{OrderHeadPatch, OrderLineInput, OrderRequest};
+use super::model::{OrderHeadPatch, OrderLineInput, OrderRequest, OrderSearchQuery};
 use super::service;
 
 pub async fn list(
@@ -15,6 +15,16 @@ pub async fn list(
     user: CurrentUser,
 ) -> ApiResult<Json<Value>> {
     let items = service::list(&state.pool, user.tenant_id).await?;
+    Ok(response::ok(serde_json::to_value(items).unwrap()))
+}
+
+/// Home「查询更多」（旧版 `getMoreTableDate`）：按客户 / 安装地址 / 日期范围取订单头。
+pub async fn search(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<OrderSearchQuery>,
+) -> ApiResult<Json<Value>> {
+    let items = service::search(&state.pool, user.tenant_id, &q).await?;
     Ok(response::ok(serde_json::to_value(items).unwrap()))
 }
 

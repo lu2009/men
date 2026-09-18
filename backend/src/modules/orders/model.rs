@@ -134,6 +134,27 @@ pub struct OrderRequest {
     pub lines: Vec<OrderLineInput>,
 }
 
+/// Home「查询更多」的过滤条件 —— 旧版 `getMoreTableDate`（旧版唯一按日期范围查单的入口）。
+///
+/// 旧版坐标：`legacy/js/Home.formatted.js:11074`（`ys`）拼的 URL
+/// `?param1=getMoreTableDate&param2={ds}&param3={客户}&param4={安装地址}&param5={起始日期}&param6={结束日期}`。
+/// 四个条件全部可缺省，空串/缺省 = 该条件不过滤（与旧版「不填就不传」等价）。
+#[derive(Debug, Deserialize)]
+pub struct OrderSearchQuery {
+    /// 旧版 param3：客户名（弹窗里 autocomplete 选中的值）。子串匹配。
+    #[serde(default)]
+    pub client_name: Option<String>,
+    /// 旧版 param4：安装地址。子串匹配。
+    #[serde(default)]
+    pub install_address: Option<String>,
+    /// 旧版 param5：起始日期 `YYYY-MM-DD`，**含当日**。
+    #[serde(default)]
+    pub start_date: Option<String>,
+    /// 旧版 param6：结束日期 `YYYY-MM-DD`，**含当日**。
+    #[serde(default)]
+    pub end_date: Option<String>,
+}
+
 /// 订单头就地编辑（Home 主表内联编辑/改日期/改客户名）。只动头字段，不碰行。
 /// 前端已有整行，直接提交全量头字段即可，无需逐字段 PATCH。
 #[derive(Debug, Deserialize)]
