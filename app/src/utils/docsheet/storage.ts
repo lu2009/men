@@ -121,6 +121,41 @@ export function saveDocSheetPrinterByKey(keys: DocSheetStorageKeys, name: string
   }
 }
 
+// ------------------------------------------------------------------ //
+// 裸字符串键（本单/自定义合格标签新增，§10.2 A3）
+// ------------------------------------------------------------------ //
+
+/**
+ * 读一个**裸字符串** localStorage 键（不是 JSON）。
+ *
+ * ★ 为自定义合格标签（ic=13）的两个**固定张数键**新增（§2.6 末）：
+ *   `qualified_label_quantity_enabled` 存 `"1"`/`"0"`、
+ *   `qualified_label_quantity_value` 存数字串。
+ *   它们与 `loadDocSheetSettingsWith` 认的那两个键**形状不同**（那两个一个是 JSON 一个才是裸串），
+ *   所以单独两个小工具，而不是把 `DocSheetStorageKeys` 撑大。
+ *
+ * ⚠️ 与旧版一致：**空 `try{}catch{}`**，异常时回落 `fallback`（localStorage 被禁时不抛）。
+ * ⚠️ 返回**原始字符串**（不做 `|| ''` 之类的空串归一化）—— 归一化是调用方的事，
+ *   因为 QL 的两个键一个判 `=== "1"`、一个判 `|| 1`，语义不同（见 `qualifiedlabel/storage.ts`）。
+ */
+export function loadRawString(key: string, fallback: string): string {
+  try {
+    const value = localStorage.getItem(key)
+    return value === null ? fallback : value
+  } catch {
+    return fallback
+  }
+}
+
+/** 写一个**裸字符串** localStorage 键。空 `try{}catch{}`（旧版同款）。 */
+export function saveRawString(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* 旧版就是空 catch，照抄 */
+  }
+}
+
 /** 配置落盘（C 家族版）。 */
 export function saveDocSheetConfig(profile: DocSheetProfile, config: DocSheetConfig): void {
   saveDocSheetConfigByKey(profile.storageKeys, config)

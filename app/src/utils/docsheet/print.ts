@@ -40,11 +40,12 @@ export const PRINT_BEFORE_DIALOG_MS = 300
 export const PRINT_IFRAME_REMOVE_MS = 1000
 
 /**
- * 隐藏 iframe 的样式（GS:802-803 **逐字**）。
+ * 隐藏 iframe 的样式（GS:802-803 **逐字**）—— C 家族与 PS 的缺省值。
  *
  * ⚠️ 与量测用的那个（`top:-9999px`）不同：打印这个在 `top:0;left:0`，**照抄别统一**。
  */
-const PRINT_IFRAME_STYLE = 'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;'
+export const PRINT_IFRAME_STYLE =
+  'position:fixed;top:0;left:0;width:0;height:0;border:none;visibility:hidden;'
 
 /**
  * **打印骨架**：把一份**完整文档 HTML** 塞进隐藏 iframe，唤起浏览器打印对话框。
@@ -67,11 +68,23 @@ const PRINT_IFRAME_STYLE = 'position:fixed;top:0;left:0;width:0;height:0;border:
  * （GS:505），打印这条**漏了** —— 这是旧版的缺陷。新版传 `MEASURE_IMAGE_TIMEOUT_MS`，
  * 与量测保持一致：等不到的图片不再阻塞打印（打出来那一格是空的，与「图片加载失败」同观感）。
  *
+ * ⚠️ **第二处参数化（§8.2 #15 之后的追加，本单新增）**：`iframeStyle`。
+ *    自定义合格标签（ic=13）的 iframe 是**真实尺寸**的
+ *    （`position:fixed;top:-9999px;left:-9999px;width:{纸宽}mm;height:{纸高}mm;…`，`QL:943-947`），
+ *    与这里的 `0×0` **不是同一回事**（§骨架 §5.1 把它列为四张自绘单据里**唯一的结构性差异**）。
+ *    ⇒ 提成第 2 个可选入参，**缺省仍是 `PRINT_IFRAME_STYLE`** ——
+ *      C 家族（`printDocSheetDirect`）与 PS（`printProductionSheetDirect`）**都不传**，
+ *      两条现路径行为零变化。
+ *
  * @param html **完整文档**（含 `<!DOCTYPE html>`）—— 调用方负责造。
+ * @param iframeStyle 隐藏 iframe 的 `cssText`。缺省 `PRINT_IFRAME_STYLE`（C 家族 / PS 逐字未动）。
  */
-export async function printHtmlViaIframe(html: string): Promise<void> {
+export async function printHtmlViaIframe(
+  html: string,
+  iframeStyle: string = PRINT_IFRAME_STYLE,
+): Promise<void> {
   const iframe = document.createElement('iframe') // GS:808
-  iframe.style.cssText = PRINT_IFRAME_STYLE // GS:809-810
+  iframe.style.cssText = iframeStyle // GS:809-810
   document.body.appendChild(iframe) // GS:811
 
   try {
