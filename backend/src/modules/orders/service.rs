@@ -29,28 +29,28 @@ const LINE_COLUMNS: &str = "id, line_type, row_index, profile, color, direction,
      double_ding, light_window_count, image_id, image_url, progress, hole_size, line_no";
 
 #[derive(sqlx::FromRow)]
-struct OrderHeaderRow {
-    id: i64,
-    receipt_no: String,
-    client_code: String,
-    client_name: String,
-    phone: String,
-    brand: String,
-    order_date: String,
-    production_days: i32,
-    due_date: String,
-    total_price: f64,
-    deposit: f64,
-    remark: String,
-    salesperson: String,
-    order_no_set: String,
-    install_address: String,
-    production_status: String,
-    creator_name: String,
-    lock_direction: String,
-    door_count: i32,
-    created_at: String,
-    updated_at: String,
+pub(crate) struct OrderHeaderRow {
+    pub(crate) id: i64,
+    pub(crate) receipt_no: String,
+    pub(crate) client_code: String,
+    pub(crate) client_name: String,
+    pub(crate) phone: String,
+    pub(crate) brand: String,
+    pub(crate) order_date: String,
+    pub(crate) production_days: i32,
+    pub(crate) due_date: String,
+    pub(crate) total_price: f64,
+    pub(crate) deposit: f64,
+    pub(crate) remark: String,
+    pub(crate) salesperson: String,
+    pub(crate) order_no_set: String,
+    pub(crate) install_address: String,
+    pub(crate) production_status: String,
+    pub(crate) creator_name: String,
+    pub(crate) lock_direction: String,
+    pub(crate) door_count: i32,
+    pub(crate) created_at: String,
+    pub(crate) updated_at: String,
 }
 
 #[derive(sqlx::FromRow)]
@@ -1248,4 +1248,59 @@ mod tests {
         assert!(parse_date_filter(Some("2026-02-29")).is_err());
         assert!(parse_date_filter(Some("1900-02-29")).is_err());
     }
+}
+
+/// `order_lines` 的一行 + 它属于哪张单（`LINE_COLUMNS` 里没有 `order_id`）。
+#[derive(sqlx::FromRow)]
+struct OwnedLineRow {
+    order_id: i64,
+    #[sqlx(flatten)]
+    line: OrderLineRow,
+}
+
+/// 取本租户**全部订单 + 各自明细**（给「生产进度」页用）。
+///
+/// 为什么放在 orders 里而不是让 progress 自己写 SQL：`LINE_COLUMNS` / `line_to_dto` /
+/// `OrderHeaderRow` 都是本模块的私有件，外面重写一遍列清单迟早和这里漂。
+///
+/// ⚠️ 一次性全量返回（不分页）—— 与旧版 `getProgress` 一致：旧版也是**一次拉全量、
+/// 前端自己筛选/分页**（它确实不重新请求，见 `progress-analysis.md` §4.1）。
+/// 数据量大了要改成分页，那时两边一起改。
+pub async fn list_with_lines(
+    pool: &PgPool,
+    tenant_id: i64,
+) -> ApiResult<Vec<(OrderHeaderRow, Vec<OrderLineDto>)>> {
+    let header_sql =
+        format!("SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 ORDER BY id ASC");
+    let headers: Vec<OrderHeaderRow> =
+        sqlx::query_as(&header_sql).bind(tenant_id).fetch_all(pool).await?;
+
+    // 明细一次取完再按 order_id 分组，避免 N+1。
+    let line_sql = format!(
+        "SELECT {LINE_COLUMNS} FROM order_lines WHERE tenant_id = $1 ORDER BY order_id, row_index, id"
+    );
+    let line_rows: Vec<OwnedLineRow> = {
+        // `LINE_COLUMNS` 里没有 order_id，所以这条查询单独前置一列；
+        // 用 `#[sqlx(flatten)]` 把行字段摊平进外层 struct（元组不行：`OrderLineRow`
+        // 只 derive 了 `FromRow`，没有 `Decode`）。
+        let sql = format!(
+            "SELECT order_id, {LINE_COLUMNS} FROM order_lines WHERE tenant_id = $1 ORDER BY order_id, row_index, id"
+        );
+        sqlx::query_as(&sql).bind(tenant_id).fetch_all(pool).await?
+    };
+    let _ = line_sql;
+
+    let mut by_order: std::collections::HashMap<i64, Vec<OrderLineDto>> =
+        std::collections::HashMap::new();
+    for r in line_rows {
+        by_order.entry(r.order_id).or_default().push(line_to_dto(r.line));
+    }
+
+    Ok(headers
+        .into_iter()
+        .map(|h| {
+            let lines = by_order.remove(&h.id).unwrap_or_default();
+            (h, lines)
+        })
+        .collect())
 }

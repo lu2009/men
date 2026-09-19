@@ -38,3 +38,4 @@ pub async fn get_procedures(pool: &PgPool, tenant_id: i64) -> ApiResult<Procedur
 
     Ok(ProceduresDto { slots })
 }
+
