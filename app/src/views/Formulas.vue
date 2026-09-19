@@ -17,6 +17,8 @@ import { isAdmin } from '../utils/roles'
 import { FORMULA_TYPE_LABELS, TEMPLATE_LIST, TEMPLATES } from '../data/formulaTemplates'
 import { COMMON_MATERIALS, EXTRA_MATERIAL_GROUPS, MATERIAL_LIBRARY } from '../data/formulaMaterials'
 import {
+  applyDimDefaults,
+  defaultDims,
   MIN_SQUARE_TYPES,
   SIMPLE_SQUARE_TYPES,
   normalizeExtra,
@@ -65,6 +67,32 @@ const isSubsidiary = computed(() => formulaType.value === 'parentsubsidiary')
 const showJiao = computed(() => isSimpleSquare.value)
 // 必填弹窗中的吊脚（复刻旧版 _0x17e61b：仅平开/中开门）。
 const showJiaoInDialog = computed(() => formulaType.value === 'ping' || formulaType.value === 'double')
+
+/**
+ * 把**空着**的尺寸按门型补上默认值（复刻旧版 `Diao.deobfuscated.js:2233-2236`）。
+ *
+ * ⚠️ **只补空的，不覆盖已有的。** 旧版是**无条件覆盖** —— 因为它根本不存尺寸
+ * （保存载荷只有 `formulaName/formulaType/square/diao` + 六个可选扩展块，`:2089-2128`），
+ * 每次打开都必然是一组全新默认值。我们**存**尺寸，照抄覆盖 = 每次打开把用户存的冲掉，
+ * 再存回去就永久丢了。所以取「空才补」：拿到旧版「打开公式不会看到一片空框」的好处，
+ * 又不动已有数据。默认值表与依据见 `data/formulaExtra.ts` 的 `defaultDims`。
+ *
+ * 为什么要补：`门洞高/宽/墙厚` 在保存时是必填（`validate()`），但
+ * **`亮窗总高`/`吊脚`/`母门宽` 不是** —— 库里的行完全可能是空串，
+ * 那样 `refreshPlaceholders()` 会按 `h1=0 / j=0` 去算，**整表占位值全错而界面上没有任何提示**。
+ */
+function fillEmptyDims() {
+  const filled = applyDimDefaults(
+    { w: dimW.value, h: dimH.value, h1: dimH1.value, t: dimT.value, j: dimJ.value, s: dimS.value },
+    defaultDims(formulaType.value, parts),
+  )
+  dimW.value = filled.w
+  dimH.value = filled.h
+  dimH1.value = filled.h1
+  dimT.value = filled.t
+  dimJ.value = filled.j
+  dimS.value = filled.s
+}
 
 function dimLabel(key: 'w' | 'h' | 'h1' | 't' | 'j' | 's'): string {
   if (isDiamond.value) {
@@ -852,6 +880,8 @@ async function loadFormula(id: number, asCopy: boolean) {
     Object.keys(parts).forEach((k) => delete parts[k])
     Object.assign(parts, p)
     delete parts['挖孔图'] // 旧版哨兵/历史脏数据：加载时剔除，不进明细行
+    // 尺寸补齐要排在 `refreshPlaceholders()` **之前** —— 它按当前尺寸算占位值。见函数注释。
+    fillEmptyDims()
     syncRowTexts()
     refreshPlaceholders()
     listModal.value = false
