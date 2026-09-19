@@ -32,6 +32,7 @@ pub fn app(state: AppState) -> Router {
         .merge(modules::finance::router())
         .merge(modules::formula::router())
         .merge(modules::orders::router())
+        .merge(modules::progress::router())
         .merge(modules::receipts::router())
         .merge(modules::settings::router())
         .merge(modules::health::router())

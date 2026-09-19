@@ -6,5 +6,6 @@ pub mod finance;
 pub mod formula;
 pub mod health;
 pub mod orders;
+pub mod progress;
 pub mod receipts;
 pub mod settings;
