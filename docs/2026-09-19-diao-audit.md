@@ -78,9 +78,26 @@ _0x1fbe4b["value"] = a["userinfo"].registrant === a.userinfo.name || a["userinfo
 
 - **3D创建公式**（`D:3320` 附近 `_0x4a37ca`）：清空表单 + `_0xb3040a="swing3dDouble"`
   + `_0x579c3d=!0`（**正是 3514 行那个 3D 面板的开关**）+ 各扩展设置复位。
-- **算料神器**（`D:951` `_0x3cc2b6`）：置 `_0x3c68a4=!0`，渲染在 `D:4039`，
-  组件是 `ref="suanliaoShenQiRef"` 的 `_0xf4057`/`_0x148cac`/`_0x306d52`/`_0x92856f`
-  —— **全是从 `Hui-d088417c.js` 借来的**，即 Diao 页复用汇算页的算料组件。
+- **算料神器**（`:951` `_0x3cc2b6` 置 `_0x3c68a4=!0`）——**整套是从汇算页借来的**。
+  `Diao-1afe5586.js` 头部有 `import{a as _0xf4057,_ as _0x148cac,b as _0x306d52,h as _0x92856f}
+  from"./Hui-d088417c.js"`，四个组件全部来自 **Hui chunk**：
+
+  | 组件 | template ref | 角色 |
+  |---|---|---|
+  | `_0xf4057` | `diaoHuiRef` | **隐藏的无头实例**（`D:4031-4032`，在一个不显示的 div 里） |
+  | `_0x148cac` | `pingHuiRef` | 同上（`D:4033-4034`） |
+  | `_0x306d52` | `huiRef` | 同上（`D:4035-4037`，带 `receiptData1: {}`） |
+  | `_0x92856f` | `suanliaoShenQiRef` | **面板本体**（`D:4038-4046`） |
+
+  面板自己不算料，它的输入全部靠 ref 从上面三个无头实例里**掏**（`D:4039-4045`）：
+  `ping-material`/`diao-material`、`ping-/diao-direction-image-map`、
+  `ping-open-directions`、`door-sheets`、`open-directions`、`track-types`、`line-types`、
+  `trackytypedata`、`lineytypedata`；`formula-types` 传的是**空对象**；
+  计算回调 `onCalculate = _0x4f27a8`（`D:952`+，内部先查 `_0x14e9ce`，没有就报
+  「系统初始化中，请稍后重试」）。
+
+  ⇒ 想做这颗按钮，**得先把 Hui 那套 material / 开向图 / 轨道种类数据源搬过来**，
+  不是补一个弹窗那么简单。**这是四块缺失里被低估的一块。**
 
 ### 2.1b 「视频」按钮 —— 内容**逐条一致** ✓，差一个提示与一颗按钮
 
