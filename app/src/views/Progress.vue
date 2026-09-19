@@ -8,7 +8,8 @@
 
     - 第一刀：骨架 —— 路由 / 导航项 / 拉全量数据 / **PC 14 列** / 分页（100 每页，可选 [10,20,50,100,200]）。
     - 第二刀：**单元格保真** + **列头交互**（`va()` 渲染 / 颜色 / 表头筛 / 查单号 / 颜色筛选）。
-    - 第三刀（本笔）：**工具条 + 统计行**（旧版 `search-row`，§2.2 / §5.4）+ **导出表格**（§4.6）。
+    - 第三刀：**工具条 + 统计行**（旧版 `search-row`，§2.2 / §5.4）+ **导出表格**（§4.6）。
+    - 第四刀（本笔）：**行内「删除」**（§4.3）—— 日期列那颗红字链接补齐（「更新进度」上一刀已做）。
 
     ## ⏳ 还没做（按旧版顺序，各自独立可验）
 
@@ -22,7 +23,8 @@
        要**先补后端**（`getMoreProgress` / `getClientsInfo`，见 §3.1）；
        它同时会引入旧版的 `Bo`/`xo`（查询结果集生效标志），`filteredRows` 里已留了说明。
     4. **行内动作**：「更新进度」✅ 已做（弹窗拼 `工序名_操作员_日期` → `POST /v1/progress/update`）；
-       「删除」⏳ 未做；**「日期」列的行勾选 checkbox** ⏳ 未做（「批量更新」依赖它）。
+       「删除」✅ 已做（本笔，§4.3 —— 确认框 → `DELETE /v1/orders/{id}/lines/{lineId}`，见 `confirmDeleteRow`）；
+       **「日期」列的行勾选 checkbox** ⏳ 未做（「批量更新」依赖它）。
     5. **生产分析看板**（echarts，5 KPI + 4 饼图 + 趋势 + 4 个统计 tab）
        ⚠️ 它**不是**我们已有的 `DashboardBigScreen`，指标得重写
     6. **终端模式**（10 列）—— **本版不做**：旧版那条接口在服务端是写死 400，路本来就是坏的
@@ -226,6 +228,7 @@ import {
   NPopover,
   NSelect,
   NTooltip,
+  useDialog,
   useMessage,
 } from 'naive-ui'
 import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
@@ -234,6 +237,8 @@ import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 
 const message = useMessage()
+// 行内「删除」的二次确认（旧版是 `ElMessageBox.confirm`，同 Hui/Home 的做法用 `dialog.warning`）。
+const dialog = useDialog()
 
 const rows = ref<ProgressRowDto[]>([])
 const loading = ref(false)
@@ -330,6 +335,95 @@ async function submitUpdate() {
   } finally {
     updSaving.value = false
   }
+}
+
+// ===== 行内「删除」（§4.3）=====
+/*
+ * 旧版原文（`Progress-fb4def35.js` 反混淆后，日期列的第二个 `<span class="update-progress-link">`）：
+ *
+ *   onClick: async row => {
+ *     await E("删除") && ElMessageBox.confirm("确定要删除这一行吗？", "提示", {
+ *       confirmButtonText: "确定", cancelButtonText: "取消", type: "warning",
+ *     }).then(async () => {
+ *       const u = await o(); if (!u) return void ElMessage.error("无法获取用户数据")
+ *       const ds = u.userinfo.ds
+ *       if (row.id) {
+ *         const r = await fetch("…?param1=deleteRow&param2=" + ds, {
+ *           method: "POST", headers: { "Content-Type": "application/json" },
+ *           body: JSON.stringify({ id: row.id, 数量: row.数量, 金额: row.金额, 安装地址: row.安装地址 }),
+ *         }), j = await r.json()
+ *         if (200 !== j.code) return void ElMessage.error(j.message || "删除失败")
+ *       }
+ *       row.图片ID && await s(row.图片ID, String(row.id))     // 顺带删门图
+ *       const i = K2.value.findIndex(x => x.id === row.id)
+ *       -1 !== i && K2.value.splice(i, 1)                     // ← 局部删，不重拉整表
+ *       ElMessage.success("删除成功"), await ae()
+ *     }).catch(() => ElMessage.info("已取消删除"))
+ *   }
+ *
+ * ⚠️⚠️ **这一格删的不是「进度」，是整条门行**。分析文档 §4.3 把这个链接收在「删除进度」标题下、
+ *    且把 `.then(...)` 省略成 `...`，只看那一节会以为它调的是 `deleteProgress` —— **不是**。
+ *    它调的是 `deleteRow`（服务端 `legacy-dispatch.ts:132` 的 `deleterow` 分支：
+ *    POST + 有 body ⇒ `orderServ.deleteDetailRow(ds, body.id)`，把该 `id` 的明细行从
+ *    `doorSpecs` 里摘掉，并重算整单 `totalAmount` / `unpaidAmount` / `doorCount` +
+ *    `financeOrder` 的 `statusText`）。**已回源码逐字核对**，别再按标题理解。
+ *
+ * 调什么：**新版已有等价端点**，且不是新造的 —— `DELETE /api/v1/orders/{orderId}/lines/{lineId}`
+ *   （`backend/src/modules/orders/mod.rs`，`service::delete_line`：删 `order_lines` 行 +
+ *   `recompute_header` 重算总价/门数/单号集）。语义与旧版 `deleteDetailRow` 对齐。
+ *   ⚠️ 它挂在 **orders 模块**下，`modules/progress/` 里没有删除 handler ——
+ *   「行」本来就属于订单，不是进度模块的东西。
+ *   前端封装 `api.deleteOrderLine(orderId, lineId)`（`Home.vue` / `Hui.vue` 的行删除同一条）。
+ *
+ * 为什么用 `row.order.id` 而不是别的：进度行的 `id` 是**行** id（= `order_lines.id`），
+ *   订单 id 后端挂在 `row.order.id` 上（见 `progress/service.rs` 的 `build_row`，以及
+ *   `ProgressRowDto.order` 的类型注释）。
+ *
+ * ⚠️ **旧版那一步密码校验（`await E("删除")`）新版【刻意不做】**，理由与 `Home.vue:1605-1659`
+ *    那段结论**完全相同**（那里逐条查证过 `usePasswordVerify` 的实现），别在这里另起炉灶：
+ *    ① 它不是本地口令，是**拿 `<registrant>` + 明文口令去旧版生产域名换授权**
+ *       （`GET https://www.samrtdoor.com.cn/1?param1=login&param2=…&param3=…`）；
+ *    ② 只对**写死的 3 个租户**生效，其余租户旧版直接放行；
+ *    ③ 新版后端没有对应端点，从新版发这条请求是**跨系统的对外写**。
+ *    ⇒ 按本仓库既有口径**不发**，也**不补一个「看起来在验、其实验不了」的假闸门**。
+ *    `Home.vue` 那处的三条候选路径（加了就一起改）记在那段 TODO 里，未拍板前保持一致。
+ */
+function confirmDeleteRow(r: ProgressRowDto) {
+  dialog.warning({
+    title: '提示',
+    // 逐字照抄旧版 `ElMessageBox.confirm` 的正文与按钮文案（`type:"warning"` ⇒ 这里的 warning 弹窗）。
+    content: '确定要删除这一行吗？',
+    positiveText: '确定',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        await api.deleteOrderLine(r.order.id, r.id)
+      } catch (e) {
+        // 旧版：服务端回非 200 时显示它自己的 message（兜底「删除失败」），
+        //       抛异常/断网才走「删除失败，请重试」。新版 `request()` 两种都抛
+        //       （HTTP 错带服务端 message、断网带 fetch 的 reason）⇒ 合并成一句。
+        message.error(e instanceof Error ? e.message : '删除失败，请重试')
+        // ⚠️ 失败时**必须 `return false`** 拦住弹窗关闭：naive 的 `onPositiveClick` 返回
+        //    `false` 才不关；返回 undefined 会照关不误 —— 那样用户会以为删成功了。
+        return false
+      }
+      // ⚠️ **局部删，不调 `refresh()`**：旧版删成功后只是把行从 `K2` 里 `splice` 掉
+      //    （那份代码里**没有**重拉整表）。照抄这个表现，顺带也不会把当前页码/滚动位置抖掉。
+      // 用 `splice` 而不是 `rows.value = rows.value.filter(...)`：后者会把 ref 换成**新数组**，
+      // 与其它持有 `rows` 的地方脱钩（同 `Home.vue` `batchDeleteInExpand` 的注释）。
+      const i = rows.value.findIndex((x) => x.id === r.id)
+      if (i !== -1) rows.value.splice(i, 1)
+      message.success('删除成功')
+      // 旧版这里还调了一句 `ae()`，它只重算「已选 id 列表」`le`（`ae` 的定义里就只写 `le.value`），
+      // **不重拉数据**；而本页还没有行勾选 UI（`selectedRows` 恒空，见它的注释）⇒ 无对应物，
+      // 不为了对齐而伪造一次调用。
+    },
+    // 旧版 `.catch` 的那句「已取消删除」：Element Plus 在点「取消」/点遮罩/按 Esc 时都走 catch。
+    // naive 的 `onNegativeClick` 只覆盖「取消」按钮 —— 遮罩/Esc 关掉时旧版会提示、这里不会。
+    // （同 `Hui.vue` 的「已取消删除」，保持全站一致；不为此加 `onClose`：那会在**确认后**
+    //   也触发一次，等于删成功还弹一句「已取消删除」。）
+    onNegativeClick: () => message.info('已取消删除'),
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1009,7 +1103,7 @@ const pageRows = computed(() =>
 
 // ── B4. 列定义 ────────────────────────────────────────────────────────────
 const columns = computed<DataTableColumn<ProgressRowDto>[]>(() => [
-  // 1 日期（旧版这一格还有行内 checkbox 与「更新进度/删除」两个链接 —— 见文件头 ⏳4）
+  // 1 日期（旧版这一格还有行内 checkbox —— 未做，见文件头 ⏳4）
   {
     title: '日期',
     key: '日期',
@@ -1019,8 +1113,16 @@ const columns = computed<DataTableColumn<ProgressRowDto>[]>(() => [
     render: (r) =>
       h('div', { class: 'cell-col' }, [
         line(r['日期']),
-        // 旧版这一格右边还有「删除」（未做，见文件头 ⏳4）
+        // 两个链接都是 `v-if="D2"`（PC 模式）—— 本版不做终端模式，故恒显示。
+        // 旧版这一格是 `{display:flex;flex-direction:column;align-items:center;gap:4px}` 的**竖排**
+        // （`he`，见 §2.3 第 1 行「右侧两个链接」）⇒ 「更新进度」「删除」是**上下两行**，不是并排。
         h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => openUpdate(r) }, { default: () => '更新进度' }),
+        // 「删除」旧版是**红字**（`<span class="update-progress-link" style="color:#f56c6c">`）。
+        // ⚠️ 这里用 naive 的 `type="error"` 表达「危险」，**不是**旧版那个 `#f56c6c` ——
+        //    与紧邻的「更新进度」（旧版 `#409eff`，这里用 `type="primary"`）是同一套取舍：
+        //    这一列的两颗都按 naive 语义色走。要改成旧版原色，**两颗一起改**，
+        //    别只把「删除」单独拧回 `#f56c6c`（那会让这一格看起来像两种风格拼的）。
+        h(NButton, { size: 'tiny', text: true, type: 'error', onClick: () => confirmDeleteRow(r) }, { default: () => '删除' }),
       ]),
   },
   { title: '客户', key: '客户', width: 110, cellProps: cellPad, render: (r) => line(r['客户']) },

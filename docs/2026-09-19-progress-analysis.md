@@ -362,19 +362,60 @@ P2.value=l2===a2||a2==="开门红" })`、`Vue.onActivated(()=>{Ta(),X2()})`。
 
 ### 4.3 删除进度
 
-**单行「删除」链接**（日期列，红字）：
+> ⚠️ **本节标题是个坑，先看这条更正（2026-09-19 回源码逐字核对后补）**：
+> 下面那个**单行「删除」链接删的不是「进度」，是整条门行**。它调的是 **`deleteRow`**
+> （POST body=`{id,数量,金额,安装地址}`），**不是** `deleteProgress`。
+> 本节原先把 `.then(...)` 省略成 `...`，只看这一节会得出错误的接口结论 —— 现补齐全文。
+> `deleteProgress` 只出现在**弹窗里那颗「按工序删」**上（本节第二段），两者别混。
+
+**单行「删除」链接**（日期列，红字 `style="color:#f56c6c"`，与「更新进度」同为
+`<span class="update-progress-link">`、同为 `v-if="D2"`）：
 ```js
 onClick: async (row) => {
-  await E('删除') && ElMessageBox.confirm('确定要删除这一行吗？', '提示', {...}).then(...)
+  await E('删除') && ElMessageBox.confirm('确定要删除这一行吗？', '提示', {
+    confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
+  }).then(async () => {
+    const u = await o(); if (!u) return void ElMessage.error('无法获取用户数据')
+    const ds = u.userinfo.ds
+    if (row.id) {
+      const r = await fetch('…?param1=deleteRow&param2=' + ds, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id, 数量: row.数量, 金额: row.金额, 安装地址: row.安装地址 }),
+      }), j = await r.json()
+      if (200 !== j.code) return void ElMessage.error(j.message || '删除失败')
+    }
+    row.图片ID && await s(row.图片ID, String(row.id))   // 顺带删门图
+    const i = K2.value.findIndex(x => x.id === row.id)
+    -1 !== i && K2.value.splice(i, 1)                   // ← **局部删，不重拉整表**
+    ElMessage.success('删除成功'), await ae()
+  }).catch(() => ElMessage.info('已取消删除'))
 }
 ```
-⚠️ **`E` 是 `setup` 里 `const { verifyPassword: E } = usePasswordVerify()`** —— 即**删一行要过密码校验**，
-提示语为「删除」。证据：`@63719` `setup(n){const f=ce,{verifyPassword:E}=C(),...`，`C` 来自
-`import{u as C}from"./usePasswordVerify-b6115859.js"`。
+- **取消**：`ElMessage.info("已取消删除")`（Element Plus 点「取消」/点遮罩/按 Esc 都走 `.catch`）。
+- **`ae()`** 与 `pa()` 不是一回事：`ae` 只重算「已选 id 列表」`le.value`（**不重拉数据**），
+  `pa` 才是 `Ta()` 重拉 + 清勾选。删行后只调了 `ae()`。
+- ⚠️ **`E` 是 `setup` 里 `const { verifyPassword: E } = usePasswordVerify()`** —— 即**删一行要过密码校验**，
+  提示语为「删除」。证据：`@63719` `setup(n){const f=ce,{verifyPassword:E}=C(),...`，`C` 来自
+  `import{u as C}from"./usePasswordVerify-b6115859.js"`。
+
+**服务端语义**（`legacy-dispatch.ts:132` 把 `deleteRow` 归一到 `deleterow`，`:754` `deleterow` = `deletehui`
+分支）：POST + 有 body ⇒ `orderServ.deleteDetailRow(ds, body.id)`（`order.service.ts:661`）——
+只把该 `id` 的明细行从 `doorSpecs` 摘掉，重算整单 `totalAmount`/`unpaidAmount`/`doorCount`
+并回写 `financeOrder` 的 `unpaidAmount`/`statusText`。**不是删整单**（那要 POST 数组 body 走 `deleteRows`）。
 
 **弹窗里的「删除」**（按工序删）：先 `confirm`，若选中的工序是 `回款` 且该行有回执单号，
 再问一次「是否把该门款在已付款中扣除？」，确认则调 `PaymentCollection` 读定金 →
 `updataPaymentCollection` 写回 `max(0, 定金 - 行金额)`；最后 `deleteProgress&…&param5=工序名`。
+
+**✅ 2026-09-19：单行「删除」已落**（`app/src/views/Progress.vue` 的 `confirmDeleteRow()`）。
+两处**有意偏离**，都写在函数注释里：
+1. 走新版既有端点 `DELETE /api/v1/orders/{orderId}/lines/{lineId}`（`orders` 模块的
+   `service::delete_line`，语义与旧版 `deleteDetailRow` 对齐）—— **`modules/progress/` 里没有删除
+   handler**，「行」本来就属于订单模块。前端封装 `api.deleteOrderLine()`，Home/Hui 的行删除同一条。
+2. **旧版那步密码校验新版刻意不做**，理由与 `Home.vue:1605-1659` 那段结论完全相同
+   （跨系统发往旧版生产域名 / 只对写死的 3 个租户生效 / 新版后端无对应端点）。
+   未拍板前**不补假闸门**。
+弹窗里的「按工序删」仍是 ⏳ 未做（它要的 `deleteProgress` 后端也不存在）。
 
 ### 4.4 收款
 
