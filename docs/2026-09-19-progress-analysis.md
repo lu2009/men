@@ -583,7 +583,11 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 3. **后端**（`backend/src/modules/`）新增两个端点，字段名沿用旧版中文 key 最省事（与 Home 的
    `OrderSummaryDto` 不同，别硬套）：
    - `GET /v1/progress?ds=…`（PC）/ `?ds=…&terminal=<name-prefix>`（终端）→ `{ progressData: [...] }`
-   - `GET /v1/procedures` → `{ 工序1: '下料', … }`（扁平 15 槽）
+   - `GET /v1/procedures` → `{ slots: [{ slot:'工序1', name:'下料', color:'#67C23A' }, … ] }`
+     （**恒 15 项、按槽号排序**；`color` 空串 = 没配过。落地时的形状与本条不同 —— 当年建议的是
+     `{ 工序1: '下料', … }` 那种裸对象；见 `docs/2026-09-19-qrscanner-analysis.md` §8.1）
+   - `POST /v1/procedures` → `{ slots: [...] }` 整体 upsert（**颜色进库**，不落 localStorage）；
+     槽名非法 400。逆向依据：`docs/2026-09-19-qrscanner-analysis.md` §4 / §8
    - `POST /v1/progress/update`（`slot` + `refs[]` + `segment`）、`POST /v1/progress/delete`
 4. **数据流**：页面只拉一次全量 `progressData` → 前端筛选/分页（**与旧版一致**，旧版确实不重新请求）；
    看板吃**全量**（`K2`），不是筛选后的 `no`。
@@ -715,7 +719,7 @@ progress TEXT   ← 一个「生产进度标识」字符串
 | 加什么 | 放哪 | 说明 |
 |---|---|---|
 | `order_lines.procedure_slots JSONB DEFAULT '{}'` | 行级 | `{"工序1":"下料_张三_2026-09-19", …}`。**按行存**（= 旧版门行），与 `parts`/`markup` 同风格 |
-| `procedures` 表（`tenant_id` + `slot` + `name`） | 租户级 | 15 个扁平槽，即旧版 `GetProcedures` 的 `{工序1:"下料",…}` |
+| `procedures` 表（`tenant_id` + `slot` + `name` + `color`） | 租户级 | 15 个扁平槽，即旧版 `GetProcedures` 的 `{工序1:"下料",…}`。`color` 是迁移 `0022_procedure_color.sql` 加的（空串 = 没配过）—— 旧版颜色根本不进服务端，存在浏览器 localStorage 的 `procedure_name_color_map` 里，见 `docs/2026-09-19-qrscanner-analysis.md` §4.6 / §8.3 第 2 条 |
 
 ### 两处**有意偏离**旧版（一起做，不拆分）
 

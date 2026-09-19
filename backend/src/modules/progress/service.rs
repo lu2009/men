@@ -5,7 +5,7 @@ use crate::core::error::{ApiError, ApiResult};
 use crate::modules::orders::model::OrderLineDto;
 use crate::modules::orders::service::{self as orders_service, OrderHeaderRow};
 
-use super::model::{ProcedureSlotDto, ProceduresDto, ProgressUpdateInput};
+use super::model::{ProcedureSlotDto, ProceduresDto, ProceduresInput, ProgressUpdateInput};
 
 /// 工序槽总数。旧版是**写死的 15**（服务端 `buildProgressText` 里
 /// `for (let i = 1; i <= 15; i++)`，前端 `GetProcedures` 也是 15 个扁平槽）。
@@ -20,26 +20,108 @@ pub fn slot_name(i: usize) -> String {
 /// 读某租户的工序名清单。
 ///
 /// **返回恒为 15 项**（库里没配的给空名），顺序按槽号 —— 见 `ProceduresDto` 的注释。
+///
+/// ⚠️ **15 槽一视同仁，没有哪个槽特殊**。旧版「设置工序」弹窗会硬把 `工序10` 排掉
+/// （因为 Progress 侧把「回款」硬编码进那个槽），新版那两处特判一起去掉了 ——
+/// 见迁移 `0021_progress.sql` 头注、`docs/2026-09-19-qrscanner-analysis.md` §8.3 第 1 条。
 pub async fn get_procedures(pool: &PgPool, tenant_id: i64) -> ApiResult<ProceduresDto> {
     // 只取有名字的，剩下的在下面补空 —— 这样「库里一行都没有」也能返回 15 个空槽。
-    let rows: Vec<(String, String)> = sqlx::query_as(
-        "SELECT slot, name FROM procedures WHERE tenant_id = $1 AND name <> ''",
-    )
-    .bind(tenant_id)
-    .fetch_all(pool)
-    .await?;
+    let rows: Vec<(String, String, String)> =
+        sqlx::query_as("SELECT slot, name, color FROM procedures WHERE tenant_id = $1 AND name <> ''")
+            .bind(tenant_id)
+            .fetch_all(pool)
+            .await?;
 
-    let find = |slot: &str| rows.iter().find(|(s, _)| s == slot).map(|(_, n)| n.clone());
+    let find = |slot: &str| rows.iter().find(|(s, _, _)| s == slot).cloned();
 
     let slots = (1..=SLOT_COUNT)
         .map(|i| {
             let s = slot_name(i);
-            let name = find(&s).unwrap_or_default();
-            ProcedureSlotDto { slot: s, name }
+            let (name, color) = match find(&s) {
+                Some((_, n, c)) => (n, c),
+                None => (String::new(), String::new()),
+            };
+            ProcedureSlotDto {
+                slot: s,
+                name,
+                color,
+            }
         })
         .collect();
 
     Ok(ProceduresDto { slots })
+}
+
+/// `POST /v1/procedures` —— 整体 upsert 本租户的工序清单（名字 + 颜色）。
+///
+/// ## 语义
+///
+/// 请求里给的每个槽，按 **`(tenant_id, slot)`** 冲突键 upsert；
+/// **没提到的槽一个都不动**（不删行、不清空）—— 这条是**有意选的**：
+/// 旧版 `SetProcedures` 传的是「恒 15 键」的全量对象，新版若照抄「先清后写」，
+/// 一个只发了改动槽的调用方就会把其余槽**静默清空**。只 upsert 更安全，
+/// 而「清空某个槽的名字」这条路上照样成立（发 `name: ""` 即可，`GET` 反正一律返回 15 项）。
+///
+/// `slot` 必须在 `工序1`..`工序15` 内 —— 野槽名 **400**，且**整笔不落库**。
+/// 旧版不校验这个（前端传什么就写什么键），是旧版的漏洞，不照抄。
+///
+/// ## 一次事务
+///
+/// 校验先全部做完再开事务；写入在同一个事务里，**要么全成要么全不成**。
+/// 旧版是「逐个 `findFirst` 再 update/create」，按 `orderIndex` 找不到还会按 `name` 兜底查，
+/// 同名不同槽时会**误合并**——新版有 `UNIQUE(tenant_id, slot)`，直接 `ON CONFLICT` 干净。
+///
+/// ## ⚠️ 不照抄旧版的三处（见 `docs/2026-09-19-qrscanner-analysis.md` §8.3）
+///
+/// 1. **15 槽一视同仁**：不排 `工序10`（旧版弹窗把它排掉，是给「回款」让路）。
+/// 2. **颜色进库**：旧版存 localStorage `procedure_name_color_map`（键=工序名 ⇒ 改名丢色、不分租户）。
+/// 3. **只有一把租户键 `tenant_id`**（从登录态取）——旧版这里按 `registrant`、业务接口按 `ds`。
+pub async fn set_procedures(
+    pool: &PgPool,
+    tenant_id: i64,
+    req: &ProceduresInput,
+) -> ApiResult<()> {
+    if req.slots.is_empty() {
+        // 「saved: true」而实际什么都没存，是句假话 —— 空请求按 400 处理（与 `update_progress` 同口径）。
+        return Err(ApiError::bad_request("没有要保存的工序槽"));
+    }
+    // 先把全体的槽名校验完，任何一个不合法 ⇒ 整笔不落库。
+    for s in &req.slots {
+        if !valid_slot(&s.slot) {
+            return Err(ApiError::bad_request(&format!(
+                "槽名不对：{}（应为 工序1 .. 工序{SLOT_COUNT}）",
+                s.slot
+            )));
+        }
+    }
+
+    let mut tx = pool.begin().await?;
+    for s in &req.slots {
+        // 槽号（1..15）就是排序号 —— 旧版 `GetProcedures` 也是按它升序拼的。
+        // 上面已经 `valid_slot` 过，这里的 `unwrap_or(0)` 走不到。
+        let sort_order: i32 = s
+            .slot
+            .strip_prefix("工序")
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(0);
+        sqlx::query(
+            "INSERT INTO procedures (tenant_id, slot, name, color, sort_order) \
+             VALUES ($1, $2, $3, $4, $5) \
+             ON CONFLICT (tenant_id, slot) DO UPDATE SET \
+                 name = EXCLUDED.name, color = EXCLUDED.color, \
+                 sort_order = EXCLUDED.sort_order, updated_at = now()",
+        )
+        .bind(tenant_id)
+        .bind(&s.slot)
+        .bind(s.name.trim())
+        .bind(s.color.trim())
+        .bind(sort_order)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+
+    Ok(())
 }
 
 

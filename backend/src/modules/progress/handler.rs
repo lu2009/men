@@ -1,6 +1,6 @@
 use axum::extract::State;
 use axum::Json;
-use super::model::ProgressUpdateInput;
+use super::model::{ProceduresInput, ProgressUpdateInput};
 use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
@@ -20,6 +20,20 @@ pub async fn get_procedures(
 ) -> ApiResult<Json<Value>> {
     let dto = service::get_procedures(&state.pool, user.tenant_id).await?;
     Ok(response::ok(serde_json::to_value(dto).unwrap()))
+}
+
+/// `POST /v1/procedures` —— 整体 upsert 本租户的工序清单（名字 + 颜色）。
+///
+/// 对应旧版 `param1=SetProcedures`（body 是 `{工序1:名字, …}`、颜色不上服务端）。
+/// 语义、校验与三处有意偏离见 `service::set_procedures` 的注释。
+/// 返回 `{ saved: true }`（外层还有 `response::ok` 的 `data` 包装，与其它端点一致）。
+pub async fn set_procedures(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Json(req): Json<ProceduresInput>,
+) -> ApiResult<Json<Value>> {
+    service::set_procedures(&state.pool, user.tenant_id, &req).await?;
+    Ok(response::ok(json!({ "saved": true })))
 }
 
 /// `GET /v1/progress` —— 本租户全量进度行。

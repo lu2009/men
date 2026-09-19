@@ -783,6 +783,12 @@ Progress 是在渲染/解析每行「生产进度」串时调 `J(text)`，所以
 
 ### 8.1 现状（新栈里已经有什么）
 
+> ✅ **本节 + §8.2 已落地**（2026-09-19）：迁移 `0022_procedure_color.sql` 加了 `color` 列，
+> `POST /v1/procedures` 已实现。下面是**当时的**现状存档，接口形状与最终实现有两处出入：
+> ① 颜色默认是**空串**不是 `#FFFFFF`（空串 = 没配过，兜底色由前端定）；
+> ② 「名称为空 ⇒ 删行」**没做** —— 改成「只 upsert 请求里给的槽，没提到的槽一个都不动」
+> （旧版发的是恒 15 键全量对象，新版若「先清后写」，只发改动槽的调用方会静默清空其余槽）。
+
 ```
 backend/migrations/0021_progress.sql   →  procedures(id, tenant_id, slot, name, sort_order, UNIQUE(tenant_id,slot))
 backend/src/modules/progress/model.rs  →  ProcedureSlotDto { slot, name } / ProceduresDto { slots }
@@ -792,7 +798,7 @@ app/src/api/client.ts:125              →  listProcedures()
 app/src/views/Progress.vue:132         →  已消费 slots（filter(name.trim()) 后做下拉，value 用 slot）
 ```
 
-**缺的只有「写」。**
+**当时缺的只有「写」。**
 
 ### 8.2 建议的接口形状
 
@@ -805,6 +811,8 @@ app/src/views/Progress.vue:132         →  已消费 slots（filter(name.trim()
 - **一次事务整体 upsert**，不要照抄旧版「逐个 `findFirst` 再 update/create」（旧服务端 `setProcedures`
   按 `order_index` 再按 `name` 兜底查，会误合并；新版 `UNIQUE(tenant_id, slot)` 直接 `ON CONFLICT` 干净）。
 - 「名字为空 ⇒ 删行」这条**建议保留**（与旧版一致，且「清空 = 停用」是用户直觉）。
+  ⚠️ **最终实现没采用这条**，见 §8.1 顶部框 —— 空名照样 upsert 成 `name=''`
+  （`GET` 本来就一律返回 15 项，看不出差别），但**不再删行**，免得半量请求清空别的槽。
 
 ### 8.3 三处**不要照搬**旧版
 

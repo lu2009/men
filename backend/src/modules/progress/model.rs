@@ -1,7 +1,7 @@
 // 生产进度（旧版 `/Progress` 页）的传输结构。
 // 逆向见 docs/2026-09-19-progress-{analysis,server,shell}.md。
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// 一户租户的工序名清单 —— **15 个扁平槽**。
 ///
@@ -16,6 +16,11 @@ pub struct ProcedureSlotDto {
     /// `'工序1'` .. `'工序15'`
     pub slot: String,
     pub name: String,
+    /// 该槽的颜色，**空串 = 没配过**（不是「白色」）。
+    ///
+    /// 旧版没有这个字段 —— 颜色存在浏览器 localStorage 的 `procedure_name_color_map` 里，
+    /// 键是**工序名**（改名即丢色）且不分租户。新版落在 `procedures.color`，见迁移 `0022`。
+    pub color: String,
 }
 
 /// `GET /v1/procedures` 的返回：按槽号排好序的数组。
@@ -25,6 +30,31 @@ pub struct ProcedureSlotDto {
 #[derive(Debug, Serialize)]
 pub struct ProceduresDto {
     pub slots: Vec<ProcedureSlotDto>,
+}
+
+/// `POST /v1/procedures` 的请求体 —— **整体 upsert**。
+///
+/// 对应旧版 `param1=SetProcedures`（`param2`=registrant、body=`{工序1:名字, …}`）。
+/// 区别有两点：
+///
+/// · 旧版 body 是**裸的 槽→名 对象**，槽名是 JSON 的键；新版包一层 `slots` 数组，
+///   顺序可控、且新增的 `color` 有地方放（旧版颜色根本没上过服务端）。
+/// · 旧版按 `registrant` 查租户；新版从登录态取 `tenant_id`。
+#[derive(Debug, Deserialize)]
+pub struct ProceduresInput {
+    pub slots: Vec<ProcedureSlotInput>,
+}
+
+/// 请求体里的一个槽。
+#[derive(Debug, Deserialize)]
+pub struct ProcedureSlotInput {
+    /// `'工序1'` .. `'工序15'`。**野槽名直接 400**（与 `progress/update` 同口径）。
+    pub slot: String,
+    /// 该槽的工序名。空串 = 该槽没名字（`GET` 里照样返回，只是名字为空）。
+    pub name: String,
+    /// 该槽的颜色。允许缺省（缺省 = 空串 = 没配过），前端只改名字时可以不带。
+    #[serde(default)]
+    pub color: String,
 }
 
 /// `POST /v1/progress/update` 的请求体。
