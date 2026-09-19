@@ -101,6 +101,22 @@ pub struct OrderLineInput {
     /// 空串 = 把已有的单号抹掉。见 `migrations/0020_order_line_no.sql`。
     #[serde(default)]
     pub line_no: String,
+    /// 行级工序槽 `{"工序1":"下料_张三_2026-09-19", …}`（15 个扁平槽，空槽可为空串/缺键）。
+    ///
+    /// 见 `migrations/0021_progress.sql` 与 `docs/2026-09-19-progress-analysis.md`。
+    /// ⚠️ **当前是「只读列」**：`update_line` / `insert_line` 的列清单里**没有它**，
+    ///    所以整单保存**不会碰它**（原样保留），传了也是空转。
+    ///    · 新建行 → 拿 0021 的 `DEFAULT '{}'`。
+    ///    · ⚠️ **等做「更新进度」时**，必须**同时**把它加进那两处写路径，
+    ///      并按 `line_no` 的口径处理（全字段替换下，漏传即抹空）。
+    #[serde(default = "empty_slots")]
+    pub procedure_slots: Value,
+}
+
+/// `procedure_slots` 的 serde 默认值：**空对象 `{}`**（不是 null）。
+/// 与 0021 里那一列的 `DEFAULT {}` 对齐。
+fn empty_slots() -> Value {
+    Value::Object(serde_json::Map::new())
 }
 
 /// 新建/更新订单请求体：订单头 + 行列表。
@@ -247,6 +263,8 @@ pub struct OrderLineDto {
     pub hole_size: String,
     /// 行级「单号」（`N-YY/MM/DD`）—— 旧版印在玻璃单/生产单上、也是二维码的内容。
     pub line_no: String,
+    /// 行级工序槽 `{"工序1":"下料_张三_2026-09-19", …}`。见 `migrations/0021_progress.sql`。
+    pub procedure_slots: Value,
 }
 
 /// 列表用订单头（不含行）。

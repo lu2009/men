@@ -26,7 +26,8 @@ const LINE_COLUMNS: &str = "id, line_type, row_index, profile, color, direction,
      quantity, unit_price, price_type, discount, square, custom_square, other_fee, \
      casing_price, casing_amount, amount, parts, markup, formula_id, remark, install_address, \
      open_img, edge_seal_count, seal_board_height, track_length, front_casing_add, back_casing_add, \
-     double_ding, light_window_count, image_id, image_url, progress, hole_size, line_no";
+     double_ding, light_window_count, image_id, image_url, progress, hole_size, line_no, \
+     procedure_slots";
 
 #[derive(sqlx::FromRow)]
 pub(crate) struct OrderHeaderRow {
@@ -103,6 +104,8 @@ struct OrderLineRow {
     hole_size: String,
     /// 行级「单号」（`N-YY/MM/DD`）。见 `migrations/0020_order_line_no.sql`。
     line_no: String,
+    /// 行级工序槽 `{"工序1":"下料_张三_2026-09-19", …}`。见 `migrations/0021_progress.sql`。
+    procedure_slots: serde_json::Value,
 }
 
 fn round2(v: f64) -> f64 {
@@ -184,6 +187,7 @@ fn line_to_dto(row: OrderLineRow) -> OrderLineDto {
         progress: row.progress,
         hole_size: row.hole_size,
         line_no: row.line_no,
+        procedure_slots: row.procedure_slots,
     }
 }
 
