@@ -10,10 +10,13 @@ export interface TabsConfig {
   add_2: number
 }
 
-/** 昊艺门窗真实配置：ping_tabs={sheets:1,add:0,add_2:0} */
-const DEFAULT_PING_TABS: TabsConfig = { sheets: 1, add: 0, add_2: 0 }
+/**
+ * 昊艺门窗真实配置：ping_tabs={sheets:1,add:0,add_2:0}
+ * （`export` 是给 `utils/scanLabels.ts` 用的 —— 扫码页的标签张数也要这两个参数，见那个文件头。）
+ */
+export const DEFAULT_PING_TABS: TabsConfig = { sheets: 1, add: 0, add_2: 0 }
 /** 昊艺门窗真实配置：diao_tabs={sheets:1,add:1,add_2:0} */
-const DEFAULT_DIAO_TABS: TabsConfig = { sheets: 1, add: 1, add_2: 0 }
+export const DEFAULT_DIAO_TABS: TabsConfig = { sheets: 1, add: 1, add_2: 0 }
 
 /** 扇数字符串 → 扇数 N（含「纱」追加）。 */
 function fansToCount(fans: string): number {

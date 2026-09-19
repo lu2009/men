@@ -697,19 +697,32 @@ for (const l of t) U["value"]["push"](l["value"]), T["value"][l["value"]] = l["k
 
 ### 7.1 手法
 
-沿用 `docs/legacy-finance/lib/run-legacy-fn.mjs`（esbuild 剥类型 + 外部依赖注入），
-但它的 `sliceFnFrom` **在返回类型里带花括号时会切错**：
+沿用 `docs/legacy-finance/lib/run-legacy-fn.mjs`（esbuild 剥类型 + 外部依赖注入）。
 
-```ts
-export function parseDs(ds: string): { databaseName: string } & Record<string, unknown> {
-//                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^ 这一对花括号会被当成函数体起点
-```
-
-`indexOf('{', start)` 命中的是**类型注解**的花括号，配平后切出来的是一句 overload 签名，
-esbuild 剥完是**空串**，于是运行时报 `parseDs is not defined`。
-**修法**：先配平**参数表的圆括号**，再在参数表之后**逐个候选花括号**试
-（用 `esbuild` 剥完仍含 `function <name>` 的那个才算命中）。
-本次的可用版本在 `/tmp/slice2.mjs`（`sliceFn2` / `runFns`）。
+> ✅ **2026-09-19 已就地修好，`/tmp/slice2.mjs` 不再需要。**
+> 当时它有个坑：`sliceFnFrom` **在签名里带花括号时会切错**，把**类型注解**的花括号
+> 当成函数体起点：
+>
+> ```ts
+> export function parseDs(ds: string): { databaseName: string } & Record<string, unknown> {
+> //                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^ 这一对花括号会被当成函数体起点
+> ```
+>
+> 配平到那里就收工，切出来的是一句残缺签名；esbuild 剥完是**空串**，
+> 于是运行时报 `parseDs is not defined` —— **看着像名字写错，其实是切歪了**。
+> （当时是复制一份到 `/tmp/slice2.mjs` 绕过，**没有改仓库里的公共件**。）
+>
+> **现在的修法**（`sliceFnFrom` 内，带注释）：① 先配平**参数表的圆括号**；
+> ② 再在参数表之后找**函数体**的花括号 —— 判据是「这个 `{` 前面一个非空白字符**不是 `:`**」
+> （类型字面量前面必定是 `:`），类型内部的 `{}` 计入深度不误取；
+> ③ 万一到 `;` 还没找到（重载签名之类不认识的形态）就退回旧行为。
+>
+> 对**签名里没有花括号**的函数（绝大多数）结果与改前**完全一样**；
+> 只对上面那种签名修好。回归办法：把 `progress.service.ts` 与 `finance.service.ts` 里
+> **每一个** `function` 都切一遍，要求「切得出、且 esbuild 剥完非空」——
+> 现在分别是 41 / 38 个，**0 切不出、0 空**。
+> 用得上它的差分台：`docs/qrscanner-scan-logiccheck.mjs`、`docs/home-audit/lineno-logiccheck.mjs`
+> 以及 `docs/legacy-finance/0{5,6,7,9}-*.mjs`（后四台要后端在 `127.0.0.1:3999`，离线跑不了）。
 
 ### 7.2 桩
 

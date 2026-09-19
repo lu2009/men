@@ -124,6 +124,24 @@ export const api = {
       body: JSON.stringify({ line_ids: lineIds, slot, value }),
     }),
   /**
+   * 标签云打印的数据（旧版 `param1=getLabelData`，body = 单号数组）。
+   *
+   * 同样按**行级「单号」**取门行，返回结构与 `GET /v1/progress` 同构。
+   *
+   * ⚠️ 旧版的 `labelRow`（`progress.service.ts:181`）只挑 18 个中文键 ——
+   * 那是「当时那个打印模板恰好用到的字段」的快照，不是业务边界；新版给整行。
+   * 标签张数要按 `扇数`×`数量` / `亮窗总高` / `墙厚` 现算，只多不少。
+   *
+   * ⚠️ **旧版这条链路首尾不是同一个键**：二维码里装的是**行级**「单号」，
+   * 服务端却按**订单号** `orderNo` 过滤（查不到、或撞上就多打整张单）。
+   * 新版统一到行级 `order_lines.line_no`（分析文档 §8.6-(c)）。
+   */
+  scanLabels: (lineNos: string[]) =>
+    request<{ rows: ProgressRowDto[] }>('/v1/scan/labels', {
+      method: 'POST',
+      body: JSON.stringify({ line_nos: lineNos }),
+    }),
+  /**
    * 本租户的工序名清单（15 个扁平槽，顺序按槽号）。
    *
    * ⚠️ **颜色也在这条接口里** —— 旧版颜色根本不上服务端（只写本地 localStorage），

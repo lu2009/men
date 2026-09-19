@@ -42,8 +42,73 @@ export function sliceFnFrom(src, name) {
     if (at < 0) throw new Error(`切不到函数：${name}`)
     start = SVC_SRC.indexOf('\n', at) + 1
   }
-  // 从定义起点往后找第一个 `{`，再配平
-  const open = SVC_SRC.indexOf('{', start)
+  // 从定义起点往后找**函数体**的那个 `{`，再配平。
+  //
+  // 🔴 2026-09-19 修：原来是「从定义起点往后找**第一个** `{`」。那个写法在
+  //    **签名里带内联对象类型**时会切错 —— 例如
+  //      `function parseScanMarker(value: unknown): { employee: string; date: string } | null {`
+  //    第一个 `{` 是**返回类型**里的那个，配平到它自己的 `}` 就收工，
+  //    于是返回一段**残缺源码**（`"function parseScanMarker(value: unknown): { employee: string; date: string }"`）。
+  //    症状极隐蔽：`sliceFnFrom` 不报错，`toJs` 打出**空串**，最后在 `new Function` 里才炸成
+  //    「xxx is not defined」—— 看着像名字写错，其实是切歪了。
+  //    （`enrichDoorRow` 也是这种签名，同一个坑。）
+  //
+  //    改法：**先配平参数列表的括号**，再从 `)` 之后找函数体的 `{`。
+  //    对「签名里没有 `{`」的函数（绝大多数）结果与改前**完全一样**；
+  //    只对上面那种签名修好。`const f = x => {…}` 这种没有 `(` 在 `{` 之前的形态走原路。
+  let searchFrom = start
+  const paren = SVC_SRC.indexOf('(', start)
+  const firstBrace = SVC_SRC.indexOf('{', start)
+  if (paren >= 0 && (firstBrace < 0 || paren < firstBrace)) {
+    let depth = 0
+    let str = null
+    for (let i = paren; i < SVC_SRC.length; i++) {
+      const c = SVC_SRC[i]
+      if (str) {
+        if (c === '\\') i++
+        else if (c === str) str = null
+        continue
+      }
+      if (c === '"' || c === "'" || c === '`') { str = c; continue }
+      if (c === '/' && SVC_SRC[i + 1] === '/') { while (i < SVC_SRC.length && SVC_SRC[i] !== '\n') i++; continue }
+      if (c === '/' && SVC_SRC[i + 1] === '*') { i = SVC_SRC.indexOf('*/', i) + 1; continue }
+      if (c === '(') depth++
+      else if (c === ')') {
+        depth--
+        if (depth === 0) { searchFrom = i + 1; break }
+      }
+    }
+    // 参数表之后还可能是**返回类型**，而类型里同样可能有 `{…}`：
+    //   `… ): { employee: string; date: string } | null {`  ← 返回类型那个 `{` 不是函数体。
+    // 判据：**函数体的 `{` 前面一个非空白字符不是 `:`**（类型字面量前面必定是 `:`）。
+    // 类型内部的括号计入 `d2`，免得钻进类型里面去。
+    const prevNonSpace = (i) => {
+      for (let j = i - 1; j >= start; j--) if (!/\s/.test(SVC_SRC[j])) return SVC_SRC[j]
+      return ''
+    }
+    let d2 = 0
+    let str2 = null
+    for (let i = searchFrom; i < SVC_SRC.length; i++) {
+      const c = SVC_SRC[i]
+      if (str2) {
+        if (c === '\\') i++
+        else if (c === str2) str2 = null
+        continue
+      }
+      if (c === '"' || c === "'" || c === '`') { str2 = c; continue }
+      if (c === '/' && SVC_SRC[i + 1] === '/') { while (i < SVC_SRC.length && SVC_SRC[i] !== '\n') i++; continue }
+      if (c === '/' && SVC_SRC[i + 1] === '*') { i = SVC_SRC.indexOf('*/', i) + 1; continue }
+      if (c === '{') {
+        if (d2 === 0 && prevNonSpace(i) !== ':') { searchFrom = i; break } // ★ 这就是函数体
+        d2++
+        continue
+      }
+      if (c === '}') { d2--; continue }
+      // 到 `;` 还没见到函数体 ⇒ 这大概是**重载签名**之类，不认识 ⇒ 退回旧行为（第一个 `{`）。
+      if (c === ';' && d2 === 0) break
+    }
+  }
+  const open = SVC_SRC.indexOf('{', searchFrom)
   if (open < 0) throw new Error(`找不到函数体：${name}`)
   let depth = 0
   let str = null
