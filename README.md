@@ -104,7 +104,12 @@ npm run tauri dev
 **角色与授权**：`role` 取 `admin` / `scanner`。授权在 **router 层**统一拦（`backend/src/core/guard.rs`），
 白名单之外一律要 `admin` —— 新增模块忘了归类是**被拦住**而不是被放行。
 `scanner` 只能调：`/auth/me`、`/auth/logout`、`/auth/change-password`、
-`GET /progress`、`GET /progress/more`、`POST /progress/update`、`POST /scan/labels`、`GET /procedures`。
+`GET /scan/qrcode`、`GET /scan/stats`、`POST /progress/update`、`POST /scan/labels`、
+`GET /print-templates/lable`（**只有这一个 mode**）、`GET /procedures`。
+> ⚠️ **2026-09-19 改过两条**：① **删**掉 `GET /progress` 与 `GET /progress/more` —— 两条都是**全量**
+> 接口（整库门行带客户名/金额/安装地址），而扫码页跑在车间工人的手机上 ⇒ 换成上面两条**窄**的
+> （只回自己扫到/范围内的行）；② **加**上 `GET /print-templates/lable`（「打印标签」那颗按钮要用，
+> 回的是模板 JSON、不含业务数据）。扫码页若报 403，先看它调的是不是全量那条 / 别的 mode。
 未登录 401、角色不够 403。详见 `docs/2026-08-21-auth-design.md`。
 
 ## 约定

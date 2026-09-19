@@ -1,6 +1,8 @@
 use axum::extract::{Query, State};
 use axum::Json;
-use super::model::{LabelDataInput, ProceduresInput, ProgressUpdateInput};
+use super::model::{
+    LabelDataInput, ProceduresInput, ProgressUpdateInput, ScanQrCodeQuery, ScanStatsQuery,
+};
 use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
@@ -67,15 +69,37 @@ pub async fn more_progress(
 
 /// `POST /v1/progress/update` —— 给若干行的某个工序槽写值。
 ///
-/// 旧版是 `param1=updataProgress`（`param3`=槽名、`param4`=值、body=id 列表）。
-/// 语义与偏离见 `service::update_progress` 的注释。
+/// 旧版是 `param1=updataProgress`（`param3`=槽名、`param4`=值、body=id 或 单号）。
+/// 「改哪几行」收 `line_ids`（行 id）**或** `line_nos`（**行级**单号），至少给一个，
+/// 都给取并集 —— 扫码端手里只有单号，不该为了拿行 id 去拉全量。语义与偏离见
+/// `service::update_progress` 的注释。
+///
+/// 返回 `{ updated, failed }`：`failed` = 给的 `line_nos` 里本租户内一个都没对上的那些
+/// （**字段名照旧版** `data.failed`，前端 `api.updateProgress` 按它读）。
+///
+/// ## 状态码只有两种，**与旧版同形**（别改成「一律 200」）
+///
+/// | 情况 | 返回 |
+/// |---|---|
+/// | 命中一部分或全命中 | **200** `{updated, failed}` —— `failed` 非空就是「有几个没对上、已跳过」 |
+/// | **一个都没命中**（或两个字段都没给） | **400**「没有要更新的行」 |
+///
+/// 第二行逐字对齐旧版 `progress.service.ts:655`：
+/// `if (failed.size > 0 && totalUpdated === 0) return { code: 400, … }` ——
+/// 旧版把「给的 ref 一个都不存在」当**输入有问题**，只把「部分命中」当正常结果。
+/// 新版沿用这个划分（也和本端点「空入参 400」同口径）。
+///
+/// ⚠️ 400 那条路上**不带 `failed` 列表**（本项目的错误信封统一是 `{"error":{…}}`）——
+/// 可那种情况下「没对上的」就是调用方给的全部单号，信息并没有丢。
 pub async fn update_progress(
     State(state): State<AppState>,
     user: CurrentUser,
     Json(req): Json<ProgressUpdateInput>,
 ) -> ApiResult<Json<Value>> {
-    let n = service::update_progress(&state.pool, user.tenant_id, &req).await?;
-    Ok(response::ok(json!({ "updated": n })))
+    let out = service::update_progress(&state.pool, user.tenant_id, &req).await?;
+    Ok(response::ok(
+        json!({ "updated": out.updated, "failed": out.failed }),
+    ))
 }
 
 /// `POST /v1/scan/labels` —— 标签云打印的数据（body `{ line_nos: [...] }`，**行级单号**）。
@@ -88,5 +112,34 @@ pub async fn label_data(
     Json(req): Json<LabelDataInput>,
 ) -> ApiResult<Json<Value>> {
     let v = service::label_data(&state.pool, user.tenant_id, &req.line_nos).await?;
+    Ok(response::ok(v))
+}
+
+/// `GET /v1/scan/qrcode?code=` —— 扫码 / 手动查单：**只回命中这个单号的那几行**。
+///
+/// 对应旧版 `param1=getScanQRcode&param3={扫到的文本}`。
+/// 返回 `{ rows: [ 门行… ] }`（与 `POST /v1/scan/labels` 同键，行同 [`service::build_row`]）；
+/// 有 `code` 却一行都没命中时 **404 `未找到相关订单`** —— 旧版就是 404 不是空数组，
+/// 前端据此走 error 分支，**照抄**。
+pub async fn scan_qrcode(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<ScanQrCodeQuery>,
+) -> ApiResult<Json<Value>> {
+    let v = service::scan_qrcode(&state.pool, user.tenant_id, &q.code).await?;
+    Ok(response::ok(v))
+}
+
+/// `GET /v1/scan/stats?employee=&range=` —— 扫码统计：**只回范围内的行**。
+///
+/// 对应旧版 `param1=getProcessCounts&param3={员工}&param4={当天|本周|本月|"起,止"}`。
+/// 返回 `{ progressData: [ 门行… ] }`，键与 `GET /v1/progress` **同名同构** ——
+/// 前端换接口时不用改取数那一行。筛法与偏离见 `service::scan_stats`。
+pub async fn scan_stats(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<ScanStatsQuery>,
+) -> ApiResult<Json<Value>> {
+    let v = service::scan_stats(&state.pool, user.tenant_id, &q.employee, &q.range).await?;
     Ok(response::ok(v))
 }

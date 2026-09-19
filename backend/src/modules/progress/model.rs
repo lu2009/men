@@ -71,14 +71,63 @@ pub struct LabelDataInput {
     pub line_nos: Vec<String>,
 }
 
+/// `GET /v1/scan/qrcode` 的查询串 —— 扫码 / 手动查单。
+///
+/// 旧版是 `param1=getScanQRcode&param3={扫到的文本}`（`progress.service.ts:511`）。
+/// 这里只有一个 `code`：旧版 `param3` 是单个值（dispatch 那条），
+/// 逗号分隔的形态由 `service::scan_qrcode` 内部拆（旧 REST 路由就是这么发的）。
+///
+/// 缺省 = 空串 ⇒ **200 + 空列表**（旧版空入参那一支），不是 400。
+#[derive(Debug, Deserialize)]
+pub struct ScanQrCodeQuery {
+    #[serde(default)]
+    pub code: String,
+}
+
+/// `GET /v1/scan/stats` 的查询串 —— 扫码统计。
+///
+/// 旧版是 `param1=getProcessCounts&param3={员工}&param4={当天|本周|本月|"起,止"}`。
+///
+/// · `employee`：员工名；哨兵值 `1` = **全部员工**（旧版 `operatorName !== '1'` 那个判断）。
+/// · `range`：三个日期档位标签，或 `"起,止"`（`YYYY-MM-DD`，闭区间；只给一个日期时起止同天）。
+///
+/// 两个都**必填**（缺/空 → 400）。旧版是 500 + 一段裸 HTML（`missing params`）——
+/// 那是事故现场不是契约，见 `service::scan_stats` 的偏离说明。
+#[derive(Debug, Deserialize)]
+pub struct ScanStatsQuery {
+    #[serde(default)]
+    pub employee: String,
+    #[serde(default)]
+    pub range: String,
+}
+
 /// `POST /v1/progress/update` 的请求体。
 ///
 /// 对应旧版 `param1=updataProgress`（`param3`=槽名、`param4`=要写的值、body=行 id 列表）。
 /// 新版把三样都放进 JSON —— 旧版那个 `param3`/`param4` 混在 query 里的口径不好读。
+///
+/// ## 「改哪几行」有两个字段，**至少给一个**（都给就取并集）
+///
+/// 旧版 body 是一组 ref，`normalizeRefs` + `rowRefs` **id 和单号都认**；新版把这两种粒度
+/// 拆成两个各自明确的字段（见 `service::update_progress` 的注释与那处「有意比旧版窄」）：
+///
+/// · `line_ids` —— `order_lines.id`（PC 端 `/Progress` 手里就是行 id）
+/// · `line_nos` —— **行级**单号 `order_lines.line_no`（`/Qrscanner` 手里只有扫出来的单号）
 #[derive(Debug, serde::Deserialize)]
 pub struct ProgressUpdateInput {
-    /// 要改的**行**（`order_lines.id`）。旧版是按「单号/回执单号」找行，新版直接给行 id。
+    /// 要改的**行**（`order_lines.id`）。
+    ///
+    /// ⚠️ `#[serde(default)]` 是**必须的**：只给 `line_nos` 的调用方（扫码端）不会带这个键，
+    /// 少了它整条请求会**反序列化失败**（422），而不是走到 handler。
+    #[serde(default)]
     pub line_ids: Vec<i64>,
+    /// 要改的**行级单号**（= 二维码里装的那个，如 `12-26/09/19`）。
+    ///
+    /// ⚠️ **不是**订单的回执单号 —— 旧版把回执单号也当 ref 收（传订单号 = 改整单所有行），
+    /// 新版只认行级单号，见 `service::update_progress`。
+    /// 本租户内一个都没对上的单号会在响应的 `missing` 里回给调用方。
+    #[serde(default)]
+    pub line_nos: Vec<String>,
     /// `'工序1'` .. `'工序15'`
     pub slot: String,
     /// 要写进这个槽的值。旧版格式是 `工序名[_操作员]_YYYY-MM-DD`，但**服务端不校验格式**

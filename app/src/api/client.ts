@@ -108,6 +108,10 @@ export const api = {
    *
    * ⚠️ 旧版还有个终端分支（`getProgressForTerminal`），服务端是**写死 400**，
    * 那条路本来就是坏的 ⇒ 新版不做。见 `docs/2026-09-19-progress-analysis.md` §10。
+   *
+   * ⚠️ **`/Qrscanner`（扫码页）不许调这一条。** 这里是**整库门行**（含客户名/金额/安装地址），
+   * 而扫码页跑在**车间工人的手机**上 —— 该页一律走窄接口（`scanQrcode` / `scanStats` / `scanLabels`）。
+   * 详见 `scanQrcode` 的注释：本版**栽过一次**（扫码页拉全量、前端自己筛）。
    */
   listProgress: () => request<{ progressData: ProgressRowDto[] }>('/v1/progress'),
   /**
@@ -136,12 +140,63 @@ export const api = {
    * 语义是**覆盖**（旧版只有 `工序10` 走合并，那个特判新版去掉了）。
    * `value` 的格式约定是 `工序名[_操作员]_YYYY-MM-DD`，但**服务端不校验格式**。
    *
+   * ## ★ 行怎么指：`lineIds` 或 `lineNos`，**二选一**（都给则取并集）
+   *
+   * 这是 2026-09-19 用户拍板加的 `line_nos` 那一半，**理由是对齐旧版**：
+   * 旧版 `updataProgress` 的 body 本来就是**单号数组**（`progress.service.ts:598`
+   * `orderIds: string[]`），服务端拿 `rowRefs(row)` 去比。新版把两条路都留着：
+   * · `/Progress` 页手里只有行 id ⇒ 传 `lineIds`；
+   * · `/Qrscanner` 手里只有扫到的**行级单号** ⇒ 传 `lineNos`。
+   *
+   * ★ 后者**省掉一次往返**：原先扫码端要先用 `GET /v1/progress` 拉全量建「单号 → 行 id」的表
+   * （那条现在对扫码账号已 403，而且本来就超范围 —— 见 `scanQrcode` 的注释）。
+   *
+   * ⚠️ `lineNos` 是**行级单号**（`order_lines.line_no`，二维码里装的那个），
+   *    **不是回执单号**。拿错了**两头都不报错**，只是改错行 —— 所以参数名在这里写全。
+   *
    * ⚠️ **槽名会被服务端校验**（必须 `工序1`..`工序15`），野键直接 400 —— 这是新版加的。
+   *
+   * ## 返回与「没对上」的三种出口（★ 与旧版**逐条对齐**，不是我们发明的）
+   *
+   * | 情况 | 返回 |
+   * |---|---|
+   * | 全命中 | 200 `{updated:N, failed:[]}` |
+   * | **部分命中** | 200 `{updated:N, failed:[没对上的单号]}` |
+   * | **一个都没对上** | **400**（`没有要更新的行`） |
+   * | `line_ids` / `line_nos` 都不给 | 400 |
+   *
+   * 依据是旧版（`progress.service.ts:654`）：
+   * ```ts
+   * if (failed.size > 0 && totalUpdated === 0) return { code: 400, data: { failed: [...] } };
+   * return { code: 200, message: `更新成功，共更新 ${totalUpdated} 条记录…` };
+   * ```
+   * ⇒ 「零命中给 400、部分命中给 200」**本来就是旧版的口径**。
+   * 后端那份表在 `backend/src/modules/progress/handler.rs:80`（「状态码只有两种」那张）。
+   * ⚠️ 这里曾经有句「一律 200，哪怕 `updated: 0`」的注释与实现**互相打架**，
+   *    2026-09-19 已按「代码为准」改掉（是本条注释写反了，不是实现错）。
+   * 差分台 `docs/qrscanner-scan-logiccheck.mjs` 的 ⑤ 段是**两边各跑一次**比的这条，别再靠注释。
+   *
+   * @returns `updated` = 真被改到的行数；`failed` = **没找到**的那些单号
+   *          （字段名照旧版 `data.failed`）。⚠️ 零命中走 400，**那条路的响应体里没有 `failed`**
+   *          （旧版 400 的 body 里是带的 —— 这是新版全站错误信封带来的小差别，改由前端给通用提示）。
    */
-  updateProgress: (lineIds: number[], slot: string, value: string) =>
-    request<{ updated: number }>('/v1/progress/update', {
+  updateProgress: (payload: {
+    slot: string
+    value: string
+    /** 行 id（`/Progress` 页用）。 */
+    lineIds?: number[]
+    /** **行级**单号（`/Qrscanner` 用）。 */
+    lineNos?: string[]
+  }) =>
+    request<{ updated: number; failed: string[] }>('/v1/progress/update', {
       method: 'POST',
-      body: JSON.stringify({ line_ids: lineIds, slot, value }),
+      // `undefined` 的键会被 `JSON.stringify` 直接丢掉 ⇒ 不会发出「空数组」那种歧义载荷。
+      body: JSON.stringify({
+        slot: payload.slot,
+        value: payload.value,
+        line_ids: payload.lineIds,
+        line_nos: payload.lineNos,
+      }),
     }),
   /**
    * 标签云打印的数据（旧版 `param1=getLabelData`，body = 单号数组）。
@@ -161,6 +216,52 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ line_nos: lineNos }),
     }),
+  /**
+   * 扫码查单（旧版 `param1=getScanQRcode`）—— **只回命中的那几行**。
+   *
+   * ## ★ 为什么是端点而不是「拉全量 + 前端 filter」
+   *
+   * 本版**曾经**用 `GET /v1/progress` 拉全量再 `filter(单号)`，理由是「纯过滤、逐字等价」。
+   * 2026-09-19 用户纠正：**不等价**。`GET /v1/progress` 是**全量门行**（含客户名/金额/安装地址），
+   * 而扫码页跑在**车间工人的手机**上 —— 一次扫码就把整库订单摊到那台手机上，
+   * 与旧版「每次扫码只请求命中的那几行」的数据面**根本不同**。
+   * ⇒ 老服务端那条纯过滤接口**不是重复造**，是**最小暴露面**，恢复它。
+   *
+   * ⚠️ **找不到就是 404**（旧版就是 404，前端走 error 分支、不打开面板）——
+   *    `request()` 会把它抛成 `status === 404` 的 `Error`，见 `Qrscanner.vue` 的 `runScanQuery`。
+   *
+   * ⚠️ 匹配口径仍在服务端：`btrim(单号)` 后**精确相等**（不是 includes、不是前缀）——
+   *    与旧版 `String(row['单号']).trim()` 一致。
+   *
+   * ⚠️ `code` **可以是逗号分隔的多个单号**（服务端 `split(',')` 后取并集 —— 旧版 REST 路由
+   *    `?orderNo=a,b` 就是这么发的）。`resolveLineIds` 的批量解析走的就是这条。
+   *    空/全空白给 **200 + 空列表**（不是 404）；**有值但一个都没命中才 404**。
+   */
+  scanQrcode: (code: string) =>
+    request<{ rows: ProgressRowDto[] }>(`/v1/scan/qrcode?code=${encodeURIComponent(code)}`),
+  /**
+   * 扫码统计看板的数据（旧版 `param1=getProcessCounts`）—— **只回范围内那几行**。
+   *
+   * 同 `scanQrcode`：不再让前端拉全量现推「扫码员工 / 扫码日期」。
+   * 那条推导（旧版正则 `/_(.+)_(\d{4}-\d{2}-\d{2})$/`，**要两个下划线**）现在**只有服务端一份**，
+   * 见 `utils/scanStats.ts` 里删掉的那段留下的说明。**前端不许再加回来。**
+   *
+   * ⚠️ **响应的键是 `progressData`，不是 `scanQrcode` 那个 `rows`** —— 服务端刻意与
+   *    `GET /v1/progress` 同名同构（换接口时取数那行不用改），两条窄接口的键面**不一样**，
+   *    别「顺手统一」。
+   *
+   * @param employee 员工名；**`"1"` 是「全部员工」的哨兵值**（旧版服务端 `getProcessCounts` 用它判）。
+   *                 ⚠️ **服务端要求非空**：空串直接 400（旧版是 500 + 裸 HTML，服务端有意改成 400）。
+   * @param range    `当天` / `本周` / `本月`，或 `"起,止"`（两个 `YYYY-MM-DD`）。
+   *                 **标签由服务端换算**（`本周` 从**周一**算起）—— 前端不再算一份，免得两处漂。
+   *                 同样**要求非空**（空串 400）。
+   *
+   * 回来的行**带 `扫码日期`**（服务端现推的那个日期；没标记的行根本不会回来）。
+   */
+  scanStats: (employee: string, range: string) => {
+    const qs = new URLSearchParams({ employee, range })
+    return request<{ progressData: ProgressRowDto[] }>(`/v1/scan/stats?${qs.toString()}`)
+  },
   /**
    * 本租户的工序名清单（15 个扁平槽，顺序按槽号）。
    *
@@ -340,8 +441,33 @@ export const api = {
     }),
   deleteAddPriceItem: (id: number) =>
     request<{ deleted: boolean }>(`/v1/add-price-items/${id}`, { method: 'DELETE' }),
-  // 打印模板（汇算字典）：按 mode 或全量拉取。
+  /**
+   * 打印模板（汇算字典）：全量列表。
+   *
+   * ⚠️ **扫码账号（`/Qrscanner`）调不了这一条**（403）—— 白名单是**按具体路径**精确匹配的。
+   * 扫码页要模板就 `getPrintTemplatesByMode('lable')`，见下面。
+   */
   listPrintTemplates: () => request<PrintTemplateDto[]>('/v1/print-templates'),
+  /**
+   * 打印模板：按 mode 取（路由是 `/v1/print-templates/{mode}`，**路径参数**）。
+   *
+   * ## ⚠️ 扫码账号**只放行 `lable` 这一个 mode**（2026-09-19 加的白名单）
+   *
+   * 白名单（`backend/src/core/guard.rs` 的 `SCANNER_ALLOWED`）比的是**具体路径**，
+   * 所以里面是写死的一条 `("GET", "/api/v1/print-templates/lable")`：
+   *
+   * | 路径 | 扫码账号 |
+   * |---|---|
+   * | `GET /v1/print-templates/lable` | ✅ 200 |
+   * | `GET /v1/print-templates`（列表） | ❌ 403 |
+   * | `GET /v1/print-templates/xiaopiao`（别的 mode） | ❌ 403 |
+   *
+   * ⇒ **`/Qrscanner` 的「打印标签」必须继续按 mode 取 `lable`**（`printByMode('lable', …)`），
+   * **别**改成「先拉列表再自己挑」—— 那条是 403，而且列表也不需要。
+   * 哪天真要在扫码页打别的单据，**先让后端把那个 mode 加进白名单**，别在这儿绕。
+   *
+   * 依据与实测：`docs/qrscanner-authz-check.mjs`（`scanner GET /v1/print-templates/lable → 200`）。
+   */
   getPrintTemplatesByMode: (mode: string) =>
     request<PrintTemplateDto[]>(`/v1/print-templates/${encodeURIComponent(mode)}`),
   // 电子回执单：已登录取详情 / 签发分享链接 / 无认证凭令牌取详情。

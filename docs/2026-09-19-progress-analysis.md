@@ -410,8 +410,10 @@ P2.value=l2===a2||a2==="开门红" })`、`Vue.onActivated(()=>{Ta(),X2()})`。
 1. **批量与单行是同一个弹窗**（旧版也是：同一个 `I`，只换标题、`footer` 少两颗）。
    本版同样只多一个 `updBatch` 标志 —— 标题 `批量更新进度 (n条)`。
 2. **发的是行 id**，两种模式都是。旧版批量时按槽分流（`工序10` → 行 id，其余槽 → **行级单号**），
-   那是它服务端的分流口径；新版 `/v1/progress/update` 统一收 `line_ids`
-   （§10 已去掉「回款→工序10」的特判），所以不照抄那个分流。
+   那是它服务端的分流口径；新版 `/v1/progress/update` **两种粒度都收**（`line_ids` 或 `line_nos`，
+   §10 已去掉「回款→工序10」的特判），`/Progress` 页手上就是行 id ⇒ 照旧发 `line_ids`，
+   **不照抄那个按槽分流**。（`line_nos` 是给 `/Qrscanner` 用的：它手里只有扫出来的单号，
+   见 `docs/2026-09-19-qrscanner-analysis.md` §8.6-(a2) 第二版。）
 3. **成功提示分两种**（照旧版）：批量 `批量更新成功，共 N 条` / 单行 `进度已更新`。
 
 ### 4.3 删除进度
@@ -1055,7 +1057,12 @@ getProgress
 - `工序N` ← `order_lines.procedure_slots`（迁移 0021）
 - `回执单号` ← `orders.receipt_no`（我们没有 `customerInfo` 那层，直接用订单头）
 - `客户`/`客户编号`/`日期`/`业务员` ← 订单头 / `clients` 表
-- `扫码日期` → 我们**没有这个字段**，给 `null`（旧版也只在 `/Qrscanner` 用）
+- `扫码日期` → `GET /v1/progress` 给 `null`（旧版也只在 `/Qrscanner` 用）。
+  ⚠️ **2026-09-19**：`/Qrscanner` 那两条**窄**接口（`GET /v1/scan/qrcode`、`GET /v1/scan/stats`）
+  用的是**同一个 `build_row`**，但**会把这一格填上**——从 `procedure_slots` 用旧版
+  `parseScanMarker` 的正则**读时现推**（`progress/service.rs::derive_scan_marker`）。
+  26 列的「订单详情」里有一列就是它，所以扫码那两条必须填；全量那条不填（保持旧行为）。
+  见 `docs/2026-09-19-qrscanner-analysis.md` §8.6-(b) 的「第二版」。
 - `单号` ← `order_lines.line_no`（**行级**，见 `docs/2026-09-18-order-no-semantics.md`）
 - `procedureName` / `procedureStatus` / `打单人` / `打单操作` / `加价项目原始数据` / `封板高` / `洞尺`
   → 我们是新模型，**没有对应字段**；先按旧版的兜底值给（`''` / `null` / `'null'` / `0`），

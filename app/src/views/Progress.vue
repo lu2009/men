@@ -495,9 +495,10 @@ async function submitUpdate() {
   updSaving.value = true
   try {
     // 旧版批量时发的是**行 id**（槽 = 工序10）或**行级单号**（其余槽）——那是它服务端的分流口径。
-    // 新版 `/v1/progress/update` 统一收 `line_ids`（见 `api.updateProgress` 的注释，以及
-    // 分析文档 §10 去掉的「回款→工序10」特判）⇒ 两种模式都发 id。
-    await api.updateProgress(ids, updSlot.value, updValue.value)
+    // 新版 `/v1/progress/update` **两种都收**（`line_ids` / `line_nos`，二选一取并集；
+    // 见 `api.updateProgress` 的注释，以及分析文档 §10 去掉的「回款→工序10」特判）。
+    // 这一页手里本来就是行 id ⇒ 继续发 id，与旧版那条批量路一致。
+    await api.updateProgress({ slot: updSlot.value, value: updValue.value, lineIds: ids })
     updOpen.value = false
     // 成功提示照旧版分两种：批量「批量更新成功，共 N 条」/ 单行「进度已更新」。
     message.success(batch ? `批量更新成功，共 ${ids.length} 条` : '进度已更新')

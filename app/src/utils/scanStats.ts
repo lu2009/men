@@ -281,134 +281,41 @@ export function buildProcedureGroups(
     .sort((a, b) => slotNo(a.name) - slotNo(b.name))
 }
 
-// ── 扫码查单的匹配口径（★ 旧版 `getScanQRcode` 的**等价替换**） ────────────
+// ── ★ 已删除：扫码查单的匹配 + 「扫码员工/扫码日期」的现推 + 日期标签换算 ──
+//
+// 2026-09-19 用户纠正：**这三段都搬回服务端了，前端一份都不留。**
+//
+// ## 为什么删（别在这里再加回来）
+//
+// 本文件原先有 `matchByScanCode`（客户端筛单号）、`parseScanMarker` / `deriveScanMarker`
+// （从 `工序1..15` 里现推「扫码员工/扫码日期」）、`resolveDateLabel`（`当天/本周/本月` → 起止）。
+// 它们存在的前提是「**前端手里有全量行**」—— 而那个前提本身是错的：
+// `GET /v1/progress` 是全量门行（含客户名/金额/安装地址），扫码页跑在**车间工人的手机**上。
+// 旧版每次扫码只请求**命中的那几行**（`getScanQRcode` / `getProcessCounts`），
+// 本版一度改成了「拉全量 + 前端 filter」，把整库订单摊到了那台手机上。
+//
+// 现在恢复成两条**窄接口**（`api.scanQrcode` / `api.scanStats`），于是：
+//
+// | 原来的前端函数 | 现在归谁 |
+// |---|---|
+// | `matchByScanCode` | 服务端 `GET /v1/scan/qrcode`（`btrim(单号)` 后精确相等） |
+// | `parseScanMarker` / `deriveScanMarker` | 服务端 `GET /v1/scan/stats`（同一个正则，**只有一份**） |
+// | `resolveDateLabel` | 服务端（`本周` 从**周一**算起；前端直接传 `当天`/`本周`/`本月` 字面标签） |
+//
+// ⚠️ **推导只留服务端那一份。** 两处各写一份正则/日期口径，迟早会在某次改动里漂开
+//    —— 而这两处的漂移**不报错**，只是筛出来的行数不一样，看板上少了几个数字没人会发现。
+//    所以这里删干净，不留「以防万一」的副本。
+//
+// 差分台也跟着搬：`docs/qrscanner-scan-logiccheck.mjs` 原先比的是
+// 「旧版服务端 vs **新版前端**」，右边那一半已经不存在了（见那个脚本的头注）。
 
 /**
- * 这一行是不是扫码/手输的那个单号 —— **旧版 `param1=getScanQRcode` 的等价客户端过滤**。
+ * 日期标签（旧版前端传的字面标签，`当天`/`本周`/`本月`）。
  *
- * ## ⚠️ 这不是「漏做了端点」，是有意替换 —— 别以后有人以为是漏了、又去补一个端点
- *
- * 旧版那条接口（`progress.service.ts:511`）是**纯过滤、没有任何数值逻辑**：
- * ```ts
- * const wanted = refs.map(ref => String(ref || '').trim()).filter(Boolean);
- * const wantedSet = new Set(wanted);
- * // …
- * .filter(row => wantedSet.has(String(row['单号'] || '').trim()))
- * ```
- * 而 `GET /v1/progress` **本来就返回全量门行、连 `单号` 一起**（旧版也是拉全量）
- * ⇒ 前端筛一遍与那条端点**逐字等价**，再开一条就是「服务端把同一份数据重新过一遍」的重复逻辑。
- * 后端**已经明确把那条端点删掉了**（分析文档 §8.6-(a)），这里就是那个决定的落点。
- *
- * 匹配口径逐字照抄旧版：**`trim()` 后精确相等**（不是 includes、不是前缀）。
+ * ⚠️ 现在**只是线上格式的文档** —— 换算（`本周` 从周一算起等）在服务端做，
+ * 前端把这个字面量原样传给 `GET /v1/scan/stats?range=`。`"起,止"` 那一支不走这个类型。
  */
-export function matchByScanCode(row: ProgressRowDto, code: string): boolean {
-  return String((row as unknown as Record<string, unknown>)['单号'] ?? '').trim() === code.trim()
-}
-
-// ── 「扫码员工 / 扫码日期」的两个派生 + 筛选（★ 新版没有这两个字段） ──────
-
-/**
- * 从一段工序值里解析「扫码员工 / 扫码日期」（旧版 `parseScanMarker`，`progress.service.ts:116`）。
- *
- * 正则逐字照抄：`/_(.+)_(\d{4}-\d{2}-\d{2})$/` —— ⚠️ **要两个下划线**才匹配。于是：
- * - `/Qrscanner` 提交的值 = `工序名_员工名_日期`（两个下划线）→ **匹配**；
- * - `/Progress` 页提交的值 = `工序名_日期`（一个下划线）→ **不匹配**。
- *
- * 也就是说：**扫码统计的是「扫码页的操作」，不是「任何一次进度写入」**（分析文档 §8.6-(b) 的
- * 关键事实）。现有库里 `"下料_2026-09-19"` 这种值本来就不该算进看板 —— 这条不是我们的取舍，
- * 是旧版正则的既定语义。
- */
-export function parseScanMarker(value: unknown): { employee: string; date: string } | null {
-  const m = str(value).trim().match(/_(.+)_(\d{4}-\d{2}-\d{2})$/)
-  return m ? { employee: m[1], date: m[2] } : null
-}
-
-/**
- * 从一整行的 15 个工序槽里**现推**这一行的「扫码员工 / 扫码日期」。
- *
- * ## 为什么是「现推」而不是加两列
- *
- * 旧版把这两格**存**在门行对象里（`工序1..15` 的兄弟键），只在 `updateProgress` 写入命中
- * 上面那个正则时才更新。新栈的模型里**没有这两列**，后台分队的结论是**不加列、读时现推**
- * （分析文档 §8.6-(b)）—— 理由有三条，这里只记最要紧的那条：
- * **库里 `procedure_slots` 的值本来就带着员工和日期**，加两列等于「明知数据已在库，再存一份缓存」，
- * 而且列只在「下一次写入」时才会被填上 ⇒ 历史行永远空。
- *
- * 口径（同 §8.6-(b)）：**取日期最大的那条**；员工取同一条的中间段。
- * ⚠️ 与旧版「**最后一次写入**的解析结果」在**乱序写入 / 补录**时会分叉
- *    （补录一条旧工序，旧版会把日期倒退回去，现推不会）。这是**有意选择**，不是抄错。
- */
-export function deriveScanMarker(row: ProgressRowDto): { employee: string; date: string } | null {
-  let best: { employee: string; date: string } | null = null
-  for (let i = 1; i <= 15; i++) {
-    const hit = parseScanMarker((row as unknown as Record<string, unknown>)[`工序${i}`])
-    // 日期是 `YYYY-MM-DD` ⇒ 字符串比较与日期比较等价（长度固定、零填充）。
-    if (hit && (!best || hit.date > best.date)) best = hit
-  }
-  return best
-}
-
-/** 日期标签（旧版前端传的字面标签，`当天`/`本周`/`本月`，或 `"起,止"`）。 */
 export type ScanDateLabel = '当天' | '本周' | '本月'
-
-const ymd = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-
-/**
- * 日期标签 → `[起, 止]`（旧版 `resolveDateLabel`，`progress.service.ts:526`，**服务端**算的）。
- *
- * 旧版三条：`当天` → 今天~今天；`本周` → **周一**~今天；`本月` → 月初~今天。
- * ⚠️ 旧版算「本周」用的是 `today.getDay() || 7` —— 周日当 7、周一当 1，**起点是周一**。
- *    这正是 `productionStats.ts` 文件头偏离 1 说的那个「周一」口径，两处一致。
- */
-export function resolveDateLabel(label: ScanDateLabel, today = new Date()): [string, string] {
-  const end = ymd(today)
-  if (label === '当天') return [end, end]
-  if (label === '本月') {
-    return [`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`, end]
-  }
-  const monday = new Date(today)
-  monday.setDate(today.getDate() - (today.getDay() || 7) + 1)
-  return [ymd(monday), end]
-}
-
-export interface ScanFilter {
-  /** 员工名。**`"1"` 是「全部员工」的哨兵值**（旧版 `Zl` 的兜底，服务端也用这个字面量判）。 */
-  employee: string
-  /** `YYYY-MM-DD`，闭区间。 */
-  start: string
-  end: string
-}
-
-/**
- * 按「扫码员工 + 扫码日期」筛行（旧版 `getProcessCounts` 的过滤逻辑，
- * 现在由前端做 —— 分析文档 §8.6-(b) 拍板）。
- *
- * 旧版服务端那段（`progress.service.ts:585`）：
- * ```ts
- * const scanDate = parseDate(row['扫码日期']); if (!scanDate) continue;
- * const scanEmployee = String(row['扫码员工'] || row['员工'] || '').trim();
- * if (scan < start || scan > end) continue;
- * if (operatorName !== '1' && scanEmployee !== operatorName) continue;
- * ```
- * 逐条对应到下面。**没有扫码标记的行一律不进**（`continue`）—— 这是本看板与
- * `/Progress` 看板最大的口径差别：它只统计**扫码页干过的活**。
- *
- * ⚠️ 返回的是**新对象**（浅拷贝 + 补 `扫码日期`）：
- * ① 26 列的「订单详情」里有一列就是 `扫码日期`（旧版行上本来就有这个键，我们是现推的）；
- * ② 不就地改调用方的行数组，免得同一个数组被别处复用（`PrintDrawer` 就吃过这种亏）。
- */
-export function filterScanRows(rows: ProgressRowDto[], f: ScanFilter): ProgressRowDto[] {
-  const out: ProgressRowDto[] = []
-  for (const row of rows) {
-    const marker = deriveScanMarker(row)
-    if (!marker) continue
-    if (marker.date < f.start || marker.date > f.end) continue
-    if (f.employee !== '1' && marker.employee !== f.employee) continue
-    out.push({ ...row, 扫码日期: marker.date } as ProgressRowDto)
-  }
-  return out
-}
 
 // ── 26 列订单详情（旧版 `Ma`，`dec@44893`） ─────────────────────────────────
 

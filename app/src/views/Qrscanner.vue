@@ -23,31 +23,51 @@
     | 2 | 手动录单（拼 `单号-YY/MM/DD`，**只本地入列、不调接口**） | ✅ |
     | 3 | 设置工序 | ✅ `components/ProcedureSettingsDialog.vue` |
     | 4 | 选工序 + 员工名 → **确认提交进度** | ✅ `POST /v1/progress/update` |
-    | 5 | 扫码查单 / 手动查单 | ✅ **客户端过滤** `GET /v1/progress`（见下） |
-    | 6 | 扫码统计看板（3 KPI + 按工序统计 + 26 列详情 + 导出 CSV） | ✅ `components/ScanStatsPanel.vue` |
+    | 5 | 扫码查单 / 手动查单 | ✅ `GET /v1/scan/qrcode`（**窄接口，只回命中的行**，见下） |
+    | 6 | 扫码统计看板（3 KPI + 按工序统计 + 26 列详情 + 导出 CSV） | ✅ `components/ScanStatsPanel.vue` + `GET /v1/scan/stats` |
     | 7 | 标签云打印（`getLabelData` + 云打印） | ✅ 数据面 `POST /v1/scan/labels`；**打印走浏览器**（见下） |
     | 8 | 扫码账号管理（`AddScanner` / `DeleteScanner`） | ⛔ **置灰** —— 后端**决定不做**，见下 |
     | 9 | 两块死代码面板（「🔧 调试信息」「⚙️ QR码识别高级设置」） | **不做**（旧版 `ref(false)` 全文零赋值，分析文档 §2.3–2.5） |
     | 10 | 「指定打印机」弹窗（仅租户名 `恒泰智门`） | **不做** —— 那是**云打印**的选打印机，本版走浏览器打印，没有「打印机名」这个概念 |
 
-    ### 🔀 第 5 条：扫码查单**不再新开端点**（后端拍板）
+    ### ★ 第 5 / 6 条：两条窄接口（2026-09-19 用户纠正后改回）
 
-    旧版走 `param1=getScanQRcode`，是一条**纯过滤**接口（拿单号去 `row['单号']` 做 trim 后精确匹配）。
-    后端结论（分析文档 §8.6-(a)）：`GET /v1/progress` 已经把**全量门行连 `单号` 一起**给了前端
-    ⇒ 前端 `rows.filter(r => r.单号.trim() === code.trim())` **逐字等价**，再开一条就是重复造。
-    所以这里**一次拉全量、前端自己筛**（与 `Progress.vue` 一样的有意偏离）。
+    **旧版每次扫码只请求「命中的那几行」，本版一度改成「拉全量 + 前端筛」——错了，已改回。**
 
-    ### 🔀 第 6 条：统计看板的「扫码日期/扫码员工」是**现推**的
+    原来那版（连同它的理由）是：`GET /v1/progress` 已经返回全量门行连 `单号` 一起，
+    前端 `filter(单号)` / 前端按现推的扫码标记筛，**逐字等价**，再开一条就是重复造。
 
-    旧版 `getProcessCounts` 按每行的 `扫码日期` + `扫码员工` 筛，而新版**没有这两列**。
-    后端结论（分析文档 §8.6-(b)）：**不加列**，读的时候从 `procedure_slots` 用
-    `parseScanMarker` 那个正则**现推**（取日期最大的那条）—— 因为库里那些值本来就带着员工和日期，
-    加列等于再存一份缓存、且历史行永远空。
-    ⇒ 前端按这个口径筛，实现全在 `utils/scanStats.ts` 的 `deriveScanMarker` / `filterScanRows`。
+    ⚠️ **那个「等价」只在数值上成立，在数据面上不成立。** `GET /v1/progress` 是**整库门行**，
+    每行带着客户名、金额、安装地址；而这一页跑在**车间工人的手机**上 ——
+    等于扫一次码就把全库订单摊到那台手机上。旧版不给，我们也不该给。
 
-    ⚠️ **代价要知道**：那个正则要**两个下划线**才匹配，所以只有 `/Qrscanner` 提交的值
-    （`工序名_员工名_日期`）算得进去；`/Progress` 页提交的 `工序名_日期` **不算**。
-    这不是我们的取舍 —— 旧版正则就是这个语义（看板统计的本来就是「扫码页干过的活」）。
+    ⇒ 两条窄接口，**这页的取数面就是它们**：
+
+    | 用途 | 端点 | 回什么 |
+    |---|---|---|
+    | 扫码查单 / 手动查单（第 5 条） | `GET /v1/scan/qrcode?code=<单号>` | 只回命中的行；找不到 **404** |
+    | 统计看板（第 6 条） | `GET /v1/scan/stats?employee=&range=` | 只回**范围内**的行 |
+
+    `range` 收 `当天` / `本周` / `本月` 或 `"起,止"` —— **日期标签原样传下去，前端不换算**。
+
+    ### ★ 「扫码日期 / 扫码员工」的**现推只剩服务端一份**
+
+    旧版 `getProcessCounts` 按行上的 `扫码日期` / `扫码员工` 筛，而新版**没有这两列**
+    （分析文档 §8.6-(b)：不加列，读时从 `procedure_slots` 用 `parseScanMarker` 那个正则现推）。
+    那个正则**要两个下划线**才匹配 ⇒ 只有 `/Qrscanner` 提交的 `工序名_员工名_日期` 算得进去，
+    `/Progress` 页提交的 `工序名_日期` **不算**（看板统计的本来就是「扫码页干过的活」）。
+
+    这段推导原先前端也有一份（`utils/scanStats.ts` 的 `deriveScanMarker`/`filterScanRows`），
+    **已删干净**：数据不再全量给前端了，前端也就推不出来了；两处各留一份迟早会漂，
+    而漂了**不报错**（只是行数不一样）。⇒ **推导归服务端，前端不许再加回来。**
+
+    ### ★ 提交进度：把**单号**直接交给服务端（不再自己解析行 id）
+
+    「确认」提交进度原先要的是**行 id**，而扫码端手里只有单号 ⇒ 一度也是拉全量建映射表。
+    用户拍板改成 **`POST /v1/progress/update` 也收 `line_nos`**（与 `line_ids` 二选一、取并集）
+    —— **因为旧版本来就是这么设计的**：旧版 `updataProgress` 的 body 就是单号数组
+    （`progress.service.ts:598`），服务端拿 `rowRefs(row)` 去比。
+    ⇒ 前端那个 `resolveLineIds()` **已删**，顺带省掉一次往返。**别加回来。**
 
     ### 🔀 第 7 条：标签**打印**走浏览器，不走云打印
 
@@ -66,11 +86,15 @@
 
     后端**决定整条不做**（分析文档 §8.6-(d)）：旧版这两个接口是**开账号**
     （`isDefaultPw: 2` + `mutilUser: 1`），而新栈的账号体系只有
-    `login` / `logout` / `me` / `change-password` —— **没有「建号」这条产品线**，
-    `role` 也没有任何地方按它分支（旧版那套 `defaulted` 决定导航与落地页的机制我们没有）。
-    ★ **这里缺的是「账号语义」不是「端点」** —— 建出来的号登录后落在哪、能看到哪些菜单，
-    旧版是靠 `defaulted=2` 决定的，我们没有这套语义；光补两个写 `users` 行的端点，
-    等于造出一批**登录后行为未定义**的账号。所以是**产品决定**，不是补个端点的事。
+    `login` / `logout` / `me` / `change-password` —— **没有「建号」这条产品线**。
+    ★ **这里缺的是「账号语义」不是「端点」** —— 建出来的号登录后落在哪、能看到哪些菜单。
+
+    ⚠️ **2026-09-19 更正**：这套语义**后来补上了** —— `utils/roles.ts` 把
+    `role = 'scanner'` 映射成旧版 `defaulted = 2`（落地页 `/qrscanner`、路由闸门、
+    「设置工序」只给 `admin` 的 `canEditProcedures`）。所以本段原先那句
+    「`role` 也没有任何地方按它分支」**已经不成立**，别再引用它。
+    **但结论不变**：建号端点仍然不是本版的产品线（分析文档 §8.6 的注记说，
+    这块由**后端授权层**那一路接手）⇒ 这颗按钮继续**置灰**。
     ⇒ 按本项目对**死链**的态度：**按钮置灰 + 点了给提示「本版还没做」**（机制同 `Progress.vue` 的 `notYet`）。
 
     ## 🔀 其余**有意偏离**（照抄会出错）
@@ -95,8 +119,15 @@
     ## 权限（旧版 §6）
 
     旧版这页的按钮由 `userinfo.defaulted` / `userinfo.name === registrant` 门控。
-    新版**没有 `defaulted` / `registrant` 那套账号字段** ⇒ 本页用**登录态**代替：
-    能进这一页就是已登录，所以「设置工序」对**所有登录用户**显示。
+    新版把 `defaulted` 映射成 `role`（见 `utils/roles.ts`）：
+
+    - **「设置工序」= 只有 `admin`**（`canEditProcedures`）。依据旧版 §6.3 那张表：
+      那颗按钮 `yt = (defaulted === 1)` 才显示 —— **`=2` 和 `0/其它` 都看不到**，
+      不是只挡扫码账号。⚠️ 真正拦得住的是后端 `guard.rs` 的 `POST /v1/procedures`
+      （scanner 白名单里没有它）；这里藏按钮只是别让人白填一遍再吃 403。
+    - 扫码账号进得来这里（这是他的落地页），本页其余按钮对他照常可用 —— 那是**有意**的：
+      扫码录单 / 查单 / 统计本来就是给他用的。
+    - 「扫码账号管理」对所有角色都置灰，理由见上面第 8 条。
   -->
   <div class="qr-scanner">
     <!--
@@ -118,7 +149,11 @@
         手动查单
       </n-button>
 
-      <n-button type="info" @click="settingsShow = true">设置工序</n-button>
+      <!-- 旧版 `yt`：`defaulted === 1` 才显示这颗。新栈映射成 `role === 'admin'`，
+           见 `utils/roles.ts` 的 `canEditProcedures`（那里有完整依据）。 -->
+      <n-button v-if="canEditProcedures(auth.user?.role)" type="info" @click="settingsShow = true">
+        设置工序
+      </n-button>
 
       <!-- ⛔ 扫码账号管理：后端决定不做（见文件头第 8 条），按死链态度置灰 + 提示。 -->
       <span class="pending-slot" @click="notYet('扫码账号管理', '给车间同事开扫码账号、停用旧账号')">
@@ -311,15 +346,10 @@ import { api } from '../api/client'
 import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { useQrScanner } from '../composables/useQrScanner'
 import { useAuthStore } from '../stores/auth'
+import { canEditProcedures } from '../utils/roles'
 import ProcedureSettingsDialog from '../components/ProcedureSettingsDialog.vue'
 import ScanStatsPanel from '../components/ScanStatsPanel.vue'
-import {
-  deriveScanMarker,
-  filterScanRows,
-  matchByScanCode,
-  resolveDateLabel,
-  type ScanDateLabel,
-} from '../utils/scanStats'
+import { type ScanDateLabel } from '../utils/scanStats'
 import { buildScanLabelRows } from '../utils/scanLabels'
 import { DEFAULT_DIAO_TABS, DEFAULT_PING_TABS } from '../utils/printData'
 import { printByMode } from '../utils/printService'
@@ -503,7 +533,7 @@ function validateRange(): [string, string] | null {
   return [ymdOf(s), ymdOf(e)]
 }
 
-// ===== 统计查询（旧版 `Zl` → 现在的「拉全量 + 前端按扫码标记筛」）=====
+// ===== 统计查询（旧版 `Zl` → `GET /v1/scan/stats`，服务端筛）=====
 const statsOpen = ref(false)
 /** 面板副标题里的日期口径（旧版 `zl`）。 */
 const statsTitle = ref<string>('当天')
@@ -513,31 +543,42 @@ const statsRows = ref<ProgressRowDto[]>([])
 /**
  * 查询扫码统计（旧版 `Zl`）。
  *
- * 🔀 旧版是 `param1=getProcessCounts&param3={员工}&param4={当天|本周|本月|起,止}`，
- * **服务端**按 `扫码日期`/`扫码员工` 过滤。新版这两列不存在（分析文档 §8.6-(b) 拍板不加列）
- * ⇒ 这里**拉全量、前端现推着筛**，实现见 `utils/scanStats.ts` 的 `filterScanRows`。
- * 日期标签（`本周` 从**周一**算起等）也在那个文件里，逐条照旧服务端的 `resolveDateLabel`。
+ * 与旧版同形：`param3 = {员工}`、`param4 = {当天|本周|本月|起,止}`，**由服务端筛**。
+ * 本次（2026-09-19）改回**窄接口** `GET /v1/scan/stats`，只回范围内那几行。
+ *
+ * ⚠️ **日期标签原样传给服务端**（`当天`/`本周`/`本月` 三个字面量），不在前端换算成起止。
+ *    换算口径（`本周` 从**周一**算起）与「扫码员工/扫码日期」的现推一样，
+ *    服务端一份就够 —— 前端再写一份，两处迟早会漂，而漂了**不报错**（只是行数不一样）。
+ *    只有「更多」这一支是我们自己在日期选择器里挑的**真实区间**，拼成 `"起,止"` 传下去。
+ *
+ * ⚠️ 员工参数仍是旧版那个哨兵：有名字就用名字，否则 `"1"`（= 全部员工，见 `queryEmployee`）。
  */
 async function queryStats(mode: RangeLabel) {
-  let start: string
-  let end: string
+  /** 传给服务端的 `range`：三个档位传字面标签，`更多` 传 `"起,止"`。 */
+  let range: string
+  /** 只有「更多」需要拿它拼面板副标题。 */
+  let picked: [string, string] | null = null
   if (mode === '更多') {
-    const range = validateRange()
-    if (!range) return
-    ;[start, end] = range
+    const r = validateRange()
+    if (!r) return
+    picked = r
+    range = `${r[0]},${r[1]}`
   } else {
-    ;[start, end] = resolveDateLabel(mode as ScanDateLabel)
+    // 显式标一次类型：`mode` 在这一支已被收窄成 `当天|本周|本月`，
+    // 万一以后有人往 `RANGE_LABELS` 里加档位，这里会先报错，而不是把野值发出去。
+    const label: ScanDateLabel = mode
+    range = label
   }
 
   statsLoading.value = true
   try {
-    const r = await api.listProgress()
-    const all = r?.progressData ?? []
-    const hit = filterScanRows(all, { employee: queryEmployee.value, start, end })
+    // ⚠️ 这条的键是 `progressData`（与 `GET /v1/progress` 同名）—— **不是** `scanQrcode` 的 `rows`。
+    const r = await api.scanStats(queryEmployee.value, range)
+    const hit = r?.progressData ?? []
     statsRows.value = hit
     // 旧版副标题里就是 `zl` 那个档位名（选「更多」时显示的就是「更多」两个字）。
     // 这里「更多」改成显示实际区间 —— 比两个字有用，且不影响任何口径（有意的小改进）。
-    statsTitle.value = mode === '更多' ? `${start} 至 ${end}` : mode
+    statsTitle.value = picked ? `${picked[0]} 至 ${picked[1]}` : mode
     statsEmployee.value = employeeLabel.value
     statsOpen.value = true
     if (hit.length === 0) message.warning('该条件下暂无扫码数据')
@@ -550,11 +591,17 @@ async function queryStats(mode: RangeLabel) {
 
 // ===== 扫码查单 / 手动查单（旧版 `ua` / `It`）=====
 /**
- * 按单号查（旧版 `getScanQRcode`，现改为**客户端过滤** `GET /v1/progress`，见文件头第 5 条）。
+ * 按单号查（旧版 `getScanQRcode`）—— 走 `GET /v1/scan/qrcode?code=`，**只回命中的那几行**。
  *
- * ⚠️ **这是把旧版那条端点换成等价客户端过滤，不是漏做** —— 后端已把那条端点删掉，
- * 别以后有人以为是漏了、又去补一个。匹配口径（`trim` 后精确相等）与差分台见
- * `utils/scanStats.ts` 的 `matchByScanCode`。
+ * ## ★ 2026-09-19 改回来的（见文件头第 5 条）
+ *
+ * 本版一度改成「`GET /v1/progress` 拉全量 + 前端 `filter(单号)`」，理由是「逐字等价」。
+ * 用户指出**数据面不等价**：全量门行带着客户名/金额/安装地址，而扫码页跑在**车间工人的手机**上；
+ * 旧版每次扫码只请求命中的那几行。⇒ 回到旧版那条**纯过滤**接口。
+ *
+ * ⚠️ `404 = 没这条单号`（旧版服务端就是 404）。`request()` 把非 2xx 抛成带 `status` 的 `Error`
+ *    ⇒ 404 走「未找到相关订单」这一支（旧版前端也是走 error 分支、**不打开**面板）；
+ *    其它状态码（403/500…）原样显示服务端的话，别把它们也吞成「未找到」。
  */
 async function runScanQuery(code: string) {
   const wanted = code.trim()
@@ -564,26 +611,28 @@ async function runScanQuery(code: string) {
   }
   querying.value = true
   try {
-    const r = await api.listProgress()
-    const hit = (r?.progressData ?? []).filter((row) => matchByScanCode(row, wanted))
+    const r = await api.scanQrcode(wanted)
+    const hit = r?.rows ?? []
     if (hit.length === 0) {
-      // 旧版服务端这里是 `404 未找到相关订单`，前端走 error 分支、**不打开**面板。
+      // 服务端按契约是 404；真回了 200+空数组时给同一句提示，免得两种空结果说法不一样。
       message.error('未找到相关订单')
       return
     }
     message.success(`识别到二维码: ${wanted}`)
-    // 顺带把「现推」出来的扫码日期挂到行上：旧版这条路（`getScanQrCode`）服务端是带
-    // `enrichDoorRow(..., {gmtDate:true})` 的，行上**有**这个键，26 列里的「扫码日期」才显示得出来。
-    statsRows.value = hit.map((row) => {
-      const marker = deriveScanMarker(row)
-      return marker ? ({ ...row, 扫码日期: marker.date } as ProgressRowDto) : row
-    })
+    // ⚠️ 「扫码日期」这一格**由服务端给**（旧版 `getScanQrCode` 走
+    //    `enrichDoorRow(..., {gmtDate:true})`，行上本来就有这个键）。
+    //    前端不再现推 —— 见 `utils/scanStats.ts` 里删掉 `deriveScanMarker` 的说明。
+    statsRows.value = hit
     // 扫码查单没有日期口径，副标题给「扫码查单」；「· 员工 X」旧版这条路也不补 `查询员工`
     // （`ua` 只写 `Cl`，没有那句 `{...row, 查询员工}`）⇒ 这里同样不给员工。
     statsTitle.value = '扫码查单'
     statsEmployee.value = ''
     statsOpen.value = true
   } catch (e) {
+    if ((e as { status?: number }).status === 404) {
+      message.error('未找到相关订单')
+      return
+    }
     message.error(e instanceof Error ? e.message : '查询扫码数据失败')
   } finally {
     querying.value = false
@@ -757,35 +806,25 @@ async function printLabels() {
 
 // ===== 「确认」提交进度（旧版 `oa`，§3.4）=====
 /**
- * 把勾选的**单号**解析成**行 id**。
+ * 把勾选的单号 + 工序 + 值发给服务端。
  *
- * ⚠️ 这是与旧版唯一的数据流差别：旧版 `updataProgress` 的 body 直接就是单号数组，
- * 服务端拿 `rowRefs(row)` 去比（`单号`/`回执单号`/`orderNo`/`id` 都算）；
- * 新版 `POST /v1/progress/update` 收的是**行 id 列表**（`progress/model.rs`），
- * 所以这里先用 `GET /v1/progress` 拉一次全量、建「单号 → 行 id」的表。
- * 与分析文档 §8.5 的结论一致：两条路最终落到同一个槽、共用一个接口。
+ * ## ★ 2026-09-19：**直接把单号交给服务端**，前端不再解析行 id
  *
- * 顺带说明：同一次「确认」里**只拉一次**全量 —— 上一版是每单号一次请求，
- * 现在是 `完成` 一次（后端注释也写了「前端手里有行级单号 → 行的映射，直接拿它拼 line_ids」）。
+ * 这里原先有个 `resolveLineIds()`：先用 `GET /v1/progress` 拉**全量**建「单号 → 行 id」的表
+ * （后来改成借 `GET /v1/scan/qrcode` 批量解析），因为新版 `update` 接口只收 `line_ids`。
+ * 用户拍板：**让 `update` 也收单号** —— 因为**旧版本来就是这么设计的**：
+ *
+ * ```ts
+ * // progress.service.ts:598 —— 旧版 updataProgress 的 body 就是单号数组
+ * export async function updateProgress(ds, procedureSlot, orderIds: string[], procedureValue = '')
+ * ```
+ * 旧服务端再拿 `rowRefs(row)` 去比（`单号`/`回执单号`/`orderNo`/`id` 都算命中）。我们对齐它：
+ * `POST /v1/progress/update` 现在收 `line_ids` **或** `line_nos`（二选一、取并集）。
+ *
+ * ⇒ 顺带**省掉一次往返**，也就不用再建那张表了。**别把 `resolveLineIds` 加回来。**
+ *
+ * ⚠️ 传的是**行级单号**（二维码里装的那个），不是回执单号 —— 拿错了两头都不报错、只是改错行。
  */
-async function resolveLineIds(byNo: string[]): Promise<{ ids: number[]; missing: string[] }> {
-  const r = await api.listProgress()
-  const map = new Map<string, number>()
-  for (const row of r?.progressData ?? []) {
-    const no = String(row['单号'] ?? '').trim()
-    // 同一个单号理论上只对应一行；真撞了就取第一个（与旧版 `Set.has` 的命中语义一致）。
-    if (no && !map.has(no)) map.set(no, row.id)
-  }
-  const ids: number[] = []
-  const missing: string[] = []
-  for (const no of byNo) {
-    const id = map.get(no)
-    if (id == null) missing.push(no)
-    else ids.push(id)
-  }
-  return { ids, missing }
-}
-
 async function submitProgress() {
   if (checked.value.length === 0) return void message.error('没有扫描结果可提交')
   if (staffName.value.trim() === '') return void message.error('请先输入员工名称')
@@ -794,26 +833,43 @@ async function submitProgress() {
   submitting.value = true
   stop() // 旧版也是提交时先把摄像头关掉
   try {
-    const wanted = [...checked.value]
-    const { ids, missing } = await resolveLineIds(wanted)
+    // 值的三段：`工序名_员工名_本地日期`（旧版是 UTC 日期，见文件头偏离 2）。
+    // ⚠️ 这个「两个下划线」的形状正是统计看板认的标记（正则要两个下划线才匹配），
+    //    **别把它改成 `工序名_日期`** —— 那样这些活就进不了扫码统计了。
+    //    解析在服务端（`GET /v1/scan/stats`），前端没有副本，见 `utils/scanStats.ts` 的删除说明。
+    const value = `${selectedName.value}_${staffName.value.trim()}_${todayYmd()}`
+    const { updated, failed } = await api.updateProgress({
+      slot: procedureSlot.value,
+      value,
+      lineNos: [...checked.value],
+    })
 
-    if (ids.length === 0) {
+    // 零命中服务端走 **400**（见下面 catch），所以正常路径上 `updated` 至少是 1。
+    // 这一支兜的是**竞态**：单号在这一刻解析成了行 id，但 UPDATE 落地前那行被别人删了
+    // ⇒ 200 且 `updated: 0`、`failed: []`。那时说「都找不到」比说「提交成功」正确得多。
+    if (updated === 0) {
       message.error('这些单号在系统里都找不到，没法提交进度')
       return
     }
-    if (missing.length > 0) {
-      message.warning(`有 ${missing.length} 个单号在系统里找不到，已跳过：${missing.join('、')}`)
+    // 「有 N 个单号找不到，已跳过」看 `failed`，**不靠异常** —— 部分命中是 200。
+    if (failed.length) {
+      message.warning(`有 ${failed.length} 个单号在系统里找不到，已跳过：${failed.join('、')}`)
     }
-
-    // 值的三段：`工序名_员工名_本地日期`（旧版是 UTC 日期，见文件头偏离 2）。
-    // ⚠️ 这个「两个下划线」的形状正是统计看板认的标记 —— 见 `utils/scanStats.ts` 的 `parseScanMarker`。
-    const value = `${selectedName.value}_${staffName.value.trim()}_${todayYmd()}`
-    await api.updateProgress(ids, procedureSlot.value, value)
 
     message.success('提交成功')
     codes.value = []
     checked.value = []
   } catch (e) {
+    // ★ 「一个都没对上」服务端回 **400**（`service.rs:407`）—— **这条是旧版口径**：
+    //   旧版 `updateProgress` 也是 `failed.size > 0 && totalUpdated === 0` 才给 400
+    //   （`progress.service.ts:654`）。差分台 ⑤ 段两边各跑一次比过，别再照注释猜。
+    //
+    // ⚠️ 对我们这个请求来说「400」与「零命中」是同一件事：单号一定非空（上面刚判过）、
+    //    槽名一定合法（下拉来的 `工序N`）⇒ 这条 400 只可能是「一个都没对上」。
+    if ((e as { status?: number }).status === 400) {
+      message.error('这些单号在系统里都找不到，没法提交进度')
+      return
+    }
     message.error(e instanceof Error ? e.message : '提交失败')
   } finally {
     submitting.value = false

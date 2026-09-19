@@ -821,22 +821,42 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 > 新版库里**空串才是「没配」**（迁移 `0022` 头注），所以新页面**不预填白色**，
 > 未配色的槽原样发空串回去。
 >
+> ⚠️ **权限补记（2026-09-19 用户拍板）**：旧版这颗按钮 `yt = (defaulted === 1)` 才显示 ——
+> 按 §6.3 那张表，**`=2`（扫码账号）和 `0/其它`（普通 PC 账号）都看不到**，不是只挡扫码账号。
+> 新版映射成 **`role === 'admin'`**，判断在 `utils/roles.ts` 的 `canEditProcedures()`，
+> 按钮的 `v-if` 在 `Qrscanner.vue`。这是**体验层**：真正拦住扫码账号的是后端
+> `guard.rs` 的 `SCANNER_ALLOWED`（`GET /v1/procedures` 放行、`POST` 不放行）。
+> 顺带把 `users.role` 的迁移默认值从 `staff` 改成 `admin`（建号只有 `admin`/`scanner` 两条路，
+> `staff` 是没人用的遗留默认值）。
+>
 > **四处与本文/旧版对齐后才定的口径**（都写进了对应文件头，这里只列指针）：
-> ① 扫码查单/手动查单改成**客户端过滤** `GET /v1/progress`（§8.6-(a)）；
-> ② 统计看板的 `扫码日期`/`扫码员工` 是**读时现推**（§8.6-(b)，实现看 `scanStats.ts` 的
->    `deriveScanMarker`/`filterScanRows`）；
+> ① 扫码查单/手动查单走**窄接口** `GET /v1/scan/qrcode`（§8.6-(a)，**第二版**：一度改过
+>    「客户端过滤 `GET /v1/progress`」，被用户推翻）；
+> ② 统计看板的 `扫码日期`/`扫码员工` 是**读时现推**，但**那份代码在服务端**
+>    （§8.6-(b) 第二版；前端 `scanStats.ts` 的 `deriveScanMarker`/`filterScanRows` **已删**）；
 > ③ 标签**打印**走浏览器而不是云打印（`mutilPrintService` 新版没有）；
 > ④ 标签张数里「套线单价 > 0」那一条 —— 旧版因为 `labelRow` 不返回该键而是**死分支**，
 >    新版整行返回 ⇒ 那一处**默认仍按旧版行为关着**（`ScanLabelOptions.casingPrice` 传 0），
 >    要开启就传真值，见 `scanLabels.ts` 文件头。
 >
-> **差分台**：`docs/qrscanner-scan-logiccheck.mjs`（左边跑旧服务端 `progress.service.ts` 的
-> **真源码**、右边跑 `utils/scanStats.ts`）。两块：
-> ① 扫码查单的筛法等价（含「输入/行上带空格」「同一单号重复出现不去重」两组夹具）；
-> ② `parseScanMarker` 的正则逐串比 —— ★ 顺带钉住一个**口述容易带偏**的细节：
-> 源码里那个正则中间是 **`.+`** 不是 `\S+`（`progress.service.ts:118`，逐字），
-> 两者只在「员工名里含空白」时**分叉**（`下料_李 四_2026-09-19`：`(.+)` 命中、`(\S+)` 不命中），
-> 差分台里专门有一条夹具 + 反向自检盯它。
+> **差分台**：`docs/qrscanner-scan-logiccheck.mjs` —— **真差分台**：
+> 左边切旧服务端 `progress.service.ts` 的**真源码**跑，右边**打新后端的真接口**，逐条比「哪些行被选中」。
+>
+> ⚠️ 它**换过两次形状**，读的时候留意：
+> ① 原来右边是**前端** `utils/scanStats.ts`（推导还在前端时）；
+> ② 推导搬到服务端后，一度退化成「旧版基准表 + 前端守卫」（右边没对照物了）；
+> ③ lead 拍板**必须打真后端**，否则这台就死了 ⇒ 现在右边是真接口，
+>    **比原来更强**（以前右边是前端函数，现在是真实现）。
+>
+> 四块：① `scan/qrcode` ←→ `getScanQrCode`（含查询串/行上单号带空格、逗号批量、空码、404）；
+> ② `scan/stats` ←→ `getProcessCounts`（扫码标记现推 + 员工/日期筛，含**员工名含空格**那条
+> `.+/\\S+` 的分野）；③ 日期档位标签 ←→ `resolveDateLabel`（★ `本周` 从**周一**算起）；
+> ④ 守卫：前端 `scanStats.ts` 不许把那几个函数加回来。
+>
+> ★ **它造真数据**（`POST /v1/orders` 建单 + `POST /v1/progress/update` 写槽），跑完在 `finally` 里删掉；
+> 员工名带一次性后缀，把夹具行从库里其它行里择出来。**前提是后端在跑** ——
+> 连不上就**报错退出**（exit 1），不静默跳过。跑法：`node docs/qrscanner-scan-logiccheck.mjs`
+> （`E2E_PORT` 可指向别处的实例，默认 3000）。
 
 ### 8.2 建议的接口形状
 
@@ -878,7 +898,7 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 | 两块死代码面板（调试信息 / 高级设置） | **不实现**。它们是不可达的开发者脚手架 |
 | 摄像头：`enumerateDevices` 挑后置 + `facingMode` 双保险 | 保留 `facingMode:"environment"` 即可；旧版挑出的 `deviceId` **根本没被用**（§9 第 5 条），别照抄这段死逻辑 |
 | 连续扫码（`nt2`） | 保留：扫码录单连续、扫码查单单发 |
-| `updataProgress` 的 `param3/param4` 塞在 query | 新后端已有 `POST /api/v1/progress/update`，body `{line_ids, slot, value}`（`progress/model.rs:35`）—— 用它 |
+| `updataProgress` 的 `param3/param4` 塞在 query | 新后端已有 `POST /api/v1/progress/update`，body `{line_ids 或 line_nos, slot, value}`（`progress/model.rs`）—— 用它 |
 | 二维码内容 = 单号 | 保持。打印标签的 `qrcode` 字段与扫码查单的匹配键必须一致 |
 | `toISOString()` 取日期（UTC） | **改成本地日期**。东八区晚 8 点后旧版会把进度日期写到第二天 |
 | `defaulted` 决定按钮 | 新版若没有 `defaulted` 概念，用**角色/权限位**表达：`设置工序` = 租户管理员、`扫码账号管理` = 租户管理员 |
@@ -888,15 +908,27 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 两条路都写同一批 `procedure_slots` 槽：
 
 ```
-/Progress   行内「更新进度」  → API updateProgress([line_id], slot, value)   ← 已有
-/Qrscanner  「确认」          → 同一接口，line_ids = 勾选单号解析出的行 id     ← 待做
+/Progress   行内「更新进度」  → API updateProgress({line_ids}, slot, value)   ← 已有
+/Qrscanner  「确认」          → 同一接口，{line_nos} = 勾选的那些单号          ← 已有
 ```
+
+> ★ **2026-09-19 第二版：`update` 直接收行级单号（`line_nos`）。**
+> 扫码端手里只有扫出来的单号，而它**不能**再拉全量去换行 id（那条已 403、且本来就超范围，
+> 见 §8.6-(a)）。所以让 `POST /v1/progress/update` 的 body 二选一：
+> `line_ids?: [i64]`（`/Progress` 用）**或** `line_nos?: [String]`（**行级**单号，`/Qrscanner` 用），
+> 都给就取并集；服务端在 `WHERE tenant_id` 里解析成行，**不让客户端传 id 换单号**。
+> 响应变 `{ updated, failed }`，`failed` = 没对上的那些单号（**字段名照旧版** `data.failed`）。
+> 旧版 `updataProgress` 的 body 本来就是「一组 ref，id / 单号都认」，这是**对齐**不是新设计；
+> 唯一的收窄：旧版连 `回执单号`/`orderNo` 也认（传订单号 = 改整单所有行），新版**只认行级单号**。
 
 ★ 旧版 Qrscanner 提交时 `param3` 是**槽号**、`param4` 才是拼好的值，而 `/Progress` 侧
 （`progress-analysis.md:262`）用的是「工序名反查槽号」——两边最终落到同一个槽，语义一致。
 新版共用 `POST /v1/progress/update` 即可，**不需要**为扫码端另开接口。
 
-### 8.6 后端端点落地情况（2026-09-19，当晚按新决定改过一版）
+### 8.6 后端端点落地情况（2026-09-19，**当晚改过两版** —— 读「第二版」那一节）
+
+> ⚠️ **这一节的第一版（「两条都 ❌ 不做，前端拉全量自己筛」）已被用户推翻**，
+> 理由见下面 **(a) 第二版**。表里 3、4 两行按**第二版**写。
 
 按 §5 那张接口表逐条对，**新栈现在的实际状态**：
 
@@ -904,22 +936,50 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 |---|---|---|---|
 | 1 | `GetProcedures` | `GET /api/v1/procedures` | ✅ 已有（§8.1） |
 | 2 | `SetProcedures` | `POST /api/v1/procedures` | ✅ 已有（§8.1、§8.2） |
-| 3 | `getScanQRcode` | —（前端客户端过滤） | ❌ **不做**，见 (a) |
-| 4 | `getProcessCounts` | — | ❌ **不做**，评估见 (b) |
+| 3 | `getScanQRcode` | `GET /api/v1/scan/qrcode?code=<单号>` | ✅ **恢复**（**窄接口**，见 (a)） |
+| 4 | `getProcessCounts` | `GET /api/v1/scan/stats?employee=&range=` | ✅ **恢复**（**窄接口**，见 (b)） |
 | 5 | `updataProgress` | `POST /api/v1/progress/update` | ✅ 已有，**不另开接口**（§8.5） |
 | 6 | `getLabelData` | `POST /api/v1/scan/labels` body `{line_nos:[…]}` | ✅ 新增（**行级单号**，见 (c)） |
 | 7 | `AddScanner` | `POST /api/v1/scanner-accounts` | ✅ 新增（**仅 admin**，见 (d)） |
 | 8 | `DeleteScanner` | `DELETE /api/v1/scanner-accounts?suffix=` | ✅ 新增（**仅 admin**，见 (d)） |
 
-**(a) `getScanQRcode` 不做 —— 前端客户端过滤。**
+**(a) `getScanQRcode` —— 第一版「前端客户端过滤」是错的，已改回窄接口。**
 
-它是一条**纯过滤**接口：拿 `param3` 去 `row['单号']` 做 trim 后**精确**匹配
-（`progress.service.ts:511`），没有别的语义。而 `GET /v1/progress` 已经把**全量门行连 `单号`
-一起**给了前端 ⇒ 前端 `rows.filter(r => r.单号.trim() === code.trim())` 与那条端点**逐字等价**，
-再开一条就是重复造。前端已按这个方案定。
+第一版的论证是：它是一条**纯过滤**接口（拿 `param3` 去 `row['单号']` 做 trim 后精确匹配，
+`progress.service.ts:511`），而 `GET /v1/progress` 已经把**全量门行连 `单号` 一起**给了前端
+⇒ 前端 `filter` 与那条端点**逐字等价**，再开一条是重复造。
 
-> 旧版没这么做，只是因为旧版 `getProgress` 那次请求的结果不在手上（它每次扫码都重新发一次请求）。
-> 新版一次拉全量、前端自己筛，是既有的**有意偏离**（`progress-analysis.md` §4.1）。
+★ **用户 2026-09-19 的纠正：那个「等价」只在数值上成立，在数据面上不成立。**
+
+`GET /v1/progress` 是**整库门行**，每行带着客户名、金额、安装地址；而 `/Qrscanner` 跑在
+**车间工人的手机**上。改成「拉全量 + 前端筛」等于**扫一次码就把全库订单摊到那台手机上** ——
+旧版每次扫码只请求**命中的那几行**，这个数据面差别是实质性的，不是实现口味。
+⇒ 老服务端那条纯过滤接口**不是重复造**，是**最小暴露面**。
+
+现状：`GET /api/v1/scan/qrcode?code=<单号>`，只回命中的行，**找不到 404**（旧版也是 404，
+前端走 `error` 分支、不打开面板）。前端见 `app/src/views/Qrscanner.vue` 的 `runScanQuery`。
+
+**(a2) 连带：还有「第三处」按单号取行 —— 提交进度（★ 同一天改过两版）。**
+
+「确认」提交进度原先要的是**行 id**（`POST /v1/progress/update` 收 `line_ids`），而扫码端手里只有单号。
+原先也是靠 `GET /v1/progress` 拉全量建「单号 → 行 id」的表 ⇒ 同样会 403、同样超范围。
+
+> **第一版（已作废）：** 前端把整批单号逗号拼起来发 `GET /v1/scan/qrcode`，回来的行带 `id`，
+> 改动只在 `resolveLineIds` 一个函数。
+>
+> **第二版（现行，lead 2026-09-19 拍板）：`update` 自己收单号。**
+> `POST /v1/progress/update` 的 body 二选一 —— `line_ids?: [i64]`（`/Progress` 用）
+> **或** `line_nos?: [String]`（**行级**单号，`/Qrscanner` 用），都给取并集；服务端在
+> `WHERE tenant_id` 里解析成行。响应 `{ updated, failed }`（`failed` = 没对上的单号，
+> **字段名照旧版** `data.failed`）。
+>
+> **为什么不用第一版**：那要**多一次往返**（先查单号拿 id、再提交），而且 `scan/qrcode`
+> 会**顺带把整行回给扫码端**（客户名/金额/地址）—— 提交进度只要一个行 id，
+> 拿整行是**为了拿 id 而多暴露数据**。让 `update` 收单号，一次请求、一行多余数据都不给。
+> 这也是**旧版的原样**：`updataProgress` 的 body 本来就是「一组 ref，id / 单号都认」。
+>
+> ⚠️ 因此 `scan/qrcode` **保持单码查询**（不扩成批量）；它的 `split(',')` 只是顺手兼容
+> 旧版 REST 路由 `?orderNo=a,b` 的形态，不是提交那条路要用的东西。
 
 **(b) `getProcessCounts`（扫码统计看板）—— 评估结论：*不加列*，改用「读时现推」。**
 
@@ -954,10 +1014,25 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
    动它就等于把一个已验收页面的写路径重新拉进回归范围。
 4. **语义上现推更合理。** 旧版是「**最后一次写入**的解析结果」，补录一条旧工序会把 `扫码日期`
    **倒退**回去；现推取「日期最大的那条」，不会。两者只在乱序写入/补录时分叉。
-5. 代价：没有 `扫码员工` 的上屏需求（见上表），现推同样拿得到；前端做看板时按这个口径筛即可。
+5. 代价：没有 `扫码员工` 的上屏需求（见上表），现推同样拿得到。
 
 > ⚠️ 若最终仍要「与旧版逐字同口径」，那就是**加列 + 改 `update_progress`**，
 > 并接受「历史行与从 `/Progress` 写的行进不了看板」这两条后果 —— 本次**没做**，等拍板。
+
+★ **2026-09-19 第二版：现推的那份代码搬到服务端了（口径本身没变）。**
+
+第一版把这段现推放在**前端** `utils/scanStats.ts`（`parseScanMarker` / `deriveScanMarker` /
+`filterScanRows`），前提是「前端手里有全量行」—— 而那个前提被 (a) 推翻了。
+⇒ 现在由 `GET /api/v1/scan/stats` 在服务端做（同一个正则、同样取日期最大的那条），
+**前端那份已删干净**，连 `resolveDateLabel`（`当天/本周/本月` → 起止）一起 —— 前端只把标签原样传下去。
+
+> **为什么强调「删干净、不留副本」**：两处各写一份正则/日期口径，漂了**不报错** ——
+> 只是筛出来的行数不一样，看板上少几个数字，没人会发现。
+> 前端 `scanStats.ts` 里那段删除说明就是给「以后想加回来」的人看的。
+
+⚠️ 连带的**契约要求**（给后端）：这条接口回来的行里要**带 `扫码日期`**（= 现推出来的那个日期）。
+26 列的「订单详情」里有一列就是它；前端已经不推了，服务端不填就是空列。
+`GET /api/v1/scan/qrcode` 同理（旧版那条路走 `enrichDoorRow(..., {gmtDate:true})`，行上本来就有）。
 
 **(c) `getLabelData` 按「行级单号」——不照抄旧版的订单级 `orderNo`。**
 

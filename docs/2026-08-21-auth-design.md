@@ -82,9 +82,24 @@ backend/src/
 | 角色 | 能调什么 |
 |---|---|
 | `admin` | 全部 |
-| `scanner` | 自助端点 + `GET /progress`、`GET /progress/more`、`POST /progress/update`、`POST /scan/labels`、`GET /procedures`（**只读**） |
+| `scanner` | 自助端点 + `GET /scan/qrcode`、`GET /scan/stats`（两条**窄**接口）、`POST /progress/update`、`POST /scan/labels`、`GET /print-templates/lable`（**只有 lable 这一个 mode**）、`GET /procedures`（**只读**） |
 | 其它（含 `users.role` 默认值 `staff`） | 只放开自助端点 |
 | 自助端点（任何已登录角色） | `GET /auth/me`、`POST /auth/logout`、`POST /auth/change-password` |
+
+> ⚠️ **2026-09-19 改过两条**（方向相反，别只看一条）：
+>
+> 1. **删**：`scanner` 原先能调 `GET /progress` 与 `GET /progress/more`，那两条是**全量**接口
+>    —— 等于把整厂门行（客户名/金额/安装地址）发到车间工人自己的手机上。旧版每次扫码只请求
+>    **命中的那几行**，所以新版补了两条**窄**接口（`/scan/qrcode` 只回命中行、
+>    `/scan/stats` 只回范围内行）并**把全量那两条从白名单里删掉**。
+>    详细理由见 `docs/2026-09-19-qrscanner-analysis.md` §8.6-(a)/(b) 的「第二版」。
+> 2. **加**：`GET /print-templates/lable` —— 扫码页四颗主按钮之一「打印标签」要用它，
+>    而 `/qrscanner` 是扫码账号**登录后的落地页** ⇒ 不放行等于工人一点就是 403。
+>    它回的是**模板 JSON**（版式配置，不含业务数据），风险面与全量门行不是一个量级。
+>    ⚠️ **只放 `lable` 这一个 mode**：路由是 `print-templates/{mode}`（路径参数），
+>    白名单按**具体路径**精确匹配 ⇒ 写死 `lable` 就只放行它，`/print-templates`（列表）
+>    与别的 mode 仍然要 admin（`guard.rs` 的 `scanner_gets_only_the_lable_print_template`
+>    这条测试钉着，别顺手改成前缀匹配）。
 
 **deny-by-default 靠两件互相独立的事**：① 新模块默认往 `guarded` 里 merge（忘归类的后果是**被拦**）；
 ② 白名单是「方法 + 完整路径」的**精确匹配**，不是前缀 —— 老模块里新加的端点照样要 admin。

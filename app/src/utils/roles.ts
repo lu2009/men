@@ -21,8 +21,23 @@
  * 1（车间账号）和 3（终端账号）在新栈**没有对应账号**，也**没有产品线要建**——
  * 不要为了「对齐旧版」发明 `role = 'workshop'` / `'terminal'` 这种东西。
  * 依据：`docs/2026-09-19-qrscanner-analysis.md` §6.3、§8.6-(d)。
- * 除 `scanner` 外**一切** role（现在的 `admin` / `staff`，以及以后新增的）
- * 都按「普通 PC 账号」处理 —— 也就是说，它们的行为**一个字节都不变**。
+ *
+ * ## 角色分三档处置
+ *
+ * | 角色 | 这里的处置 |
+ * |---|---|
+ * | `scanner` | **受限** —— 路由闸门（`RESTRICTED_ROUTES`）只放它进扫码那几个入口 |
+ * | `admin` | 路由全放行；且是**唯一**能改工序名单的角色，见 `canEditProcedures` |
+ * | 其余 | 按「普通 PC 账号」处理：路由闸门不管、也没有额外的页面内限制 |
+ *
+ * ⚠️ **第三档「其余」目前是空的**：建号只有两条路（`auth/service.rs` 写死 `admin`、
+ * `scanner/service.rs` 写 `scanner`），`users.role` 的迁移默认值也已拍板从 `staff`
+ * 改成 `admin`。所以那一行**不是「行为保证」，只是「一律不额外设限」**。
+ *
+ * ⚠️ 而且真冒出第三档角色时，**前后端口径是不一致的**：前端这里放它看全套菜单，
+ * 后端 `guard.rs` 的 `allowed_for` 对它却是 **deny-by-default**（只剩自助端点）
+ * ⇒ 他会「菜单全有、点什么都 403」。这是**已知**的、留给产品定的事，不是漏改；
+ * 本轮只把「唯一的默认值入口」堵掉（默认值改 `admin`），deny-by-default 的结构**不动**。
  *
  * ## ⚠️ 这里是**体验层**，不是安全边界
  *
@@ -35,9 +50,38 @@
 /** 扫码账号的 role 值（旧版 `defaulted === 2`）。后端建号时写这个值。 */
 export const SCANNER_ROLE = 'scanner'
 
+/** 租户管理员（后端 `guard.rs` 的 `ROLE_ADMIN`）。建号时写死这个值。 */
+export const ADMIN_ROLE = 'admin'
+
 /** 是不是扫码账号（旧版 `defaulted === 2`）。 */
 export function isScanner(role?: string | null): boolean {
   return role === SCANNER_ROLE
+}
+
+/**
+ * 能不能改「设置工序」的工序名单 —— 也就是旧版那颗 `el-button type="info"` 的显示条件。
+ *
+ * ★ **只有 `admin`。** 依据旧版 §6.3 那张表：`yt = (Number(userinfo.defaulted) === 1)`
+ *   才显示 —— `=2`（扫码账号）**和 `0/其它`（普通 PC 账号）都不显示**。
+ *   不只是「扫码账号看不到」，普通账号同样看不到。新栈没有 `defaulted`，
+ *   `admin` 是唯一对应「本租户能改配置」的角色。
+ *
+ * ⚠️ 三件事别搞混：
+ *
+ * 1. 这条**只**管「设置工序」那颗按钮 / 它开的弹窗。`/qrscanner` 本身**必须**对
+ *    `scanner` 开放（那是他的落地页，见 `landingRouteName`）⇒ 所以它**不在**
+ *    `RESTRICTED_ROUTES` 里，那张表是**路由级**的，装不下「同一页里藏一颗按钮」。
+ * 2. 这是**体验层**，不是防线（见抬头）。真正的拦截在后端 `guard.rs` 的
+ *    `SCANNER_ALLOWED`：`GET /v1/procedures` **放行**（扫码页的工序下拉要读）、
+ *    `POST /v1/procedures` **不放行**。前端藏按钮只是别让人白填一遍再吃 403。
+ * 3. 用它的地方**读 store 的 role**（`auth.user?.role`），而本函数对「role 还不知道」
+ *    （`null` / `undefined`）返回 **`false`** —— **fail-closed**，未知就不给改。
+ *    实际上不会闪：`/qrscanner` 带 `requiresAuth`，路由守卫在放行前已经
+ *    `await auth.loadMe()`（`router/index.ts:48-51`），页面渲染时 role 已经有值了。
+ *    即便如此也保持 fail-closed —— 万一将来有页面在守卫之外用它，宁可不显示。
+ */
+export function canEditProcedures(role?: string | null): boolean {
+  return role === ADMIN_ROLE
 }
 
 /**

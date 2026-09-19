@@ -113,9 +113,16 @@ async function main() {
   check('GET /auth/me → 200 且带 role', me.status === 200 && me.json?.data?.user?.role === 'scanner');
 
   console.log('\n## 4. scanner 能碰的');
+  // ⚠️ 2026-09-19 改过：读的那两条是**窄**接口（只回命中的 / 范围内的行）。
+  // 原先是 `GET /v1/progress` + `GET /v1/progress/more`（**全量**）—— 用户纠正：
+  // 那等于把整厂门行（客户名/金额/安装地址）发到车间工人的手机上，
+  // 旧版每次扫码只回命中的那几行。全量那两条现在落在 **§5 碰不得**里。
   for (const [m, p] of [
-    ['GET', '/api/v1/progress'],
-    ['GET', '/api/v1/progress/more'],
+    ['GET', '/api/v1/scan/qrcode?code='],
+    ['GET', '/api/v1/scan/stats?employee=1&range=' + encodeURIComponent('当天')],
+    // 「打印标签」要的那**一个**模板（扫码页四颗主按钮之一）。只放 lable 这一个 mode，
+    // 见 §5 里那几条反例。
+    ['GET', '/api/v1/print-templates/lable'],
     ['GET', '/api/v1/procedures'],
     ['GET', '/api/v1/auth/me'],
   ]) {
@@ -125,8 +132,11 @@ async function main() {
   const labels = await call('POST', '/api/v1/scan/labels', { token: sToken, body: { line_nos: [] } });
   check('scanner POST /scan/labels 不被 403', labels.status !== 403, `实际 ${labels.status}`);
 
-  console.log('\n## 5. scanner 碰不得的（敏感模块 + 提权端点）');
+  console.log('\n## 5. scanner 碰不得的（全量读 + 敏感模块 + 提权端点）');
   for (const [m, p] of [
+    // ★ 本次纠正的落点：全量读**不再**对扫码账号放行（理由见 §4 上面的注释）
+    ['GET', '/api/v1/progress'],
+    ['GET', '/api/v1/progress/more'],
     ['GET', '/api/v1/orders'],
     ['POST', '/api/v1/orders'],
     ['GET', '/api/v1/clients'],
@@ -137,6 +147,11 @@ async function main() {
     ['PUT', '/api/v1/column-configs'],
     ['GET', '/api/v1/formulas'],
     ['GET', '/api/v1/prices'],
+    // ★ 打印模板只放行 `lable` 那**一条**（见 §4）：列表给的是全部模板、别的 mode 也不是
+    // 扫码页要的 ⇒ 都还要 admin。`print-templates/{mode}` 是路径参数，白名单按**具体路径**
+    // 精确匹配，所以写死 lable 不会顺手放行整个模块。
+    ['GET', '/api/v1/print-templates'],
+    ['GET', '/api/v1/print-templates/xiaopiao'],
     ['GET', '/api/v1/receipts/R1'],
     ['POST', '/api/v1/procedures'],
     ['POST', '/api/v1/scanner-accounts'],
