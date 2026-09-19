@@ -1363,6 +1363,13 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
 .table-wrap :deep(.n-data-table .unsaved-row:hover .n-data-table-td) {
   background: #ffd6e6;
 }
+/* ⚠️ **这两条目前是「悬空样式」—— 全仓库没有任何代码加 `.highlight-matched-order` 这个类**
+   （2026-09-19 全库 grep 过）。它是旧版「查单号命中后把该行滚到居中并高亮」那条路的配套
+   （旧版由子表按 `row.单号.startsWith(po)` 加类，`Hui.formatted.js:1352-1356` / `:3788-3792`）。
+   **为什么留着不删**：那个功能现在**做得了只是没做** —— 迁移 `0020` 之后
+   `OrderLineDto.line_no` 已经存在（`app/src/api/types.ts:162`），挡路的那个数据模型问题没了；
+   删掉这里、将来做的时候还得照抄一遍。所以要删就**和功能一起删**。
+   跟踪：`docs/home-audit/02-actions.md` 的 **I4**（判定已从 ✅ 改成 ⚠️）。 */
 .table-wrap :deep(.n-data-table .highlight-matched-order .n-data-table-td) {
   background: #d4edda;
 }

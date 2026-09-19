@@ -94,13 +94,9 @@
           | 已付: {{ fmt(summary.paid) }} | 未付: {{ fmt(summary.unpaid) }}
           | 未付单数: {{ summary.unpaidCount }} | 未审核: {{ summary.unaudited }}
         </div>
-        <div v-else-if="rawOrders.length" class="summary-info">
-          总计: {{ filtered.length }} 条记录
-          | 时间: {{ summary.earliest || '—' }} 至 {{ summary.latest || '—' }}
-          | 门数: {{ summary.doors }} | 总价: {{ fmt(summary.total) }}
-          | 已付: {{ fmt(summary.paid) }} | 未付: {{ fmt(summary.unpaid) }}
-          | 未付单数: {{ summary.unpaidCount }} | 未审核: {{ summary.unaudited }}
-        </div>
+        <!-- ⚠️ 2026-09-19 删掉了一块**永不命中**的重复 `v-else-if="rawOrders.length"`：
+             它紧跟在 `v-else-if="rawOrders.length > 0"` 之后、条件被后者完全覆盖，
+             且两块内容**逐字相同** ⇒ 死代码。留着会让人以为还有第三种情形。 -->
       </div>
     </div>
 
@@ -981,9 +977,15 @@ watch(searchText, (v) => {
  * ```js
  * Ls = e => bs(e) ? "date-audit"                       // 未审核优先，命中就 return
  *                : (0 !== so(e) && 截止日期 &&
- *                   Math.floor((new Date(截止日期) - now) / 864e5) < 4) ? "date-warning"
+ *                   Math.ceil((new Date(截止日期) - now) / 864e5) < 4) ? "date-warning"
  *                : ""
  * ```
+ *
+ * ⚠️ **`ceil` 不是 `floor`**（`dr(1091)` 解出来就是 `ceil`）—— 这条注释 2026-09-19 更正过，
+ *    原写 `floor`。**而且我们的实现目前用的正是 `floor` + 本地午夜**（见下面 `dateCellClass`），
+ *    与旧版的 `ceil` + UTC 午夜**不等价**：到期差 4 天那一档旧版不标、我们标，
+ *    跨 UTC/本地 8 小时也会差 ⇒ **我们会把「临近截止」标早一天**。
+ *    已记为待拍板的行为偏离（`docs/home-audit/00-summary.md` §五），**不是**本注释改了就算对齐。
  *
  * ⚠️ **与旧版对齐时踩过三处，别再改回去**：
  *   ① **`< 4` 没有下界** ⇒ **已逾期（负数）同样命中**。先前写成 `diff >= 0 && diff <= 4`，
@@ -1085,9 +1087,15 @@ const dateTarget = ref<OrderSummaryDto | null>(null)
 const dateValue = ref<number | null>(null)
 
 function openDate(row: OrderSummaryDto) {
-  // 旧版 `:11412-11419`：**只有「打单操作」为空（未生产）才让改生产日期**，
+  // 旧版 `:11412-11419`：**只有「单号集」为空才让改生产日期**，
   // 否则 `ElMessage.warning("已生产的单不能修改生产日期")` 并**不开弹窗**。
-  // 判据逐字：`"" === (打单操作 ?? "").toString().trim()` 才放行。
+  // 判据逐字：`"" === (单号集 ?? "").toString().trim()` 才放行。
+  //
+  // ⚠️ **这条注释 2026-09-19 更正过**：原写「打单操作」，与源码不符 ——
+  //    旧版取的是 `dr(1362)`，`node legacy/decode-token.mjs dr 1362` = **「单号集」**。
+  // ⚠️ **而下面的代码判的是 `production_status`（打单操作），两者不等价**：
+  //    点过「审核确认」（打单操作非空）但**还没「填入单号」**的单，旧版**放行**改日期、我们**拦住**
+  //    （反向亦然）。已记为待拍板的行为偏离（`docs/home-audit/00-summary.md` §五.1），**别照这行改代码**。
   if ((row.production_status ?? '').toString().trim() !== '') {
     message.warning('已生产的单不能修改生产日期')
     return
@@ -1920,9 +1928,11 @@ function normalizeLines(lines: OrderLineDto[]): Line[] {
 /**
  * 页面级回调 —— 与 Hui 的 `detailHooks` 同形。
  *
- * ⚠️ `calcSingleRow` 目前**只算料、不自动开预览**：旧版 Home 会顺手开「生产单」预览
- *    （`Home.formatted.js:8221-8263`，靠内嵌整个 Hui 页面组件）。新版不走那条路，
- *    预览要接 Home 自己的打印链路 —— **这一小条尚未接**，见方案 §3.5 / §5c。
+ * ✅ `calcSingleRow` **已经会顺手开「生产单」预览**（2026-09-19 更正这条注释，原写「尚未接」）：
+ *    实现在 `calcSingleRowInExpand`（本文件 `:2220-2232`）—— 引擎算料 → 换成这一张单
+ *    → `onOpenMode('product','生产单')`。旧版走的是「内嵌整个 Hui 页面组件」那条路
+ *    （`Home.formatted.js:8221-8263`），我们改成「引擎算料 + 复用本页现成的打印预览弹窗」，
+ *    结果一样、路更短。
  */
 const homeDialogs = useDetailLineDialogs({
   // 行内重算只看行本身 + formulas，用哪一份引擎实例都一样；挑一个稳定的。
@@ -2293,11 +2303,14 @@ async function confirmOrderNoQuery() {
   }
   // ⚠️ 旧版这里还有一段 800ms 后「滚到居中」：它找的是 `.highlight-matched-order`，
   //    而那个类由 **Hui 子表**按 `row.单号.startsWith(po)` 加（`Hui.formatted.js:1352-1356`
-  //    / `:3788-3792`，靠 Home 往下传 `highlightOrderQuery`）。**新版做不了**：
-  //    `OrderLineDto` 里**没有「单号」字段**（`app/src/api/types.ts:109-159`）——
-  //    旧版一行明细属于某个单号，新版把单号收在回执单号上了（`0009_orders.sql`：单号不单设列）。
-  //    所以这里**刻意不写**滚动：`Hui.vue:3893` 那两条 `.highlight-matched-order` 样式
-  //    目前也是悬空的（没有任何地方加这个类），补它要先把「明细行的单号」这条数据补回模型。
+  //    / `:3788-3792`，靠 Home 往下传 `highlightOrderQuery`）。
+  //
+  //    ⚠️ **这条注释 2026-09-19 更正过**：原写「新版做不了，`OrderLineDto` 里没有『单号』字段」
+  //    —— **已过期**。迁移 `0020` 之后 `OrderLineDto.line_no` **已经存在**
+  //    （`app/src/api/types.ts:162`），样式也随组件搬到了 `components/DetailLinesTable.vue:1366-1371`。
+  //    ⇒ 现在**做得了、只是没做**（这一点属「数据模型补回之前无落点」那个理由的失效，
+  //    见 `docs/home-audit/02-actions.md` 的 I4，判定已从 ✅ 改成 ⚠️）。
+  //    所以这里仍然刻意不写滚动 —— 但**理由变了**：不是「做不了」，是**还没做**。
   //    （旧版在找不到该元素时同样直接 return，不滚。）
 }
 
@@ -2707,7 +2720,15 @@ function rowTipContent(row: OrderSummaryDto) {
   return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row) === 0 }
 }
 
-/** 把提示挪到鼠标处（和旧版 `Va` 的意图一致）。 */
+/**
+ * 把提示挪到鼠标处。
+ *
+ * ⚠️ **这是有意偏离**（2026-09-19 更正注释）：原写「和旧版 `Va` 的意图一致」——
+ *   而旧版那个 `Va`（`Home.formatted.js:7983`）**全文件零调用，是死码**，
+ *   所以旧版**根本不跟手**（位置只在进入单元格那一刻取一次）。
+ *   我们是照它的「意图」实现的 ⇒ 行为与旧版不同，已按 ⚠️ 记在
+ *   `docs/home-audit/00-summary.md` §五.2（**改回「不跟手」与否待拍板**）。
+ */
 function moveRowTip(ev: MouseEvent) {
   const el = rowTipEl.value
   if (!el) return
