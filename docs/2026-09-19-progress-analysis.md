@@ -118,9 +118,11 @@ me={key:4,class:"search-info"},ge={class:"total-info"},ve={key:5,class:"search-i
 **✅ 2026-09-19 已落**（`app/src/views/Progress.vue`，差分台 `docs/progress-toolbar-logiccheck.mjs`）。
 四处**要留意的落地细节**：
 
-1. **三颗按钮的目标 UI 本版还没做**（打印抽屉 / 更多查询对话框 / 生产分析看板）⇒ 做成
-   「**置灰 + 点了给提示**」，不做死链；「批量更新」按旧版条件（已选 > 1）渲染，
-   而本页还没有行勾选 UI ⇒ 它**现在恒不出现**（与旧版「没勾选时」的表现一致）。
+1. ~~三颗按钮的目标 UI 本版还没做~~ **✅ 2026-09-19 已收敛到只剩一颗**：
+   「生产分析」✅ 已接真看板、「打印选项」✅ 已接真抽屉（§4.5）、「批量更新」✅ 已接真弹窗（§4.2）
+   —— 都**不再是置灰**；**只剩「查询更多」**仍是「**置灰 + 点了给提示**」，不做死链。
+   行勾选 UI 也补齐了（§2.3 第 1 行、§4.2），所以「批量更新 (n)」按旧版条件（已选 > 1）
+   **会真的出现**；没勾选时仍然一颗都不渲染（旧版此刻本来就没有这颗按钮）。
 2. **`zo` 还兼着「导出表格」的显隐开关**（见 §4.6），新版同样是「搜索词非空才出现」。
    但旧版 `zo` 还会被「查询更多」的确认动作赋值 ⇒ 那边落地前，这条开关只由搜索框控制。
 3. **旧版 `no` 的第一句是 `Bo ? xo : oo`**（`Bo`=查询更多结果集生效标志、`xo`=其结果集）。
@@ -140,7 +142,7 @@ me={key:4,class:"search-info"},ge={class:"total-info"},ve={key:5,class:"search-i
 
 | # | label | min-width | 出现条件 | 单元格内容 |
 |---|---|---|---|---|
-| 1 | **日期** | 30 | 始终 | `D2` 时表头带「全选/取消全选」checkbox；行内 checkbox；`{日期}`；`D2` 时右侧两个链接 **更新进度** / **删除** |
+| 1 | **日期** | 30 | 始终 | `D2` 时表头带「全选/取消全选」checkbox；行内 checkbox；`{日期}`；`D2` 时右侧两个链接 **更新进度** / **删除**（✅ 表头那颗与行内那颗 2026-09-19 已落，见下） |
 | 2 | **客户** | 40 | `D2` | `{客户}` |
 | 3 | **单号** | 30 | `D2` | 表头：`有单号`/`空单号` 列筛（`filters` + `column-key="单号"`）+「查单号」popover（输入 `-` 前数字也可，回车确认）；单元格 `{单号}` + hover tooltip |
 | 4 | **生产进度** | 150 | 始终 | 表头：「颜色筛选」popover；单元格 `innerHTML = va(生产进度)`，含「回款」时加 `.progress-paid`（红字） |
@@ -161,6 +163,18 @@ me={key:4,class:"search-info"},ge={class:"total-info"},ve={key:5,class:"search-i
   （`备注` 在两种模式下**位置不同**，这是同一个 label 出现两次的原因，不是重复列。）
 
 样式补充：`[data-v-95ebc180] .el-table{min-width:1500px}`、表头底色 `#f0f9eb`、`table-layout:fixed`（`Progress-4dee25cf.css`）。
+
+**✅ 2026-09-19：「日期」列的两颗 checkbox 已落**（`Progress.vue` 的 `dateHeader` / `allSelected` /
+`toggleSelectAll`，差分台 `docs/progress-select-logiccheck.mjs`），两条**反直觉、但必须照抄**的语义：
+
+1. **表头「全选」盖的是「当前筛选结果」`no`**，不是当前页、也不是全量 —— 旧版自己在 checkbox 的
+   `title` 里就写了「全选/取消全选（**当前筛选结果**）」（本版照抄这句 title）。
+   对应新版 = `filteredRows`（筛完但**没分页**）。
+2. **「取消全选」清的是全量 `K`**（`K.value.forEach(r => r.isSelected = false)`），**不是 `no`** ——
+   被筛掉、翻到别的页的那些勾**也会一起清掉**。看着别扭，但这是旧版的行为，别「顺手改对」。
+3. 勾选态挂在**行对象**上（旧版 `isSelected` 就是在 map 那一步补的），新版同 —— 不另开「已选 id」表。
+   ⚠️ 新版**没有**旧版那两个 `ping_hui`/`diao_hui` 数组：旧版建它们只是为了打印时拼标签/生产单的行，
+   新版打印走「订单 + 行」链路 ⇒ 唯一事实来源是行上的 `isSelected`（见 §4.2 / §4.5）。
 
 ### 2.4 分页
 
@@ -360,6 +374,16 @@ P2.value=l2===a2||a2==="开门红" })`、`Vue.onActivated(()=>{Ta(),X2()})`。
 且**勾选里只要有一行缺单号就拒绝**：
 `ElMessage.error("存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单")`。
 
+**✅ 2026-09-19 已落**（`app/src/views/Progress.vue` 的 `openBatchUpdate` / `submitUpdate` /
+`openUpdateDialog`，差分台 `docs/progress-select-logiccheck.mjs`）。三处**要留意的落地细节**：
+
+1. **批量与单行是同一个弹窗**（旧版也是：同一个 `I`，只换标题、`footer` 少两颗）。
+   本版同样只多一个 `updBatch` 标志 —— 标题 `批量更新进度 (n条)`。
+2. **发的是行 id**，两种模式都是。旧版批量时按槽分流（`工序10` → 行 id，其余槽 → **行级单号**），
+   那是它服务端的分流口径；新版 `/v1/progress/update` 统一收 `line_ids`
+   （§10 已去掉「回款→工序10」的特判），所以不照抄那个分流。
+3. **成功提示分两种**（照旧版）：批量 `批量更新成功，共 N 条` / 单行 `进度已更新`。
+
 ### 4.3 删除进度
 
 > ⚠️ **本节标题是个坑，先看这条更正（2026-09-19 回源码逐字核对后补）**：
@@ -441,6 +465,44 @@ onClick: async (row) => {
 ```
 1→玻璃合片单  2/7/8/9→生产单  3→玻璃订单  4→标签  5→收据单  10→生产标签  11→料标签
 ```
+
+**✅ 2026-09-19 已落**（`PrintDrawer.vue` 的 `preset="progress"` + `Progress.vue` 的
+`openPrint` / `printOrdersOf` / `onOpenPrintMode`）。**逐颗的 `ic` / 模板键**（回源码追出来的，
+不是按按钮名猜的）：
+
+| 旧版按钮 | 旧版 `ic` / 模板键 | 新版 mode | 依据（旧版 handler） |
+|---|---|---|---|
+| 标签 | `4` / `template.lable` | `lable` | `Ca` |
+| 生产标签 | `10` / `template.product10` | `product10` | `Pa` |
+| 料标签 | `11` / `template.product4` | `product4` | `La`（⚠️ 就是「切料标签」那张模板） |
+| 生产单 | `2` / `template.product` | `product` | `Ba`（`calculateReceipt{ping,diao}`） |
+| 生产单定制 | `8` / `template.product2` | `product2` | `xa`（`calculateReceiptOld`） |
+| 生产单定制(竖版) | `9` / `template.product3` | `product3` | `ba` |
+| 玻璃合片单 | `1` / `template.glass` | `glass` | `Ma`（`calculateGlass`） |
+| 玻璃订单 | `3` / `template.glassHole` | `glassHole` | `ka`（`Glasslist`） |
+| 平开门生产单 | `2` / `template.product` | — **置灰** | `Aa`：`{ping:true,diao:false,single:true}` |
+| 移门生产单 | `2` / `template.product` | — **置灰** | `Da`：`{ping:false,diao:true,single:true}` |
+| 平开门生产单(定制) | `7` / `template.product1` | `product1` | `Ia`（`calculateReceiptForCustomed`） |
+| 收据单 | `5` / 回执族 | `FinalReceipt` | `So` |
+
+**四处要留意的落地细节**：
+
+1. **不新造打印链路**：12 颗按钮 → `PrintDrawer`（`preset="progress"`，只列入口）
+   → `PrintPreviewDialog`（预览 + 该单据的操作栏）。旧版那 12 段 handler 里各自算行的那部分
+   （标签行 / 生产单行 / 玻璃行…）新版**早就在 `utils/printPayloads.ts` 里**（按**模板字段族**分发），
+   Home / Hui 打印走的就是它 —— 再抄一份等于同一套口径两份实现。
+2. **两类置灰**（「平开门生产单」「移门生产单」）：它们与「生产单」**同一个模板**，
+   差别是「只留平开/只留移门的行」+ `single:true`（一扇一页）。新版载荷层是**订单级**构造
+   （`showPing`/`showDiao` 恒 true、没有 `single` 这个分页概念）⇒ 现在做出来只能与「生产单」完全一样。
+   **置灰 + 悬停提示**，不假装能做（理由逐条写在 `PrintDrawer.vue` 的 `PROGRESS_ITEMS`）。
+3. **⚠️ 一处有意的粒度差异**：旧版的输入是**勾选的门行**，新版共用链路吃的是**订单**。
+   新版把勾选行折算成订单时**只保留被勾选的那些行**（`printOrdersOf`）⇒ 打出来的「门」与旧版一致，
+   差异只在「订单头字段来自整单」（旧版同样如此：`enrichDoorRow` 的客户/单号/日期本来就取自订单头）。
+4. **多一道「收据单不能跨客户」的闸**（旧版 `So` 的原话）：
+   `if (new Set(客户编号).size > 1) return ElMessage.error("所选数据包含不同客户，不能构建收据单")`。
+   新版回执族载荷是**每单一份**，不加这道闸会把两个客户的收据一次全打出来 —— 那是旧版明确拒绝的事。
+   另：旧版 Progress 抽屉里**没有**顶部那两颗回执单按钮、也**没有**「自定义单据」分组（Home 才有），
+   新版 `preset="progress"` 同样没有。
 
 ### 4.6 导出
 
@@ -667,7 +729,7 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 | 现有件 | 能否直接复用 |
 |---|---|
 | `app/src/components/DashboardBigScreen.vue`（「经营数据驾驶舱」） | ❌ **不是**这个看板。它是 Home 的经营看板（业务员/客户排行），Progress 要的是「生产分析看板」（工序/型材统计 + 4 饼图 + 趋势）。**只能借布局与 echarts 封装，指标要重写。** |
-| `app/src/views/Home.vue` 的进度串渲染 / 手动更新进度弹窗 / 打印链路 | ✅ 进度串分段、`usePasswordVerify` 用法、`PrintDrawer` / `printPayloads` 可参考；但**列集与筛选链路要另写** |
+| `app/src/views/Home.vue` 的进度串渲染 / 手动更新进度弹窗 / 打印链路 | ✅ 进度串分段与 `usePasswordVerify` 用法**可参考**；`PrintDrawer` / `PrintPreviewDialog` / `printPayloads` **已实际复用**（2026-09-19，`PrintDrawer` 的 `preset="progress"`，见 §4.5）；但**列集与筛选链路要另写** |
 | `app/src/api/client.ts` | ⚠️ 没有 `getProgress` 对应端点，需新增 |
 | `backend/src/modules/orders/*` | ⚠️ 没有 `getProgress` / `GetProcedures` 对应端点，需新增 |
 
@@ -683,7 +745,7 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 > | 3 后端端点 | ✅ 已落（`/v1/progress`、`/v1/procedures` 读+写、`/v1/progress/update`）；`delete` ⏳ 未落。<br>✅ **2026-09-19 补：`GET /v1/progress/more`（「查询更多」取数）已落**；`getClientsInfo` **不另开端点**，复用 `GET /v1/clients` —— 见 §8.3 |
 > | 4 数据流（全量 + 前端筛/分页） | ✅ 已落 |
 > | 5 列集 | ⚠️ **只落 PC 14 列**。终端 10 列**不做** —— 见 §10「不做终端分支」 |
-> | 6 可复用 | 部分：**工具条 / 统计行 / 导出表格已落**（2026-09-19）；打印抽屉、密码校验、看板仍未接 |
+> | 6 可复用 | ✅ **打印抽屉 / 看板 / 工具条 / 统计行 / 导出表格全落**（2026-09-19，打印抽屉走 `PrintDrawer` 的 `preset="progress"`，见 §4.5）；⚠️ 只有**密码校验**仍**有意不接**（§4.3 那三条理由） |
 > | 7 顺带修的旧版毛病 | ✅ `v-if` 那条已按 `> 0` 落；✅ 搜索框「不重置页码」也顺手修了（见 §2.2 第 4 条） |
 >
 > **工具条专项（2026-09-19，对着 §2.2 / §4.6 / §5.4）**
@@ -691,8 +753,9 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 > | | 状态 |
 > |---|---|
 > | 刷新 / 搜索框 / 统计行 / 导出表格 | ✅ 全落（差分台 `docs/progress-toolbar-logiccheck.mjs`） |
-> | 打印选项 / 查询更多 / 生产分析 | ⚠️ **按钮在、目标是空的**：旧版这三颗开的是打印抽屉 / 更多查询对话框 / 看板，本版都还没做 ⇒ 做成「置灰 + 点了提示『本版还没做』」，**不是死链** |
-> | 批量更新 (n) | ⚠️ 按旧版条件（`已选 > 1`）渲染；本页还没有行勾选 UI ⇒ **现在恒不出现**（与旧版未勾选时一致，不是漏做） |
+> | 打印选项 / 生产分析 | ✅ **2026-09-19 都接上真目标了**：打印抽屉（§4.5）/ 生产分析看板。不再置灰 |
+> | 查询更多 | ⚠️ **仍是「按钮在、目标是空的」**：按钮置灰 + 点了提示「本版还没做」（**不是死链**）。<br>⚠️ 后端那条 **`GET /v1/progress/more` 已落**（§8.3），但**前端这颗仍没接** —— 别把「后端有了」当成「这页做完了」 |
+> | 批量更新 (n) | ✅ **会真的出现了**：按旧版条件（已选 > 1）渲染，而行勾选 UI 已于 2026-09-19 补上（§2.3 第 1 行 / §4.2）。没勾选时仍然**一颗都不渲染**（不是置灰） |
 > | 新依赖 | `exceljs@4.4.0`（**动态 import**） |
 >
 > **§5.2 的 `va()`**（✅ 已落）：`app/src/views/Progress.vue` 的 `va()`。逐字差分台

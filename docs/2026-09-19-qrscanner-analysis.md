@@ -795,7 +795,7 @@ backend/src/modules/progress/model.rs  →  ProcedureSlotDto { slot, name } / Pr
 backend/src/modules/progress/service.rs:23 get_procedures()  —— 恒返回 15 项（库里没配的给空名）
 backend/src/modules/progress/handler.rs:17  GET /api/v1/procedures
 app/src/api/client.ts:125              →  listProcedures()
-app/src/views/Progress.vue:132         →  已消费 slots（filter(name.trim()) 后做下拉，value 用 slot）
+app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()) 后做下拉，value 用 slot）
 ```
 
 **当时缺的只有「写」。**
@@ -868,7 +868,7 @@ app/src/views/Progress.vue:132         →  已消费 slots（filter(name.trim()
      键是 **slot**，改名不丢色，天然按租户隔离。
 
 3. **不要照搬「工序下拉的 value 是工序名」。** 旧版 `dl` 的 `{label: 工序名, value: 工序名}` 再用 `pa()`
-   反查槽号，一旦两个槽同名就只会命中第一个。新版 `Progress.vue:134` 已经是 `{label: name, value: slot}` —— 保持这样。
+   反查槽号，一旦两个槽同名就只会命中第一个。新版 `Progress.vue:361` 已经是 `{label: name, value: slot}` —— 保持这样。
 
 ### 8.4 页面落地的建议
 

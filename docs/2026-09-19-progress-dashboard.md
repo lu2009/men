@@ -1165,7 +1165,7 @@ ElementPlus.ElMessage.success("导出成功")
 |---|---|---|
 | `openDirectionNaming` 的 `g`（归一化） | `app/src/composables/useOpenDirection.ts` 的 `getOriginalOpenDirection` | `ze` 需要它。**看板不读也不写 localStorage**，只是读那份配置 |
 | 开向配置加载 | `Progress.vue` 的 `onMounted` 里已调 `loadOpenDirectionSettings()` | 看板在同页，**无需再加载**（若看板抽成独立组件在别处挂载，则必须自己调） |
-| 移门扇数查表（22 项 + 倍数） | `Progress.vue:1313` 的 `moveFans` | ⚠️ **只能借「表」，不能借「函数」** —— 工具条 `yo` 与看板 `xe` 的**跳过规则不同**（哑口行：工具条整行跳过，看板仍可能进 swing/other） |
+| 移门扇数查表（22 项 + 倍数） | `Progress.vue:1586` 的 `moveFans` | ⚠️ **只能借「表」，不能借「函数」** —— 工具条 `yo` 与看板 `xe` 的**跳过规则不同**（哑口行：工具条整行跳过，看板仍可能进 swing/other） |
 | 「生产分析」按钮位 | `Progress.vue` 的 `dashboardShow` | ✅ **已接真看板**（2026-09-19 第五刀）—— 那颗按钮不再是 `disabled` + `notYet(...)` 占位 |
 
 ---

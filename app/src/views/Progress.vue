@@ -9,23 +9,27 @@
     - 第一刀：骨架 —— 路由 / 导航项 / 拉全量数据 / **PC 14 列** / 分页（100 每页，可选 [10,20,50,100,200]）。
     - 第二刀：**单元格保真** + **列头交互**（`va()` 渲染 / 颜色 / 表头筛 / 查单号 / 颜色筛选）。
     - 第三刀：**工具条 + 统计行**（旧版 `search-row`，§2.2 / §5.4）+ **导出表格**（§4.6）。
-    - 第四刀（本笔）：**行内「删除」**（§4.3）—— 日期列那颗红字链接补齐（「更新进度」上一刀已做）。
+    - 第四刀：**行内「删除」**（§4.3）—— 日期列那颗红字链接补齐（「更新进度」上一刀已做）。
+    - 第五刀：**生产分析看板**（`components/ProgressDashboard.vue`）。
+    - 第六刀（本笔）：**打印抽屉**（§4.5，`PrintDrawer` 的 `preset="progress"`）
+      + **「日期」列的行勾选**（表头全选 / 行内勾选框）⇒ 「批量更新」**真的能出现了**。
 
     ## ⏳ 还没做（按旧版顺序，各自独立可验）
 
     1. ~~**工具条**~~ ✅ **已做**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
-       导出表格 / 搜索框 / 统计行。⚠️ 其中**两颗**的**目标 UI 还没做**（见下面 2/3），
-       它们做成「**置灰 + 点了给提示**」而不是死链；「批量更新」按旧版条件（已选 > 1）渲染，
-       本页还没有勾选 UI ⇒ 现在**恒不出现**（与旧版「没勾选时」的表现一致）。
-       「生产分析」✅ **已接真看板**（第五刀，见 `components/ProgressDashboard.vue`）。
-    2. **打印抽屉**（旧版 §4.5：标签 / 生产标签 / 料标签 / 生产单 / … / 收据单 共 12 类）
-       —— 「打印选项」那颗按钮的目标 UI。
+       导出表格 / 搜索框 / 统计行。「生产分析」✅ 已接真看板；「打印选项」✅ 已接真抽屉（本笔）；
+       「批量更新」✅ 已接真弹窗（本笔）。**只剩「查询更多」**仍是「置灰 + 点了给提示」（见下 3）。
+    2. ~~**打印抽屉**~~ ✅ **已做（本笔）**（旧版 §4.5）：「打印选项」→ `PrintDrawer`
+       `preset="progress"` 那 **12 类**单据 → `PrintPreviewDialog` 预览。
+       ⚠️ **两类置灰**（「平开门生产单 / 移门生产单」，旧版的 ping/diao 拆分 + 单行分页本版没有），
+       逐条理由写在 `PrintDrawer.vue` 的 `PROGRESS_ITEMS` 注释里。
     3. **更多查询对话框**（旧版 `Lo`）—— 「查询更多」那颗按钮的目标 UI。
        要**先补后端**（`getMoreProgress` / `getClientsInfo`，见 §3.1）；
        它同时会引入旧版的 `Bo`/`xo`（查询结果集生效标志），`filteredRows` 里已留了说明。
-    4. **行内动作**：「更新进度」✅ 已做（弹窗拼 `工序名_操作员_日期` → `POST /v1/progress/update`）；
-       「删除」✅ 已做（本笔，§4.3 —— 确认框 → `DELETE /v1/orders/{id}/lines/{lineId}`，见 `confirmDeleteRow`）；
-       **「日期」列的行勾选 checkbox** ⏳ 未做（「批量更新」依赖它）。
+    4. ~~**行内动作**~~ ✅ **全做完**：「更新进度」/「删除」已做（§4.2 / §4.3）；
+       **「日期」列的行勾选 checkbox** ✅ 本笔补上（表头 = 全选/取消全选，范围是**当前筛选结果**）。
+       ⇒ 工具条「批量更新 (n)」按旧版条件（已选 > 1）**自动出现**，点开是同一个更新进度弹窗的批量版
+       （标题 `批量更新进度 (n条)`、先过「有没有缺单号的行」那道闸），见 `openBatchUpdate`。
     5. ~~**生产分析看板**~~ ✅ **已做（第五刀）**：`components/ProgressDashboard.vue`
        （5 KPI + 4 饼图 + 趋势 + 4 个统计 tab + 导出 xlsx），口径层在 `utils/productionStats.ts`，
        与旧版逐字段对过（`docs/progress-dashboard-logiccheck.mjs`）。
@@ -82,35 +86,31 @@
       工具条（旧版 `.search-row`，从左到右逐项对着 `docs/2026-09-19-progress-analysis.md` §2.2）：
         打印选项 · 批量更新(n) · 查询更多 · 生产分析 · 刷新 · 导出表格 · 搜索框 · 统计行
 
-      ⚠️ **两颗**按钮的**目标 UI 本版还没做**（打印抽屉 / 更多查询对话框）——
+      ⚠️ 本轮过后**只剩一颗**「目标 UI 本版还没做」的按钮：「查询更多」——
          按本项目对死链的态度做成「**置灰 + 点了给提示**」（机制见 `notYet()` 的注释）。
-      「生产分析」已接真看板（第五刀），不再置灰。
+      「生产分析」已接真看板（第五刀）、「打印选项」已接真抽屉（本笔），都不再置灰。
 
-      ⚠️ 「批量更新」**连按钮都不渲染**（不是置灰）—— 依据是 §2.2 表格第 2 行给的出现条件
-         「`已选条数 > 1` 且 PC 模式」（`ea = te.ping_hui.length + te.diao_hui.length`）：
-         本页还没有行勾选 UI（文件头 ⏳4）⇒ 已选恒为 0 ⇒ **按旧版口径它此刻本来就不该出现在屏幕上**，
-         置灰反而会多出一颗旧版此时不会有的按钮。
-         这里仍把 `v-if` 条件与文案照旧版写上（今天恒假），等勾选列落地即可自动生效。
+      ⚠️ 「批量更新」是**按条件渲染**（不是置灰）—— 依据 §2.2 表格第 2 行给的出现条件
+         「`已选条数 > 1` 且 PC 模式」（`ea = te.ping_hui.length + te.diao_hui.length`）。
+         本笔补上「日期」列的行勾选之后它就能真的出现了；**没勾选时仍然一颗都不渲染**
+         （旧版此刻本来就没有这颗按钮，置灰反而会多出一颗）。
     -->
     <div class="search-row">
-      <n-tooltip>
-        <template #trigger>
-          <!-- ⚠️ 提示语是**给厂里用人看的**，别往里塞 `§`/函数名这类文档记号（那些写在代码注释里） -->
-          <span class="pending-slot" @click="notYet('打印选项', '标签 / 生产单 / 玻璃合片单 / 收据单等打印')">
-            <n-button type="primary" disabled>打印选项</n-button>
-          </span>
-        </template>
-        打印抽屉本版还没做
-      </n-tooltip>
+      <!--
+        打印选项（旧版 `zl=true` 开抽屉）：抽屉内容 = `PrintDrawer` 的 `preset="progress"`
+        —— 旧版那 **12 类**单据，不是 Home 那 24 个入口（两页抽屉本来就不同，见组件文件头）。
+        ⚠️ 旧版这颗**没有**「没勾选就不给开」的守卫：抽屉照样打开，只是里面 12 颗全灰
+           （每颗的 `disabled` 条件都是「已选条数 = 0」）⇒ 这里同样不守卫。
+      -->
+      <n-button type="primary" @click="openPrint">打印选项</n-button>
 
-      <n-tooltip v-if="selectedRows.length > 1">
-        <template #trigger>
-          <span class="pending-slot" @click="openBatchUpdate">
-            <n-button type="warning" disabled>批量更新 ({{ selectedRows.length }})</n-button>
-          </span>
-        </template>
-        批量更新本版还没做（要先有行勾选）
-      </n-tooltip>
+      <!--
+        批量更新 (n)：旧版条件 `已选条数 > 1`（`ea.value > 1 && D.value`，`D` = PC 模式）。
+        勾选 UI 见「日期」列（表头全选 + 行内勾选框）。
+      -->
+      <n-button v-if="selectedRows.length > 1" type="warning" @click="openBatchUpdate">
+        批量更新 ({{ selectedRows.length }})
+      </n-button>
 
       <!-- 「查询更多」旧版恒出现（§2.2 表格第 3 行）。⚠️ 它要的**后端也没有**：
            `getMoreProgress` / `getClientsInfo` 在新版后端**不存在**（见 §3.1 与文件头 ⏳3），
@@ -190,7 +190,7 @@
     />
 
     <!-- 更新进度（旧版行内那颗链接开的弹窗） -->
-    <n-modal v-model:show="updOpen" preset="card" title="更新进度" style="width: 420px" :bordered="false">
+    <n-modal v-model:show="updOpen" preset="card" :title="updTitle" style="width: 420px" :bordered="false">
       <div class="upd-form">
         <div class="upd-row">
           <span class="upd-label">工序</span>
@@ -214,6 +214,30 @@
       </template>
     </n-modal>
 
+    <!--
+      打印选项抽屉（旧版 `zl`，`el-drawer` `title:"打印选项"` `size:350`）。
+      `preset="progress"` = 旧版这一页那 **12 类**单据（不是 Home 那 24 个入口）。
+      数据：勾选的门行折算出的订单（只保留勾选的那些行，见 `printOrdersOf`）。
+    -->
+    <PrintDrawer
+      v-model:show="printShow"
+      preset="progress"
+      :orders="printOrders"
+      @open-mode="onOpenPrintMode"
+    />
+
+    <!--
+      打印预览弹窗（旧版 `ml` 那个 `el-dialog`，宽 `1180px`，工具条 = 关闭/云打印/手动打印 + 按 ic 的编辑类）。
+      与 Home / Hui 共用同一个组件（新版的「抽屉只列入口，预览与操作栏在弹窗里」就是照旧版拆的）。
+      旧版 Progress 页自己也有一份预览弹窗，且**没有**加东西 —— 直接用共用件。
+    -->
+    <PrintPreviewDialog
+      v-model:show="previewShow"
+      :orders="printOrders"
+      :mode="previewMode"
+      :title="previewTitle"
+    />
+
     <div class="table-footer">
       <n-pagination
         v-model:page="page"
@@ -232,6 +256,7 @@ import type { VNodeChild } from 'vue'
 import type { Workbook as ExcelJSWorkbook } from 'exceljs'
 import {
   NButton,
+  NCheckbox,
   NDataTable,
   NInput,
   NModal,
@@ -244,15 +269,25 @@ import {
 } from 'naive-ui'
 import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
 import { api } from '../api/client'
-import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
+import type { OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
+import PrintDrawer from '../components/PrintDrawer.vue'
+import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
 
 const message = useMessage()
 // 行内「删除」的二次确认（旧版是 `ElMessageBox.confirm`，同 Hui/Home 的做法用 `dialog.warning`）。
 const dialog = useDialog()
 
-const rows = ref<ProgressRowDto[]>([])
+/**
+ * 页面行 = 后端行 + 前端的**勾选态**。
+ *
+ * 旧版也是把 `isSelected` 直接挂在行对象上（`…map(e => ({...e, isSelected:!1, "生产进度": …}))`，
+ * §3.1 末），勾选框就是 `modelValue: row.isSelected` —— 新版照同一套，不另开一张「已选 id」表。
+ */
+type ProgressRow = ProgressRowDto & { isSelected: boolean }
+
+const rows = ref<ProgressRow[]>([])
 const loading = ref(false)
 
 // 分页：旧版 `page=1`、`pageSize=100`、可选 [10,20,50,100,200]（§2.4）。
@@ -266,7 +301,10 @@ async function load() {
   loading.value = true
   try {
     const r = await api.listProgress()
-    rows.value = r?.progressData ?? []
+    // 每行补 `isSelected:false`（旧版在 map 那一步做，见 §3.1 末）。
+    // ⚠️ 这里**整份换掉 `rows`** ⇒ 勾选态自然被清掉，与旧版 `pa()` 的「重拉 + 清空勾选」等价
+    //    （旧版还要额外逐个 `isSelected=false`，是因为它不重建数组）。
+    rows.value = (r?.progressData ?? []).map((x) => ({ ...x, isSelected: false }))
     // 数据换了要回到第一页（否则可能停在越界的页码上）
     if ((page.value - 1) * pageSize.value >= filteredRows.value.length) page.value = 1
   } catch (e) {
@@ -311,6 +349,8 @@ const dashboardShow = ref(false)
 const updOpen = ref(false)
 const updSaving = ref(false)
 const updTarget = ref<ProgressRowDto | null>(null)
+/** 批量模式（旧版 `O`）：勾选多行时开的是同一个弹窗，只换标题、改发一批 id。 */
+const updBatch = ref(false)
 const updSlot = ref<string | null>(null)
 const updOperator = ref('')
 const updDate = ref(today())
@@ -346,7 +386,15 @@ const updValue = computed(() => {
   return parts.join('_')
 })
 
-function openUpdate(r: ProgressRowDto) {
+/**
+ * 打开「更新进度」弹窗。`r = null` ⇒ **批量模式**（旧版 `O=true`，标题换成
+ * `批量更新进度 (n条)`、footer 不出现「收款/删除」那两颗）。
+ *
+ * ⚠️ 单行模式旧版有一道 `if (!row.单号) return ElMessage.warning("未开始生产的单无法更新进度")`
+ *    —— 那颗链接本来就是 `v-if="单号"`，够不着，新版同样不加。
+ */
+function openUpdateDialog(r: ProgressRowDto | null) {
+  updBatch.value = r === null
   updTarget.value = r
   updSlot.value = null
   updOperator.value = ''
@@ -354,14 +402,31 @@ function openUpdate(r: ProgressRowDto) {
   updOpen.value = true
 }
 
+function openUpdate(r: ProgressRowDto) {
+  openUpdateDialog(r)
+}
+
+/** 弹窗标题：旧版 `O.value ? "批量更新进度 (" + ea + "条)" : "更新进度"`。 */
+const updTitle = computed(() =>
+  updBatch.value ? `批量更新进度 (${selectedRows.value.length}条)` : '更新进度',
+)
+
 async function submitUpdate() {
+  const batch = updBatch.value
   const r = updTarget.value
-  if (!r || !updSlot.value || !updValue.value) return
+  if (!batch && !r) return
+  if (!updSlot.value || !updValue.value) return
+  const ids = batch ? selectedRows.value.map((x) => x.id) : [r!.id]
+  if (!ids.length) return
   updSaving.value = true
   try {
-    await api.updateProgress([r.id], updSlot.value, updValue.value)
+    // 旧版批量时发的是**行 id**（槽 = 工序10）或**行级单号**（其余槽）——那是它服务端的分流口径。
+    // 新版 `/v1/progress/update` 统一收 `line_ids`（见 `api.updateProgress` 的注释，以及
+    // 分析文档 §10 去掉的「回款→工序10」特判）⇒ 两种模式都发 id。
+    await api.updateProgress(ids, updSlot.value, updValue.value)
     updOpen.value = false
-    message.success('进度已更新')
+    // 成功提示照旧版分两种：批量「批量更新成功，共 N 条」/ 单行「进度已更新」。
+    message.success(batch ? `批量更新成功，共 ${ids.length} 条` : '进度已更新')
     await load()
   } catch (e) {
     message.error(e instanceof Error ? e.message : '更新失败')
@@ -1134,17 +1199,44 @@ const pageRows = computed(() =>
   filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value),
 )
 
+/**
+ * 「日期」列表头（旧版 `pe` 那个 div）：**全选 checkbox + 「日期」**竖排。
+ *
+ * ⚠️ 旧版这个 checkbox 的 `title` 就是下面这句 —— 它同时也是**唯一的范围说明**
+ *    （全选盖的是「当前筛选结果」而不是当前页，见 `toggleSelectAll` 的注释）。
+ *    naive 的 `n-checkbox` 没有 `title` prop，用原生 `title` 属性（浏览器悬停提示）。
+ */
+const dateHeader = (): VNodeChild =>
+  h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' } }, [
+    h('span', { title: '全选/取消全选（当前筛选结果）' }, [
+      h(NCheckbox, {
+        checked: allSelected.value,
+        'onUpdate:checked': (v: boolean) => toggleSelectAll(v),
+      }),
+    ]),
+    h('span', null, '日期'),
+  ])
+
 // ── B4. 列定义 ────────────────────────────────────────────────────────────
-const columns = computed<DataTableColumn<ProgressRowDto>[]>(() => [
-  // 1 日期（旧版这一格还有行内 checkbox —— 未做，见文件头 ⏳4）
+const columns = computed<DataTableColumn<ProgressRow>[]>(() => [
+  // 1 日期（表头带全选 checkbox，行内带勾选框 —— 见 §2.3 第 1 行；两者都是素 `D2`=PC 才有，
+  //   本版不做终端分支 ⇒ 恒显示）
   {
-    title: '日期',
+    title: dateHeader,
     key: '日期',
     width: 150,
     fixed: 'left',
     cellProps: cellPad,
     render: (r) =>
       h('div', { class: 'cell-col' }, [
+        // 行勾选框（旧版 `m` = ElCheckbox，`modelValue: row.isSelected` + `onChange: Jl(row, t)`）。
+        // ⚠️ 直接改行对象上的标志（`rows` 是深响应式），`selectedRows` 是它的派生 computed。
+        h(NCheckbox, {
+          checked: r.isSelected,
+          'onUpdate:checked': (v: boolean) => {
+            r.isSelected = v
+          },
+        }),
         line(r['日期']),
         // 两个链接都是 `v-if="D2"`（PC 模式）—— 本版不做终端模式，故恒显示。
         // 旧版这一格是 `{display:flex;flex-direction:column;align-items:center;gap:4px}` 的**竖排**
@@ -1223,15 +1315,21 @@ const searchText = ref('')
 
 /**
  * 行勾选（旧版 `te = {ping_hui:[], diao_hui:[], customerInfo:{}, hui_picture:[]}`）——
- * 「批量更新」的显隐与计数只用到前两个数组的长度和（`ea`）。
- * ⚠️ **本页还没有行勾选 UI**（旧版那个 checkbox 在「日期」列里，属于文件头 ⏳4），
- *    所以这里恒为空数组 ⇒ 那颗按钮现在恒不出现。**不要**为了让它出现而写死一个假计数。
+ * 「批量更新」的显隐与计数只用到前两个数组的长度和（`ea`），而每一行**必然**只落进其中一个
+ * （旧版 `Jl` 按 `吊脚` 是否为空二分），所以 `ea` ≡ 勾选行数。
+ *
+ * ⚠️ 新版**不留那两个数组**：它们存在的唯一理由是旧版打印要拿它们去拼标签/生产单的行
+ *    （`Ca` / `So` 那些 `push({qty…})`）。新版打印走的是「订单 + 行」那套共用链路
+ *    （见 `printOrdersOf`）⇒ 留一份只有长度有用的副本反而容易和 `rows` 上的标志不同步。
+ *    于是**唯一事实来源是行上的 `isSelected`**，这里只做一次派生。
  */
-const selectedRows = ref<ProgressRowDto[]>([])
+const selectedRows = computed(() => rows.value.filter((r) => r.isSelected))
 
-/** 旧版 `pa()`：重拉数据 + **清空勾选**（`Ta()` + 逐个 `isSelected=false` + 重置 `te`）。 */
+/**
+ * 旧版 `pa()`：重拉数据 + **清空勾选**（`Ta()` + 逐个 `isSelected=false` + 重置 `te`）。
+ * 新版不用手动清 —— `load()` 会把 `rows` 整份换成新对象（见那里的注释）。
+ */
 async function refresh() {
-  selectedRows.value = []
   await load()
 }
 
@@ -1247,12 +1345,192 @@ function notYet(name: string, what: string) {
   message.info(`「${name}」本版还没做：${what}`)
 }
 
+// ── C2. 行勾选（旧版「日期」列里的 checkbox，表头那颗是全选）────────────────
+/*
+ * 旧版原文（反混淆后，逐字）：
+ *
+ *   // 表头（「日期」列 title）：ElCheckbox `model-value: Rl` + `onChange: $l`
+ *   //   标题 = "全选/取消全选（当前筛选结果）"
+ *   Rl = computed(() => { const t = no.value; return !(!t || 0 === t.length) && t.every(r => r.isSelected) })
+ *   $l = e => { if (e) { no.value.forEach(l => { l.isSelected !== e && (l.isSelected = e, Jl(l, e)) }) }
+ *               else { te.ping_hui = []; te.diao_hui = []; K.value.forEach(r => r.isSelected = false); ae() } }
+ *
+ *   // 行内：ElCheckbox `modelValue: row.isSelected` + `onUpdate:modelValue` + `onChange: t => Jl(row, t)`
+ *   Jl = (row, checked) => { checked ? (吊脚 非空 ? push ping_hui : push diao_hui) : (从对应数组里 splice) }
+ *
+ * 三处**必须照抄**的语义，别顺手"改好"：
+ *
+ *  ① **表头全选的范围是「当前筛选结果」`no`，不是当前页** —— 旧版自己在 title 里都写明了。
+ *     本页 `filteredRows` 就是 `no`（筛完但**没分页**，见那里的注释）⇒ 用它对。
+ *  ② **取消全选清的是「全部行」`K`**（不是 `no`）—— 旧版那个分支直接 `K.value.forEach`。
+ *     看着别扭，但结果就是「一取消全选，翻到哪页都没有勾」；用 `filteredRows` 会漏掉
+ *     被筛掉的页上的勾。**照抄**。
+ *  ③ 勾选**不影响**搜索/筛选/分页的任何一步（旧版 `isSelected` 从不参与 `no` 的计算）。
+ */
+const allSelected = computed(
+  () => filteredRows.value.length > 0 && filteredRows.value.every((r) => r.isSelected),
+)
+
+/** 表头「全选/取消全选」（旧版 `$l`）。 */
+function toggleSelectAll(v: boolean) {
+  if (v) {
+    // 旧版只对 `isSelected` **有变化**的行调 `Jl`（勾选态得靠它同步进 te 数组）；
+    // 新版没有那个数组，这里只需设置标志，仍保留 `!r.isSelected` 的写法以对应原文。
+    for (const r of filteredRows.value) if (!r.isSelected) r.isSelected = true
+  } else {
+    for (const r of rows.value) r.isSelected = false
+  }
+}
+
 /**
- * 「批量更新」的入口（旧版 `ta`）。
- * 按钮现在恒不出现（见 `selectedRows` 的注释），走到这里只可能是将来补了勾选列但没接弹窗。
+ * 「批量更新」的入口（旧版 `ta`）—— 先过「有没有缺单号的行」那道闸，再开同一个弹窗。
+ *
+ * 旧版原文（逐字，提醒语的标点别改）：
+ *   if ([...te.ping_hui, ...te.diao_hui].some(e => !e["单号"]))
+ *     ElMessage.error("存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单")
+ *   else { O = true（批量模式）; Y = null; S = true（loading）; …拉 GetProcedures…; W 复位; I = true }
  */
 function openBatchUpdate() {
-  notYet('批量更新', '要先勾选多行，且批量弹窗本版还没做')
+  if (selectedRows.value.some((r) => !r['单号'])) {
+    message.error('存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单')
+    return
+  }
+  // 批量模式：`updTarget` 留空（单行那套「未开始生产的单无法更新进度」的守卫也随之不生效 —— 旧版同理）
+  openUpdateDialog(null)
+}
+
+// ── C3. 打印（旧版 §4.5：工具条「打印选项」→ 抽屉里 12 类单据 → 预览弹窗）────
+/*
+ * ## 旧版这条链
+ *
+ * 抽屉 `zl` 里那 12 颗按钮**每一颗都是同一个形状**：
+ *
+ *   ① 从勾选的行（`te.ping_hui` / `te.diao_hui`）算出该单据的行
+ *      （`Ca`/`Pa`/`La`/`Ba`/`Ma`/`ka`/`So` … 各自一段，很短：`Dl.value.calculateReceipt(...)`、
+ *       `lableForProduct(...)`、`Glasslist()` … —— 调的是**内嵌子组件**的方法）；
+ *   ② `commentPreview(registrant.template.xxx, rows)` 生成 HTML；
+ *   ③ 开预览弹窗 `ml`（宽 1180px），并把 `pl`（= ic）设成该单据，弹窗据此出现对应的编辑按钮。
+ *
+ * ## 新版怎么接（**一行旧代码都没搬，全走共用件**）
+ *
+ *   勾选的行 ──(order.id 去重 + getOrder)──▶ 订单（**只留勾选的那些行**）──▶ PrintDrawer(preset="progress")
+ *     ──▶ PrintPreviewDialog（= 上面①②③ 的新版等价物：`printPayloads` + hiprint 预览）
+ *
+ * **为什么不照旧版把子组件的方法也搬过来**：那 12 段的产出（标签行 / 生产单行 / 玻璃行…）
+ * 新版**已经全部**在 `utils/printPayloads.ts` 里实现过了，而且是按**模板字段族**分发
+ * （`templatePayload`），Home / Hui 打印走的就是它。再抄一份 = 同一套口径两份实现。
+ *
+ * ## ⚠️ 一处**有意的粒度差异**（不是等价物，别当成抄漏）
+ *
+ * 旧版打印的输入是**勾选的门行**（`te.ping_hui`/`diao_hui` 里就是门行本身），
+ * 新版共用链路是**订单级**的（`PrintContext` 吃 `OrderDto`）。为了不把「没勾的樘数」也打出来，
+ * 这里把勾选行折算成订单时**只保留勾选的那些行**（`printOrdersOf`）——
+ * 于是「打出来的门」与旧版一致，差异只在「订单头字段来自整单」（旧版也是整单的：
+ * `enrichDoorRow` 的客户/单号/日期本来就取自订单头）。
+ */
+
+const printShow = ref(false)
+/** 打印用的订单（勾选行折算出来的一份**新对象**，不写回 `rows`）。 */
+const printOrders = ref<OrderDto[]>([])
+const previewShow = ref(false)
+const previewMode = ref('')
+const previewTitle = ref('')
+
+/** 已拉过的整单（一次抽屉会话里同一张单只拉一次；抽屉关掉就清，免得看到旧数据）。 */
+let printOrderCache = new Map<number, OrderDto>()
+
+/**
+ * 勾选行 → 订单：按 `order.id` 归并，**每单只保留被勾选的那些行**。
+ *
+ * 单个订单拉失败**不拦整体**（旧版也没有「有一行取不到就整批失败」这种逻辑）——
+ * 拉不到的订单直接不进打印批次，用户看到的就是少一单。
+ *
+ * ⚠️ **单据里各单/各行出现的顺序**：这里是**表里的顺序**（`selectedRows` 逐行过滤出来的顺序）。
+ *    旧版是**点击顺序**（`Jl` 往数组里 `push`）。旧版那个顺序纯属操作痕迹（同一批勾选、
+ *    换个勾选次序就换个出单次序），照抄它反而不可复现 ⇒ 取表序。**有意偏离**。
+ */
+async function printOrdersOf(selected: ProgressRow[]): Promise<OrderDto[]> {
+  const byOrder = new Map<number, Set<number>>()
+  for (const r of selected) {
+    const oid = r.order?.id
+    if (!oid) continue
+    if (!byOrder.has(oid)) byOrder.set(oid, new Set())
+    byOrder.get(oid)!.add(r.id)
+  }
+  const out: OrderDto[] = []
+  for (const [oid, lineIds] of byOrder) {
+    try {
+      let full = printOrderCache.get(oid)
+      if (!full) {
+        full = await api.getOrder(oid)
+        printOrderCache.set(oid, full)
+      }
+      // ⚠️ **必须留非空的行数组**：`PrintPreviewDialog` 的明细兜底是
+      //    `o.lines?.length ? o : await api.getOrder(o.id)` —— 空数组会被它当成「没展开过」
+      //    再拉一整单回来，勾选过滤就白做了。（本函数只在选了该单的行时才建条目，故必然非空。）
+      out.push({ ...full, lines: (full.lines ?? []).filter((l) => lineIds.has(l.id)) })
+    } catch {
+      // 静默跳过（见上）
+    }
+  }
+  return out
+}
+
+/** 派生 `printOrders`（带一个 token：慢的响应不许盖掉新的）。 */
+let printToken = 0
+async function syncPrintOrders() {
+  const token = ++printToken
+  const selected = selectedRows.value
+  // 没勾选就别去拉订单了：抽屉照开，里面 12 颗按钮会因为 `orders` 为空而全灰（= 旧版的表现）。
+  const list = selected.length ? await printOrdersOf(selected) : []
+  if (token === printToken) printOrders.value = list
+}
+
+/**
+ * 工具条「打印选项」（旧版 `zl=true`）—— 旧版**没有**「没勾选就不给开」的守卫，这里同样不守卫。
+ * 抽屉会照常打开，只是没勾选时里面 12 颗全灰（每颗的 `disabled` 就是「已选条数 = 0」）。
+ */
+async function openPrint() {
+  printOrderCache = new Map()
+  await syncPrintOrders()
+  printShow.value = true
+}
+
+/*
+ * 抽屉**开着的时候**勾选变了要跟着变。
+ *
+ * 旧版那 12 颗按钮是**在点击时**现读 `te.ping_hui`/`diao_hui` 的（勾选框在左侧固定列，
+ * 抽屉只占右边 350px，两者同屏可点）⇒ 开着抽屉改勾选，旧版立刻按新勾选出单。
+ * 新版这份 `printOrders` 是快照，不跟就会打错单据 —— 所以补这个 watch
+ * （`printOrdersOf` 有整单缓存，重复触发不会重复请求；token 保证慢响应不覆盖新结果）。
+ */
+watch(
+  () => (printShow.value ? selectedRows.value.map((r) => r.id).join(',') : ''),
+  () => {
+    if (printShow.value) void syncPrintOrders()
+  },
+)
+
+/**
+ * 抽屉里点了某类单据 → 开预览弹窗（与 `Home.vue` 的 `onOpenMode` 同一个口径：先关抽屉）。
+ *
+ * ⚠️ 多一道**「收据单不能跨客户」**的闸 —— 这是旧版 `So` 里的原话：
+ *    `if (new Set(客户编号).size > 1) return ElMessage.error("所选数据包含不同客户，不能构建收据单")`
+ *    （旧版一张收据单只服务一个客户；新版回执族载荷是**每单一份**，不加这道闸会把
+ *     「两个客户的收据」一次全打出来 —— 那是旧版明确拒绝的事。）
+ */
+function onOpenPrintMode(mode: string, title: string) {
+  if (mode === 'FinalReceipt') {
+    const codes = new Set(selectedRows.value.map((r) => String(r['客户编号'] ?? '')))
+    if (codes.size > 1) {
+      message.error('所选数据包含不同客户，不能构建收据单')
+      return
+    }
+  }
+  printShow.value = false
+  previewMode.value = mode
+  previewTitle.value = title
+  previewShow.value = true
 }
 
 /**
