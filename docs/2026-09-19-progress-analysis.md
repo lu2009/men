@@ -571,6 +571,10 @@ const yl = '__unproduced__'             // 伪颜色键：未生产
    `onMounted` 里显式调一次 `loadOpenDirectionSettings()`**（在此之前只有 `Hui.vue` 在加载），
    否则「平开门扇数 / 其它」会漏掉改过名的开向。本页**不读写任何 localStorage**，只是读那份配置。
 
+> ⚠️ **本节已被 `docs/2026-09-19-progress-dashboard.md`（1286 行）细化** ——
+> 那份逐个 KPI 给了确切公式、筛选链、边界，以及**本节需要更正/补齐的地方**（其 §0.3 有对照表）。
+> 本节保留作为当时的粗挖记录，**别只拿它当依据**。
+
 ### 5.5 看板（`ProductionDashboard`）的口径
 
 `__name:"ProductionDashboard"` @7691（`const z={class:N(743)}` @6955，`E(743)="dashboard-container"`）；
