@@ -428,16 +428,32 @@
       </template>
     </n-modal>
 
-    <!-- 排序方式（原版 @324476 打开 / @324531 保存；全 legacy 唯一写入 `smartdoor_sort_method` 的地方）-->
-    <n-modal v-model:show="sortMethodOpen" preset="card" title="排序方式" style="width: 420px">
-      <div class="vis-col">
+    <!-- 排序方式 —— 逐字照 `H:13248-13275`（`_0xff1972` 开 / `_0x2a0b61` 保存；
+         全 legacy 唯一写 `smartdoor_sort_method` 的地方）：
+           <el-dialog title="排序方式" width="320px" center append-to-body>
+             <div style="padding:10px 0">
+               <el-radio-group v-model="_0x5d666e">
+                 <el-radio label="profile">型材优先</el-radio>
+                 <el-radio label="order">序号优先</el-radio>
+               </el-radio-group>
+               <div style="color:#909399;font-size:12px;margin-top:8px">序号优先：按订单号从小到大排列</div>
+             </div>
+             footer: 取消 / 保存(primary)
+         ⚠️ 2026-09-19 修四处（差分台比出来的）：
+           ① 宽度 **420 → 320**（旧版 `a(1040)` = "320px"，和「自动加价设置」同一个值）；
+           ② 文案「型材优先**（默认）**」→「型材优先」（旧版没有那个后缀，虽然 profile 确实是默认）；
+           ③ 下面那行说明原来是我们自己写的一长句，旧版是一句 **`序号优先：按订单号从小到大排列`**
+              （`H:13268` 的**裸字面量**）—— 换成旧版原文；
+           ④ 容器原来是 `class="vis-col"`（那是「列显隐设置」那套的类，本页 `.vis-col` 只有
+              `.vis-col .vis-head` / `.vis-col .n-checkbox` 两条子规则 ⇒ **这儿等于没有任何样式**），
+              旧版是内联 `padding:10px 0` ⇒ 换成同一个内联样式。 -->
+    <n-modal v-model:show="sortMethodOpen" preset="card" title="排序方式" style="width: 320px">
+      <div style="padding: 10px 0">
         <n-radio-group v-model:value="sortMethodDraft">
-          <n-radio value="profile">型材优先（默认）</n-radio>
+          <n-radio value="profile">型材优先</n-radio>
           <n-radio value="order">序号优先</n-radio>
         </n-radio-group>
-        <div style="color:#909399;font-size:12px;margin-top:8px">
-          影响生产单/玻璃合片单/玻璃订单/标签等单据的行顺序；「型材优先」按型材分组顺序，「序号优先」按单号数字前缀。
-        </div>
+        <div style="color: #909399; font-size: 12px; margin-top: 8px">序号优先：按订单号从小到大排列</div>
       </div>
       <template #footer>
         <div class="footer">
@@ -1218,6 +1234,20 @@ function onAutoMarkupDraft(v: boolean) {
 function saveAutoMarkup() {
   disableAutoMarkup.value = autoMarkupDraft.value
   LS.set('smartdoor_disable_auto_markup', String(autoMarkupDraft.value))
+  // ⚠️ 旧版这里**还派一个事件**（`H:8019`，`_0x23343f`）：
+  //     `window.dispatchEvent(new CustomEvent('auto-markup-setting-changed', { detail: 值 }))`
+  //     —— 与「辅助菜单设置」那两个是同一族（写 localStorage + 派事件给手机端外壳）。
+  //     bundle 里搜不到监听者（事件名在旧版是 token `e(725)`，不是字面量；解码后才认得出来），
+  //     所以监听方在外壳那边。我们先前漏了这一句，现补上。
+  //     ⚠️ 落盘的是 `String(布尔)`（`"true"`/`"false"`），但**派出去的是布尔值本身**
+  //     （旧版 `detail:_0x963b41.value`）—— 两者别搞混。
+  try {
+    window.dispatchEvent(
+      new CustomEvent('auto-markup-setting-changed', { detail: autoMarkupDraft.value }),
+    )
+  } catch {
+    /* 没有 CustomEvent 的环境跳过派发 */
+  }
   autoMarkupOpen.value = false
   message.success('设置已保存')
 }
@@ -2213,13 +2243,25 @@ onMounted(async () => {
 /* `el-switch__label` 的等价样式：14px / 500 字重、左右各 10px 外边距、当前侧高亮。
    高亮色 `#409eff` = Element Plus 默认 primary，也正是本仓库 `App.vue` 给 naive 的
    `themeOverrides.common.primaryColor` —— 两边同值，所以不存在跟错主题的问题。 */
+/* 照 EP 的 `.el-switch__label` 逐条对（`legacy/css/element-plus-6bd3a0dc.css`）：
+     .el-switch__label{color:var(--el-text-color-primary);cursor:pointer;display:inline-block;
+       font-size:14px;font-weight:500;height:20px;
+       transition:var(--el-transition-duration-fast);vertical-align:middle}
+     .el-switch__label.is-active{color:var(--el-color-primary)}
+     .el-switch__label--left{margin-right:10px}  .el-switch__label--right{margin-left:10px}
+     .el-switch__label *{display:inline-block;font-size:14px;line-height:1}
+   变量已展开：`--el-text-color-primary` = `#303133`、`--el-color-primary` = `#409eff`、
+   `--el-transition-duration-fast` = `.2s`。
+   ⚠️ 2026-09-19 补 `height:20px` —— 先前漏了这条，它决定和开关的垂直对齐。
+   最后那条 `.el-switch__label *` 是给**子元素**用的，我们这里是纯文本节点、没有子元素 ⇒ 不需要。 */
 .switch-label {
   display: inline-block;
   vertical-align: middle;
+  height: 20px;
   font-size: 14px;
   font-weight: 500;
   color: #303133;
-  transition: color 0.2s;
+  transition: 0.2s;
   cursor: pointer;
 }
 .switch-label.active {
