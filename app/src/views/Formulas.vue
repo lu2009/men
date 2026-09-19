@@ -904,8 +904,34 @@ function copyFormula(id: number) {
   loadFormula(id, true)
 }
 
+/**
+ * 删除公式的确认框 —— 复刻旧版 `_0x436e63`（`Diao.deobfuscated.js:2250-2251`）那句
+ * `ElMessageBox.confirm("确定要删除该公式吗？此操作不可恢复。", "删除确认",
+ *   { confirmButtonText:"确定", cancelButtonText:"取消", type:"warning" })`。
+ *
+ * ⚠️ **两处与旧版逐字对齐，别"顺手优化"**：
+ * 1. 文案里**没有公式名**。我们原先用的是原生 `window.confirm` 且带了名字
+ *    （`确定要删除公式「X」吗？…`）—— 旧版没有，这里照旧版。
+ *    （旧版只有「一个自动完成框 + 一颗删除按钮」，本就没有"当前行"可言；
+ *      我们是表格逐行按钮，名字确实更有用 —— 要加回去是一行的事，但那是**偏离**，得先拍板。）
+ * 2. 按钮是 **确定/取消**，不是 naive 默认的「确认/取消」。
+ */
+function confirmDeleteFormula(): Promise<boolean> {
+  return new Promise((resolve) => {
+    dialog.warning({
+      title: '删除确认',
+      content: '确定要删除该公式吗？此操作不可恢复。',
+      positiveText: '确定',
+      negativeText: '取消',
+      onPositiveClick: () => resolve(true),
+      onNegativeClick: () => resolve(false),
+      onClose: () => resolve(false),
+    })
+  })
+}
+
 async function removeFormula(row: FormulaDto) {
-  if (!window.confirm(`确定要删除公式「${row.name}」吗？此操作不可恢复。`)) return
+  if (!(await confirmDeleteFormula())) return
   try {
     await api.deleteFormula(row.id)
     message.success('删除成功')
@@ -1143,7 +1169,13 @@ onMounted(() => {
               <!-- 旧版操作列：`div` `display:flex; justify-content:space-around` + 三个 `el-button link`
                    （查看3D 条件 / 删除 / 复制）。我们没有 3D，故只有后两个；顺序照旧版是**删除在前**。 -->
               <div style="display: flex; justify-content: space-around">
-                <n-popconfirm @positive-click="deleteRow(row.name)">
+                <!-- 按钮文案照旧版 `:3478` 的 `confirm-button-text:"确定"` / `"取消"` ——
+                     naive 的默认是「确认/取消」，差一个字，得显式给。 -->
+                <n-popconfirm
+                  positive-text="确定"
+                  negative-text="取消"
+                  @positive-click="deleteRow(row.name)"
+                >
                   <template #trigger>
                     <n-button size="small" text type="primary">删除</n-button>
                   </template>
@@ -1324,7 +1356,10 @@ onMounted(() => {
 
     <!-- 洞尺设置 -->
     <n-modal v-model:show="resetSizeOpen">
-      <n-card style="width: 400px" title="洞尺设置" :bordered="false" role="dialog">
+      <!-- ⚠️ 标题是「洞尺减尺」而**不是**触发它的那颗按钮文案「洞尺设置」——
+           旧版这两处本来就不一样（`Diao.deobfuscated.js:3811` / 按钮 `:3407`）。
+           同类的还有「平开门单双丁」「增量设置」，见各自弹窗上的注释。 -->
+      <n-card style="width: 400px" title="洞尺减尺" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>宽减:</label>
           <n-input v-model:value="resetSizeDraft.width" size="small" style="width: 160px" />
@@ -1368,7 +1403,8 @@ onMounted(() => {
 
     <!-- 平开门丁墙 -->
     <n-modal v-model:show="swingWallOpen">
-      <n-card style="width: 440px" title="平开门丁墙" :bordered="false" role="dialog">
+      <!-- ⚠️ 标题是「平开门单双丁」，按钮文案才是「平开门丁墙」（旧版 `:3895` / `:3415`）。 -->
+      <n-card style="width: 440px" title="平开门单双丁" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>单丁:</label>
           <n-input v-model:value="swingWallDraft.SingleWall" size="small" style="width: 120px" />
@@ -1417,7 +1453,8 @@ onMounted(() => {
 
     <!-- 边封增量 -->
     <n-modal v-model:show="widthIncrementOpen">
-      <n-card style="width: 440px" title="边封增量" :bordered="false" role="dialog">
+      <!-- ⚠️ 标题是「增量设置」，按钮文案才是「边封增量」（旧版 `:3996` / `:3423`）。 -->
+      <n-card style="width: 440px" title="增量设置" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>边封增量:</label>
           <n-input
