@@ -735,3 +735,69 @@ progress TEXT   ← 一个「生产进度标识」字符串
 
 `userinfo.defaulted`（服务端字段 `User.isDefaultPw`）我们**不复刻**：新版用「账号类型」表达同一件事，
 具体怎么映射等做权限那一步再定。见 shell 文档 §3。
+
+---
+
+## 11. `progressData` 的行结构（读透了，实现依据）
+
+§3 只说「返回 `progressData:[…]`」，没说**每行长什么样**。这条链在旧服务端是三层，
+2026-09-19 读完了（`src/modules/progress/progress.service.ts`）：
+
+```
+getProgress
+  └─ buildProgressRowsForOrder(order)            :283
+       ├─ doorRowsFromSpecs(specs)               =  specs.ping_hui ++ specs.diao_hui
+       │                                            （= 我们的 order_lines 按 line_type 分）
+       ├─ mergeProgressFields(行, 缓存里的同名行)   ← 进度字段有缓存时合并
+       └─ progressRowFromDoorRow(行, order, specs)
+            ├─ enrichDoorRow(行, order, specs)   ← 补客户/单号/日期等订单级字段
+            └─ 再补 procedureName / procedureStatus / 业务员 / 打单人 / 打单操作 / 生产进度 / 单号
+```
+
+### 一行的字段（`enrichDoorRow` + `progressRowFromDoorRow` 合起来）
+
+| 字段 | 来源 |
+|---|---|
+| `id` / `formulaid` / `imageUrl` | 行自身（`id` 是 `rowRef(row)`，`formulaid`/`imageUrl` 默认 null） |
+| `...row` | **行自身的全部字段**（我们的 `OrderLineDto`） |
+| `工序1` … `工序15` | 行自身；**缺的补 `null`**（`for i in 1..=15`，15 个键**一定都在**） |
+| `生产进度` | **`buildProgressText(row)`** = 15 槽里非空的按序用 `➞` 拼；空则回落行自带的 `生产进度` |
+| `procedureName` | `row.procedureName \|\| row.工序 \|\| ''` |
+| `procedureStatus` | `row.procedureStatus ?? row.生产进度 ?? null` |
+| `业务员` | 行 → `customerInfo.业务员` → `''` |
+| `打单人` | 行 → `customerInfo.打单人` → `null` |
+| `打单操作` | 行 → `customerInfo.打单操作` → `''` |
+| `回执单号` | 行 → `customerInfo.回执单号` → **`order.orderNo`** → `''` |
+| `备注` | 行 → `customerInfo.订单备注` → `''` |
+| `安装地址` | 行 → `customerInfo.安装地址` → `customerInfo.地址` → `client.address` → `''` |
+| `客户` | 行 → `customerInfo.客户` → `order.customerName` → `''` |
+| `客户编号` | 行 → `customerInfo.客户编号` → `client.clientCode` → **`0`**（数字 0，不是 `''`） |
+| `封板高` | 行 → **`0`** |
+| `日期` | 行 → `customerInfo.日期` → `order.orderDate`（都是 `dateText()` 格式化后的串） |
+| `洞尺` | 行 → `''` |
+| `扫码日期` | 行 → **`null`**（⚠️ `扫码员工` **不在这一行里** —— 全仓库只有 `/Qrscanner` 读它，见 server 文档） |
+| `加价项目原始数据` | 行 → **字符串 `'null'`**（是四个字母的串，不是 null！） |
+| `单号` | `progressRowFromDoorRow` 再补一次：行 → `enriched.单号` → `''`（**行级单号**，不是回执单号） |
+| `orderNo` | `order.orderNo` |
+| `order` | **整个订单对象**（含 `client`）—— 前端可能整块拿去用，别当冗余丢掉 |
+
+### 值得注意的三处
+
+1. **15 个 `工序N` 键一定都在**（缺的显式补 `null`），不是「只给有值的」。
+   前端拿到的行**形状是齐的** —— 新版 DTO 也要保持这一点，否则前端读 `row.工序5` 会 undefined。
+2. **`客户编号` 的兜底是数字 `0`**、`封板高` 是数字 `0`、`加价项目原始数据` 是**字符串 `'null'`** ——
+   三个都不是 `''`。照抄，别「统一成空串」。
+3. **`order` 整个对象挂进行里** —— 前端有些地方直接读 `row.order.xxx`。
+
+### 新版怎么落（待实现）
+
+按上表逐字段映射，其中：
+
+- `工序N` ← `order_lines.procedure_slots`（迁移 0021）
+- `回执单号` ← `orders.receipt_no`（我们没有 `customerInfo` 那层，直接用订单头）
+- `客户`/`客户编号`/`日期`/`业务员` ← 订单头 / `clients` 表
+- `扫码日期` → 我们**没有这个字段**，给 `null`（旧版也只在 `/Qrscanner` 用）
+- `单号` ← `order_lines.line_no`（**行级**，见 `docs/2026-09-18-order-no-semantics.md`）
+- `procedureName` / `procedureStatus` / `打单人` / `打单操作` / `加价项目原始数据` / `封板高` / `洞尺`
+  → 我们是新模型，**没有对应字段**；先按旧版的兜底值给（`''` / `null` / `'null'` / `0`），
+  文档记明「这些字段旧版有、新版暂无来源」。
