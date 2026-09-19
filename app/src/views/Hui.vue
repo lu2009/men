@@ -29,46 +29,11 @@
         <n-button @click="videoDrawer = true">视频</n-button>
         <span class="grow-spacer" />
         <!--
-          「总余额显示」—— 旧版 `H:13298-13312`（下拉）+ `H:400056`（初始化 / onChange）。
-
-          逐项照抄旧版：
-            · 触发器：按钮文案「总余额显示」，开着时后面跟一个 ✓（`#67c23a`、`margin-left:5px`），
-              按钮 `type` 随之在 `warning`（开）/ `default`（关）之间切换；
-            · 浮层：宽 **200**、`placement:"top"`、`trigger:"click"`；内容 = 居中的一块
-              （`text-align:center; padding:10px`），里面是提示语
-              「开启后将在回执单中显示客户总余额」（`margin-bottom:12px`）
-              + 一个开关（`active-text:"开"` / `inactive-text:"关"`）。
-
-          ⚠️ **三处有意的偏离，写明白**：
-            ① 旧版这个下拉在**那个 200px 的 rtl 侧抽屉**里（第 6 项，前后是
-               「自动加价设置」和「排序方式」）。我们把那批入口收进了「更多功能 ▾」，
-               但**开关塞不进下拉菜单项**（要一个能点的小控件）⇒ 这里做成工具栏上的
-               独立下拉，**控件本身逐字照抄**，只是落点从抽屉挪到了工具栏。
-            ② 旧版是 Element Plus 的 `el-switch`（`active-text`/`inactive-text` 落在开关
-               **左右两侧**，当前那一侧高亮）。naive-ui 的 `n-switch` 没有文字属性
-               ⇒ 两侧文字自己画，样式照 `legacy/css/element-plus-6bd3a0dc.css` 的
-               `.el-switch__label`（`font-size:14px; font-weight:500`、左右各 `10px`
-               外边距、`.is-active` 时 `color: var(--el-color-primary)`）。
-            ③ `size`：旧版这颗是 `size:"default"`（`H:746380` 一带）。naive 没有 `"default"` 档
-               ⇒ 与整排一样**不写 `size`**（= `medium` = naive 的默认），理由见本排开头的注释。
-
-          口径（开关怎么存、余额怎么取、**为什么分享页不显示它**）见
-          `app/src/utils/totalBalance.ts` 的文件头 —— 那一格「总余额」旧版只在**打印出来的
-          回执单**上，电子回执从来没有过。
+          ⚠️ 工具栏这一格先前放过一个「总余额显示」下拉，**2026-09-19 已挪回「添加门类」抽屉**
+             （旧版 `_0x2ffe36` 全文件只在 `H:13302-13310` 出现 —— 它**只在那 200px 的抽屉里**，
+             工具栏从来没有过）。控件本身一字未改，只是落点归位；顺带不再有两份入口。
+             逐项说明见本文件「添加门类」抽屉那段。
         -->
-        <n-popover trigger="click" placement="top" :width="200" :show-arrow="false">
-          <template #trigger>
-            <n-button :type="showTotalBalance ? 'warning' : 'default'">
-              总余额显示<span v-if="showTotalBalance" class="total-balance-check">✓</span>
-            </n-button>
-          </template>
-          <div class="total-balance-panel">
-            <p class="total-balance-hint">开启后将在回执单中显示客户总余额</p>
-            <span class="switch-label switch-label--left" :class="{ active: showTotalBalance }">开</span>
-            <n-switch :value="showTotalBalance" @update:value="onTotalBalanceChange" />
-            <span class="switch-label switch-label--right" :class="{ active: !showTotalBalance }">关</span>
-          </div>
-        </n-popover>
         <n-dropdown
           trigger="click"
           :options="moreMenuOptions"
@@ -211,28 +176,165 @@
       <span class="bal">余款 ¥ {{ (totalPrice - (order.deposit || 0)).toFixed(2) }}</span>
     </div>
 
-    <!-- 添加门类抽屉（仿旧版：平开门/移门 独立 toggle，可同显） -->
-    <!-- 视频教程 —— 旧版 `H:13338`：`title:a(949)="视频教程"`、`direction:"rtl"`、`size:"300px"`。
-         条目取自 `_0x1ca662` 的名字→链接表（`H:12872` 起，9 条）。 -->
-    <n-drawer v-model:show="videoDrawer" title="视频教程" placement="right" :width="300">
-      <div class="video-list">
-        <n-button v-for="[label, link] in VIDEO_LINKS" :key="label" size="small" block @click="openVideo(link)">
-          {{ label }}
-        </n-button>
-      </div>
+    <!--
+      「视频教程」抽屉 —— 旧版 `H:13338-13376`：
+        `<el-drawer title="视频教程" direction="rtl" size="300px">`（EP 的 `el-drawer` **默认带 ×**），
+        里面一个 `div` 的 class 是 **`door-buttons`**（`_hoisted_38`，`H:7787`）—— 和「添加门类」
+        抽屉**同一个 class**，所以同样是 `flex-column / gap:30px / padding:20px` + 按钮满宽。
+        每颗按钮：`class:"custom-button-btn"`、**`round:""`（胶囊）**、`size:"default"`。
+        ⚠️ 2026-09-19 更正：先前这里写着「`custom-button-btn` 的样式不在 Hui 的 scope 里 ⇒
+        在本页等于没有样式」—— **是错的**。`legacy/css/Hui-39b802eb.css` 里
+        `.custom-button-btn[data-v-f7f86ced]{background-color:#7caaf3;color:#fff;border-color:#7caaf3}`
+        （`:hover/:focus` → `#0965fa`），而 `f7f86ced` 正是 `.door-buttons` 那个 scope id
+        ⇒ **这条规则在 Hui 页是生效的**，9 颗按钮是蓝底白字。
+        （真正在本页没样式的是 `connected-btn` —— 它只长在 `setting-95715826.css` 里。）
+        条目取自 `_0x1ca662` 的名字→链接表（`H:12872` 起，9 条）。
+
+      ⚠️ 2026-09-19 修：先前写的是 `<n-drawer title="视频教程">` —— **`n-drawer` 根本没有
+         `title` 属性**（那是 `n-drawer-content` 的），所以这个 prop 直接漏成了根元素上的一个
+         HTML 属性，**标题和 × 都没渲染出来**（`DrawerContent.mjs` 只在
+         `$slots.header || title || closable` 时才画表头）。同时按钮写成了 `size="small"`、
+         外层 div 用的是**没有 CSS 定义的** `.video-list`（唯一一处），所以 9 颗按钮**没有间距**。
+         三处一并按旧版改：`n-drawer-content title` + `closable`（EP 默认有 ×）、
+         `round` + 不写 `size`、class 换成 `.door-buttons`。
+    -->
+    <n-drawer v-model:show="videoDrawer" placement="right" :width="300">
+      <n-drawer-content title="视频教程" closable>
+        <div class="door-buttons">
+          <n-button
+            v-for="[label, link] in VIDEO_LINKS"
+            :key="label"
+            class="custom-button-btn"
+            round
+            block
+            @click="openVideo(link)"
+          >
+            {{ label }}
+          </n-button>
+        </div>
+      </n-drawer-content>
     </n-drawer>
 
-    <n-drawer v-model:show="addTypeOpen" :width="240" placement="right">
-      <n-drawer-content title="添加门类" closable>
-        <div class="addtype-list">
-          <n-button block :type="showPing ? 'error' : 'primary'" @click="toggleShow('ping')">
-            平开门{{ showPing ? '（已显示）' : '' }}
+    <!--
+      「添加门类」抽屉 —— 逐项照 `H:13276-13336`，**8 项**，一件不多一件不少：
+
+        1. 平开门            `:type="showPing ? 'danger' : 'info'"`  `@click="_0x431f92('pingkai')"`
+        2. 移门              `:type="showDiao ? 'danger' : 'info'"`  `@click="_0x431f92('diao')"`
+        3. 导入上次订单      `type="warning"`                        `@click="importLastOrder"`
+        4. 加价项目管理      `type="info"` `class="orange-button"`   `@click="_0x5e1bf7"` → 开管理弹窗
+        5. 自动加价设置      `type="primary"`                        `@click="_0x38bc9b"` → 开设置弹窗
+        6. 总余额显示        下拉（见下）
+        7. 排序方式          `type="success"`                        `@click="_0xff1972"`
+        8. 辅助菜单设置      下拉（见下）
+
+      外壳：`direction:"rtl"` → `placement="right"`；`size:"200px"` → `:width="200"`；
+      **`"show-close":!1` ⇒ 旧版没有 ×**，也没有 `title` —— EP 的 `el-drawer` 那时只有
+      `show-close` 控制那一个 ×、标题栏随 `title` 有无。所以这里用**不带 `title`/`closable`
+      的 `n-drawer-content`**（naive 两样都没有时不画表头），**关抽屉只能点遮罩** —— `n-drawer`
+      的 `mask-closable` 默认就是 `true`，与旧版一致。
+
+      ⚠️ **我们 2026-09-19 之前的三处偏离（现已全部归位）**：
+        · 宽度写死 240（旧版 200）；
+        · 加了 `title="添加门类"` + `closable`（旧版两样都没有）；
+        · 只做了 3 项，且第 4/5/7/8 项被**搬到了工具栏的「更多功能 ▾」里**（见 §5.1、§8.6）。
+          搬出去这件事本身还是偏离 —— 现在已经搬回抽屉，下拉里那三项同时删掉（不重复给两个入口）。
+
+      ⚠️ **type 的取名差异**（全仓库统一，不是这里独有的偏离）：
+        EP `danger` → naive **`error`**（naive 的 `ButtonType` 没有 `danger`）；
+        EP `info`（**实心灰** `#909399`）→ naive `info`（**蓝** `#2080f0`）—— naive 没有灰色档，
+        `default` 是浅灰描边而不是实心灰。**颜色对不上是全局调色板的事**（`App.vue` 只把
+        `primaryColor` 覆盖成了 EP 的 `#409eff`，其余四档仍是 naive 原色），不在这一处单独修。
+
+      ⚠️ **按钮满宽不是 `block` 抄来的**：旧版靠 `.door-buttons .el-button{width:100%}`
+        （`legacy/css/Hui-39b802eb.css`）—— naive 的等价物正是 `block`，所以这里写 `block` 是对的。
+        真实差异只有 `gap`/`padding`，在 `.door-buttons` 那条 CSS 里照抄。
+        ⚠️ 旧版**没有** `size` 之外的档位问题：8 颗都是 `size:"default"` ⇒ 照本页惯例**不写 `size`**。
+
+      ⚠️ 开关类控件的落点：旧版这两个开关**只在这个抽屉里**（`_0x2ffe36` 全文件只在
+        `:13302-13310` 出现，「辅助菜单设置」同样）。我们先前把「总余额显示」做成了工具栏上的
+        独立下拉，**现在按旧版归位到抽屉**（`§9` 的偏离①②作废）。
+    -->
+    <n-drawer v-model:show="addTypeOpen" placement="right" :width="200">
+      <n-drawer-content>
+        <div class="door-buttons">
+          <n-button block :type="showPing ? 'error' : 'info'" @click="toggleShow('ping')">
+            平开门
           </n-button>
-          <n-button block :type="showDiao ? 'error' : 'primary'" @click="toggleShow('diao')">
-            移门{{ showDiao ? '（已显示）' : '' }}
+          <n-button block :type="showDiao ? 'error' : 'info'" @click="toggleShow('diao')">
+            移门
           </n-button>
-          <n-button block @click="importLastOrder">导入上次订单</n-button>
-          <div class="hint">勾选要录入的门类（两表并列显示，可同时打开）。下方各自有「＋添加行」。</div>
+          <n-button block type="warning" @click="importLastOrder">导入上次订单</n-button>
+          <n-button block type="info" class="orange-button" @click="openMarkupMgmt">
+            加价项目管理
+          </n-button>
+          <n-button block type="primary" @click="openAutoMarkup">自动加价设置</n-button>
+
+          <!-- 6. 总余额显示 —— 旧版 `H:13298-13312`（下拉）+ `H:400056`（初始化 / onChange）。
+               触发器文案「 总余额显示 」、开着时后面跟一个 ✓（`#67c23a`、`margin-left:5px`），
+               按钮 `type` 随之在 `warning`（开）/ `default`（关）之间切换；
+               浮层宽 **200**、`placement:"top"`、`trigger:"click"`，内容 `<div>` 是
+               `{text-align:center; padding:10px}` + 提示语「开启后将在回执单中显示客户总余额」
+               （`margin-bottom:12px`）+ 一个开关（`active-text:"开"` / `inactive-text:"关"`）。
+
+               ⚠️ 旧版是 EP 的 `el-switch`（`active-text`/`inactive-text` 落在开关**左右两侧**、
+               当前那一侧高亮）；naive 的 `n-switch` 没有文字属性 ⇒ 两侧文字自己画，样式照
+               `legacy/css/element-plus-6bd3a0dc.css` 的 `.el-switch__label`
+               （`font-size:14px; font-weight:500`、左右各 `10px` 外边距、`.is-active` 时
+               `color: var(--el-color-primary)`）。
+
+               口径（开关怎么存、余额怎么取、**为什么电子回执/分享页不显示它**）见
+               `app/src/utils/totalBalance.ts` 的文件头。 -->
+          <n-popover trigger="click" placement="top" :width="200" :show-arrow="false">
+            <template #trigger>
+              <n-button block :type="showTotalBalance ? 'warning' : 'default'">
+                总余额显示<span v-if="showTotalBalance" class="total-balance-check">✓</span>
+              </n-button>
+            </template>
+            <div class="total-balance-panel">
+              <p class="total-balance-hint">开启后将在回执单中显示客户总余额</p>
+              <span class="switch-label switch-label--left" :class="{ active: showTotalBalance }">开</span>
+              <n-switch :value="showTotalBalance" @update:value="onTotalBalanceChange" />
+              <span class="switch-label switch-label--right" :class="{ active: !showTotalBalance }">关</span>
+            </div>
+          </n-popover>
+
+          <!-- 7. 排序方式 —— `H:13312-13315`：`type:"success"`，点了开「排序方式」弹窗
+               （`_0xff1972` → `_0x24527c.value = !0`）。 -->
+          <n-button block type="success" @click="openSortMethod">排序方式</n-button>
+
+          <!-- 8. 辅助菜单设置 —— `H:13316-13335`：`type:"primary"`、`size:"default"`、
+               `class:normalizeClass(["custom-button-btn", 开着 ? "connected-btn" : ""])`。
+               两个 class 的区别（2026-09-19 更正）：`custom-button-btn` 的规则**在 Hui 的
+               scope 里**（`.door-buttons` 用的同一个 `data-v-f7f86ced`）⇒ 它是蓝底白字；
+               `connected-btn` 只在 `setting-95715826.css` 里 ⇒ 在本页没有样式，开着只是多个名字。
+               浮层里：提示语「开启手机辅助菜单」+ 开关；**该开关开着时**再多一块
+               「全面屏（不预留底部空间）」的开关（`_hoisted_36` = `{text-align:center;padding:10px}`，
+               里面的 `<p>` 是 `{margin-bottom:10px; font-size:13px; color:#666}`）。
+               两个开关都往 localStorage 写值 + 派 CustomEvent 给手机端外壳 —— 见
+               `app/src/utils/assistiveMenu.ts`。 -->
+          <n-popover trigger="click" placement="top" :width="200" :show-arrow="false">
+            <template #trigger>
+              <n-button
+                block
+                type="primary"
+                :class="['custom-button-btn', showAssistiveMenu ? 'connected-btn' : '']"
+              >
+                辅助菜单设置<span v-if="showAssistiveMenu" class="total-balance-check">✓</span>
+              </n-button>
+            </template>
+            <div class="total-balance-panel">
+              <p class="total-balance-hint">开启手机辅助菜单</p>
+              <span class="switch-label switch-label--left" :class="{ active: showAssistiveMenu }">开</span>
+              <n-switch :value="showAssistiveMenu" @update:value="onAssistiveMenuChange" />
+              <span class="switch-label switch-label--right" :class="{ active: !showAssistiveMenu }">关</span>
+              <div v-if="showAssistiveMenu" class="fullscreen-row">
+                <p class="fullscreen-hint">全面屏（不预留底部空间）</p>
+                <span class="switch-label switch-label--left" :class="{ active: assistiveFullscreen }">开</span>
+                <n-switch :value="assistiveFullscreen" @update:value="onAssistiveFullscreenChange" />
+                <span class="switch-label switch-label--right" :class="{ active: !assistiveFullscreen }">关</span>
+              </div>
+            </div>
+          </n-popover>
         </div>
       </n-drawer-content>
     </n-drawer>
@@ -509,6 +611,12 @@ import { round2, type Line, type PartPreview } from '../utils/partsEngine'
 import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
 import { readShowTotalBalance, writeShowTotalBalance } from '../utils/totalBalance'
 import {
+  readAssistiveFullscreen,
+  readAssistiveMenu,
+  writeAssistiveFullscreen,
+  writeAssistiveMenu,
+} from '../utils/assistiveMenu'
+import {
   fileToDataUrl,
   idbGetImage,
   idbPutImage,
@@ -763,6 +871,11 @@ function ensureShown(kind: 'ping' | 'diao') {
 }
 
 // 更多功能（次级菜单）—— 高级入口收进这里，主按钮行贴近旧版
+//
+// ⚠️ 旧版**没有**这个下拉（见 `docs/2026-09-19-hui-shell-audit.md` §5.1）——收编本身是偏离。
+// 但**加价项目管理 / 自动加价设置 / 排序方式**这三项 2026-09-19 已从本表**删掉**：
+// 旧版它们就在「添加门类」抽屉里（`H:13290-13315`），我们曾挪到这儿，现在搬回抽屉了 ——
+// 同一件事不给两个入口。
 const moreMenuOptions = [
   { label: '订单列表', key: 'orders' },
   { label: '模板预览', key: 'templates' },
@@ -772,9 +885,6 @@ const moreMenuOptions = [
   { label: '生产单定制打印', key: 'productionCustom' },
   { label: '生产单3打印（双联）', key: 'productionCustom3' },
   { label: '终端链接', key: 'terminal' },
-  { label: '加价项目管理', key: 'markupMgmt' },
-  { label: '自动加价设置', key: 'autoMarkup' },
-  { label: '排序方式', key: 'sortMethod' },
   { label: '收款码设置', key: 'payQrcode' },
   { label: '开向模式设置', key: 'openDir' },
   { label: '列显隐设置', key: 'columns' },
@@ -797,6 +907,43 @@ function onTotalBalanceChange(on: boolean) {
   showTotalBalance.value = on
   writeShowTotalBalance(on)
   message.success(on ? '总余额显示已开启' : '总余额显示已关闭')
+}
+
+/**
+ * 「辅助菜单设置」两个开关 —— 旧版 `_0x187cf8`（手机辅助菜单）/ `_0x21c393`（全面屏）。
+ *
+ * 这颗**不影响本页任何渲染**：写 `localStorage` + 往 `window` 派一个 CustomEvent，
+ * 由**手机端外壳**监听后决定底部要不要预留空间。见 `utils/assistiveMenu.ts` 的文件头
+ * （键名、事件名、四句提示文案都在那儿核过）。
+ *
+ * 旧版初值和「总余额显示」同一批在 `onMounted` 读（`H:8263` 连着调 `_0x285a13()` `_0x1c743a()`）。
+ */
+const showAssistiveMenu = ref(false)
+const assistiveFullscreen = ref(false)
+
+function onAssistiveMenuChange(on: boolean) {
+  showAssistiveMenu.value = on
+  writeAssistiveMenu(on)
+  message.success(on ? '手机辅助菜单已开启' : '手机辅助菜单已关闭')
+}
+
+function onAssistiveFullscreenChange(on: boolean) {
+  assistiveFullscreen.value = on
+  writeAssistiveFullscreen(on)
+  message.success(on ? '全面屏已开启，底部不预留空间' : '全面屏已关闭，底部预留空间')
+}
+
+/**
+ * 开「自动加价设置」弹窗 —— 旧版 `_0x38bc9b`（`H:13292`）只置一个开关
+ * （`_0x24527c.value = !0`），草稿同步是我们加的（见函数里的注释）。
+ *
+ * ⚠️ 2026-09-19：这颗的**入口从「更多功能」搬回了「添加门类」抽屉**（旧版它就在那儿）。
+ * 弹窗本身没动，只是落点归位。
+ */
+function openAutoMarkup() {
+  // 打开时把草稿同步成已存值（旧版点「保存」才落盘，取消应丢弃改动）
+  autoMarkupDraft.value = disableAutoMarkup.value
+  autoMarkupOpen.value = true
 }
 
 function refreshPage() {
@@ -1145,10 +1292,6 @@ function onMoreSelect(key: string) {
     case 'productionCustom': void printProductionCustom('product2'); break
     case 'productionCustom3': void printProductionCustom('product3'); break
     case 'terminal': void copyTerminalLink(); break
-    case 'markupMgmt': openMarkupMgmt(); break
-    // 打开时把草稿同步成已存值（旧版点「保存」才落盘，取消应丢弃改动）
-    case 'autoMarkup': autoMarkupDraft.value = disableAutoMarkup.value; autoMarkupOpen.value = true; break
-    case 'sortMethod': openSortMethod(); break
     case 'payQrcode': payQrcodeOpen.value = true; break
     case 'openDir': openOpenDirSettings(); break
     case 'columns': openVisDialog(); break
@@ -2001,6 +2144,10 @@ onMounted(async () => {
   // 「总余额显示」开关的初值也和旧版一样在 `onMounted` 读（`H:400056` 的 `_0x1c743a`
   // 就是挂在 `Vue.onMounted` 上的）；缺记录 → 保持默认「关」。
   showTotalBalance.value = readShowTotalBalance()
+  // 「辅助菜单设置」两个开关**同一批**读 —— 旧版 `H:8263` 是一行连着调
+  // `_0x285a13()`（辅助菜单）和 `_0x1c743a()`（总余额）。
+  showAssistiveMenu.value = readAssistiveMenu()
+  assistiveFullscreen.value = readAssistiveFullscreen()
   markSaved()
   window.addEventListener('beforeunload', handleBeforeUnload)
   window.addEventListener('storage', (e) => {
@@ -2269,10 +2416,82 @@ onMounted(async () => {
   margin-left: auto;
   font-weight: 600;
 }
-.addtype-list {
+/* 抽屉里的按钮列 —— 「添加门类」和「视频教程」**共用**这一个 class（旧版两处的 div 都用
+   `_hoisted_38 = { class:"door-buttons" }`）。逐字照 `legacy/css/Hui-39b802eb.css`：
+     .door-buttons{display:flex;flex-direction:column;gap:30px;padding:20px}
+     .door-buttons .el-button{width:100%;display:flex;justify-content:center;align-items:center;text-align:center;padding:0 20px}
+     .door-buttons .el-button.is-active,.door-buttons .el-button:hover{width:100%;justify-content:center}
+   后一条的「满宽 + 居中」在 naive 里就是 `block`（所以模板上每颗都写了 `block`）；
+   naive 的按钮本来就是 `inline-flex` + `justify-content:center` + `text-align:center`
+   ⇒ 只剩 `padding: 0 20px` 值得抄（见下）。第三条 `is-active` **是死规则**：
+   它写的两条恰好与基础规则一字不差，而 EP 的 `el-button` 也不会自己加 `is-active`
+   ⇒ 旧版自己抄重了，不复制。
+   ⚠️ `gap:30px` 不是笔误，旧版就是这个数（比一般表单间距大一倍）。
+   ⚠️ 旧版 `.el-button` 的高度是 EP 的 32px，naive medium 是 34px —— 那是**全局档位**的事
+   （本页一度整体写成 `size="small"`，那是另一笔），不在这里单独压高度。 */
+.door-buttons {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 30px;
+  padding: 20px;
+}
+.door-buttons :deep(.n-button) {
+  padding: 0 20px;
+}
+/* 「加价项目管理」的橙色 —— 旧版 `Hui-39b802eb.css` 的
+   `.orange-button{background-color:orange!important;border-color:#e69500!important;color:#fff!important}`。
+   ⚠️ 旧版那三条 `!important` 把 EP 的 hover/active 态也一起压住了（没有单独的 hover 规则），
+   所以这里**四个态同色**。naive 的按钮底色走 CSS 变量（`Button.mjs` 的 `cssVarsRef` 把它们
+   以 **inline style** 写在元素上），所以我们的规则必须带 `!important` 才能压过 inline —— 这不是
+   随手加的，去掉就失效。 */
+.door-buttons .orange-button {
+  --n-color: orange !important;
+  --n-color-hover: orange !important;
+  --n-color-pressed: orange !important;
+  --n-color-focus: orange !important;
+  --n-border: 1px solid #e69500 !important;
+  --n-border-hover: 1px solid #e69500 !important;
+  --n-border-pressed: 1px solid #e69500 !important;
+  --n-border-focus: 1px solid #e69500 !important;
+  --n-text-color: #fff !important;
+  --n-text-color-hover: #fff !important;
+  --n-text-color-pressed: #fff !important;
+  --n-text-color-focus: #fff !important;
+}
+/* `custom-button-btn` —— 旧版 `Hui-39b802eb.css`（**scope id 是 Hui 自己的 `f7f86ced`，
+   所以「视频教程」9 颗和「辅助菜单设置」在旧版就是蓝底白字**）：
+     .custom-button-btn{background-color:#7caaf3;color:#fff;border-color:#7caaf3}
+     .custom-button-btn:hover,.custom-button-btn:focus{background-color:#0965fa;color:#fff;border-color:#0965fa}
+   ⚠️ 旧版**只**定义了 base 与 `:hover/:focus` 两条；`:active` 那一帧会落到 EP 的
+   `.el-button:active{background-color:var(--el-button-active-bg-color)}`（0,2,0 压过本 class 的
+   0,1,0）。naive 四个态都要有值才不闪，所以 `pressed` 取 hover 那一档 —— 一帧的按压态，
+   不值得为此再造一个色值。
+   （`connected-btn` 只在 `setting-95715826.css` 里 ⇒ 在 Hui 页真的没有样式，故意不写规则。） */
+.door-buttons .custom-button-btn {
+  --n-color: #7caaf3 !important;
+  --n-color-hover: #0965fa !important;
+  --n-color-pressed: #0965fa !important;
+  --n-color-focus: #0965fa !important;
+  --n-border: 1px solid #7caaf3 !important;
+  --n-border-hover: 1px solid #0965fa !important;
+  --n-border-pressed: 1px solid #0965fa !important;
+  --n-border-focus: 1px solid #0965fa !important;
+  --n-text-color: #fff !important;
+  --n-text-color-hover: #fff !important;
+  --n-text-color-pressed: #fff !important;
+  --n-text-color-focus: #fff !important;
+}
+/* 「全面屏（不预留底部空间）」那一块 —— 旧版 `_hoisted_36`（`H:7775`）里
+   `{text-align:center; padding:10px}`，里面的 `<p>`（`H:13330-13332`）是
+   `{margin-bottom:10px; font-size:13px; color:#666}`。 */
+.fullscreen-row {
+  text-align: center;
+  padding: 10px;
+}
+.fullscreen-hint {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #666;
 }
 .hint {
   color: #909399;
