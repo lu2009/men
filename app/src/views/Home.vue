@@ -457,6 +457,7 @@ import { api } from '../api/client'
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
 import type { Line } from '../utils/partsEngine'
+import { canSeeAllOrders } from '../utils/roles'
 import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
@@ -690,9 +691,9 @@ const queryRows = ref<OrderSummaryDto[]>([])
 const queryMode = ref(false)
 
 const filtered = computed(() => {
-  // 非管理员只看自己打的单（§3.1 `fs`）。
+  // 非管理员只看自己打的单（§3.1 `fs`）—— 口径在 `utils/roles.ts` 的 `canSeeAllOrders`。
   let list = queryMode.value ? queryRows.value : rawOrders.value
-  if (auth.user?.role !== 'admin') {
+  if (!canSeeAllOrders(auth.user?.role)) {
     list = list.filter((r) => r.creator_name === auth.user?.name)
   }
   if (onlyUnproduced.value) {
@@ -1313,7 +1314,7 @@ async function submitQuery() {
 
     // ② 非管理员只看自己打的单（旧版 `:11076` `!qt.value && (s = s.filter(t => t["打单人"] === _t.value))`）。
     //    必须在**并入主表之前**做：旧版并进 `_l` 的就是过滤后的 `s`，而列头筛选的候选值读的是 `_l`。
-    if (auth.user?.role !== 'admin') {
+    if (!canSeeAllOrders(auth.user?.role)) {
       rows = rows.filter((r) => r.creator_name === auth.user?.name)
     }
 
@@ -1531,9 +1532,9 @@ function openReceipt(row: OrderSummaryDto) {
 // ---------------------------------------------------------------------------
 const dashboardShow = ref(false)
 const dashboardOrders = computed(() =>
-  auth.user?.role !== 'admin'
-    ? rawOrders.value.filter((r) => r.creator_name === auth.user?.name)
-    : rawOrders.value,
+  canSeeAllOrders(auth.user?.role)
+    ? rawOrders.value
+    : rawOrders.value.filter((r) => r.creator_name === auth.user?.name),
 )
 
 // ---------------------------------------------------------------------------

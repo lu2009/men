@@ -13,6 +13,7 @@ import {
   type Dimensions,
   type PartsMap,
 } from '../utils/formulaEngine'
+import { isAdmin } from '../utils/roles'
 import { FORMULA_TYPE_LABELS, TEMPLATE_LIST, TEMPLATES } from '../data/formulaTemplates'
 import { COMMON_MATERIALS, EXTRA_MATERIAL_GROUPS, MATERIAL_LIBRARY } from '../data/formulaMaterials'
 import {
@@ -30,7 +31,9 @@ const auth = useAuthStore()
 const message = useMessage()
 const dialog = useDialog()
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
+// 口径在 `utils/roles.ts` 的 `isAdmin`（本文件不再自带 `'admin'` 字面量）。
+// ⚠️ 计算属性叫 `isAdminUser` 而不是 `isAdmin` —— 否则会**遮蔽**导入进来的那个函数。
+const isAdminUser = computed(() => isAdmin(auth.user?.role))
 
 // —— 尺寸与元信息 ——
 const formulaName = ref('')
@@ -933,7 +936,9 @@ function openVideo(link: string) {
 }
 
 onMounted(() => {
-  if (auth.user?.role !== 'admin') auth.loadMe()
+  // 还**不认为**自己是管理员时补一次 `/me` —— 这一句同时兜住「刷新瞬间 role 还是空」：
+  // 那时 `isAdmin(undefined)` = `false` ⇒ 补拉一次，role 到位后两颗按钮才显出来。
+  if (!isAdmin(auth.user?.role)) auth.loadMe()
 })
 </script>
 
@@ -947,8 +952,8 @@ onMounted(() => {
             <router-link class="back" to="/">← 返回首页</router-link>
           </div>
           <div class="actions">
-            <n-button v-if="isAdmin" type="primary" @click="openList">查询/修改/删除公式</n-button>
-            <n-button v-if="isAdmin" type="success" @click="templateDrawer = true">公式模板</n-button>
+            <n-button v-if="isAdminUser" type="primary" @click="openList">查询/修改/删除公式</n-button>
+            <n-button v-if="isAdminUser" type="success" @click="templateDrawer = true">公式模板</n-button>
             <n-button @click="glassModal = true">开孔图</n-button>
             <n-button @click="videoDrawer = true">视频</n-button>
           </div>

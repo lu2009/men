@@ -59,6 +59,23 @@ export function isScanner(role?: string | null): boolean {
 }
 
 /**
+ * 是不是**租户管理员** —— 本模块里 `ADMIN_ROLE` 字面量比较的**唯一**出处。
+ *
+ * ★ 这是**原语**，不是口径。下面 [`canEditProcedures`] 与 [`canSeeAllOrders`] 是两条
+ *   **各自独立**的口径，现在恰好都由它满足 —— 但**别因此把它们合并成一个**：
+ *   旧版这两件事来自**两个不同的门控变量**（`defaulted === 1` 与 `qt`），
+ *   哪天其中一条改口径，另一条不该跟着动。要改的是那两条判定，不是这里。
+ *
+ * ⚠️ 未知角色（`null` / `undefined`）返回 **`false`** —— **fail-closed**。
+ *    注意这**不等于**「不是管理员所以只能看自己的单」：调用方若把 `false` 当
+ *    「按普通业务员处理」，在 role 还没读到的瞬间会闪一下「只剩自己那几行」。
+ *    见 [`canSeeAllOrders`] 里各调用点的说明。
+ */
+export function isAdmin(role?: string | null): boolean {
+  return role === ADMIN_ROLE
+}
+
+/**
  * 能不能改「设置工序」的工序名单 —— 也就是旧版那颗 `el-button type="info"` 的显示条件。
  *
  * ★ **只有 `admin`。** 依据旧版 §6.3 那张表：`yt = (Number(userinfo.defaulted) === 1)`
@@ -81,7 +98,30 @@ export function isScanner(role?: string | null): boolean {
  *    即便如此也保持 fail-closed —— 万一将来有页面在守卫之外用它，宁可不显示。
  */
 export function canEditProcedures(role?: string | null): boolean {
-  return role === ADMIN_ROLE
+  return isAdmin(role)
+}
+
+/**
+ * 能不能看到**全量订单** —— `false` ⇒ 只看自己打的单（`creator_name === 自己的 name`）。
+ *
+ * ★ 旧版的门控变量是 **`qt`**：`fs = qt ? _l : _l.filter(打单人 === 当前用户)`
+ *   （`docs/2026-09-17-home-analysis.md` §3.1 逐字记着这一行）。三处调用点同一条口径：
+ *
+ *   | 调用点 | 旧版对应 |
+ *   |---|---|
+ *   | `Home.vue` 主表 `filtered` | `fs`（`:11153` / `:11172`） |
+ *   | `Home.vue` 「查询更多」落地 | `:11076` `!qt.value && (s = s.filter(t => t["打单人"] === _t.value))` |
+ *   | `Home.vue` 经营看板 | 旧版看板**不吃**这个范围（吃原始全量 `K`）—— **有意偏离**，见 `docs/2026-09-19-progress-dashboard.md` §2.2 / §193 |
+ *
+ * ⚠️ **与 [`canEditProcedures`] 是两条口径，别合并**：那个来自 `defaulted === 1`（车间账号），
+ *    这个来自 `qt`。今天都落到「是不是 `admin`」，但**依据不同**。
+ *
+ * ⚠️ 未知角色（role 还没读到）⇒ `false` ⇒ **按「只看自己」渲染**。
+ *    这与改动前的内联 `role !== 'admin'` **逐字同义**（`undefined !== 'admin'` 也是 `true`），
+ *    所以不是新引入的闪动。真要修那个闪动得改路由守卫的时序，不在本函数职责内。
+ */
+export function canSeeAllOrders(role?: string | null): boolean {
+  return isAdmin(role)
 }
 
 /**
