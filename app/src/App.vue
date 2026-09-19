@@ -36,7 +36,7 @@ const route = useRoute()
  * ⚠️ 电子回执单预览（`receipt-view`）也带 `requiresAuth`，但那是给客户看的独立页面，
  *    顶个后台导航栏不合适；登录页 / 无认证分享页本来就没有。
  */
-const HEADER_ROUTES = new Set(['home', 'hui', 'progress', 'formulas', 'clients'])
+const HEADER_ROUTES = new Set(['home', 'hui', 'progress', 'qrscanner', 'formulas', 'clients'])
 const showHeader = computed(() => HEADER_ROUTES.has(String(route.name ?? '')))
 
 // 主色沿用**旧版**的 #409eff（新版不用旧版那个名字）。

@@ -19,6 +19,8 @@ import type {
   OrderSearchParams,
   OrderSummaryDto,
   PriceResolveDto,
+  ProcedureSlotDto,
+  ProceduresDto,
   ProgressRowDto,
   PrintTemplateDto,
   ReceiptDto,
@@ -121,8 +123,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ line_ids: lineIds, slot, value }),
     }),
-  /** 本租户的工序名清单（15 个扁平槽，顺序按槽号）。 */
-  listProcedures: () => request<{ slots: { slot: string; name: string }[] }>('/v1/procedures'),
+  /**
+   * 本租户的工序名清单（15 个扁平槽，顺序按槽号）。
+   *
+   * ⚠️ **颜色也在这条接口里** —— 旧版颜色根本不上服务端（只写本地 localStorage），
+   * 这里是新版加的一列，见 `ProcedureSlotDto` 的注释。
+   */
+  listProcedures: () => request<ProceduresDto>('/v1/procedures'),
+  /**
+   * 保存工序配置（旧版 `param1=SetProcedures`，唯一写入点）。
+   *
+   * 一次事务 upsert，不是旧版那样逐槽 `findFirst` 再 update/create
+   * （旧版按 `orderIndex` 找不到还会按 `name` 兜底查，同名不同槽会**误合并**）。
+   *
+   * ⚠️ 语义是「**只 upsert 请求里给的槽**，没提到的槽一个都不动」——
+   * **不是**「整体替换、名称为空即删行」。`Qrscanner.vue` 每次都发全 15 槽，
+   * 所以两种口径对它没差别；但别拿这条接口去发「只发改动槽」的差量。
+   * （`name:""` 照样能把某个槽的名字清掉。）
+   * 依据：`backend/src/modules/progress/service.rs` 的 `set_procedures` 文档注释。
+   *
+   * ⚠️ 旧版这条 POST 的 body 是 `{"工序1":"下料", …}`（槽号 → 工序名，**裸对象**），
+   * **颜色一个字节都不传**、且**排掉工序10**；新版的 body 是
+   * `{slots:[{slot,name,color}]}`，15 槽全发、颜色一起落库。
+   */
+  saveProcedures: (slots: ProcedureSlotDto[]) =>
+    request<{ saved: boolean }>('/v1/procedures', {
+      method: 'POST',
+      body: JSON.stringify({ slots }),
+    }),
   listFormulas: (search?: string) =>
     request<FormulaDto[]>(
       `/v1/formulas${search ? `?search=${encodeURIComponent(search)}` : ''}`,

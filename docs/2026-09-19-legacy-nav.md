@@ -103,8 +103,8 @@
 | `/Diao` | `Diao` | ❌ 未做 |
 | `/clients_Info` | `ClientsInfo` | ✅ `views/Clients.vue`（⚠️ 内容对不对得上**未核**） |
 | `/setting` | `Setting` | ❌ 未做 |
-| `/Qrscanner` | `Qrscanner` | ❌ 未做 |
-| `/Progress` | `Progress` | ❌ **未做 ← 本次要做** |
+| `/Qrscanner` | `Qrscanner` | ⚠️ `views/Qrscanner.vue` —— **只做了「设置工序」**（工序名的唯一配置入口，Progress 的下拉靠它）；扫码/看板/标签打印/账号管理未做，清单见该文件头 |
+| `/Progress` | `Progress` | ✅ `views/Progress.vue`（终端模式不做） |
 | `/drawDoor` | `drawDoor` | ❌ 未做 |
 | `/test-addprice` | `TestAddPrice` | ❌ 未做（测试页，可能不必做） |
 | `/3d-view` | `3DView` | ❌ 未做 |
