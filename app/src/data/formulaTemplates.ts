@@ -3,11 +3,18 @@
 import type { PartsMap } from '../utils/formulaEngine'
 
 // 旧版 formulaType 只有 5 个值（各模板据此归并），见 Diao.deobfuscated.js 各模板加载器。
+//
+// ⚠️ **拼写必须与旧版逐字一致，尤其 `parentSubsidiary` 是驼峰。**
+//    2026-09-19 之前这里写的是全小写 `parentsubsidiary`，而旧版 `_0x3ccfb0`（`:912-914`）、
+//    加载默认值 `:2213`/`:2236`、保存 `:2133` 用的**全是驼峰**。
+//    更糟的是我们自己的 `utils/printPayloads.ts` 早就按驼峰在比（`:823`/`:1000`）
+//    —— 于是**子母门公式的打印数量/玻璃名一直走错分支**（比不中 ⇒ 落到通用支）。
+//    已按旧版对齐并迁移数据（迁移 0024）。**别再改回小写。**
 export const FORMULA_TYPE_LABELS: Record<string, string> = {
   ping: '平开门',
   diao: '推拉门',
   double: '双开门',
-  parentsubsidiary: '子母门',
+  parentSubsidiary: '子母门',
   diamond: '钻石型淋浴房',
 }
 
@@ -27,8 +34,8 @@ export const TEMPLATE_LIST: TemplateDef[] = [
   { key: 'pingWindows2', label: '平开门单包亮窗', formulaType: 'ping' },
   { key: 'double', label: '双开门', formulaType: 'double' },
   { key: 'doubleWindow', label: '双开门带亮窗', formulaType: 'double' },
-  { key: 'parentSubsidiary', label: '子母门', formulaType: 'parentsubsidiary' },
-  { key: 'parentSubsidiaryWindow', label: '子母门带上亮', formulaType: 'parentsubsidiary' },
+  { key: 'parentSubsidiary', label: '子母门', formulaType: 'parentSubsidiary' },
+  { key: 'parentSubsidiaryWindow', label: '子母门带上亮', formulaType: 'parentSubsidiary' },
   { key: 'lvmu', label: '铝木门', formulaType: 'ping' },
   { key: 'diao', label: '推拉门', formulaType: 'diao' },
   { key: 'ling', label: '淋浴房一固一活', formulaType: 'diao' },

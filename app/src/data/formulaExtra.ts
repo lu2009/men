@@ -1,8 +1,14 @@
 // 公式附加配置（extra JSONB）类型与常量，复刻旧版「吊」页保存时写入的附加字段。
 // 与旧版 _0x5c69df 保存结构一一对应。
 
-/** 单扇最小平方数（简单门型：平开/子母/双开/钻石）。存于 square 字段，为数字。 */
-export const SIMPLE_SQUARE_TYPES = ['ping', 'parentsubsidiary', 'double', 'diamond']
+/**
+ * 单扇最小平方数（简单门型：平开/子母/双开/钻石）。存于 square 字段，为数字。
+ *
+ * ⚠️ 这就是旧版 `_0x3ccfb0`（`Diao.deobfuscated.js:912-914`）的那个集合，**逐字**：
+ * `["ping","parentSubsidiary","double","diamond"]` —— **`parentSubsidiary` 是驼峰**。
+ * （2026-09-19 之前我们这里写的是小写，与旧版和 `printPayloads.ts` 都不符，已对齐。）
+ */
+export const SIMPLE_SQUARE_TYPES = ['ping', 'parentSubsidiary', 'double', 'diamond']
 
 /** 移门最低方数设置的类型键（20 种）。存于 square 字段，为 { 类型: "最小-最大" } 对象。 */
 export const MIN_SQUARE_TYPES = [
@@ -109,15 +115,15 @@ function hasLightWindowPart(parts: Record<string, PartLike | undefined>): boolea
  * | 门洞高 `h` | 恒 `"2000"` |
  * | 墙厚 `t` | 恒 `"300"` |
  * | 亮窗总高 `h1` | 平开类或 `diao` ⇒（有亮窗件 ? `"2500"` : `"0"`）；否则 `"2500"` |
- * | 门洞宽 `w` | `diao`→`2400`；`ling`→`1600`；`diamond`→`580`；`parentsubsidiary`→`900`；其余 `800` |
- * | 母门宽 `s` | 仅 `parentsubsidiary` 被置 `"200"`，其余留空 |
+ * | 门洞宽 `w` | `diao`→`2400`；`ling`→`1600`；`diamond`→`580`；`parentSubsidiary`→`900`；其余 `800` |
+ * | 母门宽 `s` | 仅 `parentSubsidiary` 被置 `"200"`，其余留空 |
  * | 吊脚 `j` | 见下 |
  *
  * 「平开类」判据是旧版 `_0x3ccfb0`（`:912-914`）= `["ping","parentSubsidiary","double","diamond"]`
  * —— **与 [`SIMPLE_SQUARE_TYPES`] 是同一个集合**，故直接复用，不另立一份。
  *
  * 另外三条**跨字段**的副作用也照抄了：`diamond` 顺带把墙厚改 `"560"`、亮窗总高改 `"580"`；
- * `ling` 顺带把墙厚改 `"0"`；`parentsubsidiary` 顺带把母门宽置 `"200"`。
+ * `ling` 顺带把墙厚改 `"0"`；`parentSubsidiary` 顺带把母门宽置 `"200"`。
  *
  * ⚠️ **吊脚是唯一「抄不了」的一个**：旧版取的是**用户数据** `registrant.ping_column["吊脚"]`
  * （`:3314-3316` → `_0x49f71f` `:908-911`：`Number(...)||0`，`>0 ? a : 0`）。
@@ -125,12 +131,13 @@ function hasLightWindowPart(parts: Record<string, PartLike | undefined>): boolea
  * 空框与 `"0"` 在计算上是等价的（`num('')===0`），只是显示不同。
  *
  * ⚠️ `ling` 那一支**我们永远走不到**：`formulaType` 只有 5 个取值
- * （`ping`/`diao`/`double`/`diamond`/`parentsubsidiary`），旧版自己也不产生 `ling`
+ * （`ping`/`diao`/`double`/`diamond`/`parentSubsidiary`），旧版自己也不产生 `ling`
  * —— 它只在旧版从历史数据读回 `formulaType` 时才可能出现。**照抄是为了逐字对齐，不代表可达。**
  *
- * ⚠️ 大小写：旧版这几处比较用的是驼峰 `"parentSubsidiary"`，我们用全小写 ——
- * **这是既有的已知缺口**，见 `docs/2026-09-19-diao-audit.md` §3.1。本函数沿用我们的内部口径，
- * 不在这里单独改（改了要连数据一起迁）。
+ * ⚠️ 大小写：这里比较的 `'parentSubsidiary'` 是**驼峰**，与旧版逐字一致
+ * （旧版 `_0x3ccfb0`、`:2213`、`:2236`、`:2133` 全是驼峰）。
+ * 2026-09-19 之前我们用的是全小写，与旧版和自家 `printPayloads.ts` 都不符
+ * —— 已对齐并迁移数据（迁移 0024），见 `docs/2026-09-19-diao-audit.md` §3.1。**别再改回小写。**
  */
 /**
  * 把 `defaults` 里**我们这边空着的**那些字段补上，已有值**原样保留**。
@@ -178,7 +185,7 @@ export function defaultDims(
     d.w = '580'
     d.t = '560'
     d.h1 = '580'
-  } else if (formulaType === 'parentsubsidiary') {
+  } else if (formulaType === 'parentSubsidiary') {
     d.w = '900'
     d.s = '200'
   }

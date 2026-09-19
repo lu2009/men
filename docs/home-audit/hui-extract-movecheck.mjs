@@ -82,6 +82,28 @@ const REWRITES = {
     // 原来是闭包捕获页面的 casingKindOptions；搬出去后改成形参注入（引擎不依赖视图常量）。
     { from: 'function pingCasingOptions(l: Line): { label: string; value: string }[] {', to: 'function pingCasingOptions(l: Line, casingKindOptions: { label: string; value: string }[]) {' },
   ],
+  /*
+   * 2026-09-19：子母门 `formulaType` 的大小写对齐（审计 §3.1）——
+   * **搬迁之后有意改的，不是搬迁失真。**
+   *
+   * · 搬迁时这里是**全小写** `'parentsubsidiary'`；而旧版**四处全是驼峰**
+   *   `parentSubsidiary`（`Diao.deobfuscated.js:912-914` 的 `_0x3ccfb0`、`:2213`、`:2236`、`:2133`）。
+   * · 更要命的是**自家** `utils/printPayloads.ts:823/:1000` 早就按驼峰在比，
+   *   而那边拿的是 `formulaOf(l)?.formula_type`（就是库里这一列）
+   *   ⇒ **子母门公式的算料单据一直静默走错分支**（数量 `4×/2×` 变成 `quantity× / quantity÷2`、
+   *   子门/母门玻璃取成通用玻璃），不报错、界面上也看不出来。
+   * · 已按旧版对齐（前端 4 个文件）并用**迁移 0024** 迁数据。
+   *
+   * ⚠️ 这条改写规则**自带自检**：`applyRewrites` 找不到 `from` 就抛错。
+   *    所以哪天旧值变了，这里会立刻报「声明的改写失效」，不会静默漏过。
+   * 详见 `docs/2026-09-19-diao-audit.md` §3.1。
+   */
+  PING_FAMILY_TYPES: [
+    {
+      from: "const PING_FAMILY_TYPES = ['ping', 'double', 'parentsubsidiary', 'diamond']",
+      to: "const PING_FAMILY_TYPES = ['ping', 'double', 'parentSubsidiary', 'diamond']",
+    },
+  ],
 }
 
 /**
@@ -278,6 +300,7 @@ try {
  *  · `confirmLeaveDirtyRow` 漏了旧版 `It` 的第二个判据（同一行里换格子不算切行）⇒ 补上，并加 `target` 形参；
  *  · `saveRow` 的前置不满足时**静默 return**（表现就是「点了没反应」）⇒ 改成出声提示。
  *  `enterEdit` 随之改成把当前行传给守卫。
+ *
  */
 const POST_MOVE_EDITS = new Set(['confirmLeaveDirtyRow', 'enterEdit', 'saveRow'])
 

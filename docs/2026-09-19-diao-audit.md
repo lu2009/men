@@ -20,7 +20,7 @@
 | 2 | **「3D创建公式」**按钮没有 | 缺功能 | ★★ 管理员按钮 |
 | 3 | **「算料神器」**按钮没有 | 缺功能 | ★★ 无门控按钮 |
 | 4 | 主表格操作列**「查看3D」**没有 | 缺功能 | ★ 已在我们代码注释里承认 |
-| 5 | `formulaType` 子母门拼写不同 | 口径 | ★★ 见 §3.1 |
+| 5 | `formulaType` 子母门拼写不同 | 口径 | ✅ **已修**（且当场发现是活 bug）见 §3.1 |
 | 6 | 我们把**尺寸存进了库**，旧版不存 | 口径 | ✅ **已修** 见 §3.2 |
 | 7 | 列表弹窗**结构完全不同** | 口径 | ★ 见 §3.3 |
 | 8 | 删除确认用原生 `window.confirm` | 口径 | ★ 见 §3.3 |
@@ -246,7 +246,7 @@ n = (玻璃 && 轨 && 扇) || (_ && (玻璃宽||玻璃高) && !亮窗)
 `_0xb8c576` 是 **formulaType**，而它的取值只有 `ping/diao/double/diamond/parentSubsidiary`
 （见 §3.1）—— `ping1`/`ping2`/`pingWindows*`/`parentSubsidiaryWindow` 全是**模板键**，**永远比不中**。
 ⇒ 这个列表实际退化成 `{ping, parentSubsidiary}`，**= 我们的 `Formulas.vue:501`**
-（`['ping','parentsubsidiary'].includes(formulaType)`，大小写问题见 §3.1）。
+（`['ping','parentSubsidiary'].includes(formulaType)`；写成 2 项就够的理由见上，大小写见 §3.1）。
 
 **这是旧版的潜在 bug**（作者以为 formulaType 装的是模板键）。**我们的短列表是对的**，
 不要因为「旧版写了 8 个」就补成 8 个。
@@ -361,7 +361,8 @@ D:2213   l["formulaType"]==="parentSubsidiary" ? isSubsidiary=true : false
 D:2236   "parentSubsidiary"===formulaType ? (门洞宽="900", 母门宽="200") : 门洞宽="800"
 ```
 
-我们 `formulaTemplates.ts:10` 与 `Formulas.vue:63` 用的是**全小写** `parentsubsidiary`。
+我们当时 `formulaTemplates.ts:10` 与 `Formulas.vue:63` 用的是**全小写** `parentsubsidiary`
+（**已修**，见本节末尾的「已修」）。
 
 **根因推测**：旧版有两张不同的表，容易看串 ——
 - `D:2589` 那张 13 键中文名表用的是**小写** `parentsubsidiary`；
@@ -371,17 +372,47 @@ D:2236   "parentSubsidiary"===formulaType ? (门洞宽="900", 母门宽="200") :
 **影响**：我们内部自洽，所以现在不会报错。但**凡是要跟旧版数据/旧版代码对齐的地方都会静默不匹配**，
 而且以后有人照旧版写 `parentSubsidiary` 会永远不成立。
 
-> ⚠️ **2026-09-19 补：这条缺口已经**实测出可观测后果**，不是纯拼写问题。**
-> 做 §3.2 的差分台时，**用同一个拼写**（`'parentsubsidiary'`）喂两边，子母门立刻对不上：
+> ⚠️ **2026-09-19 补：这条缺口**实测出可观测后果**，不是纯拼写问题 —— 而且它不是「将来会出事」，
+> 是「**已经在出错**」。**
 >
-> | | 门洞宽 | 母门宽 |
-> |---|---|---|
-> | 旧版（比 `"parentSubsidiary"`，比不中 ⇒ 落 else） | `800` | 留空 |
-> | 新版（比 `'parentsubsidiary'`，命中） | `900` | `200` |
+> 做 §3.2 的差分台时，**用同一个拼写**喂两边，子母门立刻对不上：旧版比不中 ⇒ 落 else 给
+> 门洞宽 `800`、母门宽留空；我们给 `900` / `200`。
 >
-> 也就是说：**只要哪天要读旧版存下来的公式、或照旧版代码写比较，子母门就会静默拿错默认值。**
-> 这条断言已钉进 `docs/diao-default-dims-logiccheck.mjs`（用同一拼写喂两边、断言**必须不一致**）——
-> **哪天有人把口径对齐了，那台会红**，提醒你把断言连同 fixture 里那行 `legacyType` 一起收尾。
+> 顺着往下查，发现**自家代码早就劈成了两半**：
+>
+> | 用全小写 | 用驼峰（= 旧版） |
+> |---|---|
+> | `data/formulaExtra.ts` / `data/formulaTemplates.ts` | **`utils/printPayloads.ts:823`** |
+> | `views/Formulas.vue` / `composables/useOrderLines.ts` | **`utils/printPayloads.ts:1000`** |
+> | | `utils/printPayloads.ts:839`（注释） |
+>
+> 而 `printPayloads.ts` 那几处的 `ft` 来自 `formulaOf(l)?.formula_type` —— **就是库里这一列**。
+> ⇒ **子母门公式的算料单据一直在走错分支**：本该「双玻 `4×数量` / 单玻 `2×数量`」却按
+> `quantity× / quantity÷2` 算；本该取「子门/母门玻璃宽·高」却取了通用玻璃。
+> **不报错、界面上也看不出来。**
+
+#### ✅ 2026-09-19 已修（用户拍板「继续」）
+
+对齐到**旧版**的驼峰 `parentSubsidiary`（而不是把 `printPayloads` 改成小写），三个理由：
+旧版四处全是驼峰；`printPayloads` 那几处是照旧版逐字复刻的（注释里就写着「原版 A平 `_0xcfde65`」）、
+它是对的；改数据一条 UPDATE 就够，改代码要动 4 个文件且**改完仍然和旧版不一样**。
+
+改动清单：`data/formulaTemplates.ts`（`FORMULA_TYPE_LABELS` + `TEMPLATE_LIST` ×2）、
+`data/formulaExtra.ts`（`SIMPLE_SQUARE_TYPES` + `defaultDims` 分支）、
+`views/Formulas.vue`（`isSubsidiary` / `isPingLike`）、
+`composables/useOrderLines.ts`（`PING_FAMILY_TYPES`）、
+**迁移 `0024_formula_type_parent_subsidiary.sql`**（`UPDATE ... WHERE formula_type='parentsubsidiary'`；
+执行时库里 2 行分别是 `diao`/`ping`，**实际改 0 行**，但留一条可追溯的口径变更记录）。
+
+**两道防复发守卫**（都做过变异测试：把值改回小写 ⇒ 两道都红）：
+1. `docs/diao-default-dims-logiccheck.mjs` 的**源码守卫** —— `app/src` 里任何位置都不许再出现
+   小写字面量（只扫代码，注释里提历史不算）；
+2. `docs/home-audit/hui-extract-movecheck.mjs` 的 **`REWRITES.PING_FAMILY_TYPES`** ——
+   登记为「搬迁后有意改过」，规则自带自检（`from` 找不到就抛错）。
+
+⚠️ **退役记录**：§3.2 期间我在这台差分台上钉过一条「缺口仍然存在」的断言
+（用同一拼写喂两边、断言**必须不一致**）—— 它按设计在本次对齐后**红了**，已连同 fixture 里
+那行 `legacyType` 一起删掉。现在子母门那组是**同一个拼写喂两边、两边一致**。
 
 **建议**：改成 `parentSubsidiary`（要一条数据迁移把库里已有的值改掉），或**在代码里注明这是有意偏离**。
 **现状两头都不占** —— 既没对齐，也没写明。
@@ -418,7 +449,7 @@ D:2236   "parentSubsidiary"===formulaType ? (门洞宽="900", 母门宽="200") :
 
 - 新增 `data/formulaExtra.ts` 的 **`defaultDims(formulaType, parts)`** —— 一张按门型的默认值表，
   逐条对应旧版 `D:2233-2236`，含三条跨字段副作用（`diamond` 顺带改墙厚/亮窗总高、
-  `ling` 顺带改墙厚、`parentsubsidiary` 顺带置母门宽）。
+  `ling` 顺带改墙厚、`parentSubsidiary` 顺带置母门宽）。
 - `Formulas.vue` 的 `loadFormula` 里调 `fillEmptyDims()`，**只补空的**，排在
   `refreshPlaceholders()` 之前。
 - ⚠️ **有意与旧版不同：旧版是无条件覆盖，我们是「谁空补谁」。** 旧版不存尺寸所以无所谓；
@@ -550,9 +581,12 @@ D:2236   "parentSubsidiary"===formulaType ? (门洞宽="900", 母门宽="200") :
 按性价比排：
 
 1. ~~补齐 §3.2 的加载默认尺寸~~ —— **2026-09-19 已做**，见 §3.2 的「已落」段。
-2. **定 `parentSubsidiary` 大小写**（§3.1）—— 要么改+迁移，要么写明偏离。**别维持现状**。
-   ⚠️ 做 §3.2 时实测出这条**有可观测后果**（子母门默认值 800/空 vs 900/200），
-   优先级比原先估的高。
+2. ~~定 `parentSubsidiary` 大小写~~ —— **2026-09-19 已做**，而且查下来它不只是拼写：
+   **子母门的算料单据一直在走错分支**。已按旧版对齐 + 迁移 0024 + 两道防复发守卫，见 §3.1。
+3. **子母门打印分支本身没有差分台** —— 本次修的是「让那个分支**够得着**」；
+   分支体（`4×/2×`、子门/母门玻璃）是否忠实于旧版，**目前没有任何脚本覆盖**
+   （`print-lineno-check.mjs` 只钉「单号取哪一级」）。这也是这个 bug 能活下来的原因，
+   **建议补一台**。
 3. **列表弹窗对齐**（§3.3）：至少把 `window.confirm` 换成 naive 的 dialog。
 4. **「查看3D」与 3D 面板**（§2.5）—— 体量最大（Three.js + 622KB 组件），
    **建议单独排期、单独评估**，不要塞进本轮。若要砍，就在文档里写成**明确的有意偏离**。

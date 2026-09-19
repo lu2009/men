@@ -25,7 +25,7 @@
  *
  * 用法：node docs/diao-default-dims-logiccheck.mjs
  */
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -199,15 +199,12 @@ const CASES = [
   },
   { name: 'double（双开）', type: 'double', parts: { 上下方: part('上下方') } },
   {
-    name: 'parentsubsidiary（子母）→ 门洞宽 900、母门宽 200',
-    type: 'parentsubsidiary',
-    // ★★ 这一行是本台**唯一**一处显式喂给旧版不同拼写的地方，**别删、也别当成"已经对齐"**。
-    //    旧版这几处比较写的是驼峰 `"parentSubsidiary"`，我们内部口径是全小写
-    //    —— 这就是审计 §3.1 那条已知缺口。**本台第一次跑就是在这里红的**：
-    //    照原样喂 `'parentsubsidiary'` 时，旧版比不中 ⇒ 落到 else 给 800 / 母门宽留空，
-    //    而我们给 900 / 200。也就是说**这条缺口有可观测的行为后果**，不是纯拼写问题。
-    //    这里按各自的真实取值喂，是为了单独验「默认值表」本身；缺口另案处理（要连数据一起迁）。
-    legacyType: 'parentSubsidiary',
+    name: 'parentSubsidiary（子母）→ 门洞宽 900、母门宽 200',
+    // ⚠️ 驼峰。2026-09-19 之前这里是全小写，本台第一次跑就**红了**（旧版比不中 ⇒ 800/留空），
+    //    由此发现 `printPayloads.ts` 也按驼峰比 ⇒ 子母门打印一直走错分支。
+    //    已按旧版对齐 + 迁移 0024。**这里不再需要 `legacyType` 之类的迁就** ——
+    //    「同一个拼写喂两边」现在两边就该一致。
+    type: 'parentSubsidiary',
     parts: { 母门上下方: part('母门上下方') },
   },
   {
@@ -248,9 +245,7 @@ const FIELDS = [
 ]
 
 for (const c of CASES) {
-  // `legacyType` 只在**两边 formulaType 取值确实不同**时才给（目前只有子母门一处，见 §3.1）。
-  // 不给就按同一个值喂 —— 也就是说，**会不会红本身就是一条断言**。
-  const legacy = runLegacy(c.legacyType ?? c.type, c.parts)
+  const legacy = runLegacy(c.type, c.parts)
   const now = runNew(c.type, c.parts)
   const problems = []
   for (const [k, label] of FIELDS) {
@@ -269,33 +264,43 @@ for (const c of CASES) {
   }
 }
 
-// -------------------------------------------------- §3.1 缺口的显式断言 //
+// ---------------------------------------- 防复发：小写拼写不许再出现 //
 /*
- * 上面对子母门是**按两边各自的真实拼写**喂的（fixture 里的 `legacyType`），
- * 这里反过来：**用同一个拼写**喂两边，断言它们**必须不一致**。
+ * 子母门的 formulaType **必须是驼峰 `parentSubsidiary`**（旧版四处逐字如此）。
  *
- * 为什么值得单钉一条：这条缺口容易被当成「纯拼写、无所谓」——
- * 本台第一次跑就证明它**有可观测后果**（旧版比不中 ⇒ 门洞宽给 800、母门宽留空；
- * 我们给 900 / 200）。哪天有人真把口径对齐了（改代码 + 迁数据），**这里会红**，
- * 那就把这条断言连同 fixture 里那行 `legacyType` 一起删掉 —— 红是在提醒你收尾。
+ * 2026-09-19 之前我们全用小写，而 `utils/printPayloads.ts` 早就按驼峰比
+ * ⇒ **子母门的算料单据一直静默走错分支**（数量 4×/2× 变成 quantity×/quantity÷2、
+ * 子门/母门玻璃取成通用玻璃）。已对齐 + 迁移 0024。
+ *
+ * 这台差分台**本身**已经能抓住它（同一拼写喂两边，小写会立刻红在子母门那组），
+ * 但那只覆盖 `defaultDims` 这一条路径。所以再加一道**源码守卫**：
+ * `app/src` 里**任何位置**都不许再出现小写字面量 —— 包括 `printPayloads.ts` 那种我们自己
+ * 不会跑到的角落。注释里提到小写不算（那是解释历史），只扫代码。
  */
+console.log('\n【防复发】app/src 里不许再出现小写 `parentsubsidiary` 字面量')
 {
-  const parts = { 母门上下方: part('母门上下方') }
-  const same = runLegacy('parentsubsidiary', parts)
-  const ours = runNew('parentsubsidiary', parts)
-  const diff =
-    String(same.w) !== String(ours.w) || String(same.s) !== String(ours.s)
+  const SRC = resolve(ROOT, 'app/src')
+  const offenders = []
+  const walk = (dir) => {
+    for (const e of readdirSync(dir)) {
+      const p = resolve(dir, e)
+      if (statSync(p).isDirectory()) walk(p)
+      else if (/\.(ts|vue)$/.test(p)) {
+        const code = readFileSync(p, 'utf8')
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .replace(/^\s*\/\/.*$/gm, '')
+          .replace(/<!--[\s\S]*?-->/g, '')
+        if (/['"]parentsubsidiary['"]/.test(code)) offenders.push(p.slice(ROOT.length + 1))
+      }
+    }
+  }
+  walk(SRC)
   checks++
-  if (diff) {
-    console.log(
-      `✓ §3.1 缺口仍然存在且**可观测**：同一拼写下 子母门 门洞宽 旧版 ${JSON.stringify(same.w)} / 新版 ${JSON.stringify(ours.w)}、` +
-        `母门宽 ${JSON.stringify(same.s)} / ${JSON.stringify(ours.s)}`,
-    )
-  } else {
+  if (offenders.length) {
     failed++
-    console.log(
-      '✗ §3.1 缺口**不见了** —— 说明有人对齐了口径。请把这条断言与 fixture 里的 `legacyType` 一并删掉，并更新审计 §3.1。',
-    )
+    console.log(`  ✗ 小写字面量又出现了：${offenders.join(', ')}`)
+  } else {
+    console.log('  ✓ 一个都没有')
   }
 }
 

@@ -745,9 +745,10 @@ export function useOrderLines(deps: OrderLinesDeps) {
   // 行.formulaid 是「型材名 → formulaID」直接查服务端 material 字典得到的
   // （Hui.formatted.js:1459-1475 `const _=O.value[x]; _?a.formulaid=String(_):…`），
   // 下拉候选就是该字典的 key 集合（同文件 1898 `Object.keys(O.value)`）。
-  // 所以钻石型(diamond)/子母(parentsubsidiary)/双开(double) 这些平开族公式同样在平开表里。
+  // 所以钻石型(diamond)/子母(parentSubsidiary)/双开(double) 这些平开族公式同样在平开表里。
   // 若按 `ft === type` 字面判等，它们会被两张表同时排除 —— 这正是「钻石型公式选不到」的根因。
-  const PING_FAMILY_TYPES = ['ping', 'double', 'parentsubsidiary', 'diamond']
+  // ⚠️ `parentSubsidiary` 是**驼峰**（旧版 `_0x3ccfb0` 那个集合逐字如此），**别改成小写**。
+  const PING_FAMILY_TYPES = ['ping', 'double', 'parentSubsidiary', 'diamond']
 
   /** 公式是否属于某张表：移门只收 diao，平开收平开族；无型别的两边都放（避免隐藏已有数据）。 */
   function belongsToTable(formulaType: string | undefined, type: 'ping' | 'diao'): boolean {

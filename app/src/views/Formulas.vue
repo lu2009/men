@@ -62,7 +62,8 @@ const dimRefs: Record<'w' | 'h' | 'h1' | 't' | 'j' | 's', Ref<string>> = {
 
 const isDiamond = computed(() => formulaType.value === 'diamond')
 const isSimpleSquare = computed(() => SIMPLE_SQUARE_TYPES.includes(formulaType.value))
-const isSubsidiary = computed(() => formulaType.value === 'parentsubsidiary')
+// ⚠️ 驼峰 `parentSubsidiary` —— 与旧版（`Diao.deobfuscated.js:2213` 等）逐字一致，**别改成小写**。
+const isSubsidiary = computed(() => formulaType.value === 'parentSubsidiary')
 // 吊脚仅简单门型显示（复刻旧版 _0x1d0fcc = 平开/双开/子母/钻石）。
 const showJiao = computed(() => isSimpleSquare.value)
 // 必填弹窗中的吊脚（复刻旧版 _0x17e61b：仅平开/中开门）。
@@ -526,7 +527,10 @@ async function copyRow(name: string) {
   const hasFan = t.includes('扇')
   const upDown = t.match(/^(.*轨|折叠)(\d+)扇上下方$/)
   const isUpDown = Boolean(upDown)
-  const isPingLike = ['ping', 'parentsubsidiary'].includes(formulaType.value)
+  // 旧版 `_0x26a9b2` 那张表（`Diao.deobfuscated.js:1976`）写了 8 项，但后 6 项是**模板键**
+  // （`ping1`/`pingWindows*`/`parentSubsidiaryWindow`…）拿去比 formulaType，**永远比不中**
+  // ⇒ 实际等价于 `{ping, parentSubsidiary}`。见审计 §2.4b，**别照抄成 8 项**。
+  const isPingLike = ['ping', 'parentSubsidiary'].includes(formulaType.value)
   const hasGlassWH = t.includes('玻璃宽') || t.includes('玻璃高')
   const canCopyGlass =
     (hasGlass && hasTrack && hasFan) || (isPingLike && hasGlassWH && !t.includes('亮窗'))
