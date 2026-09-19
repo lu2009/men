@@ -849,8 +849,10 @@ onMounted(loadProcedures)
   min-width: 100px;
 }
 /*
- * 置灰按钮的可点包装（同 `Progress.vue` 的 `.pending-slot`）：
+ * 置灰按钮的可点包装（与 `PrintDrawer.vue` 的 `.doc-pending` 同一套机制）：
  * naive 的 `disabled` 按钮会吃掉点击事件，所以包一层 span 接 click，按钮本身设 `pointer-events:none`。
+ * ⚠️ `Progress.vue` 里原先也有一份同名的，2026-09-19 那页的占位按钮全部接上真目标后已删 ——
+ *    这里的这份是**本组件自己的**，别因为那边没了就顺手删。
  */
 .pending-slot {
   display: inline-flex;

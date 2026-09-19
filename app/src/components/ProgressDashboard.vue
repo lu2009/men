@@ -28,7 +28,13 @@
           <n-radio-button v-if="isMobile" class="mobile-close-radio" :value="CLOSE_SENTINEL">
             关闭
           </n-radio-button>
-          <n-radio-button v-for="m in TIME_MODE_LABELS" :key="m.value" :value="m.value">
+          <!-- ⚠️ 「自定义查询」那颗多挂一个 click（旧版 `me`）—— 再点一次也要能开出「查询更多」，见 `onCustomRadioClick` -->
+          <n-radio-button
+            v-for="m in TIME_MODE_LABELS"
+            :key="m.value"
+            :value="m.value"
+            @click="m.value === 'custom' && onCustomRadioClick()"
+          >
             {{ m.label }}
           </n-radio-button>
         </n-radio-group>
@@ -236,7 +242,14 @@ const props = defineProps<{
   procedures: ProcedureSlotDto[]
 }>()
 
-const emit = defineEmits<{ 'update:show': [boolean] }>()
+const emit = defineEmits<{
+  'update:show': [boolean]
+  /**
+   * 选了「自定义查询」—— 交给页面开「查询更多」对话框（旧版 `emit("customQuery")`）。
+   * 页面对完区间后调本组件暴露的 `setCustomDateRange` 回灌（旧版 §3.5 那条环）。
+   */
+  customQuery: []
+}>()
 
 const message = useMessage()
 
@@ -648,13 +661,40 @@ function onTimeChange(v: TimeMode | string) {
   }
   timeMode.value = v as TimeMode
   if (v === 'custom') {
-    // 旧版这里是 `emit("customQuery")` —— 打开页面的「查询更多」对话框，选完日期区间再回灌。
-    // ⚠️ 新版**「查询更多」还没做**（`Progress.vue` 文件头 ⏳3），所以这一档暂时选不出区间：
-    //    点它等于「不筛」（`timeRange('custom', null)` 返回 null ⇒ 原样返回），并给一句提示。
-    //    等「查询更多」落地后，把 `setCustomDateRange` 那条回环接上即可（旧版 §3.5）。
-    message.info('自定义日期区间要先有「查询更多」，本版还没做 —— 现在按「全部」显示')
+    // 选「自定义查询」→ 交给页面开「查询更多」对话框，选完日期区间再回灌进来。
+    emit('customQuery')
+  } else {
+    // 旧版 `ye` 的另一半：**切到别的档位就把手选区间丢掉**（`y.value = null`）。
+    // 不清的话，下次再切回「自定义查询」会先按上一次的区间筛一帧（对话框还没回灌）。
+    customRange.value = null
   }
 }
+
+/**
+ * 「自定义查询」那颗 radio 的**再次点击**（旧版 `me`：`onClick` 里也 emit 一次）。
+ *
+ * ⚠️ 为什么不能只靠 `onTimeChange`：radio 已经选中 `custom` 时再点它，值没变 ⇒ naive 不发
+ *    `update:value`，对话框就再也开不出来了。旧版那颗 radio 同时挂了 `onChange` 与 `onClick`，
+ *    就是为了「再点一次还能开」。这里只在「已经处于 custom」时补发，避免切换那一次连发两遍。
+ */
+function onCustomRadioClick() {
+  if (timeMode.value === 'custom') emit('customQuery')
+}
+
+/**
+ * 页面「查询更多」确认后回灌日期区间（旧版看板暴露的那个方法：
+ * `setCustomDateRange: e => { y.value = e, w.value = "custom", nextTick(() => Te()) }`）。
+ *
+ * ⚠️ 旧版那句 `nextTick(Te())` 这里**不用写**：本组件的重绘挂在
+ *    `watch([filtered, excludeSingleGlass])` 上，而 `filtered` 就读 `customRange`/`timeMode`
+ *    ⇒ 改完这两个 ref 会自动重绘（等价、且不会漏）。
+ */
+function setCustomDateRange(range: [string, string]) {
+  customRange.value = range
+  timeMode.value = 'custom'
+}
+
+defineExpose({ setCustomDateRange })
 
 /** 「重置」—— 🔴 **有意偏离**：旧版**不清「不含单玻」**（§12 第 18 条），新版一起清（§16③）。 */
 function resetFilters() {

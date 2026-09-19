@@ -11,21 +11,23 @@
     - 第三刀：**工具条 + 统计行**（旧版 `search-row`，§2.2 / §5.4）+ **导出表格**（§4.6）。
     - 第四刀：**行内「删除」**（§4.3）—— 日期列那颗红字链接补齐（「更新进度」上一刀已做）。
     - 第五刀：**生产分析看板**（`components/ProgressDashboard.vue`）。
-    - 第六刀（本笔）：**打印抽屉**（§4.5，`PrintDrawer` 的 `preset="progress"`）
+    - 第六刀：**打印抽屉**（§4.5，`PrintDrawer` 的 `preset="progress"`）
       + **「日期」列的行勾选**（表头全选 / 行内勾选框）⇒ 「批量更新」**真的能出现了**。
+    - 第七刀（本笔）：**「查询更多」对话框**（§3.3 / §4.1 的 `Bo`/`xo` 那一层）
+      ⇒ 工具条 **7 颗按钮全部接上真目标**，本页不再有任何「置灰占位」按钮。
+      顺带把看板那条 `customQuery → 查询更多 → setCustomDateRange` 的环接上（看板 §3.5）。
 
     ## ⏳ 还没做（按旧版顺序，各自独立可验）
 
-    1. ~~**工具条**~~ ✅ **已做**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
-       导出表格 / 搜索框 / 统计行。「生产分析」✅ 已接真看板；「打印选项」✅ 已接真抽屉（本笔）；
-       「批量更新」✅ 已接真弹窗（本笔）。**只剩「查询更多」**仍是「置灰 + 点了给提示」（见下 3）。
-    2. ~~**打印抽屉**~~ ✅ **已做（本笔）**（旧版 §4.5）：「打印选项」→ `PrintDrawer`
+    1. ~~**工具条**~~ ✅ **全做完**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
+       导出表格 / 搜索框 / 统计行 —— **七颗都有真目标**，`notYet()` 与 `.pending-slot` 已删。
+    2. ~~**打印抽屉**~~ ✅ **已做**（旧版 §4.5）：「打印选项」→ `PrintDrawer`
        `preset="progress"` 那 **12 类**单据 → `PrintPreviewDialog` 预览。
        ⚠️ **两类置灰**（「平开门生产单 / 移门生产单」，旧版的 ping/diao 拆分 + 单行分页本版没有），
        逐条理由写在 `PrintDrawer.vue` 的 `PROGRESS_ITEMS` 注释里。
-    3. **更多查询对话框**（旧版 `Lo`）—— 「查询更多」那颗按钮的目标 UI。
-       要**先补后端**（`getMoreProgress` / `getClientsInfo`，见 §3.1）；
-       它同时会引入旧版的 `Bo`/`xo`（查询结果集生效标志），`filteredRows` 里已留了说明。
+    3. ~~**更多查询对话框**~~ ✅ **已做（本笔）**（旧版 `Lo` + `Io`）：「查询更多」→
+       「查询订单」对话框 → `GET /v1/progress/more` → 换底表（`Bo`/`xo`）+ 并入全量 + 搜索框回显。
+       见 `openMore` / `submitMore` / `filteredRows` 上方那三段注释。
     4. ~~**行内动作**~~ ✅ **全做完**：「更新进度」/「删除」已做（§4.2 / §4.3）；
        **「日期」列的行勾选 checkbox** ✅ 本笔补上（表头 = 全选/取消全选，范围是**当前筛选结果**）。
        ⇒ 工具条「批量更新 (n)」按旧版条件（已选 > 1）**自动出现**，点开是同一个更新进度弹窗的批量版
@@ -86,9 +88,9 @@
       工具条（旧版 `.search-row`，从左到右逐项对着 `docs/2026-09-19-progress-analysis.md` §2.2）：
         打印选项 · 批量更新(n) · 查询更多 · 生产分析 · 刷新 · 导出表格 · 搜索框 · 统计行
 
-      ⚠️ 本轮过后**只剩一颗**「目标 UI 本版还没做」的按钮：「查询更多」——
-         按本项目对死链的态度做成「**置灰 + 点了给提示**」（机制见 `notYet()` 的注释）。
-      「生产分析」已接真看板（第五刀）、「打印选项」已接真抽屉（本笔），都不再置灰。
+      ✅ **七颗按钮全部接上真目标了**（打印抽屉 / 批量更新弹窗 / 更多查询对话框 / 看板 / 刷新 /
+         导出 / 搜索框）—— **本页已经没有任何「置灰 + 点了给提示」的占位按钮**，
+         `.pending-slot` 那套机制连同 `notYet()` 一起删掉了（别再从别处抄回来）。
 
       ⚠️ 「批量更新」是**按条件渲染**（不是置灰）—— 依据 §2.2 表格第 2 行给的出现条件
          「`已选条数 > 1` 且 PC 模式」（`ea = te.ping_hui.length + te.diao_hui.length`）。
@@ -112,17 +114,8 @@
         批量更新 ({{ selectedRows.length }})
       </n-button>
 
-      <!-- 「查询更多」旧版恒出现（§2.2 表格第 3 行）。⚠️ 它要的**后端也没有**：
-           `getMoreProgress` / `getClientsInfo` 在新版后端**不存在**（见 §3.1 与文件头 ⏳3），
-           所以这颗要落地得前后端一起补，不是只差一个弹窗组件。 -->
-      <n-tooltip>
-        <template #trigger>
-          <span class="pending-slot" @click="notYet('查询更多', '按客户 / 安装地址 / 日期范围查询')">
-            <n-button type="primary" disabled>查询更多</n-button>
-          </span>
-        </template>
-        更多查询本版还没做
-      </n-tooltip>
+      <!-- 「查询更多」旧版恒出现（§2.2 表格第 3 行）—— 开「查询订单」对话框（旧版 `Lo`）。 -->
+      <n-button type="primary" @click="openMore">查询更多</n-button>
 
       <!-- 生产分析看板（旧版 `@141816`）。⚠️ 旧版这颗按钮的出现条件是
            `userinfo.registrant === userinfo.name || userinfo.name === '开门红'` ——
@@ -135,11 +128,19 @@
       <!-- 旧版：只有搜索词/更多查询条件非空（`zo`）时才出现 -->
       <n-button v-if="searchText" type="warning" :loading="exporting" @click="exportTable">导出表格</n-button>
 
+      <!--
+        ⚠️ `@input` / `@clear` 是**旧版的行为**，别当多余：
+          · 旧版 `zo` 的 `onInput: ao` → `Bo = false`（一动手打字就退出「查询更多」的结果集）；
+          · `onClear: lo` → `zo = ''` 且 `Bo = false`。
+        两者都**不**清 `xo`（结果集留着，再点一次「查询更多」还能用）。
+      -->
       <n-input
         v-model:value="searchText"
         class="search-input"
         clearable
         placeholder="输入关键词搜索（可用空格分隔多个关键词）"
+        @input="onSearchInput"
+        @clear="onSearchClear"
       >
         <template #prefix>
           <!-- 旧版前缀是 index chunk 里的图标组件（`h as u`），我们没那个件 ⇒ 用同形的放大镜 SVG -->
@@ -182,12 +183,82 @@
     />
 
     <!-- 生产分析看板（旧版 `ProductionDashboard`）：全屏对话框，口径见
-         `docs/2026-09-19-progress-dashboard.md`。 -->
+         `docs/2026-09-19-progress-dashboard.md`。
+         `@custom-query` = 看板里选「自定义查询」→ 开下面那个「查询订单」对话框（旧版 §3.5 那条环）。 -->
     <ProgressDashboard
+      ref="dashboardRef"
       v-model:show="dashboardShow"
       :table-data="dashboardRows"
       :procedures="procedures"
+      @custom-query="openMore"
     />
+
+    <!--
+      「查询更多」（旧版 `ho` 那个 `el-dialog`，标题 `查询订单`、宽 500px、`label-width:100px`）。
+      字段与文案逐字照旧版：客户（自动完成）/ 安装地址 / 起始日期 / 结束日期。
+      ⚠️ 旧版那个「客户」项外面还有一层 `D2`（**终端模式就不显示它**）；本版不做终端分支
+         （见文件头 ⏳6），所以它**恒显示** —— 与其余恒显示的 PC 专有项同一个口径。
+
+      ⚠️ 两条**有意偏离**（都写在 `openMore` / `submitMore` 的注释里）：
+        ① 旧版客户下拉在旧服务端上是**坏的**（返回 camelCase，前端读四个中文键全 undefined，
+           `l.name.toLowerCase()` 直接抛）⇒ 新版走现成的 `GET /v1/clients`，不当它是参照；
+        ② 旧版那颗「客户」框身上的 `.error-input`（红框）在这个页面里**从来没被置真过**
+           （`Eo` 只有 `onInput` 里那一处写 `false`）⇒ 死代码，不复刻。
+    -->
+    <n-modal
+      v-model:show="moreShow"
+      preset="card"
+      title="查询订单"
+      style="width: 500px"
+      :auto-focus="false"
+    >
+      <n-form label-placement="left" label-width="100">
+        <n-form-item label="客户">
+          <!--
+            旧版是 `el-autocomplete`：`trigger-on-focus`（聚焦即出候选）+ `clearable` + 本地 `name.includes` 过滤。
+            ⚠️ naive 的 `n-auto-complete` 清空时 `update:value` 抛的是 **null**（同 Home 那处），
+               所以要显式收口成空串，别直接 `v-model:value` 绑 `string`。
+          -->
+          <n-auto-complete
+            :value="moreForm.client"
+            :options="moreClientOptions"
+            :get-show="AUTOCOMPLETE_ALWAYS_SHOW"
+            placeholder="输入客户信息"
+            clearable
+            @update:value="(v: string | null) => (moreForm.client = v ?? '')"
+          />
+        </n-form-item>
+        <n-form-item label="安装地址">
+          <n-input v-model:value="moreForm.address" placeholder="请输入安装地址" />
+        </n-form-item>
+        <n-form-item label="起始日期">
+          <n-date-picker
+            v-model:value="moreForm.startTs"
+            type="date"
+            :shortcuts="MORE_DATE_SHORTCUTS"
+            placeholder="选择起始日期"
+            clearable
+            style="width: 100%"
+          />
+        </n-form-item>
+        <n-form-item label="结束日期">
+          <n-date-picker
+            v-model:value="moreForm.endTs"
+            type="date"
+            :shortcuts="MORE_DATE_SHORTCUTS"
+            placeholder="选择结束日期"
+            clearable
+            style="width: 100%"
+          />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <div class="upd-footer">
+          <n-button @click="moreShow = false">取消</n-button>
+          <n-button type="primary" :loading="moreLoading" @click="submitMore">确认</n-button>
+        </div>
+      </template>
+    </n-modal>
 
     <!-- 更新进度（旧版行内那颗链接开的弹窗） -->
     <n-modal v-model:show="updOpen" preset="card" :title="updTitle" style="width: 420px" :bordered="false">
@@ -251,25 +322,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { VNodeChild } from 'vue'
 import type { Workbook as ExcelJSWorkbook } from 'exceljs'
 import {
+  NAutoComplete,
   NButton,
   NCheckbox,
   NDataTable,
+  NDatePicker,
+  NForm,
+  NFormItem,
   NInput,
   NModal,
   NPagination,
   NPopover,
   NSelect,
-  NTooltip,
   useDialog,
   useMessage,
 } from 'naive-ui'
 import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
 import { api } from '../api/client'
-import type { OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
+import type { ClientDto, OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
@@ -981,7 +1055,9 @@ function confirmOrderNoQuery() {
     orderNoPopShow.value = false
     return
   }
-  let pool = rows.value
+  // ⚠️ 候选集同样走 `Bo ? xo : oo`（旧版 `ya` 的第一句就是 `let a = (Bo.value ? xo.value : oo.value) || []`）
+  //    —— 查出来的结果集生效时，「查单号」只在这个结果集里找，不去全量里捞。
+  let pool = moreActive.value ? moreRows.value : rows.value
   const sel = orderNoFilterValues()
   if (sel.length) pool = pool.filter((r) => sel.some((v) => matchesOrderNoOption(v, r)))
   if (colorFilter.value) pool = pool.filter((r) => colorKeyOf(r['生产进度']) === colorFilter.value)
@@ -1162,11 +1238,16 @@ const SEARCH_FIELDS = [
  *
  * ⚠️ 旧版 `no` 的第一句是 `let t = Bo.value ? xo.value : oo.value` —— `Bo`/`xo` 是
  *    **「查询更多」的结果集与其生效标志**（点确认后 `xo=d, Bo=true`；**动搜索框或清空**就把
- *    `Bo` 置回 `false`，退回全量 `oo`）。本版「查询更多」还没做 ⇒ 这里没有 `Bo`/`xo` 这一层，
- *    搜索永远作用在 `oo`（= 本页的 `rows`）上。等 ⏳「查询更多」落地时要把它补回来。
+ *    `Bo` 置回 `false`，退回全量）。新版这一层 = `moreActive ? moreRows : rows`，
+ *    退出条件照旧版放在搜索框的 `@input` / `@clear` 上（见 `onSearchInput` / `onSearchClear`）。
+ *
+ * ⚠️ 与 `oo`（只看自己打单的行）**不是一回事**，别合并：`oo` 是**数据范围**（本版仍未做，
+ *    理由见上），`Bo`/`xo` 是**用户主动查出来的结果集**。旧版是 `no = (Bo ? xo : oo)`，
+ *    即结果集**优先于**数据范围 —— 但结果集本身在 `Io` 里已经被数据范围滤过一遍
+ *    （`!b2 && (d = d.filter(打单人 === 自己))`），两处都做才对。
  */
 const filteredRows = computed(() => {
-  let list = rows.value
+  let list = moreActive.value ? moreRows.value : rows.value
   const sel = orderNoFilterValues()
   if (sel.length) list = list.filter((r) => sel.some((v) => matchesOrderNoOption(v, r)))
   if (colorFilter.value) {
@@ -1333,16 +1414,184 @@ async function refresh() {
   await load()
 }
 
-/**
- * 三颗「目标 UI 本版还没做」的按钮的点击反馈（置灰 + 给提示，**不做死链**）。
+// ── C1b. 查询更多（旧版 `Lo` 开窗 + `Io` 确认）—— 也就是 `no` 链路里的 `Bo`/`xo` 那一层 ──
+/*
+ * 旧版原文（反混淆后，逐字）：
  *
- * ⚠️ 为什么要有外层 `span`：`<button disabled>` 在 Chrome 里**根本不派发 click**
- *    （事件被浏览器吞掉），所以监听挂在 button 上是收不到的。
- *    模板里把 button 设成 `pointer-events: none`（见 `.pending-slot` 的样式），
- *    命中测试就落到这个 span 上 ⇒ 点得到、也提示得到。
+ *   ko = 30 天前、Mo = 今天（两个 ISO 日期串）；Ao = 最近一周 / 最近一个月 / 最近三个月 三个快捷项
+ *   Lo = async () => { Co=""; Do.selectedClient=""; Do.selectedAddress=""; Do.startDate=ko; Do.endDate=Mo;
+ *                      ho=true; 拉 getClientsInfo → No = data.map(e => ({name:e.客户, tel:e.电话, address:e.地址, id:e.编号}))
+ *                      拿不到 → ElMessage.error("初始化客户信息失败") }
+ *   Io = async () => { …Do.selectedClient = Co…          // ← 提交时取**输入框文本**，不是下拉里选中的那条
+ *                      GET getMoreProgress&param3=客户&param4=地址&param5=起始&param6=结束
+ *                      非 200 → error(msg || "查询数据失败")
+ *                      d = progressData.map(e => ({...e, isSelected:!1, "生产进度": e["生产进度"]||""}))
+ *                                       .sort((a,b) => parseInt(b["回执单号"]) - parseInt(a["回执单号"]))  // 倒序
+ *                      xo.value = d; Bo.value = true
+ *                      并入 K：已有 id 的**换成新的那条**（位置不变）、新 id **追加到末尾**
+ *                      zo.value = (客户 + " " + 地址).trim()   // ← 搜索框被赋值，「当前筛选」那句就是它
+ *                      ho.value = false; ElMessage.success("查询成功") }
+ *
+ * ⚠️ 两处**有意偏离**（其余逐字照抄）：
+ *
+ * ① **默认日期按本地时区算**。旧版那两个默认值是 `new Date().toISOString().split("T")[0]`（**UTC**）
+ *    ⇒ UTC+8 每天 00:00–08:00 打开弹窗，默认区间整体早一天。本仓库对 `toISOString()` 的同类问题
+ *    已有定论（见 `Home.vue` 的 `localToday()` 那段「必须用本地日期，不能用 `legacyToday()`」），
+ *    这里沿用同一口径：默认起始 = **本地**今天 − 30 天、默认结束 = **本地**今天。
+ * ② **客户候选走 `GET /v1/clients`**（不照抄旧版那个口）。旧版 `getClientsInfo` 在旧服务端上返回的是
+ *    prisma 行（**camelCase**），而旧前端读的是 `e["客户"]/["电话"]/["地址"]/["编号"]` —— 四个键全是
+ *    `undefined`，紧接着 `bo` 里的 `l.name.toLowerCase()` 会**直接抛**。⇒ **那个口本来就是坏的，
+ *    别拿它当参照**（分析文档 §8.3 与服务端文档各自独立证过同一件事）。
+ *    字段映射按新版：`{ name, tel: phone, address, id: code }`。
+ * ③ 旧版那颗客户框身上的 `.error-input`（红框）在这个页面里**从没被置真过**（`Eo` 只在 `onInput` 里被
+ *    写成 `false`）⇒ 死代码，不复刻。
  */
-function notYet(name: string, what: string) {
-  message.info(`「${name}」本版还没做：${what}`)
+const moreShow = ref(false)
+/** 「查询中…」（旧版是 `ElLoading.service`，新版用按钮 loading）。 */
+const moreLoading = ref(false)
+/** 客户候选（旧版 `No`）。⚠️ 只是给下拉用，取不到也不拦查询。 */
+const moreClients = ref<ClientDto[]>([])
+/** 结果集（旧版 `xo`）。 */
+const moreRows = ref<ProgressRow[]>([])
+/**
+ * 结果集生效标志（旧版 `Bo`）：为真时筛选链的底表从全量换成 `moreRows`，退出的条件只有两个 ——
+ * **动搜索框**或**点搜索框的清除**（旧版 `ao` / `lo`）。
+ *
+ * ⚠️ **「刷新」不会退出结果集**：旧版 `pa()` 只重拉 `K`，`Bo`/`xo` 原样留着 ⇒ 刷新之后表里显示的
+ *    仍是上一次查出来的那批行（且是旧对象）。看着像 bug，但那是旧版的行为，**照抄**
+ *    （要退出结果集就按旧版那两条路：动一下搜索框、或点它的清除）。
+ */
+const moreActive = ref(false)
+const moreForm = reactive<{
+  client: string
+  address: string
+  startTs: number | null
+  endTs: number | null
+}>({ client: '', address: '', startTs: null, endTs: null })
+/** 看板组件引用（旧版 `N`）—— 确认后把日期区间回灌给它（旧版 §3.5 那条环）。 */
+const dashboardRef = ref<InstanceType<typeof ProgressDashboard> | null>(null)
+
+/** 本地「今天 00:00」起算的 `offsetDays` 天前的时间戳（`n-date-picker` 的 model 是时间戳）。 */
+function dayStart(offsetDays = 0): number {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + offsetDays)
+  return d.getTime()
+}
+
+/** 时间戳 → 本地 `YYYY-MM-DD`（旧版 `value-format:"YYYY-MM-DD"`，Element 按本地日期格式化）。 */
+function toIsoDate(ts: number | null): string {
+  if (ts == null) return ''
+  const d = new Date(ts)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+/**
+ * 日期快捷项（旧版 `Ao`）：最近一周 / 最近一个月 / 最近三个月，**顺序与文案照抄**
+ * （旧版是 `now - 6048e5 / -2592e6 / -7776e6` 三个定值）。
+ * ⚠️ 旧版是 setup 里算好的**定值**（跨零点会把「最近一周」选成昨天），这里用函数形态按点击时求值
+ * —— 与 `Home.vue` 的 `DATE_SHORTCUTS` 同一个口径。
+ */
+const MORE_DATE_SHORTCUTS: Record<string, () => number> = {
+  最近一周: () => dayStart(-7),
+  最近一个月: () => dayStart(-30),
+  最近三个月: () => dayStart(-90),
+}
+
+/** 自动完成永远展示候选（旧版 `trigger-on-focus`；与 `Home.vue` 的 `AUTOCOMPLETE_ALWAYS_SHOW` 同一招）。 */
+const AUTOCOMPLETE_ALWAYS_SHOW = () => true
+
+/** 客户候选：按 `name` 子串（忽略大小写）本地过滤；查询词为空给全量（旧版 `bo`）。 */
+const moreClientOptions = computed(() => {
+  const q = moreForm.client.trim().toLowerCase()
+  return moreClients.value
+    .filter((c) => !q || (c.name ?? '').toLowerCase().includes(q))
+    .map((c) => ({ label: c.name, value: c.name }))
+})
+
+/** 旧版 `Lo`：重置表单 + 开窗 + （异步）拉客户候选。看板那条环也走这里。 */
+async function openMore() {
+  moreForm.client = ''
+  moreForm.address = ''
+  moreForm.startTs = dayStart(-30)
+  moreForm.endTs = dayStart(0)
+  moreShow.value = true
+  try {
+    // ⚠️ 旧版这里按 `{name: 客户, tel: 电话, address: 地址, id: 编号}` 映射（那四个键永远读不到，
+    //    见上面第 ② 条）—— 新版直接用 `ClientDto` 的字段。
+    moreClients.value = await api.listClients()
+  } catch {
+    message.error('初始化客户信息失败')
+  }
+}
+
+/** 旧版 `Io`：取数 → 排序 → 换底表 → 并入全量 → 搜索框回显 → 关窗。 */
+async function submitMore() {
+  moreLoading.value = true
+  try {
+    const d = await api.listProgressMore({
+      client_name: moreForm.client,
+      install_address: moreForm.address,
+      start_date: toIsoDate(moreForm.startTs),
+      end_date: toIsoDate(moreForm.endTs),
+    })
+    const list: ProgressRow[] = (d?.progressData ?? [])
+      // 同旧版：补 `isSelected`（勾选态随新对象归零）+ `生产进度` 兜底成空串
+      .map((r) => ({ ...r, isSelected: false, 生产进度: r['生产进度'] || '' }))
+      // 旧版按 `parseInt(回执单号)` **倒序**。⚠️ `parseInt` 解不出来的（空/非数字）是 `NaN`，
+      // 比较函数返回 `NaN` ⇒ 被引擎当成 0（这几行的相对次序不保证）—— 旧版就是这个表现，照抄。
+      .sort((a, b) => parseInt(b['回执单号']) - parseInt(a['回执单号']))
+
+    moreRows.value = list
+    moreActive.value = true
+
+    /*
+     * 并入全量 `K`（旧版 `Io` 末段，逐字）：
+     *   V = new Set(K.map(id)); w = d.filter(r => V.has(r.id)); y = d.filter(r => !V.has(r.id))
+     *   K = K.map(e => w.find(t => t.id === e.id) || e);  K = [...K, ...y]
+     * ⇒ 查回来的**已有行换成新的那条对象**（位置保持在全量里的原位），**新行追加到末尾**。
+     * ⚠️ 副作用照抄：被换掉的那些行对象上的勾选态没了（新对象是 `isSelected:false`）。
+     */
+    const existing = new Set(rows.value.map((r) => r.id))
+    const byId = new Map(list.filter((r) => existing.has(r.id)).map((r) => [r.id, r]))
+    rows.value = [
+      ...rows.value.map((r) => byId.get(r.id) ?? r),
+      ...list.filter((r) => !existing.has(r.id)),
+    ]
+
+    // 搜索框回显「客户 地址」（旧版 `zo = (selectedClient + " " + selectedAddress).trim()`）。
+    // ⚠️ 照抄旧版的两个后果：① 它**同时**是「当前筛选」那句文案与「导出表格」那颗按钮的开关；
+    //    ② 空条件时它是空串 ⇒ 仍按「总计」显示。两者都与旧版一致，别当成 bug 去"修"。
+    searchText.value = `${moreForm.client} ${moreForm.address}`.trim()
+
+    // 看板开着才回灌（旧版 `B.value && N.value`）：`setCustomDateRange` 顺手把时间档位切到「自定义查询」。
+    if (dashboardShow.value && dashboardRef.value) {
+      dashboardRef.value.setCustomDateRange([
+        toIsoDate(moreForm.startTs),
+        toIsoDate(moreForm.endTs),
+      ])
+    }
+
+    moreShow.value = false
+    // 旧版文案。
+    message.success('查询成功')
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : '查询数据失败')
+  } finally {
+    moreLoading.value = false
+  }
+}
+
+/** 旧版 `ao`：搜索框一动就打字退出「查询更多」的结果集（**不清** `xo`，也不清 `zo`）。 */
+function onSearchInput() {
+  moreActive.value = false
+}
+
+/** 旧版 `lo`：点清除按钮 —— 清空搜索词**并且**退出结果集。 */
+function onSearchClear() {
+  searchText.value = ''
+  moreActive.value = false
 }
 
 // ── C2. 行勾选（旧版「日期」列里的 checkbox，表头那颗是全选）────────────────
@@ -1940,19 +2189,6 @@ function exportStamp(): string {
 }
 .total-info {
   font-weight: 500;
-}
-/*
- * 「本版还没做」的按钮外层的可点容器（见 `notYet()` 的注释）：
- * 里面那颗 button 是 `disabled` 的，Chrome **不会**从它派发 click ⇒ 用 `pointer-events:none`
- * 把它从命中测试里摘出去，事件就落到这个 span 上。`cursor: not-allowed` 也得挪到这儿来
- * （button 自己收不到 hover 了）。
- */
-.pending-slot {
-  display: inline-flex;
-  cursor: not-allowed;
-}
-.pending-slot :deep(button) {
-  pointer-events: none;
 }
 .table-footer {
   display: flex;

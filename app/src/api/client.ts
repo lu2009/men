@@ -111,6 +111,26 @@ export const api = {
    */
   listProgress: () => request<{ progressData: ProgressRowDto[] }>('/v1/progress'),
   /**
+   * 「查询更多」（旧版 `getMoreProgress`，`param3`–`param6` = 客户 / 安装地址 / 起止日期）。
+   *
+   * 只传非空条件 —— 与旧版「不填就不拼进 URL」等价，后端的四个参数也都能缺省（**空 = 全量**）。
+   * 返回的**行结构与 `GET /v1/progress` 一模一样**（后端同一个 `build_row`）⇒ 前端一套 DTO 吃两条口。
+   *
+   * ⚠️ 两处**有意偏离旧版**（后端定下的口径，见分析文档 §8.3）：
+   *   ① 地址筛的是**行里显示的那一格** `orders.install_address`，
+   *      不是旧版那种「拿客户档案 `client.address` 筛、却显示 `customerInfo.安装地址`」的错位；
+   *   ② 租户从登录态取，URL 里没有 `ds`。
+   *
+   * 参数结构直接复用 Home「查询更多」的 `OrderSearchParams`（同一个后端口径）。
+   */
+  listProgressMore: (params: OrderSearchParams) => {
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null && String(v).trim() !== '') qs.set(k, String(v).trim())
+    }
+    return request<{ progressData: ProgressRowDto[] }>(`/v1/progress/more?${qs.toString()}`)
+  },
+  /**
    * 更新若干行的某个工序槽（旧版 `param1=updataProgress`）。
    *
    * 语义是**覆盖**（旧版只有 `工序10` 走合并，那个特判新版去掉了）。

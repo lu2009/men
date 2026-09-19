@@ -346,6 +346,16 @@ return t({ setCustomDateRange: e => { y["value"] = e, w.value = "custom", Vue.ne
 
 `toYMD` 用**本地时间** `getFullYear/getMonth+1/getDate` 拼 `YYYY-MM-DD`，`Date` 原样传则直接返回。
 
+**✅ 2026-09-19 这条环已经接上**（页面侧那一刀 = 「查询更多」，见 `-analysis.md` §3.3）：
+
+| 旧版 | 新版（`ProgressDashboard.vue` / `Progress.vue`） |
+|---|---|
+| `ye` 选 custom → `emit("customQuery")` | ✅ `onTimeChange` 里 `if (v === 'custom') emit('customQuery')` |
+| `ye` 选**非** custom → `y.value = null` + 重画 | ✅ `else customRange.value = null`（**本笔顺带补上的**：先前漏了这一句，切回「自定义查询」会先按上次区间筛一帧） |
+| `me`（onClick）再补一次 `emit` | ✅ `onCustomRadioClick()`，只在**已经处于 custom** 时补发（值没变时 naive 不发 `update:value`，不补就再也开不出对话框） |
+| `setCustomDateRange = e => { y=e; w="custom"; nextTick(Te()) }` | ✅ `defineExpose({ setCustomDateRange })`；那句 `nextTick(Te())` **不用写** —— 本组件重绘挂在 `watch([filtered, excludeSingleGlass])` 上，改完这两个 ref 自动重画 |
+| 页面侧 `if (B.value && N.value)` 才回灌 | ✅ `if (dashboardShow.value && dashboardRef.value)`；区间用**本地** `YYYY-MM-DD`（同 §3.5 的 `toYMD`） |
+
 ### 3.6 标题：`Ce`（`@10245`）
 
 ```js
@@ -1360,8 +1370,9 @@ export function makeRunner({ tableData = [], innerWidth = 1440 } = {}) {
 3. **工序名走我们自己的 `GET /v1/procedures`**（页面已经拉过，传进组件），不拉旧版硬编码域名（§10.3）。
 4. **行字段名映射**：旧版行是中文键（`数量`/`型材`/…），新版 `ProgressRowDto` 是英文字段名
    （`quantity`/`profile`/…）+ 几个中文补充键。映射依据是 `Progress.vue` 的列渲染，不是猜的。
-5. **「自定义查询」这一档暂时筛不出东西**：它要回环到页面的「查询更多」（还没做），
-   点它会提示并按「全部」显示。等「查询更多」落地后按 §3.5 接上 `setCustomDateRange`。
+5. ~~**「自定义查询」这一档暂时筛不出东西**~~ **✅ 2026-09-19 已修**：它回环到页面的
+   「查询更多」对话框，选完区间由 `setCustomDateRange` 回灌（§3.5，本页多出的那句
+   `customRange.value = null` 也是这一笔补的）。原先那句「本版还没做」的提示已删。
 6. **按钮常驻**：旧版那颗「生产分析」只在 `registrant === name || name === '开门红'` 时渲染，
    新版没有那套账号字段（`Progress.vue` 文件头已记），所以常驻。
 

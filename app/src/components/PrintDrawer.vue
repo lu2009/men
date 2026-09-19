@@ -74,8 +74,8 @@
               <!--
                 本版还没有对应能力的入口（见 `PROGRESS_ITEMS` 里那两颗）：**置灰 + 悬停给提示**，
                 不做死链。⚠️ 外层这个 `span` 是必需的：`<button disabled>` 在 Chrome 里不派发 click、
-                也收不到 hover，得靠 `pointer-events:none` 把命中测试让给 span（同 Progress.vue 的
-                `.pending-slot`）。
+                也收不到 hover，得靠 `pointer-events:none` 把命中测试让给 span
+                （同一套机制：`Qrscanner.vue` 的 `.pending-slot`）。
               -->
               <n-tooltip v-if="d.disabled">
                 <template #trigger>
@@ -366,7 +366,7 @@ function openDoc(doc: string, entry?: string) {
  * 「本版还没做」的入口外层容器（见模板里那段注释）：
  * 里面那颗 button 是 `disabled` 的，Chrome 既不派发 click 也收不到 hover ⇒ 用
  * `pointer-events:none` 把它从命中测试里摘出去，事件与 `title` 提示都落到这个 span 上。
- * （与 `Progress.vue` 的 `.pending-slot` 同一套机制，只是这里要的是 hover 而不是 click。）
+ * （与 `Qrscanner.vue` 的 `.pending-slot` 同一套机制，只是这里要的是 hover 而不是 click。）
  */
 .doc-pending {
   display: inline-flex;
