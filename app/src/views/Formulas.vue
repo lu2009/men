@@ -38,6 +38,28 @@ const dialog = useDialog()
 // ⚠️ 计算属性叫 `isAdminUser` 而不是 `isAdmin` —— 否则会**遮蔽**导入进来的那个函数。
 const isAdminUser = computed(() => isAdmin(auth.user?.role))
 
+/**
+ * 编辑器（尺寸区 + 配置区 + 搜索区 + 「新增材料」「确认」两颗按钮）是否可见。
+ *
+ * 复刻旧版 `_0x579c3d`（`Diao.deobfuscated.js:947` 声明为 `Vue.ref(!1)`，渲染区**三处**
+ * `v-show`：`:3428` 尺寸/配置/搜索区、新增材料按钮、确认按钮）。
+ *
+ * ⚠️ **它是个单向闩**：19 处赋值**全是 `!0`、从不回 `false`** —— 一旦显示就永远显示。
+ * 打开它的动作：10 个模板加载器（`:2395`–`:2564`）、公式模板按钮（`:1178`）、
+ * 3D创建公式（`:1181`，我们没做）、复制（`:2203`）。
+ *
+ * 打开它的动作：10 个模板加载器（`:2395`–`:2564`）、公式模板按钮（`:1178`）、
+ * 3D创建公式（`:1181`，我们没做）、复制（`:2203`）、
+ * **查询/加载公式**（在 `_0x23658f` 里 `queryFormula` 成功返回的那一刻：
+ * `if(200===r.code&&r["data"]){ _0x579c3d["value"]=!0; …`）。
+ *
+ * ⚠️ 写这段注释时我一度以为「查询那条路径不设它」，还据此写了一条"有意偏离" ——
+ * **是错的**：我把另一处的行号归到了这个函数上。核对函数边界（`_0x23658f` 从
+ * 偏移 146034 到 152100，里面 `_0x579c3d` 出现 1 次）才纠正过来。
+ * **我们 `loadFormula` 里那一行是照抄，不是偏离。**
+ */
+const editorVisible = ref(false)
+
 // —— 尺寸与元信息 ——
 const formulaName = ref('')
 const formulaType = ref('')
@@ -730,7 +752,14 @@ function addMaterial(typeKey: string, name: string) {
 const templateDrawer = ref(false)
 const requiredFieldsModal = ref(false)
 
+/** 「公式模板」按钮：开抽屉 **并把编辑器放出来**（旧版 `D:1178` 设 `_0x579c3d`）。 */
+function openTemplateDrawer() {
+  editorVisible.value = true
+  templateDrawer.value = true
+}
+
 function applyTemplate(key: string) {
+  editorVisible.value = true // 旧版 10 个模板加载器每个都设 `_0x579c3d`（`D:2395`–`:2564`）
   const tpl = TEMPLATES[key]
   if (!tpl) return
   const cloned: PartsMap = {}
@@ -904,6 +933,9 @@ function openList() {
 async function loadFormula(id: number, asCopy: boolean) {
   try {
     const f = await api.getFormula(id)
+    // 加载成功就把编辑器放出来 —— 旧版 `_0x23658f` 里 `queryFormula` 返回 200 后正是这么做的
+    // （`_0x579c3d["value"]=!0`，见 `editorVisible` 的注释）。**照抄，不是偏离。**
+    editorVisible.value = true
     editingId.value = asCopy ? null : f.id
     formulaName.value = asCopy ? '' : f.name
     formulaType.value = f.formula_type
@@ -1062,7 +1094,8 @@ onMounted(() => {
           </div>
           <div class="actions">
             <n-button v-if="isAdminUser" type="primary" @click="openList">查询/修改/删除公式</n-button>
-            <n-button v-if="isAdminUser" type="success" @click="templateDrawer = true">公式模板</n-button>
+            <!-- 旧版这颗按钮点下去就把编辑器放出来（`D:1178` 设 `_0x579c3d`）。 -->
+            <n-button v-if="isAdminUser" type="success" @click="openTemplateDrawer">公式模板</n-button>
             <n-button @click="glassModal = true">开孔图</n-button>
             <n-button @click="videoDrawer = true">视频</n-button>
           </div>
@@ -1070,7 +1103,12 @@ onMounted(() => {
       </template>
 
       <!-- 尺寸输入区 -->
-      <div class="dims">
+      <!-- 尺寸区 / 配置区 / 搜索区 三块都受 `editorVisible` 控制 —— 复刻旧版把这一整片
+           包在一个 `v-show="_0x579c3d"` 里（`Diao.deobfuscated.js:3365-3428`）。
+           ⚠️ 旧版是套一层**无 class 的外层 div**；我们**逐块加 v-show** ——
+           语义相同，但不会因为多一层 wrapper 动到 `dims`/`config-row`/`search-row` 的
+           flex/margin 布局。 -->
+      <div class="dims" v-show="editorVisible">
         <div class="dim-item">
           <label>公式名称:</label>
           <n-input v-model:value="formulaName" size="small" style="width: 160px" />
@@ -1109,7 +1147,7 @@ onMounted(() => {
       </div>
 
       <!-- 附加配置 -->
-      <div class="config-row">
+      <div class="config-row" v-show="editorVisible">
         <n-button size="small" @click="openResetSize">洞尺设置</n-button>
         <span v-if="resetSizeSummary" class="config-summary">{{ resetSizeSummary }}</span>
         <n-button size="small" @click="openTaoDong">包边洞尺</n-button>
@@ -1125,7 +1163,7 @@ onMounted(() => {
       </div>
 
       <!-- 材料搜索 + 亮窗示意图 -->
-      <div class="search-row">
+      <div class="search-row" v-show="editorVisible">
         <n-input
           v-model:value="materialSearch"
           placeholder="搜索材料名称,如：光企"
@@ -1252,7 +1290,7 @@ onMounted(() => {
       </div>
 
       <!-- 表格下方操作（复刻旧版「新增材料」+「确认」） -->
-      <div class="formula-actions">
+      <div class="formula-actions" v-show="editorVisible">
         <n-button type="primary" @click="addMaterialDrawer = true">新增材料</n-button>
         <n-button type="primary" :loading="saving" @click="save">确认</n-button>
       </div>

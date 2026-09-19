@@ -1,5 +1,5 @@
 /*
- * Diao 页「弹窗标题」与「删除确认」的守卫台。
+ * Diao 页界面保真守卫台：**弹窗标题 / 删除确认 / 编辑器显隐**。
  *
  * ## 为什么值得单独守
  *
@@ -22,7 +22,7 @@
  *    「点开那个弹窗标题真的显示成这个吗」不在覆盖内（那是 `n-card` 的 `title` prop 直传，
  *    风险极低，但别把这台当成端到端验收）。
  *
- * 用法：node docs/diao-dialog-check.mjs
+ * 用法：node docs/diao-ui-check.mjs
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -102,6 +102,48 @@ check(
   '旧版行删除的按钮文案确实是 确定/取消（`:3478`）',
 )
 check(/confirmButtonText:"确定",cancelButtonText:"取消"/.test(legacy), '旧版公式删除的按钮文案确实是 确定/取消')
+
+/*
+ * ④ 编辑器显隐（旧版 `_0x579c3d`，一个**单向闩**）
+ *
+ * 旧版把「尺寸区 + 配置区 + 搜索区」和「新增材料 / 确认」两颗按钮一起挂在
+ * `v-show="_0x579c3d"` 上（渲染区**三处**：`D:3428` + 那两颗按钮），
+ * 而这个 ref 声明为 `ref(!1)`、19 处赋值**全是 `!0`、从不回 false** ——
+ * 也就是"进页面先藏起来，一旦显示就永远显示"。
+ *
+ * 打开它的：10 个模板加载器 + 公式模板按钮 + 3D创建公式 + 复制。
+ *
+ * 打开它的动作还有**查询/加载公式**（`_0x23658f` 里 `queryFormula` 返回 200 之后那句
+ * `_0x579c3d["value"]=!0`）—— 我们在 `loadFormula` 里对应的那行是**照抄，不是偏离**。
+ *
+ * ⚠️ 写这一节时我一度以为"查询那条路径不设它"，还据此写了条"有意偏离" —— **是错的**，
+ * 是我把另一处的行号归到了这个函数上。下面那条断言就是用来**钉死这个事实**的：
+ * 旧版那条路径**确实设了**。哪天有人（包括我）又想当然地改口，这条会红。
+ */
+console.log('\n④ 编辑器显隐（旧版 `_0x579c3d` 单向闩）')
+{
+  check(/const editorVisible = ref\(false\)/.test(vue), 'editorVisible 初值为 false（旧版 `D:947` 也是 ref(!1)）')
+  // 四块都要挂上 —— 旧版是三处 v-show（尺寸/配置/搜索算一处），我们是四块分开挂。
+  const shown = [...vue.matchAll(/class="(dims|config-row|search-row|formula-actions)" v-show="editorVisible"/g)].map((m) => m[1])
+  for (const c of ['dims', 'config-row', 'search-row', 'formula-actions']) {
+    check(shown.includes(c), `.${c} 挂了 v-show="editorVisible"`)
+  }
+  check(/function openTemplateDrawer\(\)\s*\{\s*editorVisible\.value = true/.test(vue), '「公式模板」按钮会打开它（旧版 `D:1178`）')
+  check(/function applyTemplate\(key: string\) \{\s*editorVisible\.value = true/.test(vue), '模板加载会打开它（旧版 10 个加载器）')
+  // 加载公式也打开 —— **与旧版一致**（不是偏离）
+  check(
+    /async function loadFormula[\s\S]{0,900}?editorVisible\.value = true/.test(vue),
+    '`loadFormula` 会打开它（旧版 `_0x23658f` 在 `queryFormula` 返回 200 后同样设 `_0x579c3d`）',
+  )
+  // ★ 钉死"旧版那条路径设了它"这个事实 —— 我先前读反过一次，别再被想当然带跑。
+  const loadStart = legacy.indexOf('_0x23658f=async(e=!0)=>{')
+  const loadEnd = legacy.indexOf(',_0x436e63=async()=>{', loadStart)
+  check(loadStart > 0 && loadEnd > loadStart, '能在旧版里框出查询/加载函数 `_0x23658f` 的范围')
+  check(
+    /_0x579c3d\["value"\]=!0/.test(legacy.slice(loadStart, loadEnd)),
+    '★ 旧版那条路径**确实设了** `_0x579c3d`（所以我们是照抄；我一度读成"没设"并据此写过一条假偏离）',
+  )
+}
 
 console.log(`\n# 通过 ${pass} 项，失败 ${failures.length} 项`)
 if (failures.length) {
