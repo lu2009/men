@@ -60,6 +60,7 @@ const auth = useAuthStore()
 const items = [
   { icon: '📋', label: '订单管理', to: { name: 'home' } as const },
   { icon: '🧮', label: '汇算下单', to: { name: 'hui' } as const },
+  { icon: '⏳', label: '生产进度', to: { name: 'progress' } as const },
   { icon: '➗', label: '公式', to: { name: 'formulas' } as const },
   { icon: '👥', label: '客户信息', to: { name: 'clients' } as const },
 ]
