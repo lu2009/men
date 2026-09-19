@@ -13,10 +13,11 @@
 
     ## ⏳ 还没做（按旧版顺序，各自独立可验）
 
-    1. ~~**工具条**~~ ✅ **已做（本笔）**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
-       导出表格 / 搜索框 / 统计行。⚠️ 其中三颗的**目标 UI 还没做**（见下面 2/3/5），
+    1. ~~**工具条**~~ ✅ **已做**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
+       导出表格 / 搜索框 / 统计行。⚠️ 其中**两颗**的**目标 UI 还没做**（见下面 2/3），
        它们做成「**置灰 + 点了给提示**」而不是死链；「批量更新」按旧版条件（已选 > 1）渲染，
        本页还没有勾选 UI ⇒ 现在**恒不出现**（与旧版「没勾选时」的表现一致）。
+       「生产分析」✅ **已接真看板**（第五刀，见 `components/ProgressDashboard.vue`）。
     2. **打印抽屉**（旧版 §4.5：标签 / 生产标签 / 料标签 / 生产单 / … / 收据单 共 12 类）
        —— 「打印选项」那颗按钮的目标 UI。
     3. **更多查询对话框**（旧版 `Lo`）—— 「查询更多」那颗按钮的目标 UI。
@@ -25,8 +26,12 @@
     4. **行内动作**：「更新进度」✅ 已做（弹窗拼 `工序名_操作员_日期` → `POST /v1/progress/update`）；
        「删除」✅ 已做（本笔，§4.3 —— 确认框 → `DELETE /v1/orders/{id}/lines/{lineId}`，见 `confirmDeleteRow`）；
        **「日期」列的行勾选 checkbox** ⏳ 未做（「批量更新」依赖它）。
-    5. **生产分析看板**（echarts，5 KPI + 4 饼图 + 趋势 + 4 个统计 tab）
-       ⚠️ 它**不是**我们已有的 `DashboardBigScreen`，指标得重写
+    5. ~~**生产分析看板**~~ ✅ **已做（第五刀）**：`components/ProgressDashboard.vue`
+       （5 KPI + 4 饼图 + 趋势 + 4 个统计 tab + 导出 xlsx），口径层在 `utils/productionStats.ts`，
+       与旧版逐字段对过（`docs/progress-dashboard-logiccheck.mjs`）。
+       ⚠️ 它**不是**我们已有的 `DashboardBigScreen`（那个是 Home 的经营数据，零 echarts）。
+       ⚠️ 本版**有意偏离**旧版的 4 处：数据范围、图表 resize、`" "` 日期、重置口径、
+       本周起点 —— 逐条写在 `ProgressDashboard.vue` 与 `productionStats.ts` 的注释里。
     6. **终端模式**（10 列）—— **本版不做**：旧版那条接口在服务端是写死 400，路本来就是坏的
 
     ## ✅ 第三刀做了什么（逐条对着 §2.2 / §4.6 / §5.4）
@@ -77,8 +82,9 @@
       工具条（旧版 `.search-row`，从左到右逐项对着 `docs/2026-09-19-progress-analysis.md` §2.2）：
         打印选项 · 批量更新(n) · 查询更多 · 生产分析 · 刷新 · 导出表格 · 搜索框 · 统计行
 
-      ⚠️ 三颗按钮的**目标 UI 本版还没做**（打印抽屉 / 更多查询对话框 / 生产分析看板）——
+      ⚠️ **两颗**按钮的**目标 UI 本版还没做**（打印抽屉 / 更多查询对话框）——
          按本项目对死链的态度做成「**置灰 + 点了给提示**」（机制见 `notYet()` 的注释）。
+      「生产分析」已接真看板（第五刀），不再置灰。
 
       ⚠️ 「批量更新」**连按钮都不渲染**（不是置灰）—— 依据是 §2.2 表格第 2 行给的出现条件
          「`已选条数 > 1` 且 PC 模式」（`ea = te.ping_hui.length + te.diao_hui.length`）：
@@ -118,14 +124,11 @@
         更多查询本版还没做
       </n-tooltip>
 
-      <n-tooltip>
-        <template #trigger>
-          <span class="pending-slot" @click="notYet('生产分析', '生产分析看板（KPI / 饼图 / 趋势 / 分客户业务员工序型材统计）')">
-            <n-button type="primary" disabled>生产分析</n-button>
-          </span>
-        </template>
-        生产分析看板本版还没做
-      </n-tooltip>
+      <!-- 生产分析看板（旧版 `@141816`）。⚠️ 旧版这颗按钮的出现条件是
+           `userinfo.registrant === userinfo.name || userinfo.name === '开门红'` ——
+           新版没有 `registrant`/`defaulted` 那套账号字段（文件头已记），所以这里**常驻**。
+           一行数据都没有时点它会「开一下就自己关」（旧版**有意**行为，见看板内部）。 -->
+      <n-button type="primary" @click="dashboardShow = true">生产分析</n-button>
 
       <n-button type="success" :loading="loading" @click="refresh">刷新</n-button>
 
@@ -176,6 +179,14 @@
       :max-height="tableHeight"
       :scroll-x="1500"
       @update:filters="onUpdateFilters"
+    />
+
+    <!-- 生产分析看板（旧版 `ProductionDashboard`）：全屏对话框，口径见
+         `docs/2026-09-19-progress-dashboard.md`。 -->
+    <ProgressDashboard
+      v-model:show="dashboardShow"
+      :table-data="dashboardRows"
+      :procedures="procedures"
     />
 
     <!-- 更新进度（旧版行内那颗链接开的弹窗） -->
@@ -235,6 +246,7 @@ import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
 import { api } from '../api/client'
 import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
+import ProgressDashboard from '../components/ProgressDashboard.vue'
 
 const message = useMessage()
 // 行内「删除」的二次确认（旧版是 `ElMessageBox.confirm`，同 Hui/Home 的做法用 `dialog.warning`）。
@@ -271,6 +283,27 @@ onMounted(async () => {
   loadOpenDirectionSettings()
   await Promise.all([load(), loadSlots()])
 })
+
+// ===== 生产分析看板（旧版 `ProductionDashboard`） =====
+/*
+ * 看板的数据集：**必须是过了「数据范围」的行，不是页面筛选后的行**。
+ *
+ *  🔴 **有意偏离旧版**（用户拍板，见看板文档 §16②）：旧版看板的 `tableData` 直连页面那个
+ *     **原始全量** ref —— 连「只看自己打单」的数据范围都不吃，于是一个业务员账号能看到
+ *     **全公司**的生产数据。新版不照抄：看板的数据范围**与页面一致**。
+ *     ⚠️ 别以后有人「照旧版改回去」。
+ *
+ *  ⚠️ **但页面这一层现在还是空的**：旧版的「数据范围」是 `oo` 那一步
+ *     （`b ? K : K.filter(打单人 === 自己)`），本页**尚未实现**（理由见 `filteredRows` 上方那段：
+ *     它依赖 `userinfo.registrant/name` 那套账号字段；且后端 `progress/service.rs` 的
+ *     `build_row` 目前把 `打单人` **恒置 null**，前端拿不到行的打单人）。
+ *     ⇒ 「与页面一致」今天 = 与页面同源（`rows`）。
+ *     这里**单独留一个 computed**（而不是直接传 `rows`）就是为了让「看板走数据范围」这件事
+ *     在代码里有个落点：等 `oo` 落地时，**改这一处**，别去改看板组件里的 props 名。
+ *     看板本身**不碰**页面的列头筛 / 搜索框 / 分页（它有自己的一套筛选条，见 §3）。
+ */
+const dashboardRows = computed(() => rows.value)
+const dashboardShow = ref(false)
 
 // ===== 更新进度 =====
 // 旧版是行内那颗「更新进度」链接开的弹窗；值是三段拼的 `工序名[_操作员]_YYYY-MM-DD`。

@@ -1166,7 +1166,7 @@ ElementPlus.ElMessage.success("导出成功")
 | `openDirectionNaming` 的 `g`（归一化） | `app/src/composables/useOpenDirection.ts` 的 `getOriginalOpenDirection` | `ze` 需要它。**看板不读也不写 localStorage**，只是读那份配置 |
 | 开向配置加载 | `Progress.vue` 的 `onMounted` 里已调 `loadOpenDirectionSettings()` | 看板在同页，**无需再加载**（若看板抽成独立组件在别处挂载，则必须自己调） |
 | 移门扇数查表（22 项 + 倍数） | `Progress.vue:1313` 的 `moveFans` | ⚠️ **只能借「表」，不能借「函数」** —— 工具条 `yo` 与看板 `xe` 的**跳过规则不同**（哑口行：工具条整行跳过，看板仍可能进 swing/other） |
-| 「生产分析」按钮位 | `Progress.vue:123` 已有 `disabled` + `notYet(...)` 占位 | 接真实看板时把这颗按钮的 `disabled` 去掉 |
+| 「生产分析」按钮位 | `Progress.vue` 的 `dashboardShow` | ✅ **已接真看板**（2026-09-19 第五刀）—— 那颗按钮不再是 `disabled` + `notYet(...)` 占位 |
 
 ---
 
@@ -1330,3 +1330,43 @@ export function makeRunner({ tableData = [], innerWidth = 1440 } = {}) {
   两个看板对「本周」给不同答案，比丢一点保真更糟。
 
 ⚠️ 有意偏离，写进代码注释。
+
+---
+
+## 17. 实现落地记录（2026-09-19，第五刀）
+
+本节只记**新版代码落在哪**，口径仍以 §0–§11 为准。
+
+| 件 | 路径 | 内容 |
+|---|---|---|
+| 口径层（纯函数） | `app/src/utils/productionStats.ts` | `classifyDoor` / `computeFans` / `aggregateRows` / `timeRange` / `buildTrend` / `groupBy` / `buildProcedureGroups` / `dashboardTitle` … 逐条对应 §3–§10 的旧版函数 |
+| 组件 | `app/src/components/ProgressDashboard.vue` | 全屏 `n-modal` + 筛选条 + 5 KPI + 4 饼图 + 趋势 + 4 个统计 tab + 导出 xlsx |
+| 入口 | `app/src/views/Progress.vue` | 工具条「生产分析」那颗按钮；`dashboardRows` / `dashboardShow` |
+| 差分台 | `docs/progress-dashboard-logiccheck.mjs` | **117 条断言全绿**：左边跑旧版整个 setup（真 Vue），右边跑新版真代码，逐字段比 |
+
+### 17.1 §16 四条怎么落的
+
+| §16 | 落法 |
+|---|---|
+| ② 数据范围不照抄 | 看板收的是 `Progress.vue` 的 `dashboardRows`（**单独一个 computed**，不是直接传 `rows`）。⚠️ 页面自己的「数据范围」那一步（旧版 `oo`）**尚未实现** —— 依赖的账号字段没有、后端 `打单人` 恒 `null`，所以今天两边同源；等 `oo` 落地**只改那一处** |
+| ③ 旧版瑕疵 | resize ✅ 做（`window.resize` → `echarts.resize()`）；`" "` 日期 ✅ 标题区间剔除；「重置」✅ 连「不含单玻」一起清；生产状态筛选与进度卡 ✅ 统一成 `isProduced()`（`单号` 有值且 trim 非空）；**「打开时无数据自动关窗」✅ 照抄**（唯一例外） |
+| ① echarts | `echarts@5.6.0`（对齐 `legacy/vendor/js/echarts.min.js` 的 `version="5.6.0"`），**动态 `import()`** ⇒ 独立 chunk `index-*.js`（~1.0MB），**不在 `index.html` 里**、不进主包 |
+| ④ 本周 | **周一**（`timeRange('week')` 用 `day===0 ? -6 : 1-day`） |
+
+### 17.2 其它**有意偏离**旧版的地方（都写进了代码注释）
+
+1. **进度卡「已生产」判定统一**（§7.1 那个自相矛盾不照抄）—— 见 `isProduced()`。
+2. **数字字段先 `Number()` 再兜底**（旧版 `数量:'3'` 会 `TypeError` 炸掉整卡，§12 第 4 条）。
+3. **工序名走我们自己的 `GET /v1/procedures`**（页面已经拉过，传进组件），不拉旧版硬编码域名（§10.3）。
+4. **行字段名映射**：旧版行是中文键（`数量`/`型材`/…），新版 `ProgressRowDto` 是英文字段名
+   （`quantity`/`profile`/…）+ 几个中文补充键。映射依据是 `Progress.vue` 的列渲染，不是猜的。
+5. **「自定义查询」这一档暂时筛不出东西**：它要回环到页面的「查询更多」（还没做），
+   点它会提示并按「全部」显示。等「查询更多」落地后按 §3.5 接上 `setCustomDateRange`。
+6. **按钮常驻**：旧版那颗「生产分析」只在 `registrant === name || name === '开门红'` 时渲染，
+   新版没有那套账号字段（`Progress.vue` 文件头已记），所以常驻。
+
+### 17.3 还没做 / 没验的
+
+- **没在真机上眼验过**（本刀只做到：`npm run build` 绿 + SSR 冒烟渲染命中全部关键文案与类名）。
+  图表本身的观感（环形饼的大小、趋势图默认只勾「扇数」、移动端断点）**没对着旧版逐像素比过**。
+- 「按工序统计」的**空表**表现：新版工序名来自 `procedures`，没配工序名时分组名退化成 `工序N`（与旧版一致）。
