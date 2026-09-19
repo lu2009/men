@@ -317,3 +317,50 @@ grep -n '刷新\|视频\|调试日志' legacy/js/Hui.formatted.js
 旧版这两个是**纯数字输入框、没有上下箭头**；我们开了箭头、且宽了不少。
 （顺带：我们**别的** `input-number`（加价那两处）本来就是 `:show-button="false"`，
 所以这一改反而是把订单头这两格**拉回本仓库既有口径**。）
+
+---
+
+## 9. 「总余额显示」开关 —— **已拍板：方案 A**（2026-09-19）
+
+用户拍板，**下一轮实施**。这里记全，免得重推。
+
+### 9.1 旧版是什么
+
+`H:13299-13312` 一个**下拉**：按钮文案「 总余额显示 」，开着时后面跟一个 **✓**（按钮 `type` 随之变）；
+点开是 200px 浮层，里面有提示语 **「开启后将在回执单中显示客户总余额」**（`a(730)`）
++ 一个 `el-switch`（`active-text:"开"` / `inactive-text:"关"`），绑 `_0x2ffe36`。
+
+onChange `_0x14b5ca`（`H:7934`）：
+`localStorage.setItem("showTotalBalance", String(_0x2ffe36.value))` + 一句成功提示。
+
+### 9.2 我们这边的现状（已核）
+
+| 块 | 现状 |
+|---|---|
+| 开关 UI | ✗ 没有 |
+| `localStorage['showTotalBalance']` | ✗ 搜不到 |
+| 回执侧渲染「客户总余额」 | ✗ `receiptBuilder.ts` / `receipt2/*` 里没有「余额」 |
+| **余额数据本身** | ✅ **有** —— 后端 `finance/service.rs:197` `customer_balance`（`GET …/balance`），前端 `FinanceDrawer.vue` 在用 |
+| **回执载荷里有没有余额** | ✗ **没有** —— `backend/src/modules/receipts/service.rs` 只带 `client_name` 等 |
+
+### 9.3 ⚠️ 拍板的关键：**分享页是无认证的**
+
+回执在**三个**入口渲染：`ReceiptView.vue`（要登录）· **`ReceiptShare.vue`（`/receipt-share`，客户扫码看，无认证）** · 打印。
+
+财务余额接口要鉴权 ⇒ **分享页自己拉不到余额**。旧版没这问题（选中客户时就把余额读进页面内存，前端渲染）。
+
+**用户 2026-09-19 选定方案 A**：**余额随回执载荷由后端下发**（`receipts/service.rs` 里 join 财务），
+**分享页也显示**。
+
+> ⚠️ **这条决定有隐私含义，用户知情并拍板**：等于**把客户余额给到任何持有分享链接的人**。
+> 实施时**不要在代码里把它写成"技术细节"** —— 它是一个明确的产品/隐私取舍，
+> 注释里要写明「用户 2026-09-19 知情拍板，选了 A」。
+
+### 9.4 实施清单（下一轮）
+
+1. **后端**：`modules/receipts/service.rs` 的载荷加余额（join 财务口径，注意别另算一套 —— 直接复用 `finance/service.rs` 的 `customer_balance`）；分享令牌那条无认证路径同样要带。
+2. **前端开关**：`Hui.vue` 工具栏加下拉（文案/✓/浮层提示语/`el-switch` 开-关 全部照 `H:13299-13312`），绑一个 ref，onChange 写 `localStorage['showTotalBalance']`（键名与旧版**逐字相同**）。
+3. **回执渲染**：`receiptBuilder.ts` / `receipt2/*` 里按开关决定是否出现余额行；三个入口都要生效。
+4. **差分台**（**这条唯一能证明对了的方式**）：把旧版 `_0x2ffe36` / `_0x14b5ca` 那两个分支切出来真跑，逐例比「开关 on/off 时回执该不该出现余额行、显示什么」。
+
+⚠️ 别跳过第 4 条 —— 这条**没有现成差分台可复用**（`print-lineno-check.mjs` 钉的是单号取哪一级，不是这个）。
