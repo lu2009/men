@@ -45,6 +45,22 @@
           <span class="label">安装地址:</span>
           <n-input v-model:value="order.install_address" size="small" style="width: 170px" placeholder="全局默认安装地址（行内为空时自动回填）" />
         </div>
+        <!--
+          备注 —— 旧版 `Hui.formatted.js:13072`（标签）/`:13073`（绑定 `_0x2f1634`，宽 150px）。
+          ⚠️ 旧版这一格挂着 `_0x1b58e4.value ? … : 注释节点`。
+          那个标志**只在 `defaulted === 3`（终端账号）那一支被置 `false`**（`:8218`），
+          其余一律 `true`（初值 `Vue.ref(!0)`，`:7828`）。它同时门控着某个弹窗里的
+          「微信分享(手机)」等按钮 —— 也就是「**非终端账号**」。
+          **终端模式我们不做**（见 `docs/2026-09-19-progress-shell.md`）⇒ 对我们它恒为 true，
+          所以这里**无条件显示**是对的，不是漏掉条件。
+
+          ⚠️ 在补这一格之前，`order.remark` 是**端到端通的**（保存载荷 `:1417`、读回 `:1507`），
+          只是**界面上没地方录** —— 旧版有，我们漏了。
+        -->
+        <div class="field">
+          <span class="label">备注:</span>
+          <n-input v-model:value="order.remark" size="small" style="width: 150px" placeholder="备注" />
+        </div>
         <div class="field">
           <span class="label">业务员:</span>
           <n-input v-model:value="order.salesperson" style="width: 90px" placeholder="业务员" />
