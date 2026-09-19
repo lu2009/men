@@ -1,11 +1,11 @@
 use serde_json::{json, Map, Value};
 use sqlx::PgPool;
 
-use crate::core::error::ApiResult;
+use crate::core::error::{ApiError, ApiResult};
 use crate::modules::orders::model::OrderLineDto;
 use crate::modules::orders::service::{self as orders_service, OrderHeaderRow};
 
-use super::model::{ProcedureSlotDto, ProceduresDto};
+use super::model::{ProcedureSlotDto, ProceduresDto, ProgressUpdateInput};
 
 /// 工序槽总数。旧版是**写死的 15**（服务端 `buildProgressText` 里
 /// `for (let i = 1; i <= 15; i++)`，前端 `GetProcedures` 也是 15 个扁平槽）。
@@ -148,4 +148,67 @@ pub async fn get_progress(pool: &PgPool, tenant_id: i64) -> ApiResult<Value> {
         }
     }
     Ok(json!({ "progressData": progress_data }))
+}
+
+// ===== 写：更新进度 =====
+
+/// `slot` 必须是 `工序1`..`工序15` 之一。
+///
+/// 旧版**不校验**这个（前端传什么就写什么键），于是能往行上写出 `{"foo": "..."}` 这种野键。
+/// 新版**卡住**：槽号越界或格式不对直接 400 —— 见 `-analysis.md` §10「有意偏离」。
+fn valid_slot(slot: &str) -> bool {
+    let Some(n) = slot.strip_prefix("工序") else { return false };
+    n.parse::<usize>().map(|i| (1..=SLOT_COUNT).contains(&i)).unwrap_or(false)
+}
+
+/// 更新若干行的某个工序槽。
+///
+/// ## 语义：**一律覆盖**
+///
+/// 旧版是 `slot == '工序10' ? mergePrintStatus(旧值, 新值) : 新值` —— **只有工序10 合并**，
+/// 其余 14 槽覆盖。那个特判和「前端把『回款』硬塞进工序10」是耦合的，
+/// 实测能写出 `工序10="回款_回款_李四_2026-09-20"` 的脏数据。
+/// 新版**两处一起去掉**（见 `-analysis.md` §10）⇒ 这里就是覆盖，没有例外。
+///
+/// ## 没做的两件（旧版有）
+///
+/// · **不写 `扫码员工`/`扫码日期`** —— 旧版 `parseScanMarker(新值)` 命中时会顺带写这两个字段，
+///   我们新模型里没有它们（全仓只有 `/Qrscanner` 用）。
+/// · **不落 `progress` 记录表** —— 旧版还会 upsert 一张 `progress` 表给统计用；我们还没做看板，
+///   等做看板时再定要不要。
+///
+/// ## 也不重算「生产进度」串
+///
+/// 旧版写完会 `withProgressText()` 把串**存回行**。我们**读的时候现算**
+/// （`build_progress_text`）—— 存的串会跟槽不同步，现算不会。这是**有意偏离**。
+pub async fn update_progress(
+    pool: &PgPool,
+    tenant_id: i64,
+    req: &ProgressUpdateInput,
+) -> ApiResult<u64> {
+    if !valid_slot(&req.slot) {
+        return Err(ApiError::bad_request(&format!(
+            "槽名不对：{}（应为 工序1 .. 工序{SLOT_COUNT}）",
+            req.slot
+        )));
+    }
+    if req.line_ids.is_empty() {
+        return Err(ApiError::bad_request("没有要更新的行"));
+    }
+
+    // `jsonb_set(target, '{槽名}', 新值, true)` —— 第四个参数 true = 键不存在就建。
+    let r = sqlx::query(
+        "UPDATE order_lines \
+         SET procedure_slots = jsonb_set(procedure_slots, ARRAY[$1], to_jsonb($2::text), true), \
+             updated_at = now() \
+         WHERE tenant_id = $3 AND id = ANY($4)",
+    )
+    .bind(&req.slot)
+    .bind(&req.value)
+    .bind(tenant_id)
+    .bind(&req.line_ids)
+    .execute(pool)
+    .await?;
+
+    Ok(r.rows_affected())
 }

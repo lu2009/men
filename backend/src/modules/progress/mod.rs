@@ -20,4 +20,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/procedures", get(handler::get_procedures))
         .route("/api/v1/progress", get(handler::get_progress))
+        .route(
+            "/api/v1/progress/update",
+            axum::routing::post(handler::update_progress),
+        )
 }

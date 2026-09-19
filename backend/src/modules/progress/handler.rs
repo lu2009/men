@@ -1,6 +1,7 @@
 use axum::extract::State;
 use axum::Json;
-use serde_json::Value;
+use super::model::ProgressUpdateInput;
+use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
 use crate::core::error::ApiResult;
@@ -29,4 +30,17 @@ pub async fn get_procedures(
 pub async fn get_progress(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<Value>> {
     let v = service::get_progress(&state.pool, user.tenant_id).await?;
     Ok(response::ok(v))
+}
+
+/// `POST /v1/progress/update` —— 给若干行的某个工序槽写值。
+///
+/// 旧版是 `param1=updataProgress`（`param3`=槽名、`param4`=值、body=id 列表）。
+/// 语义与偏离见 `service::update_progress` 的注释。
+pub async fn update_progress(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Json(req): Json<ProgressUpdateInput>,
+) -> ApiResult<Json<Value>> {
+    let n = service::update_progress(&state.pool, user.tenant_id, &req).await?;
+    Ok(response::ok(json!({ "updated": n })))
 }

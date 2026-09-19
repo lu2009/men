@@ -26,3 +26,18 @@ pub struct ProcedureSlotDto {
 pub struct ProceduresDto {
     pub slots: Vec<ProcedureSlotDto>,
 }
+
+/// `POST /v1/progress/update` 的请求体。
+///
+/// 对应旧版 `param1=updataProgress`（`param3`=槽名、`param4`=要写的值、body=行 id 列表）。
+/// 新版把三样都放进 JSON —— 旧版那个 `param3`/`param4` 混在 query 里的口径不好读。
+#[derive(Debug, serde::Deserialize)]
+pub struct ProgressUpdateInput {
+    /// 要改的**行**（`order_lines.id`）。旧版是按「单号/回执单号」找行，新版直接给行 id。
+    pub line_ids: Vec<i64>,
+    /// `'工序1'` .. `'工序15'`
+    pub slot: String,
+    /// 要写进这个槽的值。旧版格式是 `工序名[_操作员]_YYYY-MM-DD`，但**服务端不校验格式**
+    /// （它只当字符串存），所以新版也不校验 —— 谁拼谁负责。
+    pub value: String,
+}
