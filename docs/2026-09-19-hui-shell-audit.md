@@ -23,6 +23,7 @@
 | 8 | ~~工具栏**整排**按钮 `size`：旧版 `"default"`，我们 `small`~~ | ✅ **已修** 见 §2 末尾（naive 无 `"default"` 档 ⇒ 不写 `size`） |
 | 9 | ~~「添加门类」抽屉：**8 项只做了 3 项**，另 4 项被搬到「更多功能」；宽度 240（旧版 200）、多了关闭钮~~ | ✅ **已修** 见 §8.6（2026-09-19） |
 | 10 | ~~「视频教程」抽屉：`n-drawer` 上的 `title` 被静默忽略 ⇒ **没有标题、没有 ×**；按钮缺 `custom-button-btn` 与 `round`；外层 div 用的是没样式的 `.video-list`~~ | ✅ **已修** 见 §3（2026-09-19） |
+| 11 | ~~**每次刷新页面都自动恢复上次订单**~~（我们自造的「实时草稿 + `onMounted` 无条件恢复」；旧版只在保存时写、只在点「导入上次订单」时读） | ✅ **已修** 见 §10（2026-09-19） |
 
 **已核一致** ✓：工具栏前三颗（`1.清空` / `2.添加门类` / `3.保存回执单`）**文案逐字一致**；
 订单头表单 8 个标签逐条对得上；「视频教程」「加价项目管理」等旧版弹窗标题已解出备查；
@@ -78,6 +79,10 @@ H:12864-12870   第二行（这两颗是**裸字面量**）：
 
 > 站内其余页面 `size="small"` 有 230+ 处，**没动** —— 那不在 `/hui` 的对照范围内，
 > 是另一笔（真要做，得先逐页确认旧版各自是不是也 `default`）。
+>
+> ✅ **2026-09-19 用户拍板：那 230+ 处不用管了。** 本条到此为止，不再作为待办挂着
+> ——「`/hui` 这一排」是唯一确定旧版是 `default` 的地方；其余页面没有一一核过旧版，
+> 改它属于「靠猜」。
 
 ---
 
@@ -537,3 +542,77 @@ Home / Progress 有 `if(e)` 直接空手）。我们没有 `ds` 概念（新后�
 
 ⛔ **该台子不发任何真实请求**：旧版那段 URL 只作为字符串被 inline，`fetch` 全程是注入的桩，
 且全局 `fetch` 被换成抛错的断网闸 —— 谁真去发请求立刻红。**不要**把桩去掉。
+
+---
+
+## 10. 「上次订单」的读与写 —— ✅ **已按旧版改**（2026-09-19）
+
+> 用户报：「**每次刷新页面都会自动恢复上次订单**」。
+
+### 10.1 旧版是什么（键 `smartdoor_last_order`，全文件只有两处）
+
+```js
+// 写 —— H:8853，在 `_0xafd9e0`（工具栏「3.保存回执单」）**保存成功那一刻**
+localStorage.setItem('smartdoor_last_order',
+  JSON.stringify({ ...整单载荷, showPingkai, showDiao, savedAt: Date.now() }))
+
+// 读 —— H:8903，只有一处：「添加门类」抽屉那颗「导入上次订单」（`importLastOrder`）
+const o = localStorage.getItem('smartdoor_last_order')
+if (!o) return void ElMessage.warning('没有找到上次保存的订单数据')   // ← warning，不是 info
+const n = c.savedAt ? new Date(c.savedAt).toLocaleString() : '未知时间'
+await ElMessageBox.confirm(`将导入 ${n} 保存的订单数据，当前数据将被覆盖，是否继续？`,
+  '导入上次订单', { confirmButtonText:'确认导入', cancelButtonText:'取消', type:'warning' })
+…落 12 个表单字段（一律 `|| 默认`）+ 两个显隐 + 两表 `splice` 整表替换…
+ElMessage.success('上次订单数据已导入')
+// catch：拒绝值 `'cancel'` 静默返回，其它 → ElMessage.error('导入订单数据失败')
+```
+
+**`onMounted`（`H:8261-8264`）里没有这个键** —— 旧版**页面加载时什么都不恢复**。
+
+⚠️ 一个**数数上的坑**：`grep smartdoor_last_order` 只会命中 **1 行** ——
+写入口的键是**字面量**，读入口的键是 **token**（`_(1102)`，`_(991)` = `getItem`）。
+按「grep 到 2 处」写断言会错（本轮的差分台第一版就写错了）。
+
+### 10.2 我们改前是什么（**自造的一整套**）
+
+| | 我们（改前） | 旧版 |
+|---|---|---|
+| 键 | `hui_order_draft_v1` | `smartdoor_last_order` |
+| 什么时候写 | **编辑中就写**（`watch` 深度监听 + 400ms 去抖） | **只有保存成功那一刻** |
+| 页面加载 | `onMounted` → `restoreDraft()`，**无条件覆盖当前表单** + 弹「已恢复上次未保存的订单」 | **什么都不做** |
+| `1.清空` / `resetOrder` | 顺手写一份**空草稿**（等于「清空订单 = 连上次订单一起清」） | 不碰这个键 |
+| 「导入上次订单」 | 读**实时草稿**（含没保存的半成品），`info`「没有可导入的上次订单」，**没有确认框** | 读**上次保存的**订单，`warning` + 确认框 |
+
+⇒ 两个后果：① 每次刷新被上一次的数据糊上；②「上次订单」语义从「上次**保存**的」变成
+「上次**编辑过**的」。整套**删掉**，改回旧版口径。
+
+### 10.3 落地
+
+| 件 | 说明 |
+|---|---|
+| `app/src/utils/lastOrder.ts` | **新增**，唯一真源：键名、三条提示原文、确认框四个文案、`writeLastOrder` / `importLastOrder`（**注入 IO 的纯函数**，所以差分台 import 得到） |
+| `app/src/views/Hui.vue` | 删掉 `LS_DRAFT_KEY` / `persistDraft` / `restoreDraft` / 那个去抖 `watch`；`saveOrder` 成功后调一次 `persistLastOrder()`；`resetOrder` **不再**写这个键；`importLastOrder` 走 `lastOrderIO` + `applyLastOrder` |
+
+**一处我们有、旧版没有的**：导入后把 `orderId` 清成 `null`（旧版没有「当前订单 id」这回事）。
+不清的话下一次「保存」会去 **PUT 覆盖上一单** —— 那不是「导入」该干的事。
+
+**一处照旧版、但理由是反的**：导入后**不**无条件 `applyClient()`。我们先前是无条件调的，
+它会按 `client_code` 去客户目录**重取**姓名/电话/品牌，**目录里查不到这个 code 时会把刚导入的
+三个字段抹成空**。旧版是把 `customerInfo` 里存的值直接落上去、压根不查目录 ⇒ 改成「查得到才套目录值」。
+
+### 10.4 差分台
+
+`docs/home-audit/last-order-logiccheck.mjs`（**新增**）—— 左 = 旧版 `importLastOrder` **整段声明切出来真跑**
+（`ElMessage` / `ElMessageBox` / `localStorage` / `Vue.nextTick` / 那一堆 ref 和两个表格 ref 全是记录器），
+右 = 真 import `app/src/utils/lastOrder.ts`。四个场景（没存过 / 有数据+确认 / 取消 / 坏 JSON）
+**逐个比调用序列**，另外钉住：
+
+- **确认之前两边都不许动过数据**（旧版那个 `await` 是异步的 ⇒ 两边都做成「跑到 `await confirm` 就停住」的两段式）；
+- 旧版确认后落到哪儿（12 个字段 + 两个显隐 + 两表行数）；
+- 写入口：`saveOrder` 里必须调、**全页只调一次**、`onMounted` 里一次都不许有；
+- `Hui.vue` 里**不许**再出现 `restoreDraft` / `persistDraft` / `hui_order_draft_v1` / 任何 `watch(`。
+
+**11 个变异体全部被抓到；✅ 通过（不一致 0 处）**（含「warning 换成 info」「确认框正文少一句」
+「没存过也弹确认框」「键名换掉」）。
+
+> 顺带（同一天用户拍板）：站内其余页面那 **230+ 处 `size="small"` 不用管了**，见 §2 末尾。

@@ -576,7 +576,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import {
   NButton,
@@ -616,6 +616,12 @@ import {
   writeAssistiveFullscreen,
   writeAssistiveMenu,
 } from '../utils/assistiveMenu'
+import {
+  importLastOrder as importLastOrderFlow,
+  writeLastOrder,
+  type LastOrderIO,
+  type LastOrderSnapshot,
+} from '../utils/lastOrder'
 import {
   fileToDataUrl,
   idbGetImage,
@@ -1411,25 +1417,51 @@ function handleBeforeUnload(e: BeforeUnloadEvent) {
   e.returnValue = ''
 }
 
-// 导入上次订单：恢复本地草稿（仿旧版「导入上次订单」读 smartdoor_last_order）
-function importLastOrder() {
-  const raw = LS.get(LS_DRAFT_KEY)
-  if (!raw) {
-    message.info('没有可导入的上次订单')
-    return
-  }
-  try {
-    const data = JSON.parse(raw)
-    if (data?.header) Object.assign(order, data.header)
-    if (Array.isArray(data.lines)) lines.value = data.lines
-    orderId.value = data?.order_id ?? null
+/**
+ * 「导入上次订单」—— 流程本身在 `utils/lastOrder.ts`（**逐字照旧版 `H:8899-8925`**：
+ * 没存过 → `warning`「没有找到上次保存的订单数据」；有 → 弹确认框（标题「导入上次订单」、
+ * 正文「将导入 {时间} 保存的订单数据，当前数据将被覆盖，是否继续？」、按钮「确认导入」/「取消」）；
+ * 确认后应用 + `success`「上次订单数据已导入」；解析失败 → `error`「导入订单数据失败」）。
+ *
+ * 为什么拆出去：那些**文案和分支**要和旧版逐字对齐，而 SFC 里的 setup 函数差分台 import 不到。
+ * 拆成「注入 IO 的纯函数」之后，`docs/home-audit/last-order-logiccheck.mjs` 能把旧版那段
+ * 切片**真的跑一遍**，跟我们的调用序列逐条比。
+ *
+ * ⚠️ 本地这层只管「拿快照改页面状态」，这一段旧版没有对应（它的键存的是整单载荷、
+ *    直接往 12 个表单 ref 上落），所以差分台只比**流程与文案**，不比这里的字段映射。
+ */
+function applyLastOrder(data: LastOrderSnapshot) {
+  if (data.header) Object.assign(order, data.header)
+  if (Array.isArray(data.lines)) lines.value = data.lines as typeof lines.value
+  // 两表显隐跟着导入的数据走（旧版 `showPingkai` / `showDiao` 直接赋给那两个 ref）
+  if (typeof data.showPing === 'boolean') showPing.value = data.showPing
+  if (typeof data.showDiao === 'boolean') showDiao.value = data.showDiao
+  // ⚠️ 导入出来的是**新的一单**：旧版不认领上一单的 id（再点保存是一次全新提交）。
+  //    不清掉的话，下一次「保存」会去 PUT 覆盖上一单 —— 那不是「导入」该干的事。
+  orderId.value = null
+  // ⚠️ **不要**无条件 `applyClient()`：它按 code 去客户目录**重取**姓名/电话/品牌，
+  //    目录里查不到这个 code 时会把刚导入的三个字段**抹成空**。
+  //    旧版是把 `customerInfo` 里存的值**直接落上去**、不查目录。所以只在查得到时才套目录值。
+  if (clients.value.some((c) => c.code === order.client_code)) {
+    applyClient(order.client_code)
+  } else {
     lastAppliedClient = order.client_code ?? ''
-    if (order.client_code) applyClient(order.client_code)
-    markSaved()
-    message.success('已导入上次订单')
-  } catch {
-    message.error('导入失败：草稿数据损坏')
   }
+  // 导入的行按「已保存」着色（旧版是把上次保存的整表行 splice 回来，那些行本来就带保存态）。
+  markSaved()
+}
+
+/** 把 naive 的 `message` / `dialog` / `localStorage` 接到 `utils/lastOrder.ts` 的 IO 面上。 */
+const lastOrderIO: LastOrderIO = {
+  storage: { getItem: (k) => LS.get(k), setItem: (k, v) => LS.set(k, v) },
+  warning: (m) => message.warning(m),
+  success: (m) => message.success(m),
+  error: (m) => message.error(m),
+  confirm: (o) => dialog.warning(o),
+}
+
+function importLastOrder() {
+  importLastOrderFlow(lastOrderIO, applyLastOrder)
 }
 
 function resetOrder() {
@@ -1451,7 +1483,10 @@ function resetOrder() {
   lines.value = []
   lastAppliedClient = ''
   markSaved()
-  persistDraft()
+  // ⚠️ **不要**在这里写 `smartdoor_last_order`：旧版那个键全文件只有两处
+  // （`H:8853` 保存成功时写、`H:8903` 导入时读），**清空订单不动它**。
+  // （我们先前那套实时草稿在这里写了个空草稿 —— 等于「清空 = 把上次订单也清了」，
+  //  旧版没这回事。见 `persistLastOrder` 的注释。）
 }
 
 // 「1.清空」：清空当前订单内容（不新建的口吻）
@@ -1711,7 +1746,7 @@ async function saveOrder(): Promise<OrderDto | null> {
       const local = lines.value[i]
       if (local) local.id = sl.id
     })
-    persistDraft()
+    persistLastOrder()
     markSaved()
     message.success(`订单已保存（${saved.receipt_no}）`)
     return saved
@@ -2067,43 +2102,22 @@ async function copyTerminalLink() {
   }
 }
 
-// —— 订单草稿持久化（localStorage 断点续传） ——
-const LS_DRAFT_KEY = 'hui_order_draft_v1'
-
-function persistDraft() {
-  try {
-    localStorage.setItem(
-      LS_DRAFT_KEY,
-      JSON.stringify({ header: { ...order }, lines: lines.value }),
-    )
-  } catch {
-    // 忽略（隐私模式 / 配额）
-  }
+// —— 「上次订单」的写入 ——
+//
+// 旧版只在**「3.保存回执单」成功那一刻**写一次（`H:8853`），页面加载时**什么都不恢复**
+// （`onMounted`（`H:8261`）里没有这个键）。口径、修正经过、键名取舍全都写在
+// `app/src/utils/lastOrder.ts` 的文件头里 —— 一句话：
+// **我们先前那个「编辑中就落盘的实时草稿 + onMounted 无条件恢复」是自造的，已整套删掉**
+// （用户 2026-09-19 报的「每次刷新页面都会自动恢复上次订单」就是它）。
+function persistLastOrder() {
+  writeLastOrder(lastOrderIO, {
+    header: { ...order },
+    lines: lines.value,
+    showPing: showPing.value,
+    showDiao: showDiao.value,
+    savedAt: Date.now(),
+  })
 }
-
-function restoreDraft() {
-  try {
-    const raw = localStorage.getItem(LS_DRAFT_KEY)
-    if (!raw) return
-    const data = JSON.parse(raw)
-    if (data?.header) Object.assign(order, data.header)
-    if (Array.isArray(data.lines)) lines.value = data.lines
-    lastAppliedClient = order.client_code
-    message.success('已恢复上次未保存的订单')
-  } catch {
-    // 忽略损坏数据
-  }
-}
-
-let persistTimer: number | undefined
-watch(
-  [() => ({ ...order }), lines],
-  () => {
-    if (persistTimer !== undefined) window.clearTimeout(persistTimer)
-    persistTimer = window.setTimeout(persistDraft, 400)
-  },
-  { deep: true },
-)
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
@@ -2135,7 +2149,6 @@ const printCtx = computed<PrintContext>(() => ({
 const printApi = computed(() => createPrintPayloads(printCtx.value))
 
 onMounted(async () => {
-  restoreDraft()
   loadOpenDirectionSettings()
   void loadPayQrcode()
   // 旧版拉目录失败会弹「初始化失败」（Hui.formatted.js:979）

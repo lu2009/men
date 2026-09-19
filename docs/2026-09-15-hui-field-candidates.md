@@ -88,6 +88,8 @@ for (const f of formulas.value) if (belongsToTable(...)) push(f.name)    // ✅ 
   ```js
   Object.keys(localStorage).filter(k => k.startsWith('smartdoor_field_history_'))
     .forEach(k => localStorage.removeItem(k))
+  // ⚠️ 2026-09-19 起不再有 `hui_order_draft_v1` 这个实时草稿键（那套已删，
+  //    见 `docs/2026-09-19-hui-shell-audit.md` §10）；若浏览器里还留着旧键，顺手清掉：
   localStorage.removeItem('hui_order_draft_v1')
   location.reload()
   ```
