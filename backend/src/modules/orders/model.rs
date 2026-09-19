@@ -109,6 +109,10 @@ pub struct OrderLineInput {
     ///    · 新建行 → 拿 0021 的 `DEFAULT '{}'`。
     ///    · ⚠️ **等做「更新进度」时**，必须**同时**把它加进那两处写路径，
     ///      并按 `line_no` 的口径处理（全字段替换下，漏传即抹空）。
+    // 目前**没有任何 Rust 代码读它** —— 加它是为了让前端能原样回传、不至于在
+    // 「取整行 → 改一格 → 发回」的往返里丢掉这一列（与 `line_no` 同一个动机）。
+    // 等做「更新进度」时它会进 `update_line`/`insert_line`，那时这个 allow 就该摘掉。
+    #[allow(dead_code)]
     #[serde(default = "empty_slots")]
     pub procedure_slots: Value,
 }

@@ -5,8 +5,7 @@
 //
 // ⚠️ 本模块目前**只有读**，而且是分步做的第一步：
 //   · `GET /v1/procedures` ✅（本文件）
-//   · `GET /v1/progress`   ⏳ 待做 —— 它的**行结构**还没吃透
-//     （旧版 `progressRowFromDoorRow` 那几层没读完，不猜）
+//   · `GET /v1/progress`   ✅ 全量（行结构见 `-analysis.md` §11）
 //   · 写接口（更新/删除进度、收款）   ⏳ 待做
 mod handler;
 mod model;
@@ -18,5 +17,7 @@ use axum::Router;
 use crate::core::AppState;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/api/v1/procedures", get(handler::get_procedures))
+    Router::new()
+        .route("/api/v1/procedures", get(handler::get_procedures))
+        .route("/api/v1/progress", get(handler::get_progress))
 }
