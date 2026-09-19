@@ -301,8 +301,23 @@ try {
  *  · `saveRow` 的前置不满足时**静默 return**（表现就是「点了没反应」）⇒ 改成出声提示。
  *  `enterEdit` 随之改成把当前行传给守卫。
  *
+ * 2026-09-19 追加 `opsCol` / `doorImgCell` —— **「算料」按钮挪回它该在的列**：
+ *  · 旧版两张明细表的**操作列**第三颗是「**查看3D**」，而「**算料**」在**门花图列**
+ *    （`Hui.formatted.js:1880` 平开 / `:4682` 移门，触发点表见
+ *    `docs/2026-09-18-detail-sfc-recon.md` §5）；
+ *  · 我们当初把「算料」放进了操作列占着查看3D 那位（当时的注释就写着"把查看3D换成算料"），
+ *    **门花图列反而没有** —— 两处都不对；
+ *  · 现把算料挪到 `doorImgCell` 的空图态里（传图 / 文字 / 算料，算料排最后、`type:"warning"`），
+ *    操作列那格**留空**（查看3D 属 3D 暂缓那一摊，见 memory `3d-module-deferred`）。
+ *  ⇒ 这两处**是该改的**，不是搬迁失真。结论与依据见 `docs/2026-09-08-hui-table-gap.md`。
  */
-const POST_MOVE_EDITS = new Set(['confirmLeaveDirtyRow', 'enterEdit', 'saveRow'])
+const POST_MOVE_EDITS = new Set([
+  'confirmLeaveDirtyRow',
+  'enterEdit',
+  'saveRow',
+  'opsCol',
+  'doorImgCell',
+])
 
 let pass2 = 0
 const fail2 = []

@@ -456,8 +456,12 @@ function partsTooltip(l: Line) {
 
 // 操作列。**表头文字就是「平开门」/「移门」**（原版 :1723 / :4517 `label:"平开门"/"移门"`，
 // width:"50"）——旧版没有额外的表格标题栏，门型名就挂在第一列表头上。
-// 原版这一格的按钮是 删除 / 复制 / 查看3D（`div.upload-buttons` 竖排、文案前后带空格）；
-// 我们把「查看3D」换成「算料」（3D 未做），文案保持原样。
+// 原版这一格的按钮是 **删除 / 复制 / 查看3D**（`div.upload-buttons` 竖排、文案前后带空格）。
+// ⚠️ **第三颗是「查看3D」，我们这里是空的** —— 3D 那一摊用户已拍板暂缓
+//   （memory `3d-module-deferred`），做 3D 模块时补在第二位。
+//   2026-09-19 之前这里放的是「算料」，注释写着"把查看3D换成算料" —— **位置错了**：
+//   旧版的算料在**门花图列**（`:1880` / `:4682`），已挪回 `doorImgCell`。
+//   见 `docs/2026-09-08-hui-table-gap.md` 那条「未复核」的结论。
 // ===== 行级编辑态（旧版「点单元格 → 该行可 保存/取消」三件套）=====
 //
 // 旧版平开 `Hui.formatted.js:1335` 的 `ht=ref(new Map)` / `vt=ref(new Set)` / `pt=ref({})`；
@@ -658,15 +662,11 @@ const opsCol = (label: string): DataTableColumn<Line> => ({
         : [
             h(NButton, { size: 'tiny', text: true, type: 'error', onClick: () => removeLine(l) }, { default: () => '删除' }),
             h(NButton, { size: 'tiny', text: true, onClick: () => copyRow(l) }, { default: () => '复制' }),
-            h(
-              NTooltip,
-              { trigger: 'hover', placement: 'left', rawContent: false },
-              {
-                trigger: () =>
-                  h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void props.hooks.calcSingleRow(l) }, { default: () => '算料' }),
-                default: () => h('pre', { style: 'margin:0;font-size:12px;white-space:pre-wrap;max-width:340px' }, partsTooltip(l)),
-              },
-            ),
+            // ⚠️ 旧版这一列的**第三颗是「查看3D」**，不是「算料」——
+            //    算料在**门花图列**（旧版 `Hui.formatted.js:1880` 平开 / `:4682` 移门），
+            //    见 `doorImgCell` 里那颗。这里**不补**：查看3D 属 3D 那一摊，用户已拍板暂缓
+            //    （见 memory `3d-module-deferred`），做 3D 模块时补在这两位。
+            //    2026-09-19 之前这里放的是「算料」（当时的注释写着"把查看3D换成算料"）—— 位置错了。
           ],
     ),
 })
@@ -800,6 +800,21 @@ function doorImgCell(l: Line) {
     [
       h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => props.hooks.pickDoorImg(l) }, { default: () => '传图' }),
       h(NButton, { size: 'tiny', text: true, onClick: () => props.hooks.openTextImg(l) }, { default: () => '文字' }),
+      // ★ **算料在这里**，不在操作列 —— 旧版两张表的门花图列（无图态）都是 传图 / 文字 / 算料，
+      //   算料排在最后、`type:"warning"`、且**要先判 `row.formulaid` 非空**：
+      //   `a.formulaid && "" !== a.formulaid.trim() ? emit("calculateSingleRow") : 警告`
+      //   （平开 `Hui.formatted.js:1880` / 移门 `:4682`；触发点表见
+      //    `docs/2026-09-18-detail-sfc-recon.md` §5）。
+      //   2026-09-19 之前我们把它错放在操作列（占着查看3D 那位），门花图列反而没有。
+      h(
+        NTooltip,
+        { trigger: 'hover', placement: 'left', rawContent: false },
+        {
+          trigger: () =>
+            h(NButton, { size: 'tiny', text: true, type: 'warning', onClick: () => void props.hooks.calcSingleRow(l) }, { default: () => '算料' }),
+          default: () => h('pre', { style: 'margin:0;font-size:12px;white-space:pre-wrap;max-width:340px' }, partsTooltip(l)),
+        },
+      ),
     ],
   )
 }
