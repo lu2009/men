@@ -13,6 +13,10 @@
           3D 画图（本期后置，另行排期）
         </n-tooltip>
         <n-button size="small" @click="refreshPage">刷新</n-button>
+        <!-- 旧版工具栏第二行是「刷新 · 视频」两颗（`H:12864-12870`，**都是裸字面量**）。
+             我们先前把「视频」换成了自建的「更多功能 ▾」—— 那颗是偏离（见
+             `docs/2026-09-19-hui-shell-audit.md` §5.1），但**「视频」本身是旧版有的，不该缺**。 -->
+        <n-button size="small" @click="videoDrawer = true">视频</n-button>
         <span class="grow-spacer" />
         <n-dropdown
           trigger="click"
@@ -157,6 +161,16 @@
     </div>
 
     <!-- 添加门类抽屉（仿旧版：平开门/移门 独立 toggle，可同显） -->
+    <!-- 视频教程 —— 旧版 `H:13338`：`title:a(949)="视频教程"`、`direction:"rtl"`、`size:"300px"`。
+         条目取自 `_0x1ca662` 的名字→链接表（`H:12872` 起，9 条）。 -->
+    <n-drawer v-model:show="videoDrawer" title="视频教程" placement="right" :width="300">
+      <div class="video-list">
+        <n-button v-for="[label, link] in VIDEO_LINKS" :key="label" size="small" block @click="openVideo(link)">
+          {{ label }}
+        </n-button>
+      </div>
+    </n-drawer>
+
     <n-drawer v-model:show="addTypeOpen" :width="240" placement="right">
       <n-drawer-content title="添加门类" closable>
         <div class="addtype-list">
@@ -714,6 +728,33 @@ const moreMenuOptions = [
 
 function refreshPage() {
   message.info('已刷新')
+}
+
+/**
+ * 「视频教程」抽屉 —— 旧版 `_0x1ca662`（`Hui.formatted.js:12872` 起）那张名字→链接表。
+ *
+ * ⚠️ **顺序照的是旧版的**渲染**顺序，不是它在源码里的**表**顺序** —— 两者不同：
+ * 表里 `加价项目-修改删除` 排在 `加价项目-单次添加` **前面**，
+ * 而渲染（`H:13341-13375`）是 **`单次添加` 在前**。按表顺序抄会错位。
+ *
+ * ⚠️ 旧版点条目走 `_0x1ca662(名字)`：从表里取 URL → `window.open(url,'_blank')`
+ * → 补一句 `ElMessage.info("正在打开"+名字+"视频教程")`。我们只做前两步
+ * （与 Diao 页那颗「视频」的处理一致，那儿也没补 toast）。
+ */
+const videoDrawer = ref(false)
+const VIDEO_LINKS: Array<[string, string]> = [
+  ['制作回执单', 'https://v.douyin.com/CMt_OqwWAOA/'],
+  ['添加门图', 'https://v.douyin.com/9joHNJzrIDY/'],
+  ['加价项目-常规操作', 'https://v.douyin.com/EBMcTieRF9M/'],
+  ['加价项目-单次添加', 'https://v.douyin.com/tZJqK_VZvvI/'],
+  ['加价项目-修改删除', 'https://v.douyin.com/0GhT419VjUU/'],
+  ['加价项目-超墙厚', 'https://v.douyin.com/b1vqAmiRvBs/'],
+  ['加价项目-超高超宽', 'https://v.douyin.com/Kj6j6ZCMavI/'],
+  ['加价项目-轨道超长', 'https://v.douyin.com/T2kNqd_Sjds/'],
+  ['加价项目-超平米', 'https://v.douyin.com/ASY21BgXV3I/'],
+]
+function openVideo(link: string) {
+  window.open(link, '_blank')
 }
 
 // ===== 列显隐（仿旧版 ping_column/diao_column，租户级）=====
