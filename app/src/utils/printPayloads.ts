@@ -244,6 +244,97 @@ function extractTableColumns(tpl: unknown, field: string): ProdCol[] {
  * 构造某一张订单的全部打印载荷。
  * 返回的每个函数都是**同步**的；图片（门图/挖孔图/收款码）必须由调用方**先**灌进 `ctx`。
  */
+/** [`glassDoorsheetText`] 的全部输入 —— 从「一行 + 它的部件」里摘出来，便于单独差分。 */
+export interface DoorsheetInput {
+  /** 行类型。`diao` 走移门那一支，其余走平开那一支（旧版是两段独立代码）。 */
+  lineType: string
+  /** 扇数（移门专用）：`一固一活`/`双活` 时第一组数量固定 `2×`。 */
+  fans?: string
+  /** 公式类型：平开支的 `parentSubsidiary` / `diamond` 两个特例要用。 */
+  formulaType: string
+  /** 底玻 / 面玻（`无` 参与判据）。 */
+  bottomGlass: string
+  faceGlass: string
+  /** 行的数量。 */
+  quantity: number
+  /** 引擎 A 算出来的部件（已滤掉没有 materialName 的）。 */
+  parts: PartPreview[]
+}
+
+/**
+ * 「玻璃合片单」里那一格 `doorsheet` 的文本 —— 把原来的内联块抽成**纯函数**，
+ * 好让差分台能直接喂夹具、跟旧版真代码逐字比（同 `productionStats.ts` 的做法）。
+ *
+ * 两段分别对应旧版两个函数（`legacy/js/Hui.formatted.js`，都是引擎 A）：
+ *
+ * | 分支 | 旧版 | 位置 |
+ * |---|---|---|
+ * | 平开（`else`） | `_0xcfde65` | `:10730-10752` |
+ * | 移门（`diao`） | `_0x4d28ce` | `:10897-10922` |
+ *
+ * ⚠️ 两段里的判据用的都是**部件 KEY**（`pk(p)`），显示名才用 `materialName`。
+ *    旧版同样是 `Object.entries(parts).filter(([e]) => e.includes(...))` —— `e` 是 key。
+ *
+ * ⚠️ 旧版那段源码里的字符串是**编码过的**（`_0x59f9e4(847)` 之类），已用
+ *    `legacy/` 的现解手法解出：`847` = `"parentSubsidiary"`、`986` = `"diamond"`
+ *    —— 与 `formula_type` 的取值一致（**驼峰**，见迁移 0024）。
+ *
+ * 差分台：`docs/diao-print-doorsheet-logiccheck.mjs`。
+ */
+export function glassDoorsheetText(i: DoorsheetInput): string {
+  const { lineType, fans, formulaType, bottomGlass: bRaw, faceGlass: fRaw, quantity: Q, parts } = i
+  /** 双玻判据（旧版逐字）：`(底≠无 || 面=无 || 名含单玻) && (面≠无 || 底=无 || 名含单玻)`。 */
+  const doubleGlass = (name: string) =>
+    (bRaw !== '无' || fRaw === '无' || name.includes('单玻')) &&
+    (fRaw !== '无' || bRaw === '无' || name.includes('单玻'))
+
+  if (lineType === 'diao') {
+    const g1 = parts.filter((p) => pk(p).includes('玻璃') && !pk(p).includes('亮窗'))
+    const g2 = parts.filter((p) => pk(p).includes('亮窗玻璃') && !pk(p).includes('压线'))
+    let n1 = g1.length
+      ? doubleGlass(pk(g1[g1.length - 1]))
+        ? g1[g1.length - 1].quantity * Q
+        : (g1[g1.length - 1].quantity / 2) * Q
+      : 0
+    const n2 = g2.length
+      ? bRaw !== '无' && fRaw !== '无' || pk(g2[g2.length - 1]).includes('单玻')
+        ? g2[g2.length - 1].quantity * Q
+        : (g2[g2.length - 1].quantity / 2) * Q
+      : 0
+    if (fans === '一固一活' || fans === '双活') n1 = 2 * Q
+    // ⚠️ 两组都拼 `名:result` —— 差分台 `docs/diao-print-doorsheet-logiccheck.mjs` 钉住了这一点。
+    //    （我一度读成「g1 只印裸名字」并照此改过，是**截断阅读**导致的误判，被那台差分台当场抓回。
+    //      教训：旧版那些行又长又密，`cut -c` 截断后再读会把行尾的条件/拼接整个吃掉。）
+    const t1 = g1.map((p) => `${p.materialName}:${p.result}`).join('<br>')
+    if (n2 > 0) {
+      const nn = n2 < 1 ? 1 : n2
+      return `${t1}<br>数量:${n1}<br>${g2.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${nn}`
+    }
+    return `${t1}<br>数量:${n1}`
+  }
+
+  // 平开（旧版 `_0xcfde65`）：`["玻璃","门扇"]` 用 `reduce((acc,kw)=>[...acc, ...命中的件])`
+  // **按关键词逐个分组累积** —— 玻璃全在前、门扇全在后。
+  // 一次 filter 保 parts 原序，在两族交错时顺序会不同。
+  const g = ['玻璃', '门扇'].flatMap((kw) => parts.filter((p) => pk(p).includes(kw)))
+  /*
+   * ⚠️ **有意偏离旧版**：一件玻璃/门扇都没有时，旧版仍然输出 `"<br>数量:0"`
+   *    （`[].join("<br>")` 得空串，再拼 `"<br>数量:" + 0`）—— 纸上会多一个**空行加一个 `数量:0`**。
+   *    那是 `join()` 的副产物，不是有意的排版。我们返回空串。
+   *
+   *    判据（按本仓库口径）：「旧版算错」还是「旧版本身有毛病」—— 这是后者：
+   *    一张没有玻璃的合片单印出「数量:0」没有任何意义，只会让人以为漏算了。
+   *    差分台 `docs/diao-print-doorsheet-logiccheck.mjs` 把这条**登记成已知分歧**
+   *    （⚠️ 而不是悄悄跳过），哪天产品要照旧版印，把这里改回去、把那面旗摘掉即可。
+   */
+  if (!g.length) return ''
+  const last = g[g.length - 1]
+  let n = doubleGlass(pk(last)) ? last.quantity * Q : (last.quantity / 2) * Q
+  if (formulaType === 'parentSubsidiary') n = doubleGlass(pk(last)) ? 4 * Q : 2 * Q
+  if (formulaType === 'diamond') n = 3 * Q
+  return `${g.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${n}`
+}
+
 export function createPrintPayloads(ctx: PrintContext) {
   const { formulaOf, isDiamond, dimsOf, computeParts, partsSig } = createPartsEngine(ctx.formulas)
   void dimsOf
@@ -792,39 +883,17 @@ export function createPrintPayloads(ctx: PrintContext) {
       // ⚠️ 与其它列同规：**匹配读 KEY（`pk`），显示名读 `materialName`**。
       //    旧版引擎 A 这几处也都是 `Object.entries(parts).filter((([e]) => e.includes("玻璃") && !e.includes("亮窗")))`
       //    这类写法（`e` = KEY），`含单玻` 判定同理。
-      const doubleGlass = (name: string) =>
-        ((bRaw !== '无' || fRaw === '无' || name.includes('单玻')) && (fRaw !== '无' || bRaw === '无' || name.includes('单玻')))
-      const groupText = (list: PartPreview[], lastQty: (p: PartPreview) => number) => {
-        if (!list.length) return ''
-        const last = list[list.length - 1]
-        let n = lastQty(last)
-        return `${list.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${n}`
-      }
-      let doorsheet: string
-      if (l.line_type === 'diao') {
-        const g1 = parts.filter((p) => pk(p).includes('玻璃') && !pk(p).includes('亮窗'))
-        const g2 = parts.filter((p) => pk(p).includes('亮窗玻璃') && !pk(p).includes('压线'))
-        let n1 = g1.length ? (doubleGlass(pk(g1[g1.length - 1])) ? g1[g1.length - 1].quantity * Q : (g1[g1.length - 1].quantity / 2) * Q) : 0
-        const n2 = g2.length ? (bRaw !== '无' && fRaw !== '无' || pk(g2[g2.length - 1]).includes('单玻') ? g2[g2.length - 1].quantity * Q : (g2[g2.length - 1].quantity / 2) * Q) : 0
-        if (l.fans === '一固一活' || l.fans === '双活') n1 = 2 * Q
-        const t1 = g1.map((p) => `${p.materialName}:${p.result}`).join('<br>')
-        if (n2 > 0) {
-          const nn = n2 < 1 ? 1 : n2
-          doorsheet = `${t1}<br>数量:${n1}<br>${g2.map((p) => `${p.materialName}:${p.result}`).join('<br>')}<br>数量:${nn}`
-        } else {
-          doorsheet = `${t1}<br>数量:${n1}`
-        }
-      } else {
-        // 原版 A平（`_0xcfde65`）：`_0x413ea2 = ["玻璃","门扇"]` 后用 `reduce((acc,kw)=>[...acc, ...命中的件])`
-        // **按关键词数组逐个分组累积** —— 玻璃全在前、门扇全在后。一次 filter 保 parts 原序在两族交错时顺序会不同。
-        const g = ['玻璃', '门扇'].flatMap((kw) => parts.filter((p) => pk(p).includes(kw)))
-        doorsheet = groupText(g, (p) => {
-          let n = doubleGlass(pk(p)) ? p.quantity * Q : (p.quantity / 2) * Q
-          if (ft === 'parentSubsidiary') n = doubleGlass(pk(p)) ? 4 * Q : 2 * Q
-          if (ft === 'diamond') n = 3 * Q
-          return n
-        })
-      }
+      // doorsheet 的算法抽在 `glassDoorsheetText`（纯函数），见那里的注释与差分台
+      // `docs/diao-print-doorsheet-logiccheck.mjs`。
+      const doorsheet = glassDoorsheetText({
+        lineType: l.line_type ?? '',
+        fans: l.fans,
+        formulaType: ft,
+        bottomGlass: bRaw,
+        faceGlass: fRaw,
+        quantity: Q,
+        parts,
+      })
       rows.push({ ...base, doorsheet })
     }
     return rows
