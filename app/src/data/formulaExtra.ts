@@ -51,6 +51,33 @@ export interface FormulaExtra {
 /** 移门最低方数设置：square 字段的复杂门型形态。 */
 export type MinSquareMap = Record<string, string>
 
+/**
+ * 把 `key` 按 `position` 插回 `keys`，返回**新的键序**。
+ *
+ * 复刻旧版「恢复已删除的部件」那句（`Diao.deobfuscated.js:1790`，逐字）：
+ *
+ * ```js
+ * typeof t === "number" && t >= 0 && t <= rows.length ? rows.splice(t, 0, c) : rows.push(c)
+ * ```
+ *
+ * ⚠️ **边界容易写错**：上界是 `<=`（等于长度时插到**末尾**，与 `push` 同效），
+ * 但 `position` 为 `undefined`（暂存区**预置的那 5 个**就没有）或越界/负数时 ⇒ **追加**。
+ * 这里返回 `number` 而不是直接改数组，是为了让差分台能逐例比对
+ * （见 `docs/diao-material-stash-logiccheck.mjs`）。
+ *
+ * 为什么"插回原位置"在我们这边等于"重建键序"：`parts` 是普通对象，
+ * **键序就是行序**（`rows` 由 `Object.entries(parts)` 得来）。
+ */
+export function insertKeyAt(keys: string[], key: string, position?: number): string[] {
+  const out = keys.filter((k) => k !== key)
+  const at =
+    typeof position === 'number' && position >= 0 && position <= out.length
+      ? position
+      : out.length
+  out.splice(at, 0, key)
+  return out
+}
+
 /** 六个尺寸的默认值（都是**字符串**，与输入框同型 —— 尺寸列在库里也是 TEXT）。 */
 export interface DimDefaults {
   /** 门洞宽 */ w: string

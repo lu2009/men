@@ -19,6 +19,7 @@ import { COMMON_MATERIALS, EXTRA_MATERIAL_GROUPS, MATERIAL_LIBRARY } from '../da
 import {
   applyDimDefaults,
   defaultDims,
+  insertKeyAt,
   MIN_SQUARE_TYPES,
   SIMPLE_SQUARE_TYPES,
   normalizeExtra,
@@ -463,6 +464,11 @@ function resultBlur(name: string) {
 }
 
 function deleteRow(name: string) {
+  // 删之前先存进暂存区（含**当时的行号**）—— 旧版 `_0x332bf3`（`:1774-1783`）：
+  // `stash[name] = {...def, position: index}` 之后才 `delete defs[name]`。
+  // 抽屉里「常规材料」那一段就是拿它渲染的，恢复时按这个 position 插回原位置。
+  const def = parts[name]
+  if (def) deletedStash[name] = { ...def, position: Object.keys(parts).indexOf(name) }
   delete parts[name]
   delete countText[name]
   delete resultText[name]
@@ -631,18 +637,61 @@ async function copyRow(name: string) {
 
 // —— 添加材料 ——
 const addMaterialDrawer = ref(false)
-const commonRemaining = ref<string[]>(Object.keys(COMMON_MATERIALS))
+/**
+ * 「已删除的行」暂存区 —— 复刻旧版 `_0x3a3e48.value.delete`
+ * （`Diao.deobfuscated.js:1777-1781` 写入、`:3524-3531` 渲染、`:1785-1794` 恢复）。
+ *
+ * ⚠️ **抽屉里「常规材料」那一段其实是「撤销删除」，不是"常用材料库"** ——
+ * 我们原先把它当成后者：拿一张静态的 `COMMON_MATERIALS` 当"还没加过的材料"，
+ * 加过就从列表里划掉。**数据是对的（就是下面预置的那 5 个），模型是错的**：
+ *
+ * | | 旧版 | 我们（改前） |
+ * |---|---|---|
+ * | 数据源 | **预置 5 个 + 用户删掉的行**（任意行，不限"常规材料"） | 只有那 5 个静态项 |
+ * | 恢复后位置 | 带 `position` 的 ⇒ **原位置**；预置那 5 个没有 `position` ⇒ 追加 | 一律追加 |
+ * | 恢复的 def | **暂存的那一份原样写回**（用户删的行保留其 quantity/track/color） | 重置成模板值 `result:0,v:0` |
+ * | 加过之后 | **还在列表里**（只有"恢复"这个动作会移除它） | 从候选里划掉，再也加不回来 |
+ *
+ * ⇒ 删除任意一行都会进这里。所以「常规材料」三个字是旧版自己的措辞（有点名不副实），
+ *   **照抄不改**；但要知道它装的是"删过的行"。
+ *
+ * ## 预置的那 5 个（`Diao.deobfuscated.js:1196-1215` 的 `_0x3a3e48.value.delete`）
+ *
+ * `分体亮窗边封 / 单轨2扇收口 / 单轨2扇上下方 / 亮窗扣板高 / 亮窗F槽高`
+ * —— 与 `data/formulaMaterials.ts` 的 `COMMON_MATERIALS` **逐条同源**。
+ * 它们**没有 `position`**，所以「恢复」时走**追加**（旧版 `typeof t==="number"` 为假 ⇒ `push`）。
+ */
+const deletedStash = reactive<Record<string, PartsMap[string] & { position?: number }>>(
+  Object.fromEntries(
+    Object.entries(COMMON_MATERIALS).map(([k, v]) => [k, { ...v, result: 0, v: 0 }]),
+  ),
+)
 
 function materialTypeLabel(key: string): string {
   return TEMPLATE_LIST.find((t) => t.key === key)?.label ?? key
 }
 
-// 常规材料：一次性恢复，加入后从列表移除
-function addCommon(key: string) {
-  const def = COMMON_MATERIALS[key]
-  if (!def) return
-  parts[key] = { ...def, result: 0, v: 0 }
-  commonRemaining.value = commonRemaining.value.filter((k) => k !== key)
+/**
+ * 恢复一行被删掉的部件 —— 旧版 `_0x59235b`（`Diao.deobfuscated.js:1785-1794`）逐条对齐：
+ * def **原样写回**（`{...stash[name]}` 去掉 `position`），再按 `position` **插回原位置**
+ * （越界才退化成追加）。
+ *
+ * ⚠️ 旧版是用 DOM id 编码名字（`"delete-"+name`，点击时 `split("-")[1]` 取回来）——
+ * 名字里含 `-` 就会被截断（旧版的坑）。我们直接传名字，不需要这个技巧。
+ */
+function restoreDeleted(name: string) {
+  const entry = deletedStash[name]
+  if (!entry) return
+  const { position, ...def } = entry
+  // 「插回原位置」= 重建键序（`parts` 是普通对象，键序就是行序）。规则在 `insertKeyAt` 里
+  // （含边界），有差分台 `docs/diao-material-stash-logiccheck.mjs` 钉着。
+  const byKey = new Map(Object.entries(parts))
+  const entries = insertKeyAt(Object.keys(parts), name, position).map(
+    (k) => [k, k === name ? def : byKey.get(k)!] as const,
+  )
+  for (const k of Object.keys(parts)) delete parts[k]
+  for (const [k, v] of entries) parts[k] = v
+  delete deletedStash[name]
   syncRowTexts()
   refreshPlaceholders()
   message.success('恢复成功')
@@ -1298,16 +1347,18 @@ onMounted(() => {
 
     <!-- 添加材料 -->
     <n-drawer v-model:show="addMaterialDrawer" title="添加材料" placement="right" :width="460">
-      <div v-if="commonRemaining.length" class="mat-section">
+      <!-- ⚠️「常规材料」= **撤销删除**（见 `deletedStash` 的注释），不是"常用材料库"。
+           标题**恒显**（旧版那个 `<h3>` 是静态节点，没有 v-if），按钮才看有没有删过的行。 -->
+      <div class="mat-section">
         <h3>常规材料</h3>
         <div class="mat-grid">
           <n-button
-            v-for="k in commonRemaining"
-            :key="k"
+            v-for="(def, name) in deletedStash"
+            :key="name"
             size="small"
-            @click="addCommon(k)"
+            @click="restoreDeleted(String(name))"
           >
-            {{ COMMON_MATERIALS[k]?.materialName }}
+            {{ def.materialName }}
           </n-button>
         </div>
       </div>
