@@ -108,6 +108,19 @@ export const api = {
    * 那条路本来就是坏的 ⇒ 新版不做。见 `docs/2026-09-19-progress-analysis.md` §10。
    */
   listProgress: () => request<{ progressData: ProgressRowDto[] }>('/v1/progress'),
+  /**
+   * 更新若干行的某个工序槽（旧版 `param1=updataProgress`）。
+   *
+   * 语义是**覆盖**（旧版只有 `工序10` 走合并，那个特判新版去掉了）。
+   * `value` 的格式约定是 `工序名[_操作员]_YYYY-MM-DD`，但**服务端不校验格式**。
+   *
+   * ⚠️ **槽名会被服务端校验**（必须 `工序1`..`工序15`），野键直接 400 —— 这是新版加的。
+   */
+  updateProgress: (lineIds: number[], slot: string, value: string) =>
+    request<{ updated: number }>('/v1/progress/update', {
+      method: 'POST',
+      body: JSON.stringify({ line_ids: lineIds, slot, value }),
+    }),
   /** 本租户的工序名清单（15 个扁平槽，顺序按槽号）。 */
   listProcedures: () => request<{ slots: { slot: string; name: string }[] }>('/v1/procedures'),
   listFormulas: (search?: string) =>
