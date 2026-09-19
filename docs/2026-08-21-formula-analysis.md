@@ -60,7 +60,18 @@
 
 ## 3. 公式类型 / 门型
 
-### 3.1 用户可见类型（13 类，`formulaType` → 中文）
+### 3.1 模板键 → 中文名（13 类）
+
+> ⚠️ **2026-09-19 更正**：本节原标题是「用户可见类型（13 类，**`formulaType`** → 中文）」，
+> **不成立**。这张表（`Diao.deobfuscated.js:2589` 的 `_0x55fb2e`）**不是 formulaType 表**：
+> 它唯一的调用点 `:3541` 是把 **TEMPLATES 对象 `_0x39d7b8` 的键**喂进去
+> （`_0x386353 = e => _0x55fb2e[e.toLowerCase()] || e`），键形如 `diamondLing` / `pingWindows`
+> —— 是**模板键**，小写后正好命中。
+> **真 `formulaType` 只有 5 个值**（`ping` / `diao` / `double` / `diamond` / `parentSubsidiary`，
+> 见 `:2512` 等 `_0xb8c576` 的字面量赋值）。
+> 逐字证据见 `docs/2026-09-19-diao-audit.md` §4.1。
+>
+> 下面这张表**内容本身没错**，错的只是它的标题与被冠上的「formulaType」之名。
 
 | key | 中文名 | 3D 模式 |
 |---|---|---|
@@ -238,6 +249,16 @@
 - `api/client.ts`：`listFormulas/createFormula/getFormula/updateFormula/deleteFormula`。
 - `views/Formulas.vue`：列表（搜索 + Naive UI 表格）+ 新建/编辑弹窗（名称/类型/尺寸/平方数/备注 + 部件 JSON 文本域占位）。
 - 路由 `/formulas`（`meta.requiresAuth`）。
+
+> ⚠️ **2026-09-19 更正：上面这一行的「部件 JSON 文本域占位」早已不成立。**
+> `Formulas.vue` 现在是一套完整编辑器（1767 行），带
+> `utils/formulaEngine.ts`（正向/逆向求值）、`data/formulaTemplates.ts`（19 套模板）、
+> `data/formulaMaterials.ts`（材料库）、`data/formulaExtra.ts`（附加配置）、
+> `components/GlassDraw.vue`（挖孔图）—— 不是占位。
+>
+> 本节其余部分（数据表、REST 端点）**仍然成立**，但与旧版逐块对照下来的
+> **缺口与偏差**（缺 3D 预览/3D创建公式/算料神器/查看3D、`formulaType` 子母门拼写、
+> 尺寸该不该存库、列表弹窗结构）另见 **`docs/2026-09-19-diao-audit.md`**。
 
 ---
 
