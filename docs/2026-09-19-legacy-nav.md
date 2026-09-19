@@ -95,21 +95,28 @@
 比按 `legacy/js/` 里的 chunk 文件名去猜准得多 —— 先前那份「哪些模块没做」的清单就是按文件名猜的，
 **已作废**，以本表为准。
 
+图例：✅ 已做 · ❌ 未做 · ⏸ **用户已拍板暂缓**（不是漏做，别去排期）。
+
+> ⚠️ **3D 一整摊**（三个独立路由 + Diao 页内嵌的 3D 预览面板 / 「3D创建公式」/ 主表操作列的
+> 「查看3D」）都是 **⏸ 暂缓**。用户 2026-09-19 明确：「是之前我交代过先不做的，
+> 之后做 3D 模块时一块儿补」。Diao 页那几块的素材与依赖体量记在
+> `docs/2026-09-19-diao-audit.md`（§2.1 / §2.5），将来做 3D 模块直接从那儿起。
+
 | 路由 | 组件 | 新版 |
 |---|---|---|
 | `/login` | `Login` | ✅ `views/Login.vue` |
 | `/home` | `Home` | ✅ `views/Home.vue` |
 | `/hui` | `Hui` | ✅ `views/Hui.vue` |
-| `/Diao` | `Diao` | ❌ 未做 |
+| `/Diao` | `Diao` | ✅ `views/Formulas.vue`（**就是现在的公式管理页**）—— 2026-09-19 逐块审计过，见 `docs/2026-09-19-diao-audit.md`。⚠️ 此前本行误记为「❌ 未做」，是**文档写错**，不是没做 |
 | `/clients_Info` | `ClientsInfo` | ✅ `views/Clients.vue`（⚠️ 内容对不对得上**未核**） |
 | `/setting` | `Setting` | ❌ 未做 |
 | `/Qrscanner` | `Qrscanner` | ⚠️ `views/Qrscanner.vue` —— **只做了「设置工序」**（工序名的唯一配置入口，Progress 的下拉靠它）；扫码/看板/标签打印/账号管理未做，清单见该文件头 |
 | `/Progress` | `Progress` | ✅ `views/Progress.vue`（终端模式不做） |
 | `/drawDoor` | `drawDoor` | ❌ 未做 |
 | `/test-addprice` | `TestAddPrice` | ❌ 未做（测试页，可能不必做） |
-| `/3d-view` | `3DView` | ❌ 未做 |
-| `/sliding-door-3d` | `SlidingDoor3D` | ❌ 未做 |
-| `/composite-gate-3d` | `CompositeGate3D` | ❌ 未做 |
+| `/3d-view` | `3DView` | ⏸ **用户已拍板暂缓** —— 做 3D 模块时一并 |
+| `/sliding-door-3d` | `SlidingDoor3D` | ⏸ 同上 |
+| `/composite-gate-3d` | `CompositeGate3D` | ⏸ 同上 |
 | `/share` | `ShareView` | ❌ 未做（⚠️ 与 `/receipt-share` 的关系**未核**） |
 | `/share/:id` | `ShareViewById` | ❌ 未做 |
 | `/receipt-share` | `ReceiptShare` | ✅ `views/ReceiptShare.vue` |
