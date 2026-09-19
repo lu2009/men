@@ -505,3 +505,40 @@ export interface PrepaymentExecuteInput {
   discount_rate: number
   remark?: string
 }
+
+/**
+ * 生产进度页（旧版 `/Progress`）的一行。
+ *
+ * 形状 = **行自身的全部字段**（`OrderLineDto` 摊平）+ 一批中文键的展示字段。
+ * 逐字段来源见 `docs/2026-09-19-progress-analysis.md` §11。
+ *
+ * ⚠️ 三处**不是空串**的兜底（照抄旧版，别"统一"）：
+ * `客户编号`（旧版数字 0）、`封板高`（数字 0）、`加价项目原始数据`（**四字母字符串 'null'**）。
+ */
+export type ProgressRowDto = OrderLineDto & {
+  /** `'工序1'` .. `'工序15'` —— **15 个键一定都在**（没配的补 `null`），前端读不会 undefined。 */
+  [k: `工序${number}`]: string | null
+  /** 15 槽里非空的按槽号用 `➞` 连接（旧版 `buildProgressText`）。 */
+  生产进度: string
+  procedureName: string
+  procedureStatus: string | null
+  打单人: string | null
+  打单操作: string
+  加价项目原始数据: string
+  封板高: number
+  洞尺: string
+  扫码日期: string | null
+  /** **行级**单号（每樘门一个），不是回执单号。 */
+  单号: string
+  /** 订单级回执单号。 */
+  回执单号: string
+  客户: string
+  客户编号: string
+  日期: string
+  业务员: string
+  备注: string
+  安装地址: string
+  orderNo: string
+  /** 旧版挂的是整个订单对象；新版只给前端真正会用到的这几个键。 */
+  order: { id: number; receipt_no: string; client_name: string; client_code: string }
+}

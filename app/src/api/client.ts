@@ -19,6 +19,7 @@ import type {
   OrderSearchParams,
   OrderSummaryDto,
   PriceResolveDto,
+  ProgressRowDto,
   PrintTemplateDto,
   ReceiptDto,
   ReceiptShareToken,
@@ -97,6 +98,18 @@ export const api = {
   logout: () => request<{ logged_out: boolean }>('/v1/auth/logout', { method: 'POST' }),
   me: () => request<MeResponse>('/v1/auth/me'),
   health: () => request<HealthResponse>('/v1/health'),
+  /**
+   * 生产进度（旧版 `/Progress` 页）。
+   *
+   * ⚠️ 后端是**一次返回全量、不分页** —— 与旧版一致（旧版也拉全量、前端自己筛选/分页，
+   * 它确实不重新请求）。所以这里也没有分页参数。
+   *
+   * ⚠️ 旧版还有个终端分支（`getProgressForTerminal`），服务端是**写死 400**，
+   * 那条路本来就是坏的 ⇒ 新版不做。见 `docs/2026-09-19-progress-analysis.md` §10。
+   */
+  listProgress: () => request<{ progressData: ProgressRowDto[] }>('/v1/progress'),
+  /** 本租户的工序名清单（15 个扁平槽，顺序按槽号）。 */
+  listProcedures: () => request<{ slots: { slot: string; name: string }[] }>('/v1/procedures'),
   listFormulas: (search?: string) =>
     request<FormulaDto[]>(
       `/v1/formulas${search ? `?search=${encodeURIComponent(search)}` : ''}`,
