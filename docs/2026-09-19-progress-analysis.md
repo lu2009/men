@@ -696,3 +696,42 @@ node legacy/decode-progress-map.mjs legacy/js/index-c3b16e3f.js /tmp/index-map.j
 4. **`!function(){...}()` 里 `function` 后面那个 `()` 是空参数表**，配平要配后面那个 `{`。
 5. **别名必须按作用域解析**：组件里 `const r=N,u=e,s=n` 中的 `u`/`s` 是 **props / emit**，不是解码器；
    全局做「名字→解码器」的传递闭包会把它们错替（首版就这么错的）。
+
+---
+
+## 10. 数据模型决定（2026-09-19 拍板并落地）
+
+§8 第 3 条只说了「字段名沿用旧版中文 key 最省事」，**没点破一个前提**：
+我们新后端**根本没有存工序的地方**。`order_lines` 只有：
+
+```
+parts   JSONB   ← 算料结果
+markup  JSONB   ← 加价项目
+progress TEXT   ← 一个「生产进度标识」字符串
+```
+
+所以 `/Progress` **不是「加个页面」就能做的**，得先补数据模型。已按下面落地（迁移 `0021_progress.sql`）：
+
+| 加什么 | 放哪 | 说明 |
+|---|---|---|
+| `order_lines.procedure_slots JSONB DEFAULT '{}'` | 行级 | `{"工序1":"下料_张三_2026-09-19", …}`。**按行存**（= 旧版门行），与 `parts`/`markup` 同风格 |
+| `procedures` 表（`tenant_id` + `slot` + `name`） | 租户级 | 15 个扁平槽，即旧版 `GetProcedures` 的 `{工序1:"下料",…}` |
+
+### 两处**有意偏离**旧版（一起做，不拆分）
+
+1. **去掉「回款 → 工序10」的前端硬编码**，也**去掉服务端对 `工序10` 的 merge 特判**。
+   两处是耦合的（见 §9.0），实测能写出 `工序10="回款_回款_李四_2026-09-20"` 的脏数据。
+   新版：**槽就是槽**，没有哪个特殊；「回款」由租户当普通工序名自己配。
+2. **不做终端分支**。旧版 `getProgressForTerminal` 在服务端是**写死 400**
+   （`legacy-dispatch.ts:282` 的静态响应覆盖，handler 是够不着的死代码）——
+   **那条路本来就是坏的**，照抄没有意义。
+
+### ⚠️ 从旧库导入时要留意
+
+旧版有**两把租户键**：业务表按 `ds`、配置表（含 `procedures`）按 `registrant`，列名都叫
+`database_name`。新版只有一把 `tenant_id` —— **导入工序清单时得按旧库的 `registrant` 捞，不是 `ds`**。
+
+### 终端/角色
+
+`userinfo.defaulted`（服务端字段 `User.isDefaultPw`）我们**不复刻**：新版用「账号类型」表达同一件事，
+具体怎么映射等做权限那一步再定。见 shell 文档 §3。
