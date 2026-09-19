@@ -4,6 +4,7 @@ pub mod base64;
 pub mod config;
 pub mod db;
 pub mod error;
+pub mod guard;
 pub mod receipt_token;
 pub mod response;
 

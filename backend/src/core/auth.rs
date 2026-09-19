@@ -83,6 +83,12 @@ impl FromRequestParts<AppState> for CurrentUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        // 授权中间件（`core/guard.rs`）已经解析过一次并塞进扩展了，直接用，不再查库。
+        // 扩展只能由中间件写入，客户端塞不进来。
+        if let Some(user) = parts.extensions.get::<CurrentUser>() {
+            return Ok(user.clone());
+        }
+
         let token = bearer_token(&parts.headers)
             .ok_or_else(|| ApiError::unauthorized("未提供认证令牌"))?;
         CurrentUser::resolve(&state.pool, &token)

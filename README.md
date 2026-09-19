@@ -20,8 +20,8 @@ door-main/
 ├── backend/          # Rust axum API 服务
 │   ├── src/main.rs   # 入口
 │   ├── src/app.rs    # 路由组装
-│   ├── src/core/     # 横切：config/db/error/response/auth
-│   ├── src/modules/  # 业务模块：auth、health
+│   ├── src/core/     # 横切：config/db/error/response/auth/guard（角色授权）
+│   ├── src/modules/  # 业务模块：auth、health、orders、progress、scanner…
 │   └── migrations/   # sqlx 迁移（启动时自动执行）
 ├── app/              # Vue 3 + TS 前端
 │   ├── src/          # 前端源码
@@ -92,12 +92,20 @@ npm run tauri dev
 
 | 端点 | 鉴权 | 说明 |
 |---|---|---|
-| `POST /api/v1/auth/login` | 无 | 登录，返回 `{token, user, tenant}` |
+| `POST /api/v1/auth/login` | 无 | 登录，返回 `{token, user, tenant}`（`user.role` 供前端判落地页/导航） |
 | `POST /api/v1/auth/logout` | ✅ | 登出当前会话 |
 | `GET /api/v1/auth/me` | ✅ | 当前用户 + 租户 |
 | `POST /api/v1/auth/change-password` | ✅ | 修改密码 |
+| `POST /api/v1/scanner-accounts` | **admin** | 开扫码账号（`{suffix, password}`，账号名 = 租户名 + 后缀） |
+| `DELETE /api/v1/scanner-accounts?suffix=` | **admin** | 销扫码账号（会话级联失效） |
 
 认证方式：`Authorization: Bearer <token>`。
+
+**角色与授权**：`role` 取 `admin` / `scanner`。授权在 **router 层**统一拦（`backend/src/core/guard.rs`），
+白名单之外一律要 `admin` —— 新增模块忘了归类是**被拦住**而不是被放行。
+`scanner` 只能调：`/auth/me`、`/auth/logout`、`/auth/change-password`、
+`GET /progress`、`GET /progress/more`、`POST /progress/update`、`POST /scan/labels`、`GET /procedures`。
+未登录 401、角色不够 403。详见 `docs/2026-08-21-auth-design.md`。
 
 ## 约定
 

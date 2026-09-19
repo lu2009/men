@@ -19,3 +19,8 @@ argon2 = "0.5"
 sha2 = "0.10"
 hex = "0.4"
 rand = "0.8"
+
+[dev-dependencies]
+# 测试里用 `ServiceExt::oneshot` 把请求打进组装好的 app，验证授权层真的挂在路由上
+# （不需要数据库：无令牌的请求在查库之前就被拦下）。
+tower = { version = "0.5", features = ["util"] }

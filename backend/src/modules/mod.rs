@@ -8,4 +8,5 @@ pub mod health;
 pub mod orders;
 pub mod progress;
 pub mod receipts;
+pub mod scanner;
 pub mod settings;

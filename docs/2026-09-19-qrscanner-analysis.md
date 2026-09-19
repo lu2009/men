@@ -813,7 +813,7 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 > | 扫码统计面板（3 KPI + 按工序统计 + 26 列详情 + 导出 CSV） | `components/ScanStatsPanel.vue` |
 > | 看板的**纯口径**（`ql`/`Ql`/`Jl`/`Ma`/`Tl`） | `utils/scanStats.ts` |
 > | 标签云打印的**数据构造**（旧版 `za` 的张数 + 11 个字段） | `utils/scanLabels.ts` |
-> | 「扫码账号管理」 | ⛔ **置灰**（§8.6-(d)：后端决定不做） |
+> | 「扫码账号管理」 | 后端已做（§8.6-(d)，2026-09-19 用户拍板由「置灰」改为做）；前端弹窗 ⏳ 未做 |
 > | 两块死代码面板（🔧 调试信息 / ⚙️ 高级设置） | 不做（§2.3–2.5，旧版永不可见） |
 >
 > 与本文 §8.3 的三条建议一致：不排 `工序10`、颜色落库不写 localStorage、value 用 slot。
@@ -908,8 +908,8 @@ app/src/views/Progress.vue:360         →  已消费 slots（filter(name.trim()
 | 4 | `getProcessCounts` | — | ❌ **不做**，评估见 (b) |
 | 5 | `updataProgress` | `POST /api/v1/progress/update` | ✅ 已有，**不另开接口**（§8.5） |
 | 6 | `getLabelData` | `POST /api/v1/scan/labels` body `{line_nos:[…]}` | ✅ 新增（**行级单号**，见 (c)） |
-| 7 | `AddScanner` | — | ❌ **不做**，见 (d) |
-| 8 | `DeleteScanner` | — | ❌ **不做**，见 (d) |
+| 7 | `AddScanner` | `POST /api/v1/scanner-accounts` | ✅ 新增（**仅 admin**，见 (d)） |
+| 8 | `DeleteScanner` | `DELETE /api/v1/scanner-accounts?suffix=` | ✅ 新增（**仅 admin**，见 (d)） |
 
 **(a) `getScanQRcode` 不做 —— 前端客户端过滤。**
 
@@ -997,18 +997,51 @@ prisma.order.findMany({ where: { databaseName, orderNo: { in: wanted } } })
 
 响应码：空入参 = **200 + 空列表**（与旧版一致，读接口的「空」不是调用方的错）。
 
-**(d) `AddScanner` / `DeleteScanner` 不做。**
+**(d) `AddScanner` / `DeleteScanner` —— 原决定「不做」，2026-09-19 由用户拍板改为「做」。**
 
-决定：不做。旧版这两个接口是**开账号**（`scanner.service.ts` 写 `prisma.user`，
-`isDefaultPw: 2` + `mutilUser: 1`），而新栈的账号体系目前只有
-`login` / `logout` / `me` / `change-password` —— **没有「建号」这条产品线**，
-`users` 表里除了播种的管理员没有第二种账号；`role` 也没有任何地方按它分支
-（旧版那套 `defaulted` 决定导航与落地页的机制我们没有）。
-只补两个后端端点、却没有配套的账号语义（建出来的号登录后是什么形态？谁能看到什么？），
-是半截功能 ⇒ **整条不做**，前端「扫码账号管理」按钮置灰。
+> **决策已翻转。** 下面是翻转前的理由（保留备查），以及翻转后怎么落地的。
 
-> 记一笔备查：`users` 表本身是够用的（`tenant_id` + argon2 哈希 + `role` 都在），
-> 真要做的话不需要新表；但**要连 `role`/落地页语义一起定**，那是产品决定，不是补个端点。
+原决定：不做。理由是新栈「没有建号这条产品线」，且只补两个端点而没有配套的账号语义
+（建出来的号登录后是什么形态、谁能看到什么）是半截功能。
+
+**翻转的两个前提，2026-09-19 都补上了**：
+
+1. **账号语义**：旧版靠 `userinfo.defaulted`（`User.isDefaultPw`）决定导航与落地页，
+   新版用 `role` 表达同一件事 —— `role='scanner'` ≈ 旧版 `defaulted=2`（扫码账号），
+   `role='admin'` ≈ 租户主账号。前端按 `role` 决定落地页与导航项显隐，登录响应里带得出 `role`
+   （`AuthResponse.user.role` / `GET /auth/me`），见 `docs/2026-09-19-progress-shell.md` §0 第 3 条。
+2. **权限漏洞**：加这一层之前**全后端没有一处按 `role` 拦权限** —— 一个扫码账号能调所有端点。
+   开户端点必须和「scanner 只能干什么」一起做，否则等于发出去一批全能账号。
+
+落地（后端）：`POST /api/v1/scanner-accounts`、`DELETE /api/v1/scanner-accounts?suffix=`，
+仅 `admin` 可调；账号名 = **服务端拼** `tenants.name + 后缀`（旧版是前端拼好完整名当 `param4`
+传上来的，`legacy-dispatch.ts:1075`）。`users` 表本身够用，**没有新表、没有新迁移**。
+授权层与白名单见 `docs/2026-08-21-auth-design.md`。
+
+**前端要的接口形状**（与 §5.3 旧版弹窗一一对应）：
+
+| 调用 | 请求 | 成功 | 失败 |
+|---|---|---|---|
+| 开户 | `POST /api/v1/scanner-accounts` body `{ suffix, password }` | 200 `{ data: { id, username, name, role:'scanner' } }` —— `username` 就是弹窗要显示/复制的**完整账号名**；密码不回显（前端自己手里有） | 400 后缀/密码不合规 · **409 账号已存在** · 403 非 admin |
+| 销户 | `DELETE /api/v1/scanner-accounts?suffix=` | 200 `{ data: { deleted: true } }` | 400 缺 suffix · 404 账号不存在 · 403 非 admin |
+
+- 前缀显示成 `<租户名>` + 输入框：租户名取登录响应/`GET /auth/me` 的 `tenant.name`
+  （旧版那个前缀是 `userinfo.registrant` = `User.companyName`，见 §5.3、§6.1）。
+- 密码策略沿用后端那条：**8–20 位，含大小写字母、数字、特殊字符**（旧版前端 `passwordStrength` 同口径）。
+- 成功后的「明文弹窗 + 复制到剪贴板」照旧版做（§5.3）。
+
+> 两处**有意不抄旧版**：
+> · 旧版 `changePassword` 顺手把 `isDefaultPw` 置 0（`auth.service.ts:260`）—— 那会让扫码账号
+>   改一次密码就把自己降级成普通 PC 账号，是新版的 bug 而不是特性，新版不动 `role`。
+> · 旧版 `deleteScanner` 按 `databaseName + username + mutilUser=1` 删，username 由调用方给；
+>   新版只收**后缀**，完整名由服务端拿当前租户名拼 ⇒ 调用方给不出别的租户的账号名。
+
+> **2026-09-19 补（后面那条「要连 `role`/落地页语义一起定」已经定了，本节的「不做」决定作废）：**
+> 账号语义落在 **`app/src/utils/roles.ts`** —— `role = 'scanner'` ⇔ 旧版 `defaulted = 2`；
+> 一张表同时管**导航显隐**与**路由拦截**，落地页 `landingRouteName()` 给扫码账号
+> `/qrscanner`、其余仍 `/`。映射清单见 `docs/2026-09-19-legacy-nav.md` 的「新版映射」一节。
+> 所以上面「`role` 也没有任何地方按它分支 / `defaulted` 的机制我们没有」**两头都不再成立**；
+> 「建号端点 + 前端账号管理弹窗」由**后端授权层**那一路接手，本节只保留为**决策历史**。
 
 ---
 

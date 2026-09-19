@@ -28,8 +28,16 @@ impl ApiError {
         Self::new(StatusCode::BAD_REQUEST, "bad_request", message)
     }
 
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::FORBIDDEN, "forbidden", message)
+    }
+
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::new(StatusCode::NOT_FOUND, "not_found", message)
+    }
+
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::new(StatusCode::CONFLICT, "conflict", message)
     }
 
     pub fn internal(message: impl Into<String>) -> Self {

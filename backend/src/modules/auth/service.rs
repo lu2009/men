@@ -141,7 +141,8 @@ fn generate_token() -> String {
     hex::encode(bytes)
 }
 
-fn hash_password(password: &str) -> ApiResult<String> {
+/// 密码哈希（argon2）。`pub(crate)` 是给扫码账号开户用的（`modules/scanner`）。
+pub(crate) fn hash_password(password: &str) -> ApiResult<String> {
     let salt = SaltString::generate(&mut ArgonOsRng);
     Argon2::default()
         .hash_password(password.as_bytes(), &salt)
@@ -158,7 +159,11 @@ fn verify_password(hash: &str, password: &str) -> ApiResult<()> {
 }
 
 /// 密码策略：8–20 位，含大小写字母、数字、特殊字符。
-fn validate_password_policy(password: &str) -> ApiResult<()> {
+///
+/// 与旧版前端开户时的 `passwordStrength` 同一套口径
+/// （`docs/2026-09-19-qrscanner-analysis.md` §5.3）。开户与改密共用一条，
+/// 免得「建号能建的密码，改密改不回去」。
+pub(crate) fn validate_password_policy(password: &str) -> ApiResult<()> {
     let chars: Vec<char> = password.chars().collect();
     let len_ok = (8..=20).contains(&chars.len());
     let has_upper = chars.iter().any(|c| c.is_ascii_uppercase());
