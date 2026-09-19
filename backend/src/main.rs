@@ -17,7 +17,8 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     let config = core::config::Config::from_env()?;
 
-    let pool = core::db::connect(&config.database_url).await?;
+    let pool = core::db::connect(&config.database_url, &config.db_timezone).await?;
+    tracing::info!("数据库会话时区 = {}", config.db_timezone);
 
     // 启动时自动执行 migrations/ 目录下的迁移，无需额外安装 sqlx-cli。
     sqlx::migrate!("./migrations").run(&pool).await?;

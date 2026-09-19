@@ -686,11 +686,10 @@ fn resolve_date_label(label: &str, today: &str, week_start: &str, month_start: &
 ///
 /// `EXTRACT(ISODOW …)` 与旧版 `getDay() || 7` 同口径：周一=1 … 周日=7。
 ///
-/// ⚠️ **时区**：`CURRENT_DATE` 取的是**库会话的时区**。开发库是 UTC，若生产的库也是 UTC
-/// 而厂里在东八区，那 `当天` 会在**本地 08:00** 才翻篇（00:00–08:00 之间查到的是昨天）。
-/// 这不是本接口引入的毛病 —— 全栈的时间基准都是 `CURRENT_DATE`（`order_date` 的默认值就是它），
-/// 所以修就一处修：把库/会话时区设成 `Asia/Shanghai`，两端一起对齐。
-/// 在这里自己 `now()` 减 8 小时反而会造出**第三个**时间基准。
+/// **时区**：`CURRENT_DATE` 取的是**库会话的时区**。本服务已把每条连接的会话时区
+/// 设成 `DB_TIMEZONE`（默认 `Asia/Shanghai`），见 `core/db.rs` —— 所以这里的
+/// `当天` 就是**北京的当天**，凌晨 00:00 翻篇。库本身的时区（可能是 UTC）**不再相关**。
+/// 在这里自己 `now()` 减 8 小时反而会造出**第三个**时间基准，不要那么干。
 async fn date_anchors(pool: &PgPool) -> ApiResult<(String, String, String)> {
     let row: (String, String, String) = sqlx::query_as(
         "SELECT to_char(CURRENT_DATE, 'YYYY-MM-DD'), \

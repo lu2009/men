@@ -97,6 +97,7 @@ mod tests {
                 admin_password: "Admin@12345".into(),
                 admin_tenant_name: "默认门窗厂".into(),
                 receipt_secret: "test".into(),
+                db_timezone: "Asia/Shanghai".into(),
             },
         }
     }

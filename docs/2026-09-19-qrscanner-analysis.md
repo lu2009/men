@@ -1143,6 +1143,8 @@ prisma.order.findMany({ where: { databaseName, orderNo: { in: wanted } } })
    读代码确认，未实测。
 7. ⚠️ **提交进度的日期用 `toISOString().split("T")[0]`（UTC）**。
    时区偏移导致「东八区晚间提交会写成次日」是**推理**，没在真实环境验证过时区。
+   （**旧版如此。新版已偏离**：`Qrscanner.vue` 的 `localDate()` 改用设备本地日期，
+   服务端侧的时间基准单有一份 —— 见 `docs/2026-09-19-db-timezone.md`。）
 8. ⚠️ **`Zt.autoplay` 的 `canplay` 5 秒超时**在慢设备上是否会误报，未实测。
 9. ⚠️ **「扫码账号管理」按钮对子账号不显示**（§6.3 的推论）—— 由 `dt` 的公式推得，未实测。
 10. ⚠️ **`GetProcedures` 返回的 `data` 若某槽是空串**：`yl[k] = ""` 仍会建键，所以弹窗**仍渲染该行**（空输入框）。

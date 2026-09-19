@@ -345,6 +345,9 @@ GET /1?param1=getMoreProgress&param2={ds}&param3={客户}&param4={地址}&param5
 1. **默认日期与快捷项按本地时区**（旧版两个默认值走 `toISOString()`⇒**UTC**，UTC+8 每天
    00:00–08:00 打开弹窗默认区间整体早一天）。理由与本仓库既有的 `Home.vue` `localToday()` 那段一致。
    快捷项文案照旧版：最近一周 / 最近一个月 / 最近三个月。
+   ⚠️ 这是**前端**那一半。**服务端**那一半（`date_anchors` 的「当天/本周/本月」）曾按库会话的
+   UTC 算、同样差一天，2026-09-19 已修 —— 两边现在都以北京时间为准，
+   见 `docs/2026-09-19-db-timezone.md`。
 2. **客户候选走 `GET /v1/clients`**，不照抄旧版那个 `getClientsInfo` —— 它返回 prisma 行（camelCase）
    而旧前端读四个中文键，全 `undefined`，紧接着 `l.name.toLowerCase()` **会直接抛** ⇒
    **那个口本来就是坏的**（§8.3 与服务端文档各自独立证过）。新映射 `{name, tel: phone, address, id: code}`。
