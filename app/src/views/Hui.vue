@@ -67,11 +67,13 @@
         </div>
         <div class="field">
           <span class="label">生产天数:</span>
-          <n-input-number v-model:value="order.production_days" :min="1" :show-button="true" style="width: 96px" />
+          <!-- 旧版 `H:13084`：`min:1, controls:!1`（**不显示上下箭头**），宽 `a(639)="60px"` -->
+          <n-input-number v-model:value="order.production_days" :min="1" :show-button="false" style="width: 60px" />
         </div>
         <div class="field">
           <span class="label">订金(元):</span>
-          <n-input-number v-model:value="order.deposit" :min="0" :show-button="true" style="width: 110px" />
+          <!-- 旧版 `H:13090`：`min:0, controls:!1`，宽 `a(1011)="70px !important"` -->
+          <n-input-number v-model:value="order.deposit" :min="0" :show-button="false" style="width: 70px" />
         </div>
         <div class="field">
           <span class="label">品牌:</span>
