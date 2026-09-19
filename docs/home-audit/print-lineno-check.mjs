@@ -136,7 +136,16 @@ try {
   createdIds.push(order.id)
   const full = await call(`/v1/orders/${order.id}`)
 
-  const prereqs = { formulas, clients, payQrcode: '', formulaImages: {} }
+  // ⚠️ 这是 `loadPrintPrereqs` **返回值的桩** —— 它的键必须与那个函数真实返回的一模一样，
+  //    否则 `buildOrderPrintContext` 读不到的字段会**静默变成 undefined**、或者像这次一样直接崩。
+  //
+  //    **2026-09-19 补 `totalBalances`**：`cc817ca2`（「总余额显示」）给 `loadPrintPrereqs` 的返回
+  //    加了 `totalBalances`（`useOrderPrint.ts:140`），本桩没跟上 ⇒ 本台子在
+  //    `buildOrderPrintContext` 里 `prereqs.totalBalances[...]` 直接 TypeError。
+  //    **这不是「为了让测试变绿而改夹具」**：桩的存在意义就是顶替那个函数的返回值，
+  //    真实返回值多了一个键，桩就该多一个 —— 不改的话测的根本不是真链路。
+  //    另外下面 ⑤ 段加了一条**形状守卫**，把「桩的键 vs 真实返回的键」钉住，防止再烂。
+  const prereqs = { formulas, clients, payQrcode: '', formulaImages: {}, totalBalances: {} }
   const who = { tenantName: login?.data?.tenant?.name || '', maker: login?.data?.user?.name || '' }
   const ctx = M.buildOrderPrintContext(full, prereqs, who)
 
@@ -251,6 +260,16 @@ try {
     const afterDefault = await call(`/v1/orders/${blank2.id}`)
     eq('④b 不传开关时仍然补号（打印面行为不变）',
       afterDefault.lines.every((l) => /^\d+-\d{2}\/\d{2}\/\d{2}$/.test(l.line_no)), true)
+
+    // ★ 形状守卫：**桩的键** 必须与 `loadPrintPrereqs` **真实返回**的键完全一致。
+    //   上面 :139 那个手写桩曾经因为真实返回值多了 `totalBalances` 而烂掉
+    //   （2026-09-19，`cc817ca2` 的连带）—— 这条就是防止同一个坑再踩一次。
+    {
+      const real = await M.loadPrintPrereqs([blank2], { autoLineNumbers: false })
+      const stubKeys = ['formulas', 'clients', 'payQrcode', 'formulaImages', 'totalBalances']
+      eq('★ 打印前置桩与 `loadPrintPrereqs` 真实返回的键一致',
+        stubKeys.slice().sort(), Object.keys(real).sort())
+    }
   }
 
   // ── ⑤ 源码静态守卫：不该再有行级位置喂 receipt_no ──

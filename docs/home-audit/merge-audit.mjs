@@ -1,56 +1,25 @@
-// 合并三份审计报告的判定行，出统计。
-//
-// 注意：报告里可能有多张表（正文示例表 / 子表 / 真正的判定表），
-// 所以只认「一行里有正好一个判定标记」的行，并在统计里报出被排除的行数——
-// 免得把示例行算进覆盖率。
-import { readFileSync } from 'node:fs'
-
-const FILES = [
-  ['01-table.md', '主表 / 筛选 / 排序 / 分页 / 展开行'],
-  ['02-actions.md', '行操作'],
-  ['03-shell.md', '工具条 / 财务 / 看板 / 通知 / 两态'],
-]
-
-const MARKS = ['✅ 已做', '⚠️ 偏离', '❌ 未做', '❓ 未确认']
-
-let total = { '✅ 已做': 0, '⚠️ 偏离': 0, '❌ 未做': 0, '❓ 未确认': 0 }
-const byFile = []
-
-for (const [f, label] of FILES) {
-  const s = readFileSync(`/Users/aaa/Desktop/door-main/docs/home-audit/${f}`, 'utf8')
-  const rows = s.split('\n').filter((l) => l.startsWith('| '))
-  const counted = { '✅ 已做': 0, '⚠️ 偏离': 0, '❌ 未做': 0, '❓ 未确认': 0 }
-  let skipped = 0
-  for (const r of rows) {
-    const hit = MARKS.filter((m) => r.includes(m))
-    if (hit.length !== 1) {
-      skipped++
-      continue
-    }
-    counted[hit[0]]++
-    total[hit[0]]++
-  }
-  byFile.push({ f, label, counted, skipped, rows: rows.length })
-}
-
-const sum = (o) => MARKS.reduce((a, m) => a + o[m], 0)
-
-console.log('| 维度 | 已做 | 偏离 | 未做 | 未确认 | 合计 | （未计入的表行） |')
-console.log('|---|---|---|---|---|---|---|')
-for (const x of byFile) {
-  console.log(
-    `| ${x.label} | ${x.counted['✅ 已做']} | ${x.counted['⚠️ 偏离']} | ${x.counted['❌ 未做']} | ${x.counted['❓ 未确认']} | ${sum(x.counted)} | ${x.skipped} |`,
-  )
-}
-console.log(
-  `| **合计** | **${total['✅ 已做']}** | **${total['⚠️ 偏离']}** | **${total['❌ 未做']}** | **${total['❓ 未确认']}** | **${sum(total)}** | |`,
+/*
+ * ⛔ **本脚本已作废（2026-09-19），不要再用。** 请用 `recount-status.mjs`。
+ *
+ * ── 为什么作废 ────────────────────────────────────────────────────────────
+ * 它和 `recount-status.mjs` 是**同一件事的两套口径**，而且两套给出**不同的数**：
+ *
+ *   · 本脚本：凡是「一行里正好含一个判定标记」的表行都数（`| … |` 一律算），
+ *     再报一个「未计入的表行」数 —— 那 19/14/47 行到底是什么，脚本没说。
+ *   · `recount-status.mjs`：只数**带 `判定` 列**的表行，口径写在文件头，可复查。
+ *
+ * 2026-09-19 实测：本脚本 258 条，`recount-status.mjs` 253 条，
+ * 而当时 `00-summary.md` 公布的是 **259** 条 —— **三个数互不相等**。
+ * 一个仓库里同时存在两个「覆盖率统计」，比没有统计更糟：谁都能挑一个对自己有利的数引。
+ * ⇒ 只保留口径写得清楚、且能 `--check` 校验 `00-summary.md` 的那个。
+ *
+ * 本文件保留成这个「指路牌」而不是直接删掉，是因为**别的文档可能引用过它的路径**
+ * （`grep -rn merge-audit docs/`），删了会变成死链。
+ *
+ * 用法：node docs/home-audit/recount-status.mjs [--check]
+ */
+console.error(
+  '⛔ `merge-audit.mjs` 已作废 —— 请用 `node docs/home-audit/recount-status.mjs`（口径见那个文件头）。\n' +
+    '   作废理由见本文件头：它和 recount-status 是两套口径、两个数，而 00-summary 公布的是第三个数。',
 )
-
-const n = sum(total)
-console.log()
-console.log(`完全一致：${((total['✅ 已做'] / n) * 100).toFixed(1)}%`)
-console.log(`做了但有差异：${((total['⚠️ 偏离'] / n) * 100).toFixed(1)}%`)
-console.log(`未做：${((total['❌ 未做'] / n) * 100).toFixed(1)}%`)
-console.log(`未确认：${((total['❓ 未确认'] / n) * 100).toFixed(1)}%`)
-console.log()
-console.log(`「已做 + 偏离」= ${(((total['✅ 已做'] + total['⚠️ 偏离']) / n) * 100).toFixed(1)}%（即「有实现」的比例）`)
+process.exit(1)

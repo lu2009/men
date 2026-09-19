@@ -20,7 +20,7 @@
 | A6 | 表格宽度 | `:11299-11300` `style:{width:"100%"}` | `Home.vue:64` `:scroll-x="1750"` | ⚠️ 偏离 | 旧版 100% 自适应；新版固定 1750 横向滚动。min-width 求和 ≈ 1710，尚算等价，但列宽策略不同。 |
 | A7 | 复选列 | `:11302-11303` `{type:"selection", width:"55", "reserve-selection":""}` | `Home.vue:1020` `{type:'selection'}` | ⚠️ 偏离 | 没给 width 也没开「翻页保留勾选」（naive 对应 `reserve-checked-row-keys` / `checked-row-keys` 受控）。新版是受控 `checked-row-keys`，翻页不丢勾选，行为**碰巧**接近，但列宽非 55。 |
 | A8 | 展开列 | `:11304-11305` `{type:"expand", width:"55", "class-name":"expand-column"}`；CSS `.expand-column .el-table__expand-icon--expanded{transform:rotate(90deg)}` | `Home.vue:1021` `{type:'expand', renderExpand}` | ⚠️ 偏离 | 缺 `width:55` 与 `expand-column` 类（图标旋转 90° 的样式）。 |
-| A9 | 行事件（hover 自定义 tooltip） | `:11300` `onCellMouseEnter:sa` / `onCellMouseLeave:da`；`sa`/`da`/`Va` = `:7973-7985`、Teleport 渲染 `ia` = `:11602-11605` | `Home.vue` `showRowTip()` / `hideRowTip()` + `<Teleport to="body">` | ✅ 已做（2026-09-18） | 「客户」「打单操作」两列 hover 弹自绘 tooltip：`✓/○&nbsp;段名` 逐行，`已付清`再追加一行；样式（`position:fixed` + `translateX(12px) translateY(calc(-100% - 8px))` + `#fff/1px solid #e4e7ed/4px/8px 12px/0 2px 12px rgba(0,0,0,.15)/13px/line-height:2/z-index:9999/pointer-events:none/min-width:120px`）逐字照抄。<br>⭐ **两处要看准**：① 旧版那个像是「跟着鼠标走」的 `Va`（`:7983`）**全文件零调用**，是死码 —— 位置只在进入单元格那一刻取一次，**不跟手**；② 内容为空（没有进度段且未付清）时**不弹**（旧版 `n && (…)`）。<br>★ **有意偏离**：旧版拼 HTML 串再 `innerHTML`，新版渲染 VNode —— 观感一致，且段名里含用户自填的自定义进度项，避开 `innerHTML`。<br>逐字对照见 `rowtip-logiccheck.mjs`（21 条全过）。 |
+| A9 | 行事件（hover 自定义 tooltip） | `:11300` `onCellMouseEnter:sa` / `onCellMouseLeave:da`；`sa`/`da`/`Va` = `:7973-7985`、Teleport 渲染 `ia` = `:11602-11605` | `Home.vue` `showRowTip()` / `hideRowTip()` + `<Teleport to="body">` | ⚠️ 偏离（2026-09-19 复核） | **已实现，但两处与旧版不同**：① 新版**跟鼠标走**（`Home.vue:2710-2716` 直写 `left/top` + `:2751` document 级 mousemove），旧版那个负责跟手的 `Va`（`Home.formatted.js:7983`）**零调用、是死码** ⇒ 旧版只在进入单元格那一刻取一次位置、**不跟手**；② 旧版拼 HTML 串再 `innerHTML`，新版渲染 VNode（避开用户自填段名，属改进）。内容与样式逐字对照见 `rowtip-logiccheck.mjs`（21 条全过）。 |
 | A10 | 4 个空注释占位列 | `:11464`（门数后 1 个 `createCommentVNode`）、`:11599`（末尾 3 个） | 无 | ✅ 已做 | 旧版这 4 处只渲染注释节点，**不产生列**，所以「没做」等于「做对」。**注意**：`docs/2026-09-17-home-analysis.md` §3 表把它写成「19–21 空注释占位」，位置说错了一个（真正的第 1 个在门数与总价之间）。 |
 
 ---
@@ -31,7 +31,7 @@
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| B1 | 工厂视图（`Yt`=true）完整列序 | `:11301-11599`：复选 / 展开 / 操作 / 财务(`Yt&&Ht`) / 单号集(`Yt`) / 客户(`Yt`) / 日期 / 门数 / (占位) / 总价 / 已付(`Yt`) / 未付 / 订单备注(`Yt`) / **安装地址(`Yt`)** / **打单操作(`Yt`)** / 业务员(`Yt`) / 打单人(`Yt`) | `Home.vue:1019-1117` | ⚠️ 偏离 | **列序错位**：旧版工厂视图里「安装地址」「打单操作」排在**订单备注之后**（第 14/15 列，见 `:11524-11525`、`:11532-11533`）；第 7/8 位那两个是 `!Yt`（终端）专用（`:11437-11438`、`:11445-11446`，工厂下被 `createCommentVNode` 掉）。新版只做工厂视图，却把这两列放到了第 7/8 位。用户能直接看出列序不同。 |
+| B1 | 工厂视图（`Yt`=true）完整列序 | `:11301-11599`：复选 / 展开 / 操作 / 财务(`Yt&&Ht`) / 单号集(`Yt`) / 客户(`Yt`) / 日期 / 门数 / (占位) / 总价 / 已付(`Yt`) / 未付 / 订单备注(`Yt`) / **安装地址(`Yt`)** / **打单操作(`Yt`)** / 业务员(`Yt`) / 打单人(`Yt`) | `Home.vue:1019-1117` | ✅ 已做（2026-09-19 复核） | 列序**已按旧版工厂分支改正**：订单备注 → 安装地址 → 打单操作 → 业务员 → 打单人（`Home.vue:3204/3213/3222/3264/3273`）。原说明的「放在第 7/8 位」已不成立。 |
 | B2 | 终端视图（`Yt`=false）专用列 | `:11437-11446`（`!Yt`：安装地址、打单操作）；`:11297-11298` 注释 `:8187` | — | ✅ 已做 | 新版明确只做工厂视图（`Home.vue:929` 注释「Phase 1 = 工厂视图 Yt」），终端分支未做是**有意**的；该分支在旧版也靠 `Yt` 开关互斥，不算漏列。 |
 | B3 | 「财务」独立列 | `:11351-11360`：`Yt&&Ht` 时新增 `{label:"财务", width:"56", align:"center"}`，内含 `type:"success" circle` 的 `¥` 按钮（`title:"财务管理"`）→ 开 FinanceDrawer | `Home.vue:1033`（挪进「操作」列的 `财务` 小按钮） | ⚠️ 偏离 | 入口在、动作对（`openFinance` → FinanceDrawer），但**形态完全不同**：旧版是独立 56px 居中列里的绿色圆形 `¥`；新版是操作列里的文字按钮。 |
 
@@ -57,10 +57,10 @@
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| B12 | 列定义 | `:11400` `{key:2,label:"客户",prop:"客户","min-width":100,filters:ta("客户"),"filter-method":ga,"filter-placement":"bottom-start"}` | `Home.vue:1053-1059` | ⚠️ 偏离 | 列本身在、minWidth 100 对；**`filters` 整套没做**（详见 C11）。 |
+| B12 | 列定义 | `:11400` `{key:2,label:"客户",prop:"客户","min-width":100,filters:ta("客户"),"filter-method":ga,"filter-placement":"bottom-start"}` | `Home.vue:1053-1059` | ✅ 已做（2026-09-19 复核） | 列头筛选整块已补（`Home.vue:3056-3058` 的 `filterOptions`/`filter`/`filterOptionValues`），旧版 `filters:ta("客户")` 已对上。**口径差异见 C16**（全量筛选 vs 旧版只筛当前页）。 |
 | B13 | 已付清绿标 `.paid-customer` | `:11402-11404` `class:{"paid-customer":Vo(row)}`；CSS `.paid-customer{background-color:#90ee90!important;padding:4px 8px;border-radius:4px;color:#000;font-weight:700}` | `Home.vue` 客户列 `render`（`unpaidOf(row)===0` → `clickable-cell paid-customer`） | ✅ 已做（2026-09-18） | `Vo(e)` = `Number(so(e))===0`（`:7664`，即未收为 0）。样式逐字取自 `legacy/css/Home-97d96482.css`。 |
 | B14 | 单元格点击 → 改客户名 | `:11298` `onCellClick:en`，`:8067-8069` `en` → `property==="客户"` → `Qa(e)` 开「修改客户名称」弹窗 | `Home.vue:1058` `onClick: () => openRename(row)` + `Home.vue:88-108` | ✅ 已做 | 行为一致（弹窗标题、原客户 disabled、提交走更新接口）。差异：旧版「修改为」是 `el-autocomplete`（`finance_updateOrderCustomer`），新版是普通 `n-input` + `updateOrderHead`（`Home.vue:463`），见 §4.4 那条；弹窗形态本身对得上。 |
-| B15 | 单元格 `title` 提示 | `:11405` `title:"点击修改客户名称"` | 无 | ⚠️ 偏离 | 少了原生 tooltip。 |
+| B15 | 单元格 `title` 提示 | `:11405` `title:"点击修改客户名称"` | 无 | ✅ 已做（2026-09-19 复核） | 原生 tooltip 已补：`Home.vue:3071` `title: "点击修改客户名称"`。 |
 
 ### B-5 「日期」列
 
@@ -69,33 +69,33 @@
 | B16 | 列定义 | `:11410` `{label:"日期",prop:"日期","min-width":90,filters:ta("日期"),"filter-method":ga,sortable:true,"sort-orders":[s(890),s(1263),null]}` = `["descending","ascending",null]` | `Home.vue:1061-1067` `{title:'日期', minWidth:90, sortable:true}` | ✅ 已做 | 唯一可排序列一致（见 D 段）。 |
 | B17 | 是否可排序 | 同上 | 同上 | ✅ 已做 | 全表仅日期列 `sortable` ✅（`:11464` 总价列无 sortable）。 |
 | B18 | 排序方向循环 | `:11410` `"sort-orders":["descending","ascending",null]` | 未声明（Naive 默认 `['ascend','descend',false]`） | ⚠️ 偏离 | 旧版显式声明**以降序开场**，新版用默认**升序开场**，第一次点击的排序方向相反。依据是两份源码里声明的 `sort-orders` 数组本身（两框架都把数组第 0 项当作首次点击的方向）。 |
-| B19 | 未审核标记（`date-audit`） | `:11221` `Ls(e)`：`bs(e)`（`:11148-11151` = `打单操作` 空 **且** `单号集` 空）→ 返回 `"date-audit"`；CSS `.date-audit{background:#ffb6c1!important;color:#721c24;padding:4px 8px;border-radius:4px;font-weight:700}` | `Home.vue:401`（`rowProps` 加 `date-audit`）、`Home.vue:1283-1285` | ⚠️ 偏离 | **判定口径完全一致** ✅，但**呈现层级不同**：旧版是套在**日期单元格内的那个 div** 上的小色块（有 padding/圆角/深红字），新版是整行 `td` 铺 `#ffb6c1`。视觉差别明显。 |
-| B20 | 临近截止标记（`date-warning`） | `:11221-11227` `Ls`：非未审核 && `so(e)!==0` && 有 `截止日期` && `Math.floor((new Date(截止日期)-now)/864e5) < 4` → `"date-warning"`；CSS `.date-warning{background:#fff3cd;color:#856404;...}` | `Home.vue:388-397` `isDueSoon`、`Home.vue:402`、`Home.vue:1286-1288` | ⚠️ 偏离 | 三处差异：①旧版是**无下界**的 `< 4`，**已逾期**（负数）同样命中；新版 `diff >= 0 && diff <= 4` 把逾期行排除了。②旧版要求 `未收 != 0`（已付清不加），新版不看付款状态。③同 B19 的层级差异（cell 小色块 vs 整行）。 |
-| B21 | 单元格点击的**前置校验** | `:11416-11422`：`打单操作.trim()` 非空 → `ElMessage.warning("已生产的单不能修改生产日期")`，否则才开「修改下单日期」弹窗 | `Home.vue:1066` `onClick: () => openDate(row)`（无校验） | ⚠️ 偏离 | 新版点日期**无条件**开弹窗，旧版对已生产的单会拦下并提示。属行为差异。 |
-| B22 | 「审核确认」按钮 | `:11423-11438`：`bs(row)`（未审核）时在日期格内追加一颗 `el-button`「 审核确认 」，点击 → 设今天为下单日期 + `updataProgress`(工序10,「确认下单」) → 「更新成功」 | 无 | ❌ 未做 | 新版日期列没有这颗按钮，也没有对应的审核动作。 |
+| B19 | 未审核标记（`date-audit`） | `:11221` `Ls(e)`：`bs(e)`（`:11148-11151` = `打单操作` 空 **且** `单号集` 空）→ 返回 `"date-audit"`；CSS `.date-audit{background:#ffb6c1!important;color:#721c24;padding:4px 8px;border-radius:4px;font-weight:700}` | `Home.vue:401`（`rowProps` 加 `date-audit`）、`Home.vue:1283-1285` | ✅ 已做（2026-09-19 复核） | 标记的口径与**层级**都已对齐：`dateCellClass()`（`Home.vue:999-1007`）+ 类挂在**日期单元格内层 div**（`:3096`），CSS 在 `:3526-3532`。原说明的「整行 td 铺色」已不成立。 |
+| B20 | 临近截止标记（`date-warning`） | `:11221-11227` `Ls`：非未审核 && `so(e)!==0` && 有 `截止日期` && `Math.floor((new Date(截止日期)-now)/864e5) < 4` → `"date-warning"`；CSS `.date-warning{background:#fff3cd;color:#856404;...}` | `Home.vue:388-397` `isDueSoon`、`Home.vue:402`、`Home.vue:1286-1288` | ✅ 已做（2026-09-19 复核） | 三处差异全修：无下界（**逾期也命中**）✓、要求 `未收 !== 0` ✓、单元格级 ✓（`Home.vue:1002-1006`）。 |
+| B21 | 单元格点击的**前置校验** | `:11416-11422`：`打单操作.trim()` 非空 → `ElMessage.warning("已生产的单不能修改生产日期")`，否则才开「修改下单日期」弹窗 | `Home.vue:1066` `onClick: () => openDate(row)`（无校验） | ✅ 已做（2026-09-19 复核） | 前置校验已补：`openDate()`（`Home.vue:1087-1094`）在 `production_status` 非空时 warning 并 return，文案逐字对。⚠️ **但判据字段与旧版不同** —— 旧版判的是 **`单号集`**（`Home.formatted.js:11412-11419`，`dr(1362)`），我们判 `production_status`，见 `02-actions.md` 的 F3。 |
+| B22 | 「审核确认」按钮 | `:11423-11438`：`bs(row)`（未审核）时在日期格内追加一颗 `el-button`「 审核确认 」，点击 → 设今天为下单日期 + `updataProgress`(工序10,「确认下单」) → 「更新成功」 | 无 | ✅ 已做（2026-09-19 复核） | 已实现：未审核时日期格追加「审核确认」按钮（`Home.vue:3102-3115`）→ `confirmAudit()`（`:1128-1145`）= 日期改成今天 + 追加「确认下单」+ 文案「更新成功」，与旧版 `:11423-11438` 的两个动作一致。 |
 | B23 | `date-danger` | 分析文档 §12 称已定义未引用 | 无 | ✅ 已做 | 复核：`legacy/css/Home-97d96464.css` 里确有 `.date-danger` 样式，但 `Ls` 只返回 `date-audit`/`date-warning`，全组件无第二处引用 → **死样式**，新版不做是对的。 |
 
 ### B-6 「安装地址」列
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| B24 | 列定义 | `:11438`（`!Yt`）/ `:11525`（`Yt`）两处 `{label:"安装地址",prop:"安装地址",filters:ta("安装地址"),...,"min-width":220}` | `Home.vue:1068-1073` `{title:'安装地址', minWidth:220}` | ⚠️ 偏离 | minWidth 220 对；`filters` 未做（C11）；工厂视图下的**列位置**错位（B1）。 |
+| B24 | 列定义 | `:11438`（`!Yt`）/ `:11525`（`Yt`）两处 `{label:"安装地址",prop:"安装地址",filters:ta("安装地址"),...,"min-width":220}` | `Home.vue:1068-1073` `{title:'安装地址', minWidth:220}` | ✅ 已做（2026-09-19 复核） | `minWidth 220` 在、列位置已按旧版工厂分支改正（见 B1）、`filters` 已补（见 C16）。 |
 | B25 | 单元格形态 | `:11440-11444` / `:11527-11531`：**常驻** `el-input type="textarea" autosize{1,3}` `class="input-style"`，`onFocus` 才置 `za=row` 进编辑态 | `Home.vue` `renderEditable()` | ✅ 已做（2026-09-18） | 改成**常驻输入框**：非编辑态显示行值、`onFocus` 进编辑态，`autosize{minRows:1,maxRows:3}`、`class="input-style"` 都照抄。CSS 也补了（旧版 §11.2 的 `border:none` + hover `#f5f7fa` + focus `#ecf5ff`/`0 0 0 2px #409eff33`）。 |
 
 ### B-7 「打单操作」列
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| B26 | 列定义 | `:11446`（`!Yt`）/ `:11533`（`Yt`）：`{label:"打单操作",prop:"打单操作",filters:ta("打单操作"),...,"min-width":150}` | `Home.vue:1074-1080` | ⚠️ 偏离 | minWidth 150 对；`filters` 未做（C11）；工厂视图下**列位置**错位（B1）。 |
+| B26 | 列定义 | `:11446`（`!Yt`）/ `:11533`（`Yt`）：`{label:"打单操作",prop:"打单操作",filters:ta("打单操作"),...,"min-width":150}` | `Home.vue:1074-1080` | ✅ 已做（2026-09-19 复核） | `minWidth 150` + `filterOptions` / 列头 popover / 格子 `onClick` 都在（`Home.vue:3222-3241`），列位置已改正（见 B1）。 |
 | B27 | 列头 popover 触发器 | `:11534-11546`：表头 = 文字「打单操作」+ `text` 按钮「 生产进度 」+ 当前值 `(值)` | `Home.vue` 打单操作列 `title` | ✅ 已做（2026-09-18） | 结构齐了（列头文字 + `生产进度` 按钮 + `(当前值)` + 列表 + 分隔线）。 |
 | B28 | 进度色条的**分段** | `:7964-7970` `ua(e)`：5 固定段 + 自定义段；`:7690-7696` `na=[{确认下单,#389e0d,flex:1},{生产单,#d48806,flex:2},{玻璃订单,#096dd9,flex:2},{标签,#c41d7f,flex:2},{收据单,#237804,flex:2}]`；未完成底色 `#e0e0e0`（`:11579`）；每段 `minWidth:"4px"` | `Home.vue:239-245`（常量）、`Home.vue:940-952` `renderProgress` | ✅ 已做 | 5 段的 label / 色 / flex 比例 / 未完成底色 `#e0e0e0` 全对；只有 `minWidth:4px` 没写（旧版有、`Home.vue:948` 无），影响极小。 |
 | B28b | 进度色条的**外观盒模型** | `:7446-7449`（`Au`）/ `:7490-7493`（`ju`）：条容器 `display:flex; height:12px; border-radius:6px; overflow:hidden; gap:1px; margin-bottom:4px` | `Home.vue:1212-1220` `.progress-bar{height:16px;border-radius:3px}`（分段间无 gap，无 margin-bottom）；`.progress-cell{padding:2px;border-radius:3px}` | ⚠️ 偏离 | 高度 12px→16px、圆角 6px→3px、段间 `gap:1px` 没做、条下方 `margin-bottom:4px` 没做。观感是「细胶囊状、段间留白」vs「粗方块」。 |
-| B29 | 「确认下单」段的完成判定 | `:7967` `done: "确认下单"===label ? l.length>0 : l.includes(label)`（`l = String(打单操作\|\|"")`） | `Home.vue:948` `status.includes(step.label)` | ⚠️ 偏离 | 旧版「确认下单」段只要 `打单操作` **非空**就算完成（不等于必须含「确认下单」四字）；新版要求字符串里真的含「确认下单」。例：`打单操作 = "生产单 玻璃订单"` → 旧版首段亮，新版首段灰。 |
-| B30 | 自定义进度段 | `:7968-7969` `ua` 追加 `Ea.value`（localStorage `home_manual_progress_actions`）里不在固定表里的项，`flex = 3/个数`，色 `#531dab`（`:7968` `t(1012)`） | 无 | ❌ 未做 | 新版 `PROGRESS_STEPS` 写死 5 段，自定义段（含其 flex 分配算法 3/N）完全没有。 |
+| B29 | 「确认下单」段的完成判定 | `:7967` `done: "确认下单"===label ? l.length>0 : l.includes(label)`（`l = String(打单操作\|\|"")`） | `Home.vue:948` `status.includes(step.label)` | ✅ 已做（2026-09-19 复核） | 已与旧版逐字同式：`done: step.label === "确认下单" ? status.length > 0 : status.includes(step.label)`（`Home.vue:2587`）。原说明的「要求含『确认下单』四字」已不成立。 |
+| B30 | 自定义进度段 | `:7968-7969` `ua` 追加 `Ea.value`（localStorage `home_manual_progress_actions`）里不在固定表里的项，`flex = 3/个数`，色 `#531dab`（`:7968` `t(1012)`） | 无 | ✅ 已做（2026-09-19 复核） | 自定义进度段已实现：`progressSegments()` 追加自定义段（`Home.vue:2578-2595`），flex = 3/N、色 `#531dab`，来源 `customProgressOptions`（`:2352-2354`，localStorage 键 `home_manual_progress_actions`）。 |
 | B31 | 单元格底色（`la`） | `:7940-7942` `la(e)`：含「收据单」→`#90EE90`、含「标签」→`#FFC0CB`、含「玻璃订单」→`#87CEEB`、含「生产单」→`#FFFF99`、含「自助下单」→`#FFA500`（**按此优先级短路**）。**调用点只有 2 处**：`:11589`（业务员列）与 `:11597`（打单人列） | `Home.vue:931-938` `statusBg` → 用在**打单操作**格子 `Home.vue:1079` | ✅ 已做（2026-09-18，**结论两次更正**） | ⚠️ **先更正既有文档**：`docs/2026-09-17-home-analysis.md` §3 写「「打单操作」单元格底色（`la`）」—— **错的**，打单操作格子（`:11571-11582`）只有 `style:{cursor:"pointer"}`。<br>⭐ **再更正本条审计自己**：原文说 `la()` 在业务员/打单人「**非管理员分支**」被调用 —— **不是管理员，是 `qt`**。`qt = (userinfo.registrant === userinfo.name)`（`:8147`），即「**正在看的这份数据是不是自己租户的**」，是旧版**代看别的租户**时的只读闸门。`la()` 的两个调用点（`:11589`/`:11597`）都长成 `qt ? <el-input> : <div style={la(值)}>`，**带底色的是 `!qt` 那一支**。<br>新版没有租户切换 ⇒ **`qt ≡ true`** ⇒ 那五个底色**在本系统里根本到不了**。<br>⇒ 处置：业务员/打单人改成**常驻输入框**（`qt` 真分支），那套 `la()` 底色**整体删掉**（不是漏做，是不可达）。<br>（先前 `a70ac477` 把底色挂到了这两列的「非编辑态显示」上 —— 函数挂对了，但挂在一个进不去的分支上。）<br>逐字对照见 `editable-cell-logiccheck.mjs`（15 条全过：`la(` 恰好两处调用且都在 `qt` 假分支、`qt` 的算法、两列无 `qt` 门控、`nn` 的语义）。 |
-| B32 | 单元格文字（前段 + 末段） | `:11582`（`Yt`）/ `:11454`（`!Yt`）：进度条后跟 `<span>[{oa(打单操作)}][{aa(打单操作)}]</span>`；`oa`(`:7943-7947`) = 去掉最后一段后**加回一个 `_`**，样式 `{font-weight:400}`（`:7494-7497` `qu`）；`aa`(`:7948-7952`) = 最后一段，样式 `{color:#d9001b; font-weight:700}`（`:7498-7501` `Ju` / `:7454-7457` `Pu`） | 无 | ❌ 未做 | 新版打单操作格子里**只有进度条，没有任何文字**。旧版条下方还有一行「`前段_`」+「**深红加粗的末段**」。 |
-| B33 | 单元格「✓已付」徽标 | `:11582`（`Yt`）/ `:11456`（`!Yt`）：`Vo(row)` 时追加 `<span>✓已付</span>`，样式 `{margin-left:4px; color:#52c41a; font-size:10px; font-weight:700; vertical-align:middle}`（`:7502-7505` `_u` / `:7458-7461` `Iu`） | 无 | ❌ 未做 | 同 B13 的「已付清」语义，旧版两处都有标记（客户列绿块 + 打单操作格 `✓已付`），新版两处都没有；连徽标的字号/色/字重都一并缺。 |
-| B34 | 单元格点击 → 手动更新进度弹窗 | `:11298` `onCellClick:en`，`:8067-8069` → `property==="打单操作"` → `Ha(row)` 开弹窗（回执单号 disabled + 操作名称 autocomplete + 日期 + 记录日期） | 无 | ❌ 未做 | 新版打单操作格子没有点击行为（`Home.vue:1078-1079` 无 onClick）。 |
+| B32 | 单元格文字（前段 + 末段） | `:11582`（`Yt`）/ `:11454`（`!Yt`）：进度条后跟 `<span>[{oa(打单操作)}][{aa(打单操作)}]</span>`；`oa`(`:7943-7947`) = 去掉最后一段后**加回一个 `_`**，样式 `{font-weight:400}`（`:7494-7497` `qu`）；`aa`(`:7948-7952`) = 最后一段，样式 `{color:#d9001b; font-weight:700}`（`:7498-7501` `Ju` / `:7454-7457` `Pu`） | 无 | ✅ 已做（2026-09-19 复核） | 前缀 `fontWeight:400` / 末段 `#d9001b + 700` 都在（`Home.vue:2639-2644`），口径函数 `:2605-2617`，与旧版 `qu`/`Ju` 逐字对上。 |
+| B33 | 单元格「✓已付」徽标 | `:11582`（`Yt`）/ `:11456`（`!Yt`）：`Vo(row)` 时追加 `<span>✓已付</span>`，样式 `{margin-left:4px; color:#52c41a; font-size:10px; font-weight:700; vertical-align:middle}`（`:7502-7505` `_u` / `:7458-7461` `Iu`） | 无 | ✅ 已做（2026-09-19 复核） | `unpaidOf(row) === 0` 时渲染「✓已付」徽标（`Home.vue:2646-2660`），样式与旧版 `_u` 逐字一致（`margin-left:4px` / `#52c41a` / `10px` / `700` / `verticalAlign:middle`）。文案是「✓已付」而非「✓已付清」（见 `00-summary.md` 的更正）。 |
+| B34 | 单元格点击 → 手动更新进度弹窗 | `:11298` `onCellClick:en`，`:8067-8069` → `property==="打单操作"` → `Ha(row)` 开弹窗（回执单号 disabled + 操作名称 autocomplete + 日期 + 记录日期） | 无 | ✅ 已做（2026-09-19 复核） | 打单操作格子可点：`onClick`（带 stopPropagation）→ `openManualProgress(row)`（`Home.vue:3255-3258`），弹窗在 `:230-280` / `:2448` 起。 |
 
 ### B-8 「门数」「总价」「已付」「未付」
 
@@ -129,7 +129,7 @@
 | C2 | 匹配字段集 | `:11178`：`客户 / 定金 / 总价 / 安装地址 / 订单备注 / 打单操作 / 业务员 / 日期 / 回执单号`，全部 `toString().toLowerCase().includes(关键词)`，**OR 连接** | `Home.vue:318-333` `matchSearch` | ✅ 已做 | 9 个字段逐条一致，`includes` + OR 一致。 |
 | C3 | 防抖 | `:11207-11209`（`home.txt:3414`）`watch(Rc) → clearTimeout + setTimeout(150ms) → Fc` | `Home.vue:39` 直接 `v-model:value="searchText"`，无防抖 | ⚠️ 偏离 | 旧版输入与过滤值之间隔 150ms 防抖（且**汇总条读的是未防抖的 `Rc`**）；新版实时过滤。功能等价、性能特征不同。 |
 | C4 | 搜索时汇总信息条 | `:11251`（`home.txt:3684`）`Rc` 非空时显示：`当前筛选: {Rc} ({ps.length} 条结果) \| 时间: {earliest} 至 {latest} \| 门数: {ls} \| 总价: {os.toFixed(0)} \| 已付: {as.toFixed(0)}\| 未付: {ns.toFixed(0)} \| 未付单数: {us} \| 未审核: {rs}` | `Home.vue:46-52` | ⚠️ 偏离 | **少了「已付」一项**（旧版 `as` = 已付合计）。其余字段齐全，且都用了 `toFixed(0)` 一致。 |
-| C5 | **无搜索时**的常驻信息条 | `:11251` 同行的 `else if(_l.length>0)` 分支：`总计: {ps.length} 条记录 \| 时间: ... \| 门数: ... \| 总价: ... \| 已付: ... \| 未付: ... \| 未付单数: ... \| 未审核: ...` | 无 | ❌ 未做 | 旧版**不搜索时**也有一条常驻汇总条（`总计: N 条记录 ...`）。新版只在有搜索词时显示。 |
+| C5 | **无搜索时**的常驻信息条 | `:11251` 同行的 `else if(_l.length>0)` 分支：`总计: {ps.length} 条记录 \| 时间: ... \| 门数: ... \| 总价: ... \| 已付: ... \| 未付: ... \| 未付单数: ... \| 未审核: ...` | 无 | ✅ 已做（2026-09-19 复核） | 「无搜索词且有数据」那一支已补：`v-else-if="rawOrders.length > 0"`（`Home.vue:90-96`），字段集与旧版一致（含「总计: N 条记录」、「已付」等）。 |
 
 ### C-2 「未付」列头 popover（付款状态）
 
@@ -146,7 +146,7 @@
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
 | C11 | 固定 4 项 + 语义 | `:7673` `Bo=[已打生产单,未打生产单,已订玻璃,未订玻璃]`；`:7682-7687` `Ao`：`已打生产单→includes("生产单")`、`未打→!includes`、`已订玻璃→includes("玻璃订单")`、`未订→!includes` | `Home.vue:237`、`Home.vue:301-308` `progressMatch` | ✅ 已做 | 逐条一致（含「字段为空则恒 true」的早退，`:7684` ↔ `Home.vue:303` 空串时 `!''.includes('生产单')`→true）。 |
-| C12 | 自定义项（localStorage） | `:7689-7697` `La = Ea 中不在 Bo 里的项`，`Ea` 读 localStorage key `home_manual_progress_actions`（`:8013`）；`:11558-11573` 渲染为可点项，选中色 `#409eff` | 无 | ❌ 未做 | 新版 popover 只有 4 个固定项。自定义项的**持久化键**在旧版是 `home_manual_progress_actions`（`Home.formatted.js:7568` 附近的 `wr` 常量），新版没有对应物。 |
+| C12 | 自定义项（localStorage） | `:7689-7697` `La = Ea 中不在 Bo 里的项`，`Ea` 读 localStorage key `home_manual_progress_actions`（`:8013`）；`:11558-11573` 渲染为可点项，选中色 `#409eff` | 无 | ✅ 已做（2026-09-19 复核） | 手动更新进度的自定义操作名已实现：`MANUAL_ACTION_OPTIONS` / 键 `home_manual_progress_actions`（`Home.vue:516-517`，读写在 `:2330-2354`），并拼进列头 popover（`:3228`）。 |
 | C13 | 选项顺序 | `:11547-11573`：4 固定项 → 分隔线(`:11574`, `La.length` 时) → 自定义项 → 「显示全部」(`:11575-11581`) | `Home.vue` `PROGRESS_OPTIONS` + `headerFilter({dividerBefore})` | ✅ 已做（2026-09-18） | 四段顺序都对，「显示全部」在最后；分隔线也补了（`NDivider`，`margin:4px 0`），且是**条件式**——只在有自定义项时插（旧版 `v-if="La.length"`）。 |
 | C14 | 触发器显示当前值 | `:11549-11553` reference：按钮「 生产进度 」+`(值)` | `Home.vue` `headerFilter()` | ✅ 已做（2026-09-18） | 见 C8——注意这列的值是**蓝色加粗**的（`Ou`），与「未付」列不同。 |
 | C15 | 「显示全部」的清理语义 | `:7680-7681` `Po`：`Mo=""`、关 popover、`Kl=1` | `Home.vue:347` `progressFilter==='显示全部'` 时不过滤 + `Home.vue:381` 重置页码 | ✅ 已做 | 行为等价（新版是「选中『显示全部』这一项」，旧版是「点『显示全部』按钮清空」）。 |
@@ -155,13 +155,13 @@
 
 | # | 项 | 旧版依据（行号） | 新版落点（文件:行） | 判定 | 说明 |
 |---|---|---|---|---|---|
-| C16 | 列头原生 `filters`（文本列） | `:7933-7939` `ta(prop)` = 从 **`_l` 全量**取 distinct 值 → `[{text:v,value:v}]`；挂载于 客户(`:11400`)、日期(`:11410`)、安装地址(`:11438/11525`)、打单操作(`:11446/11533`)、门数(`:11460`)、总价(`:11464`)、订单备注(`:11516`)、业务员(`:11583`)、打单人(`:11591`) 共 9 处 | 无 | ❌ 未做 | 新版**一个列头 filter 都没有**（`n-data-table` 的 `filterOptions`/`filter` 完全没用）。 |
-| C17 | 列头 filter 的匹配函数（文本） | `:7996-8002` `ga(e,t,l)`：`打单操作` 列的 `__EMPTY__` 特殊处理（值空或空白串 → 命中）；其余 `t[l.property]===e` 严格相等 | 无 | ❌ 未做 | 随 C16 缺。`__EMPTY__` 这个哨兵值（`:7705` `ta` 里 `unshift({text:"未生产", value:"__EMPTY__"})`）新版也没有。 |
-| C18 | 列头 filter（金额列） | 已付：`:7986-7991` `ma` = distinct `co(row)`（已付额），`:8003` `ya=(e,t)=>co(t)===e`；未付：`:7992-7995` `wa` = distinct `so(row)`，`:8003` `fa=(e,t)=>so(t)===e` | 无 | ❌ 未做 | 已付/未付两列的 filter 选项是**金额数字**，不是「已付/未付」标签。新版全无。 |
-| C19 | filter 下拉位置 | 客户/日期/已付/未付 等用 `"filter-placement":"bottom-start"`（`s(911)`），安装地址/打单操作 用 `"bottom-start"`，与 location 无关 | — | ✅ 已做 | 无落点也算「不适用」——这条只在有 filter 时才有意义，随 C16 一起缺。 |
+| C16 | 列头原生 `filters`（文本列） | `:7933-7939` `ta(prop)` = 从 **`_l` 全量**取 distinct 值 → `[{text:v,value:v}]`；挂载于 客户(`:11400`)、日期(`:11410`)、安装地址(`:11438/11525`)、打单操作(`:11446/11533`)、门数(`:11460`)、总价(`:11464`)、订单备注(`:11516`)、业务员(`:11583`)、打单人(`:11591`) 共 9 处 | 无 | ⚠️ 偏离（2026-09-19 复核） | 机制已补（9 个文本列都有 `filterOptions` / `filter` / `filterOptionValues`），但**口径有意不同**：旧版交给 el-table 在**分页之后**筛（只筛当前页、总数不含它），新版并进 `filtered` 链（全量筛选、总数跟随）—— 用户 2026-09-18 拍板，见 `Home.vue:796-808`。⚠️ **连带缺陷**：列头筛选**不重置页码**（`:949` 的 watch 不含 `columnFilterState`），停在第 3 页时改一个只命中 3 行的筛选会得到空表。 |
+| C17 | 列头 filter 的匹配函数（文本） | `:7996-8002` `ga(e,t,l)`：`打单操作` 列的 `__EMPTY__` 特殊处理（值空或空白串 → 命中）；其余 `t[l.property]===e` 严格相等 | 无 | ✅ 已做（2026-09-19 复核） | `textColumnFilter()` 已实现（`Home.vue:784-790`：打单操作 + `__EMPTY__` 走「空/纯空白命中」，其余严格相等，同旧版 `ga`）；哨兵 `__EMPTY__`（`:739-740`）与「未生产」unshift 到最前（`:844-848`，旧版 `:7937-7939`）都在。 |
+| C18 | 列头 filter（金额列） | 已付：`:7986-7991` `ma` = distinct `co(row)`（已付额），`:8003` `ya=(e,t)=>co(t)===e`；未付：`:7992-7995` `wa` = distinct `so(row)`，`:8003` `fa=(e,t)=>so(t)===e` | 无 | ✅ 已做（2026-09-19 复核） | 已付/未付两列的 filter 判定 = `paidOf`/`unpaidOf` 与选项值**严格相等**（`Home.vue:793-794`），选项是 distinct 金额数字（`:850-851`）。 |
+| C19 | filter 下拉位置 | 客户/日期/已付/未付 等用 `"filter-placement":"bottom-start"`（`s(911)`），安装地址/打单操作 用 `"bottom-start"`，与 location 无关 | — | ❓ 未确认（2026-09-19 复核） | **机制差异确凿、观感未验**：naive 的列头筛选浮层写死 `placement:"bottom"`（`naive-ui/es/data-table/src/HeaderButton/FilterButton.mjs:106`），`Home.vue` 没传 `filterIconPopoverProps`；旧版各列统一 `bottom-start`。「`bottom`（居中）与 `bottom-start`（左对齐）在窄列上肉眼是否看得出来」**本项目无浏览器驱动、没验过** ⇒ 标 ❓。一行可修：加 `:filter-icon-popover-props="{ placement: 'bottom-start' }"`。 |
 | C20 | 「显示全部 / 未生产」切换 | `:3708-3711`（`home.txt`）按钮，`$l` 切换；`:3589-3591`/`:3599-3601` 过滤条件 = `打单操作` **空**（`!o \|\| (typeof o==="string" && o.trim()==="")`） | `Home.vue:7-13`（按钮）、`Home.vue:341-343` | ✅ 已做 | 过滤语义一致；按钮文案切换、选中态换色一致（旧版 `custom-unproduced-active-btn` 红底，新版 `type="error"`）。 |
-| C21 | 「查询更多」弹窗 | `:12132-12176`（`home.txt:4565-4606`）：`el-dialog`「查询订单」500px，字段 = 客户(autocomplete, 仅 `Yt`)、安装地址(仅 `rl`)、起始日期、结束日期(带快捷项 今天/昨天/一周前)、只含生产单；确认 → `getMoreTableDate(param3=客户, param4=地址, param5=开始, param6=结束)` 拉另一批并入 `_l` | 无 | ❌ 未做 | 这是旧版**唯一**的日期范围筛选入口，新版完全没有（也没有对应后端接口）。 |
-| C22 | 「查询更多」的结果预览表 | `:12132` 之前，`home.txt:4518-4541`：`{key:0,label:"客户"}` / `{key:1,label:"安装地址"}` / `{label:"起始日期"}` … 的结果表格（列：回执单号 / 客户 / 日期） | 无 | ❌ 未做 | 同 C21。 |
+| C21 | 「查询更多」弹窗 | `:12132-12176`（`home.txt:4565-4606`）：`el-dialog`「查询订单」500px，字段 = 客户(autocomplete, 仅 `Yt`)、安装地址(仅 `rl`)、起始日期、结束日期(带快捷项 今天/昨天/一周前)、只含生产单；确认 → `getMoreTableDate(param3=客户, param4=地址, param5=开始, param6=结束)` 拉另一批并入 `_l` | 无 | ✅ 已做（2026-09-19 复核） | 「查询更多」已实现：`Home.vue:295-353` 的「查询订单」500px 弹窗（客户 autocomplete / 安装地址 / 起止日期各带快捷项 / 只含生产单）+ `openQuery()`（`:1287-1300`）+ `submitQuery()`（`:1303-1374`：并入主表、非管理员过滤、回显搜索框）。 |
+| C22 | 「查询更多」的结果预览表 | `:12132` 之前，`home.txt:4518-4541`：`{key:0,label:"客户"}` / `{key:1,label:"安装地址"}` / `{label:"起始日期"}` … 的结果表格（列：回执单号 / 客户 / 日期） | 无 | ✅ 已做（2026-09-19 复核） | **原判定是误读**：旧版「查询」弹窗（`Home.formatted.js:12116-12124`，`width:"500px"`）里**没有**结果预览表，`{key:0,label:"客户"}` / `{key:1,…安装地址}` 是 `el-form-item` 的 `v-if` 分支 key。旧版不存在此物 ⇒ 按本文对死码/终端列的既有口径（A10 / B2）属「不做等于做对」。 |
 
 ---
 
@@ -187,7 +187,7 @@
 | E4 | 分页方式 | `:11606-11608` `:current-page` / `:page-size` / `:page-sizes` / `:total="zs"` / `onSizeChange:Bs` / `onCurrentChange:xs` | `Home.vue:77-84` `n-pagination` + `Home.vue:376-379` `paged` | ✅ 已做 | 都是**客户端切片**（旧版 `Cs = ps.slice((Kl-1)*Zl, Kl*Zl)`，`home.txt:3613-3615`）。后端 `listOrders` 一次拉全量、无分页参数 ✅ 一致。 |
 | E5 | total 来源 | `:11183` `zs = computed(() => ps.length)`（**过滤后**长度） | `Home.vue:80` `:item-count="filtered.length"` | ✅ 已做 | 一致。 |
 | E6 | 切换筛选时回第 1 页 | `watch(Fc)` → `Kl=1`（`:11207-11209`）；`Lo`/`bo`/`ko`/`Po` 内均 `Kl=1`；`Bs`（改页大小）末尾 `Kl=1` | `Home.vue` `watch([...])` + `onPageSizeChange()` | ✅ 已做（2026-09-18 补齐） | ⚠️ **本条先前是假 ✅**：那条 `watch` 里只有四个筛选条件，**没有 `pageSize`**，而旧版 `Bs` 末尾是**无条件 `Kl=1`**。naive 只在「当前页超出新页数」时才动 page，且是**夹到最后一页**（`Pagination.mjs` 的 `doUpdatePageSize`），不是回第 1 页 ⇒ 「第 3 页 → 换成 200/条」会停在原页码。现已显式置 1。 |
-| E7 | 翻页/改页大小后的「全选模式」重选 + 滚动复位 | `:11184-11199` `xs` / `:11196-11206` `Bs`：`Wl`（跨页全选模式，`:7627` `Wl=Vue.ref(!1)`）为真时，`nextTick` 里 `clearSelection()` 后把 `ps` 中所有行 `toggleRowSelection(row,true)`；随后 `document.querySelector(".table-container").scrollTop = 0` | 无 | ❌ 未做 | 新版既没有「跨页全选」模式，翻页后也不复位滚动条。这是**分页 × 选择**的交互，旧版是实打实实现的（工具栏那颗全选 checkbox 在 `:7695` 附近）。 |
+| E7 | 翻页/改页大小后的「全选模式」重选 + 滚动复位 | `:11184-11199` `xs` / `:11196-11206` `Bs`：`Wl`（跨页全选模式，`:7627` `Wl=Vue.ref(!1)`）为真时，`nextTick` 里 `clearSelection()` 后把 `ps` 中所有行 `toggleRowSelection(row,true)`；随后 `document.querySelector(".table-container").scrollTop = 0` | 无 | ❓ 未确认（2026-09-19 复核） | 跨页全选（`Home.vue:1591-1606`）与翻页复位滚动条（`:912-918`）**都读了代码、确定在**；**没实测**的是「受控 `checked-row-keys` 翻页后不丢勾选」（采信 `:1575-1589` 的注释 + naive TreeMate 的说明）⇒ 该前提若不成立则应是 ⚠️/❌，故标 ❓ 而不是 ✅。 |
 
 ---
 
@@ -197,12 +197,12 @@
 |---|---|---|---|---|---|
 | F1 | 展开列定义 | `:11304-11305` `{type:"expand", width:"55", "class-name":"expand-column"}` | `Home.vue:1021` `{type:'expand', renderExpand}` | ⚠️ 偏离 | 见 A8（缺 width 与类名）。 |
 | F2 | 展开时**懒加载** | `:11298` `onExpandChange:Jo`；`:7769-7800`（`home.txt:202-233`）：展开时 `fetch("...param1=detail&param2={ds}&param3={回执单号}")`，成功才 `_o.add(回执单号)` 并灌 `wo`(ping_hui)/`mo`(diao_hui) | `Home.vue:852-869` `onExpandedKeys` → `loadDetail(id)` → `api.getOrder(id)` | ✅ 已做 | 懒加载 + 只在展开时拉明细，一致。 |
-| F3 | 展开内容 = 平开/移门两张子表 | `:11306-11317`（`home.txt:3740-3750`）：渲染 Hui 的平开门组件 `l`(`_`) 与移门组件 `o`，props = `add-price-items` / `showCheckbox:true` / `oderColumn` / `disable-editing` / `highlight-order-query` / `v-model:showPingkai` / `v-model:showDiao` + `onRefresh` / `onUnselect` / `onCalculateSingleRow` | `Home.vue:896-926`：两个只读 `n-data-table` | ⚠️ 偏离 | **复用策略不同**（且是大差异）：旧版直接把 Hui 的**可编辑明细表**整只挂进来（能加价、能勾选、能改行、能算单行）；新版是自绘的**只读** 13 列小表。功能上少了：加价项目、勾选、行内编辑、单行计算、刷新回写。 |
-| F4 | 子表列集 | 由 Hui 组件决定（列集见 `Hui.formatted.js`，本次未展开核） | `Home.vue:879-893`：型材/颜色/开向/扇数/五金/面玻/底玻/门洞宽/门洞高/数量/单价/金额/备注 | ⚠️ 偏离 | 新版列集明显是**自选子集**（旧版 Hui 表列更多：含 玻璃厚/墙厚/亮窗总高/洞尺/吊脚/轨道长/轨道种类/套线种类/套线单价/边封数/亮窗数量/平方数/打折/计价方式 等，见分析文档 §7.2）。 |
-| F5 | 平开/移门切换 | `:11308` `v-model:showPingkai`（`uo(row,"ping")`）、`:11313` `v-model:showDiao`（`uo(row,"diao")`）+ `v-show` | 无 | ❌ 未做 | 旧版两张子表用 `v-show` 互斥/切换显示（`no[回执单号] = {ping,diao}`，`:7625-7629`）；新版是「有就渲染两张、都展示」。 |
+| F3 | 展开内容 = 平开/移门两张子表 | `:11306-11317`（`home.txt:3740-3750`）：渲染 Hui 的平开门组件 `l`(`_`) 与移门组件 `o`，props = `add-price-items` / `showCheckbox:true` / `oderColumn` / `disable-editing` / `highlight-order-query` / `v-model:showPingkai` / `v-model:showDiao` + `onRefresh` / `onUnselect` / `onCalculateSingleRow` | `Home.vue:896-926`：两个只读 `n-data-table` | ✅ 已做（2026-09-19 复核） | 展开行**已改挂** `components/DetailLinesTable.vue`（`Home.vue:465` import、`:2141-2163`）—— 与 Hui 用的是**同一个组件**，而旧版本就是复用 Hui 的明细表 ⇒ 复用策略已对齐。原说明的「自绘只读 13 列小表」已不成立。 |
+| F4 | 子表列集 | 由 Hui 组件决定（列集见 `Hui.formatted.js`，本次未展开核） | `Home.vue:879-893`：型材/颜色/开向/扇数/五金/面玻/底玻/门洞宽/门洞高/数量/单价/金额/备注 | ✅ 已做（2026-09-19 复核） | 列集由 `DetailLinesTable` 决定（= Hui 的列集），不再是 Home 自选的 13 列。 |
+| F5 | 平开/移门切换 | `:11308` `v-model:showPingkai`（`uo(row,"ping")`）、`:11313` `v-model:showDiao`（`uo(row,"diao")`）+ `v-show` | 无 | ⚠️ 偏离（2026-09-19 复核） | 两表显隐**已做**（`tableShown` / `shownOf`，`Home.vue:1949-1953`、`:2166-2167`，初值都 `true` = 旧版 `no`/`uo`），且旧版本就是两个**各自独立**的 `v-show`（`Home.formatted.js:11306-11317`）⇒ 原说明的「旧版互斥」「新版两张都渲染」两句都不成立。**残余偏离**只剩「空表不渲染」（旧版两张都渲、可能渲出空表）。 |
 | F6 | 展开行底色 `loaded-row` / `expanded-row` | `:7842-7849` `Qo`：已加载 → `loaded-row`、已展开 → `expanded-row`；CSS `.loaded-row{background-color:#dbdbd8!important}`、`.loaded-row.expanded-row{background-color:#e2e2e0!important}`、`.expanded-row{background-color:#fff!important}` | `Home.vue` `rowClass()` + `:row-class-name` | ✅ 已做（2026-09-18） | ⚠️ 实现见 `Home.vue` `<style>` 里那段：Naive 的 `td` **不透明**（自带 `background-color`），照抄挂 `tr` 会**完全看不见**，改挂 `td` 并还原层叠。`loaded` 集合只在 detail **成功**时写入（`:7792`）。 |
-| F7 | 展开时清掉该行在明细子表里的选中 | `:7771-7775`（`Jo` 内 `t.unselectAll()` / `l.unselectAll()`）、`:7775` `jo.add` | 无 | ✅ 已做 | 不适用：新版没有可选的明细子表（随 F3 一起缺），这条本身无从偏离。 |
-| F8 | 展开态与「导入中」互斥 | `:7777-7782` `An.value=true`（`An` = 导入中标志） | 无 | ❓ 未确认 | 新版没有「导入」这个动作（属打印/导入维度），我读不出旧版这条在什么时机真正生效，不判定。 |
+| F7 | 展开时清掉该行在明细子表里的选中 | `:7771-7775`（`Jo` 内 `t.unselectAll()` / `l.unselectAll()`）、`:7775` `jo.add` | 无 | ❌ 未做（2026-09-19 复核） | **前提已变**：F3 补回 Hui 子表后已经有勾选框（`DetailLinesTable.vue:440-442`），而旧版那条「收起时清子表勾选」的动作（`Home.formatted.js:7771-7775`）我们**没有** —— 全文件无 `unselectAll`，`onExpandedKeys()`（`Home.vue:1981-1987`）只 `loadDetail`。⚠️ 旧版那段在 `if(!expandedRows.find(row))` 分支里，**时机是「收起」**（原说明写「展开时」不准）。 |
+| F8 | 展开态与「导入中」互斥 | `:7777-7782` `An.value=true`（`An` = 导入中标志） | 无 | ✅ 已做（2026-09-19 复核） | **旧版那个 `An` 是死变量**：`Home.formatted.js:8215` 声明，`:7785/7812/7814/7817/7820/7825` 只被赋值，render 区零读取（`6534`/`6746` 的同名是另一个 chunk 的字符串常量）⇒「展开态与导入中互斥」在旧版不产生任何可见效果，不做等于做对。原说明的「是导入中标志」不成立。 |
 
 ---
 
@@ -214,8 +214,8 @@
 | G2 | `.paid-row`（未付清） | `:7843` `0===so(e) && l.push("paid-row")` | 无 | ✅ 已做 | 复核：`legacy/css/` 全目录 `grep -rl paid-row` **无命中** → 旧版只加类、没有任何 CSS，是**死样式**。新版不做不算漏（`Home.vue:386-387` 注释说的「.paid-row 无清晰口径」措辞不准确 —— 口径是清楚的 `未收==0`，只是**没有样式**）。 |
 | G3 | `.duplicate-order-row`（重复订单） | `:7827-7831` `Zo` = `客户+"__"+门数+"__"+总价`；`Xo`(`:7830-7841`) = 在**当前过滤结果 `ps`** 中出现 >1 次的键集合；`Qo` 据此加类。CSS `tr.duplicate-order-row>td{background:#ffe4ec!important}` / `:hover>td{background:#ffd6e4!important}`（活样式） | `Home.vue` `dupKey()` / `duplicateKeys` / `rowClass()` | ✅ 已做（2026-09-18） | 三个字段**各自 trim 后都非空**才成键（空串 falsy ⇒ 不参与）；数值 `0` 是 `"0"`（真值）⇒ **仍参与**。⭐ `paid-row` 不实现：`grep -r paid-row legacy/` **零 CSS 命中**，旧版加了类却不产生任何效果，是死码。 |
 | G4 | `.paid-customer`（客户列已付清绿块） | `:11402-11404` + CSS（活样式） | `Home.vue` 客户列 `render` | ✅ 已做（2026-09-18） | 见 B13。同一格还一并补了 `title="点击修改客户名称"`（`dr(1490)`，见 02-actions D1）。 |
-| G5 | `.date-audit` | `:11221` + CSS（活样式，**cell 级**） | `Home.vue:401`、`1283-1285`（**行级**） | ⚠️ 偏离 | 见 B19。 |
-| G6 | `.date-warning` | `:11221-11227` + CSS（活样式，**cell 级**） | `Home.vue:402`、`1286-1288`（**行级**） | ⚠️ 偏离 | 见 B20。 |
+| G5 | `.date-audit` | `:11221` + CSS（活样式，**cell 级**） | `Home.vue:401`、`1283-1285`（**行级**） | ✅ 已做（2026-09-19 复核） | 见 B19（本行是它的样式子表行，判定与说明随 B19 同步）。 |
+| G6 | `.date-warning` | `:11221-11227` + CSS（活样式，**cell 级**） | `Home.vue:402`、`1286-1288`（**行级**） | ✅ 已做（2026-09-19 复核） | 见 B20（同上）。 |
 | G7 | `.loaded-row` / `.expanded-row` 底色 | `:7846` + CSS | `Home.vue` `rowClass()` + `<style>` | ✅ 已做（2026-09-18） | 见 F6。 |
 | G8 | `.date-danger` | CSS 有、`Ls` 未引用 | 无 | ✅ 已做 | 死样式，不做正确。 |
 
@@ -244,23 +244,37 @@
 
 ## 汇总
 
-- ✅ 已做：**39** 条
-- ⚠️ 偏离：**42** 条
-- ❌ 未做：**23** 条
-- ❓ 未确认：**1** 条
+- ✅ 已做：**80** 条
+- ⚠️ 偏离：**22** 条
+- ❌ 未做：**2** 条
+- ❓ 未确认：**3** 条
 
-**最该先修的（用户一眼能看出来）** —— 括号里是 2026-09-18 的补做情况：
+（合计 **107** 条。⚠️ **2026-09-19 逐条复核过一轮，31 条判定有改动** ——
+复核方式、改了什么、以及另外两份文件的情况见 `docs/home-audit/00-summary.md`。
+本表数字由 `node docs/home-audit/recount-status.mjs` 重算得出，别再手抄。）
 
-1. ~~**B31 打单操作格底色用错了列**~~ —— ✅ 已修（`a70ac477`）。旧版这格没底色；有底色的是业务员/打单人。
-2. **B32/B33 打单操作格子只有色条** —— 旧版条下面还有一行「`前段_`」+「**深红加粗的末段**」和绿色 `✓已付` 徽标，现在整格信息量只剩一半。（`✓已付` 徽标已补，进度条文字段仍缺）
-3. ~~**B13/G4 已付清标记全无**~~ —— ✅ 已补（`39c1db54`）。客户列绿块 `.paid-customer`（含 `title="点击修改客户名称"`）。
-4. ~~**B1 列序**~~ —— ✅ 已修（`a70ac477`）。工厂视图下「安装地址 / 打单操作」已移到订单备注之后。
-5. ~~**G3 重复订单底色**~~ —— ✅ 已补（`39c1db54`）。口径写死在 `Zo`/`Xo` 里，CSS 是活样式；原注释「口径不清」与源码不符，注释一并改正。
-   ⭐ 同批还补齐了 **F6/G7 `loaded-row`/`expanded-row`**；**`paid-row` 经实测判定为死码**（旧版加类但全库无对应 CSS 规则），有意不做。
-6. **C16–C18 列头原生筛选整块缺失**（9 个文本列 + 已付/未付两个金额列）与 **C21「查询更多」弹窗**（唯一的日期范围筛选）。
-7. **B19/B20 `date-audit`/`date-warning` 做成了整行**（旧版是日期格里的一个小色块），且 **`date-warning` 把「已逾期」的行排除掉了**（旧版恰恰包含）。
-8. **E3 分页条**：少了「共 N 条」，多了「跳至第 N 页」。
-9. **B4/B5 操作列**：旧版非编辑态宽 1px（几乎不可见），新版 140px 常驻「财务 / 电子回执单」两颗按钮。
+**还剩下的 ❌ 只有 2 条：**
+
+1. **A5 `highlight-current-row`** —— Naive 无等价物，未做（视觉影响小）。
+2. **F7 收起展开行时不清子表勾选** —— F3 补回 Hui 子表之后已经有勾选框了，
+   而旧版那条「收起时清子表勾选」（`Home.formatted.js:7771-7775`）我们**没有**。
+
+**❓ 3 条**：C19（列头筛选浮层 naive 写死 `bottom`、旧版是 `bottom-start` —— 机制差异确凿，
+但「肉眼看得出吗」没验）、E7（跨页全选与翻页复位滚动条都在，**「翻页保留勾选」没实测**）、H2。
+
+### 原「最该先修的（用户一眼能看出来）」—— 逐条销账
+
+1. ~~B31 打单操作格底色用错了列~~ → ✅ 已修（`a70ac477`）。
+2. ~~B32/B33 打单操作格只有色条~~ → ✅ 已补（前后缀切分 + `✓已付` 徽标都齐了）。
+3. ~~B13/G4 已付清标记全族~~ → ✅ 已补（`39c1db54`）。
+4. ~~B1 列序~~ → ✅ 已修（`a70ac477`）。
+5. ~~G3 重复订单底色~~ → ✅ 已补（`39c1db54`）。
+6. ~~C16–C18 列头筛选整块缺失 + C21「查询更多」缺失~~ → ✅ 已补（**C16 保留一条口径差异**：
+   新版是全量筛选，旧版只筛当前页；另发现「列头筛选不重置页码」这个连带缺陷）。
+7. ~~B19/B20 做成了整行、且 `date-warning` 把逾期排除了~~ → ✅ 已修（回到单元格级、且含逾期）。
+8. ~~E3 分页条少了「共 N 条」~~ → ✅ 已补（见 F12）。
+9. **B4/B5 操作列** —— **仍成立**：旧版非编辑态宽 1px（几乎不可见），新版 140px 常驻
+   「财务 / 电子回执单」两颗按钮。
 
 ---
 
