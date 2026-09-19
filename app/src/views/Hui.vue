@@ -2,21 +2,31 @@
   <div class="page">
     <!-- 命令行（仿旧版：清空 / 添加门类 / 保存回执单 / 3D画图 · 更多▾ 收高级入口） -->
     <div class="top-bar">
+      <!--
+        ⚠️ 本排按钮**不写 `size`** —— 这是照旧版的，不是漏写。
+
+        旧版工具栏每一颗都是 `size:"default"`（`H:745331` / `H:745573` / `H:745986` / `H:746380` …
+        全是 token `a(272)` = `"default"`）。naive-ui **没有 `"default"` 这个档**
+        （只有 `tiny|small|medium|large`，默认就是 `medium`）⇒ 等价物是**不传 `size`**，
+        而不是写一个 naive 不认的值。所以这里显式省略，别好心补 `size="small"`。
+        （2026-09-19 之前本排写的是 `small`，比旧版小一号；见
+        `docs/2026-09-19-hui-shell-audit.md` §2。）
+      -->
       <div class="toolbar-row">
-        <n-button size="small" @click="clearOrder">1.清空</n-button>
-        <n-button size="small" type="error" @click="addTypeOpen = true">2.添加门类</n-button>
-        <n-button size="small" type="warning" :loading="saving" @click="saveOrder">3.保存回执单</n-button>
+        <n-button @click="clearOrder">1.清空</n-button>
+        <n-button type="error" @click="addTypeOpen = true">2.添加门类</n-button>
+        <n-button type="warning" :loading="saving" @click="saveOrder">3.保存回执单</n-button>
         <n-tooltip>
           <template #trigger>
-            <n-button size="small" disabled>3D画图</n-button>
+            <n-button disabled>3D画图</n-button>
           </template>
           3D 画图（本期后置，另行排期）
         </n-tooltip>
-        <n-button size="small" @click="refreshPage">刷新</n-button>
+        <n-button @click="refreshPage">刷新</n-button>
         <!-- 旧版工具栏第二行是「刷新 · 视频」两颗（`H:12864-12870`，**都是裸字面量**）。
              我们先前把「视频」换成了自建的「更多功能 ▾」—— 那颗是偏离（见
              `docs/2026-09-19-hui-shell-audit.md` §5.1），但**「视频」本身是旧版有的，不该缺**。 -->
-        <n-button size="small" @click="videoDrawer = true">视频</n-button>
+        <n-button @click="videoDrawer = true">视频</n-button>
         <span class="grow-spacer" />
         <!--
           「总余额显示」—— 旧版 `H:13298-13312`（下拉）+ `H:400056`（初始化 / onChange）。
@@ -39,10 +49,8 @@
                ⇒ 两侧文字自己画，样式照 `legacy/css/element-plus-6bd3a0dc.css` 的
                `.el-switch__label`（`font-size:14px; font-weight:500`、左右各 `10px`
                外边距、`.is-active` 时 `color: var(--el-color-primary)`）。
-            ③ `size`：旧版这颗是 `size:"default"`（`H:746380` 一带），我们这排按钮
-               **整排是 `size="small"`**（旧版每颗都是 `default`，`H:745331`… —— 那是
-               我们先前就有的、**比旧版小一号**的偏离，见 `docs/2026-09-19-hui-shell-audit.md` §2 末尾）。
-               这一颗随本排的 `small`，免得一排里只它胖一圈；**那笔偏离留着没动**。
+            ③ `size`：旧版这颗是 `size:"default"`（`H:746380` 一带）。naive 没有 `"default"` 档
+               ⇒ 与整排一样**不写 `size`**（= `medium` = naive 的默认），理由见本排开头的注释。
 
           口径（开关怎么存、余额怎么取、**为什么分享页不显示它**）见
           `app/src/utils/totalBalance.ts` 的文件头 —— 那一格「总余额」旧版只在**打印出来的
@@ -50,7 +58,7 @@
         -->
         <n-popover trigger="click" placement="top" :width="200" :show-arrow="false">
           <template #trigger>
-            <n-button size="small" :type="showTotalBalance ? 'warning' : 'default'">
+            <n-button :type="showTotalBalance ? 'warning' : 'default'">
               总余额显示<span v-if="showTotalBalance" class="total-balance-check">✓</span>
             </n-button>
           </template>
@@ -66,7 +74,7 @@
           :options="moreMenuOptions"
           @select="onMoreSelect"
         >
-          <n-button size="small">更多功能 ▾</n-button>
+          <n-button>更多功能 ▾</n-button>
         </n-dropdown>
       </div>
 
