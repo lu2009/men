@@ -109,9 +109,12 @@
             @update:value="onOrderDate"
           />
         </div>
+        <!-- 订单头这一格旧版只有「编号:」（`H:13102`，`a(674)` = "编号:"）。
+             ⚠️ 2026-09-19 **去掉了自加的「截止 xx」**：旧版页面上**没有**这个显示
+             （它只把算出来的日期塞进打印载荷 `customerInfo.截止日期`，见 §6）。
+             截止日期在 **Home 列表**里是有的（那边旧版确实显示），Hui 页头没有。 -->
         <div class="field readonly-meta">
           <span class="label">编号:</span><b>{{ order.receipt_no || '（未生成）' }}</b>
-          <span v-if="dueDate" class="due">截止 {{ dueDate }}</span>
         </div>
       </div>
     </div>
@@ -1342,13 +1345,6 @@ const totalPrice = computed(() =>
 const doorCount = computed(() =>
   lines.value.reduce((s, l) => s + (l.quantity || 0), 0),
 )
-const dueDate = computed(() => {
-  const d = new Date(`${order.order_date || today()}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return ''
-  d.setDate(d.getDate() + (order.production_days || 0) + 1)
-  return fmtDate(d)
-})
-
 // 顶栏日期（n-date-picker 用时间戳，order.order_date 保持 'YYYY-MM-DD'）
 function strToTs(s: string): number {
   const d = new Date(`${s || today()}T00:00:00`)
@@ -2414,11 +2410,6 @@ onMounted(async () => {
 }
 .readonly-meta {
   white-space: nowrap;
-}
-.readonly-meta .due {
-  color: #999;
-  font-size: 12px;
-  margin-left: 8px;
 }
 .addr-readonly {
   color: #666;

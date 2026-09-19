@@ -10,10 +10,16 @@ use super::model::{
     OrderSummaryDto,
 };
 
-/// 订单头 SELECT 列（与 OrderHeaderRow 一一对应）。截止日期由「下单日期 + 生产天数 + 1」推导。
+/// 订单头 SELECT 列（与 OrderHeaderRow 一一对应）。截止日期由「下单日期 + 生产天数」推导。
+///
+/// ⚠️ 2026-09-19 **去掉了一个 `+ 1`**：旧版（`Hui.formatted.js:8843`，就在「保存回执单」里）
+/// 算的是 `new Date(日期.getTime() + 24 * 生产天数 * 60 * 60 * 1e3)` —— **日期 + 生产天数，没有 +1**，
+/// 算完塞进打印载荷 `customerInfo["截止日期"]`，旧服务端 `order.service.ts:465` 直接拿它当
+/// `deliveryDate` 落库。我们先前写 `+ 1` 是照 `docs/2026-08-23-hui-analysis.md` 那张
+/// **没有代码出处**的表抄的（`docs/home-audit/00-summary.md` 还拿它当提论证过一次，是循环论证）。
 const HEADER_COLUMNS: &str = "id, receipt_no, client_code, client_name, phone, brand, \
      to_char(order_date, 'YYYY-MM-DD') AS order_date, production_days, \
-     to_char(order_date + production_days + 1, 'YYYY-MM-DD') AS due_date, \
+     to_char(order_date + production_days, 'YYYY-MM-DD') AS due_date, \
      total_price, deposit, remark, salesperson, order_no_set, install_address, \
      production_status, creator_name, lock_direction, door_count, \
      to_char(created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at, \

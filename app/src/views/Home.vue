@@ -1117,7 +1117,9 @@ function localToday(): string {
  * ② `Hl("确认下单", [回执单号])` = `updataProgress`，把「确认下单」追加进进度串。
  *
  * ⚠️ 新版**不需要**手动重算截止日期 —— `due_date` 由 SQL 推导
- * （`orders/service.rs` 的 `HEADER_COLUMNS`：`order_date + production_days + 1`），改日期自动跟随。
+ * （`orders/service.rs` 的 `HEADER_COLUMNS`：`order_date + production_days`），改日期自动跟随。
+ * （旧版重算那一步算的是 `今天 + ceil((旧截止−旧日期)/天)`，而旧版 `截止 = 日期 + 生产天数`
+ *  ⇒ 等价于「今天 + 生产天数」，与我们这条推导一致。2026-09-19 修掉了我们多算的那一天。）
  *
  * 进度串的追加沿用 `submitManualProgress` 那条既有通路（`headWithStatus` + `updateOrderHead`），
  * 不另开后端接口 —— 与「手动更新进度」写的是同一个字段。

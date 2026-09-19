@@ -281,9 +281,12 @@ export function buildReceiptPicture(lines: Line[]): ReceiptPictureLine[] {
  * 回执表头。
  *
  * 与原版 `gs` 的两处**有意差异**（都已核实，不是漏抄）：
- * ① `productionDays`：原版用 `Math.ceil((截止日期 − 日期)/天)` 现算，但新版后端的 `due_date`
- *    本身就是 `order_date + 生产天数 + 1` 推出来的，照抄公式会**恒比真实生产天数大 1**
- *    —— 故直接取库里的 `production_days`（该字段的真正来源）。
+ * ① `productionDays`：原版用 `Math.ceil((截止日期 − 日期)/天)` 现算，新版直接取库里的
+ *    `production_days`（该字段的真正来源）—— 两者**本来就等价**：旧版 `截止 = 日期 + 生产天数`
+ *    （`Hui.formatted.js:8843`），所以那个 `ceil` 除下来正好等于生产天数。
+ *    ⚠️ 2026-09-19 更正：这里原来写着「新版 `due_date` 是 `+ 1` 推出来的，照抄公式会恒比真实值大 1」
+ *    —— 那是因为我们自己的 `due_date` 多算了一天（已修）。**取 `production_days` 这个做法不变**，
+ *    变的只是理由。
  * ② `total` / `门数`：原版是前端遍历 `ping_hui`/`diao_hui` 现加；新版订单头早已落库
  *    `total_price`/`door_count`（同一口径：Σ金额 / Σ数量），直接取，避免两处口径漂移。
  */
