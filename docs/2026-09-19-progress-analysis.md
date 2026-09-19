@@ -577,6 +577,35 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 
 ## 8. 新版实现建议
 
+> ### 8.0 落地状态（2026-09-19，逐条对着 `app/src/views/Progress.vue`）
+>
+> | 本节的条目 | 状态 |
+> |---|---|
+> | 1 路由 / 2 导航 | ✅ 已落 |
+> | 3 后端端点 | ✅ 已落（`/v1/progress`、`/v1/procedures` 读+写、`/v1/progress/update`）；`delete` ⏳ 未落 |
+> | 4 数据流（全量 + 前端筛/分页） | ✅ 已落 |
+> | 5 列集 | ⚠️ **只落 PC 14 列**。终端 10 列**不做** —— 见 §10「不做终端分支」 |
+> | 6 可复用 | 部分（打印抽屉 / 密码校验等仍未接） |
+> | 7 顺带修的旧版毛病 | ✅ `v-if` 那条已按 `> 0` 落 |
+>
+> **§5.2 的 `va()`**（✅ 已落）：`app/src/views/Progress.vue` 的 `va()`。逐字差分台
+> `docs/progress-cell-logiccheck.mjs`（17 条夹具，含日期全同/日期最大/无日期三种分支）。
+> ⚠️ **一处有意偏离**：新版把非红色部分做了 **HTML 转义**（旧版是裸 `innerHTML`），
+> 真实数据下输出**逐字节相同**。差分台里单列了这条。
+>
+> **§5.3 的颜色**（✅ 已落，**来源换了**）：旧版读 localStorage `procedure_name_color_map`
+> （见 §5.3 / §9.1 第 1 条），新版读 `GET /v1/procedures` 的 `slots[].color`，**本页不读写任何
+> localStorage**。差分台同样覆盖（24 项）。
+>
+> ⚠️ **`procedure_name_order_list` 这个键新版没有**（它是 `/Qrscanner` 保存时写的，
+> 见 `docs/2026-09-19-qrscanner-analysis.md` §4.3）。旧版 `J()` 的用法是「**从后往前**找第一个
+> 被进度串 `includes` 的名字」，而那个 List 本身就是**按槽号升序**写的 ⇒ 新版等价物 =
+> **`procedures` 按槽号从大到小扫**。差分台已证等价（除下面这一条）。
+>
+> ⚠️ **一处已知且有意的不等价**：旧版写 List 时**排掉了工序10**（`El` 而不是全键），新版**不排**
+> （§10：新版去掉「回款→工序10」的全部特判）。后果：进度串同时含「回款」和一个**更低槽号**的
+> 工序名时，两边会给出**不同**颜色。差分台把这条**断言为"应当不等价"**，防止后人当成 bug 改回去。
+
 1. **路由**：`app/src/router/index.ts` 加 `{ path: '/progress', name: 'progress', component: Progress, meta: { requiresAuth: true } }`。
 2. **导航**：`AppHeader.vue` 加菜单项「⏳ 生产进度」，可见性按 `defaulted`（新版若无 `defaulted`，
    先用「非终端账号」等价条件）。
