@@ -34,6 +34,7 @@ import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMessage } from 'naive-ui'
 import { useAuthStore } from '../stores/auth'
+import { landingRouteName } from '../utils/roles'
 
 const router = useRouter()
 const route = useRoute()
@@ -62,8 +63,12 @@ async function onSubmit() {
   try {
     await auth.login(form.username, form.password)
     message.success('登录成功')
-    const redirect = (route.query.redirect as string) || '/'
-    router.push(redirect)
+    // 有 `redirect`（被路由守卫从某个页面弹过来的）就先回那儿；
+    // 否则按**角色**决定落地页 —— 扫码账号落 `/qrscanner`，其余落 `/`（旧行为）。
+    // 见 `utils/roles.ts` 的 `landingRouteName`：落地页就是旧版 `defaulted` 语义里
+    // 「不是 1 也不是 3 → `/Qrscanner`」那一条，我们**只取其中的扫码账号**。
+    const redirect = (route.query.redirect as string) || ''
+    router.push(redirect || { name: landingRouteName(auth.user?.role) })
   } catch (e) {
     error.value = e instanceof Error ? e.message : '登录失败'
   } finally {

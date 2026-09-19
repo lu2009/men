@@ -22,19 +22,32 @@
     ⚠️ **不摆置灰的占位项**：文案解不出、模块也没做，摆上去只是噪音。
        等那些模块做的时候，按 `docs/2026-09-19-legacy-nav.md` 里记的三套导航清单补。
 
-    ⚠️ `/qrscanner` 这一项进得来，但**页面上只有「设置工序」**（扫码/看板/打印/账号管理都没做）。
-       放它是为了让工序名配得上 —— Progress 的「更新进度」下拉全靠它。见 `Qrscanner.vue` 文件头。
+    ⚠️ `/qrscanner` 这一项曾经只是「放它是为了让工序名配得上」（Progress 的「更新进度」下拉
+       靠它写 `procedure_name_*` 两个键）；那页现在已整页补齐，见 `Qrscanner.vue` 文件头。
+
+    ## 谁看得见哪几项（2026-09-19 补）
+
+    不是所有人都该看见全部六项。**按账号角色过滤**，用的是 `utils/roles.ts` 里那张
+    **和路由拦截共用**的受限表 —— 所以「这儿看不见」与「敲 URL 也进不去」永远一致。
+
+    | 角色 | 看得见的项 |
+    |---|---|
+    | `scanner`（扫码账号，旧版 `defaulted=2`） | **只有「📱 扫码生产」** |
+    | 其余（`admin` / `staff` / …） | 全部六项（**与加这套门控之前一模一样**） |
+
+    依据见 `docs/2026-09-19-legacy-nav.md` 的「新版映射」一节。
 
     ## 为什么需要它（2026-09-19 用户提）
 
     新版把入口都放在 Home（「汇算下单」→ `/hui`），而 Hui 里**没有任何回头的路**，进去就出不来。
     旧版靠这条导航栏做页面间跳转。
 
-    ⚠️ 这里**不放「退出登录」**：`Home.vue` 自己工具条上已经有一颗，会重复。
+    ⚠️ 平时这里**不放「退出登录」**：`Home.vue` 自己工具条上已经有一颗，会重复。
+       只有**到不了 Home 的账号**（扫码账号）才补一颗 —— 否则它没地方退出。
   -->
   <header class="app-header">
     <nav class="nav">
-      <template v-for="it in items" :key="it.label">
+      <template v-for="it in visibleItems" :key="it.label">
         <RouterLink
           :to="it.to"
           class="nav-item"
@@ -50,15 +63,25 @@
     <span v-if="auth.tenant || auth.user" class="who">
       {{ auth.tenant?.name || '' }}<template v-if="auth.user?.name"> · {{ auth.user.name }}</template>
     </span>
+
+    <!-- 退出登录：**只在到不了「订单管理」的账号上补一颗**。
+         平时不摆 —— `Home.vue` 工具条上本来就有一颗，摆上去是重复的。
+         但扫码账号进不去 Home（`utils/roles.ts` 的受限表），顶栏再不给就**没地方退出了**。 -->
+    <n-button v-if="needsOwnLogout" class="logout" size="small" quaternary @click="onLogout">
+      退出登录
+    </n-button>
   </header>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { canAccessRoute } from '../utils/roles'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 
 /** 导航项 —— **只放本版真有的路由**（见文件头的表）。 */
@@ -71,9 +94,30 @@ const items = [
   { icon: '👥', label: '客户信息', to: { name: 'clients' } as const },
 ]
 
+/**
+ * 按**角色**过滤后的导航项。
+ *
+ * ⚠️ 过滤用的是 `utils/roles.ts` 那张**和路由拦截同一张**的表 —— 两边不会各写一份。
+ *    这意味着「导航里看不见」与「敲 URL 也进不去」永远一致：**不会再出现
+ *    『藏了菜单但直接敲地址栏还进得去』**那种假门控。
+ *
+ * ⚠️ 同样地：**藏起来不是授权**。真正的授权在后端，见 `utils/roles.ts` 抬头。
+ */
+const visibleItems = computed(() =>
+  items.filter((it) => canAccessRoute(auth.user?.role, it.to.name)),
+)
+
+/** 当前账号到不了「订单管理」⇒ 顶栏得自己带一颗退出登录（Home 那颗够不着）。 */
+const needsOwnLogout = computed(() => !canAccessRoute(auth.user?.role, 'home'))
+
 function isActive(it: { to: unknown }) {
   const name = (it.to as { name?: string } | null)?.name
   return !!name && route.name === name
+}
+
+async function onLogout() {
+  await auth.logout()
+  router.push({ name: 'login' })
 }
 
 </script>
@@ -125,5 +169,11 @@ function isActive(it: { to: unknown }) {
 .who {
   font-size: 12px;
   color: #909399;
+}
+.logout {
+  /* 顶栏是 flex 行（`flex-wrap: wrap` + 定高 60px）；`.grow` 已经把名字推到右边，
+     按钮只需要不被压缩、且和名字之间留一点缝。 */
+  flex: none;
+  margin-left: 4px;
 }
 </style>
