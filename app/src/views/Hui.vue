@@ -18,6 +18,49 @@
              `docs/2026-09-19-hui-shell-audit.md` §5.1），但**「视频」本身是旧版有的，不该缺**。 -->
         <n-button size="small" @click="videoDrawer = true">视频</n-button>
         <span class="grow-spacer" />
+        <!--
+          「总余额显示」—— 旧版 `H:13298-13312`（下拉）+ `H:400056`（初始化 / onChange）。
+
+          逐项照抄旧版：
+            · 触发器：按钮文案「总余额显示」，开着时后面跟一个 ✓（`#67c23a`、`margin-left:5px`），
+              按钮 `type` 随之在 `warning`（开）/ `default`（关）之间切换；
+            · 浮层：宽 **200**、`placement:"top"`、`trigger:"click"`；内容 = 居中的一块
+              （`text-align:center; padding:10px`），里面是提示语
+              「开启后将在回执单中显示客户总余额」（`margin-bottom:12px`）
+              + 一个开关（`active-text:"开"` / `inactive-text:"关"`）。
+
+          ⚠️ **三处有意的偏离，写明白**：
+            ① 旧版这个下拉在**那个 200px 的 rtl 侧抽屉**里（第 6 项，前后是
+               「自动加价设置」和「排序方式」）。我们把那批入口收进了「更多功能 ▾」，
+               但**开关塞不进下拉菜单项**（要一个能点的小控件）⇒ 这里做成工具栏上的
+               独立下拉，**控件本身逐字照抄**，只是落点从抽屉挪到了工具栏。
+            ② 旧版是 Element Plus 的 `el-switch`（`active-text`/`inactive-text` 落在开关
+               **左右两侧**，当前那一侧高亮）。naive-ui 的 `n-switch` 没有文字属性
+               ⇒ 两侧文字自己画，样式照 `legacy/css/element-plus-6bd3a0dc.css` 的
+               `.el-switch__label`（`font-size:14px; font-weight:500`、左右各 `10px`
+               外边距、`.is-active` 时 `color: var(--el-color-primary)`）。
+            ③ `size`：旧版这颗是 `size:"default"`（`H:746380` 一带），我们这排按钮
+               **整排是 `size="small"`**（旧版每颗都是 `default`，`H:745331`… —— 那是
+               我们先前就有的、**比旧版小一号**的偏离，见 `docs/2026-09-19-hui-shell-audit.md` §2 末尾）。
+               这一颗随本排的 `small`，免得一排里只它胖一圈；**那笔偏离留着没动**。
+
+          口径（开关怎么存、余额怎么取、**为什么分享页不显示它**）见
+          `app/src/utils/totalBalance.ts` 的文件头 —— 那一格「总余额」旧版只在**打印出来的
+          回执单**上，电子回执从来没有过。
+        -->
+        <n-popover trigger="click" placement="top" :width="200" :show-arrow="false">
+          <template #trigger>
+            <n-button size="small" :type="showTotalBalance ? 'warning' : 'default'">
+              总余额显示<span v-if="showTotalBalance" class="total-balance-check">✓</span>
+            </n-button>
+          </template>
+          <div class="total-balance-panel">
+            <p class="total-balance-hint">开启后将在回执单中显示客户总余额</p>
+            <span class="switch-label switch-label--left" :class="{ active: showTotalBalance }">开</span>
+            <n-switch :value="showTotalBalance" @update:value="onTotalBalanceChange" />
+            <span class="switch-label switch-label--right" :class="{ active: !showTotalBalance }">关</span>
+          </div>
+        </n-popover>
         <n-dropdown
           trigger="click"
           :options="moreMenuOptions"
@@ -431,10 +474,12 @@ import {
   NInput,
   NInputNumber,
   NModal,
+  NPopover,
   NRadio,
   NRadioGroup,
   NSelect,
   NSpace,
+  NSwitch,
   NTooltip,
   useDialog,
   useMessage,
@@ -454,6 +499,7 @@ import { printByMode } from '../utils/printService'
 import type { MarkupItem } from '../utils/markupLines'
 import { round2, type Line, type PartPreview } from '../utils/partsEngine'
 import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
+import { readShowTotalBalance, writeShowTotalBalance } from '../utils/totalBalance'
 import {
   fileToDataUrl,
   idbGetImage,
@@ -725,6 +771,25 @@ const moreMenuOptions = [
   { label: '开向模式设置', key: 'openDir' },
   { label: '列显隐设置', key: 'columns' },
 ]
+
+/**
+ * 「总余额显示」开关。
+ *
+ * 旧版：`_0x2ffe36 = Vue.ref(!1)`（**默认关**，`H:399836`）+ `onMounted` 里 `_0x1c743a()`
+ * 读一次 `localStorage['showTotalBalance']`（`H:400056`）；`onChange` `_0x14b5ca`（`H:7934`）
+ * 写回 localStorage 并弹一句成功提示。
+ *
+ * ⚠️ **开关本身不在这里取余额、也不在打印时读这里的 ref**：真正取余额的是打印链路
+ * （`useOrderPrint.loadPrintPrereqs`），它自己去读 localStorage。这样 Hui / Home / Progress
+ * 三条路同源，也不会出现「改了开关但打印用的是旧值」。见 `utils/totalBalance.ts`。
+ */
+const showTotalBalance = ref(false)
+
+function onTotalBalanceChange(on: boolean) {
+  showTotalBalance.value = on
+  writeShowTotalBalance(on)
+  message.success(on ? '总余额显示已开启' : '总余额显示已关闭')
+}
 
 function refreshPage() {
   message.info('已刷新')
@@ -1896,6 +1961,10 @@ onBeforeUnmount(() => {
 // ---------------------------------------------------------------------------
 // 打印载荷（Hui 这一单）—— 构造层已搬到 `utils/printPayloads.ts`，与 Home 批量打印共用。
 // ---------------------------------------------------------------------------
+// ⚠️ 这里**故意不给 `totalBalance`**：本对象只喂 `printApi` 的非回执单据
+// （玻璃单 / 玻璃订单 / 生产单 —— 见 `printGlass` / `printProduction` 那几处），
+// 这几张模板里根本没有 `TotalBalance` 这一格。回执族的打印**全部**走
+// `PrintPreviewDialog` → `useOrderPrint.loadPrintPrereqs`，余额在那儿取。
 const printCtx = computed<PrintContext>(() => ({
   order,
   lines: lines.value,
@@ -1921,6 +1990,9 @@ onMounted(async () => {
   // 旧版拉目录失败会弹「初始化失败」（Hui.formatted.js:979）
   void loadMarkupCatalog().then((ok) => { if (!ok) message.error('初始化失败') })
   void loadColumnConfig()
+  // 「总余额显示」开关的初值也和旧版一样在 `onMounted` 读（`H:400056` 的 `_0x1c743a`
+  // 就是挂在 `Vue.onMounted` 上的）；缺记录 → 保持默认「关」。
+  showTotalBalance.value = readShowTotalBalance()
   markSaved()
   window.addEventListener('beforeunload', handleBeforeUnload)
   window.addEventListener('storage', (e) => {
@@ -1954,6 +2026,42 @@ onMounted(async () => {
   min-height: calc(100vh - var(--app-header-h));
   background: #fff;
   padding: 12px 16px 24px;
+}
+/* ── 「总余额显示」下拉（照旧版 `_hoisted_33/34` + `element-plus-6bd3a0dc.css` 的 .el-switch__label）── */
+/* 开着的 ✓：`H:7771` 的 `{margin-left:5px, color:"#67c23a"}`。 */
+.total-balance-check {
+  margin-left: 5px;
+  color: #67c23a;
+}
+/* 浮层内容块：`H:7767` 的 `{text-align:center, padding:10px}`。 */
+.total-balance-panel {
+  text-align: center;
+  padding: 10px;
+}
+/* 提示语：旧版是 `<p style="margin-bottom:12px">`（`H:13299` 附近）。 */
+.total-balance-hint {
+  margin: 0 0 12px;
+}
+/* `el-switch__label` 的等价样式：14px / 500 字重、左右各 10px 外边距、当前侧高亮。
+   高亮色 `#409eff` = Element Plus 默认 primary，也正是本仓库 `App.vue` 给 naive 的
+   `themeOverrides.common.primaryColor` —— 两边同值，所以不存在跟错主题的问题。 */
+.switch-label {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+.switch-label.active {
+  color: #409eff;
+}
+.switch-label--left {
+  margin-right: 10px;
+}
+.switch-label--right {
+  margin-left: 10px;
 }
 .header-form {
   display: flex;

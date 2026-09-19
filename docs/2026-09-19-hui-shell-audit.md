@@ -19,6 +19,8 @@
 | 4 | 我们的 **收款码设置 / 列显隐设置 / 订单列表** 三个弹窗，旧版**找不到** | 我们多的（见 §4） |
 | 5 | 我们的 `3D画图` 是 `disabled`；旧版是 `type:"success"` 且活的 | 3D 暂缓所致，表意合理但属偏离 |
 | 6 | ~~订单头两个 `input-number`：旧版 `controls:!1`~~ | ✅ **已修** 见 §8.9 |
+| 7 | ~~「总余额显示」开关没有；回执 `TotalBalance` 格永远是空~~ | ✅ **已做** 见 §9（**注意：§9 已重写**，原「方案 A」作废） |
+| 8 | 工具栏**整排**按钮 `size`：旧版 `"default"`，我们 `small` | 偏离（**未改**，见 §2 末尾的补记） |
 
 **已核一致** ✓：工具栏前三颗（`1.清空` / `2.添加门类` / `3.保存回执单`）**文案逐字一致**；
 订单头表单 8 个标签逐条对得上；「视频教程」「加价项目管理」等旧版弹窗标题已解出备查。
@@ -61,6 +63,12 @@ H:12864-12870   第二行（这两颗是**裸字面量**）：
 
 ⇒ 两颗差异：旧版的「视频」我们**没有**（见 §3）；我们多了一个 **14 项「更多功能」**（见 §5）。
 `3D画图` 旧版是绿色的活按钮，我们是 `disabled` + tooltip —— 3D 暂缓，表意合理，**但属偏离，记一笔**。
+
+**⚠️ 2026-09-19 补记一笔漏网的（做 §9 时才看出来）**：旧版**每一颗**按钮都是
+`size:"default"`（`a(272)`，`H:745331`/`745573`/`745986`… 全是它），
+我们 `Hui.vue` 工具栏**整排**写的是 `size="small"`。这是**我们多出来的偏离，不是旧版的**。
+本轮的「总余额显示」按钮也随了本排的 `small`（否则一排里就它胖一圈）。
+**没改**（会动到 8 颗按钮的观感，属于另一笔）—— 记在这里，别当已核。
 
 ---
 
@@ -320,9 +328,11 @@ grep -n '刷新\|视频\|调试日志' legacy/js/Hui.formatted.js
 
 ---
 
-## 9. 「总余额显示」开关 —— **已拍板：方案 A**（2026-09-19）
+## 9. 「总余额显示」开关 —— ✅ **已完成**（2026-09-19）
 
-用户拍板，**下一轮实施**。这里记全，免得重推。
+> ⚠️ **本节 2026-09-19 重写过。** 原先这一节写的是「已拍板：方案 A」（后端随回执载荷下发、
+> **分享页也显示**）。那个结论建立在**我写错的一个前提**上 —— 见 §9.3。
+> 用户看过证据后改选**「只复刻旧版」**，按新结论实施完毕。原方案的措辞**不要**再引用。
 
 ### 9.1 旧版是什么
 
@@ -330,37 +340,82 @@ grep -n '刷新\|视频\|调试日志' legacy/js/Hui.formatted.js
 点开是 200px 浮层，里面有提示语 **「开启后将在回执单中显示客户总余额」**（`a(730)`）
 + 一个 `el-switch`（`active-text:"开"` / `inactive-text:"关"`），绑 `_0x2ffe36`。
 
-onChange `_0x14b5ca`（`H:7934`）：
-`localStorage.setItem("showTotalBalance", String(_0x2ffe36.value))` + 一句成功提示。
+- 初值 `_0x2ffe36 = Vue.ref(!1)`（**默认关**，`H:399836`）；`onMounted` 里 `_0x1c743a`（`H:400056`）
+  读一次 `localStorage['showTotalBalance']`，`null !== t && (ref = t === "true")`。
+- onChange `_0x14b5ca`（`H:7934`）：`localStorage.setItem("showTotalBalance", ref.value.toString())` + 一句成功提示。
 
-### 9.2 我们这边的现状（已核）
+**取值口径**（三个打印入口**逐字相同**，都写在「构造 `customerInfo` 之前」）：
 
-| 块 | 现状 |
+```js
+let L = ""
+if (开关 && 客户编号) try {
+  const r = await fetch(余额接口 + ds + "&param3=" + 客户编号)
+  if (r.code === 200) L = r.data["客户余额"] ?? ""
+} catch {}
+```
+
+⇒ 四条「取不到」路径**一律空串**：开关关 / 客户编号空 / 请求抛 / `code !== 200`。
+外加一条：客户编号查不到时旧服务端回 `{code:200, data:null}` ⇒ 取 `data["客户余额"]` **抛 TypeError**、
+被外层 `catch` 吞掉 ⇒ 同样空串（`legacy-server` 的 `finance.service.ts:730-770` 已确认）。
+服务端那个字段算的是 `Math.max(0, 未收合计 − 客户调整合计)`（**不是**预付余额，**不是**总价−定金）。
+
+### 9.2 ⚠️ §9.3 的前情：**「总余额」到底长在哪一格**（原先判断错了）
+
+**旧版的「总余额」只出现在打印出来的回执单上，电子回执那一族从来没有过它。**证据都是扫出来的：
+
+| 证据 | 结果 |
 |---|---|
-| 开关 UI | ✗ 没有 |
-| `localStorage['showTotalBalance']` | ✗ 搜不到 |
-| 回执侧渲染「客户总余额」 | ✗ `receiptBuilder.ts` / `receipt2/*` 里没有「余额」 |
-| **余额数据本身** | ✅ **有** —— 后端 `finance/service.rs:197` `customer_balance`（`GET …/balance`），前端 `FinanceDrawer.vue` 在用 |
-| **回执载荷里有没有余额** | ✗ **没有** —— `backend/src/modules/receipts/service.rs` 只带 `client_name` 等 |
+| `legacy/templates/print-templates-import.json` | `receipt` / `FinalReceipt` / `ReceiptList` 三张各有一个 `field:"TotalBalance"`、`title:"总余额"` 的 text 元素 |
+| `ReceiptMobile-2bb0962e.js`（= 我们的 `ReceiptCard.vue`） | `TotalBalance` / 「总余额」出现 **0 次** |
+| `ReceiptShare-48082842.js` · `ReceiptView-2e239d4a.js` · `receiptBuilder-76e5b538.js` | 同上，**0 次** |
+| 三个打印入口（Hui / Home / Progress） | 各一处 `TotalBalance: L`，就在 `customerInfo` 字面量里 |
 
-### 9.3 ⚠️ 拍板的关键：**分享页是无认证的**
+⇒ 原先 §9.3 说的「旧版是**选中客户时就把余额读进页面内存、前端渲染**，所以分享页也有」——
+**前半句对、后半句错**：读进内存那一下只喂打印载荷，电子回执根本没用它。
 
-回执在**三个**入口渲染：`ReceiptView.vue`（要登录）· **`ReceiptShare.vue`（`/receipt-share`，客户扫码看，无认证）** · 打印。
+### 9.3 ✅ 用户改选：**只复刻旧版**（2026-09-19）
 
-财务余额接口要鉴权 ⇒ **分享页自己拉不到余额**。旧版没这问题（选中客户时就把余额读进页面内存，前端渲染）。
+把 §9.2 的证据摆给用户后，用户改选：
 
-**用户 2026-09-19 选定方案 A**：**余额随回执载荷由后端下发**（`receipts/service.rs` 里 join 财务），
-**分享页也显示**。
+> **开关 + 打印回执单的 `TotalBalance` 格填上客户余额。分享页 / 电子回执不动（旧版本来就没有）。
+> 不需要改后端 `receipts` 服务，零隐私暴露。**
 
-> ⚠️ **这条决定有隐私含义，用户知情并拍板**：等于**把客户余额给到任何持有分享链接的人**。
-> 实施时**不要在代码里把它写成"技术细节"** —— 它是一个明确的产品/隐私取舍，
-> 注释里要写明「用户 2026-09-19 知情拍板，选了 A」。
+（原「方案 A」想让分享页也显示 —— 那等于**把客户余额给到任何持有分享链接的人**，
+为一个**旧版从来没有的**显示位付隐私代价。既然旧版没有，就不做。）
 
-### 9.4 实施清单（下一轮）
+**连带结论**：`backend/src/modules/receipts/service.rs` **不动**；`ReceiptCard.vue` / `ReceiptShare.vue` /
+`ReceiptView.vue` / `receiptBuilder.ts` **不动**。「分享页不显示总余额」是**有意的**，不是漏做。
 
-1. **后端**：`modules/receipts/service.rs` 的载荷加余额（join 财务口径，注意别另算一套 —— 直接复用 `finance/service.rs` 的 `customer_balance`）；分享令牌那条无认证路径同样要带。
-2. **前端开关**：`Hui.vue` 工具栏加下拉（文案/✓/浮层提示语/`el-switch` 开-关 全部照 `H:13299-13312`），绑一个 ref，onChange 写 `localStorage['showTotalBalance']`（键名与旧版**逐字相同**）。
-3. **回执渲染**：`receiptBuilder.ts` / `receipt2/*` 里按开关决定是否出现余额行；三个入口都要生效。
-4. **差分台**（**这条唯一能证明对了的方式**）：把旧版 `_0x2ffe36` / `_0x14b5ca` 那两个分支切出来真跑，逐例比「开关 on/off 时回执该不该出现余额行、显示什么」。
+### 9.4 落地了什么
 
-⚠️ 别跳过第 4 条 —— 这条**没有现成差分台可复用**（`print-lineno-check.mjs` 钉的是单号取哪一级，不是这个）。
+| 件 | 说明 |
+|---|---|
+| `app/src/utils/totalBalance.ts` | **新增**，开关与取值口径的唯一真源。头注释里记着 §9.2 的证据链 |
+| `app/src/composables/useOrderPrint.ts` | `loadPrintPrereqs` 里按开关取余额（**关时一个请求都不发**；按客户编号去重），`buildOrderPrintContext` 落到 `ctx.totalBalance` |
+| `app/src/utils/printPayloads.ts` | `PrintContext.totalBalance`（`number \| ''`）+ `receiptPrintData` 的 `TotalBalance` 不再硬编 `''` |
+| `app/src/views/Hui.vue` | 工具栏「总余额显示」下拉（照 `H:13299-13312`） |
+
+**一处有意的偏离**：旧版 Home / Progress 是**直接读 `localStorage`**（不像 Hui 走 ref），
+所以「改完开关但不刷新」时三条路本来就不一致。我们统一成一个模块 —— 比旧版更一致。
+旧版那点不一致只是实现散落，不是设计。
+
+**`0` 不作空**：旧版是 `?? ""`，`0` 是值（渲染成 `0`）。所以 `loadTotalBalance` 返回
+`number | ''`，**不做 `String()`、也不要写 `\|\| ""`**。
+
+### 9.5 差分台
+
+`docs/home-audit/total-balance-logiccheck.mjs`（**新增**）—— 左跑旧版三条路的真源码，右跑我们的真代码。
+三台比较器 + 7 个变异体：
+
+| 比较器 | 比什么 | 结果 |
+|---|---|---|
+| A（取值口径） | `loadTotalBalance(...)` vs 旧版 `L`，96 例逐值严格比 | 48 一致 + 48 已知偏离 |
+| B（那一格真填上了吗） | 真链路 `loadPrintPrereqs`→`buildOrderPrintContext`→`createPrintPayloads(...).receiptPrintData()` 的 `TotalBalance` vs 旧版 `L` | 48/48 |
+| C（开关写回） | 旧版 `_0x14b5ca` vs `writeShowTotalBalance` | 2/2 |
+
+**已知偏离**：`ds` 为空这一轴 —— 旧版**自己**三条路就不一致（Hui 不判 `ds` 照发请求，
+Home / Progress 有 `if(e)` 直接空手）。我们没有 `ds` 概念（新后端单租户），行为等同 Hui。
+差分台对这一轴**按既定形状断言**（`home === progress === ''` 且 `我们 === hui`），不是放行。
+
+⛔ **该台子不发任何真实请求**：旧版那段 URL 只作为字符串被 inline，`fetch` 全程是注入的桩，
+且全局 `fetch` 被换成抛错的断网闸 —— 谁真去发请求立刻红。**不要**把桩去掉。

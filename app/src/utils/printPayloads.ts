@@ -53,6 +53,17 @@ export interface PrintContext {
   formulaImages: Record<number, FormulaImageDto[]>
   /** 当天日期 `YYYY-MM-DD`（回执 `date` 为空时的兜底）。 */
   today: string
+  /**
+   * 客户总余额（旧版回执表头字段 `TotalBalance`）。
+   *
+   * ⚠️ **只有打印出来的回执单上有这一格** —— 电子回执（`ReceiptCard` / `/receipt-share`）
+   * 旧版从来没有过它，所以这里只喂打印载荷。取值口径与开关见 `utils/totalBalance.ts`。
+   * 缺省 `''`（= 开关关 / 无客户编号 / 取不到，三者旧版都渲染成空）。
+   *
+   * ⚠️ 是 `number | ''` **不是 `string`** —— 旧版 `L = data["客户余额"] ?? ""` 原样透传，
+   * 服务端那个字段是 number（`finance.service.ts:763`）。别在这里补 `String()`。
+   */
+  totalBalance?: number | ''
   /** 加价计算异常上报（可选，Home 传 undefined 即静默）。 */
   onMarkupError?: (message: string) => void
 }
@@ -604,7 +615,8 @@ export function createPrintPayloads(ctx: PrintContext) {
       balance: round2(rawTotal - deposit),
       // 原版 `TotalBalance` = 服务端「客户账户余额」（开关开启且有客户编号时拉 `finance_getCustomerBalance`），
       // **取不到时为 `""`** —— 不要用 `total-deposit` 冒充（那是 `balance` 的语义）。
-      TotalBalance: '',
+      // 取值口径 / 开关 / 「为什么分享页不显示它」都写在 `utils/totalBalance.ts` 的文件头。
+      TotalBalance: ctx.totalBalance ?? '',
       declaration: LEGACY_DECLARATION,
       // 原版 `payQrcode: e`（构造器入参），由调用方 `await getImage('qrcode') || ""` 取；
       // 我们预取到 `payQrcodeUrl`（见 `loadPayQrcode`），取不到时为 `''`。

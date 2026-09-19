@@ -110,7 +110,7 @@
 |---|---|---|---|
 | `brand` | `(品牌 \|\| u.userinfo.registrant \|\| "客户") + "回执单"` — `_0x5220a4` 是**品牌输入框**（`Vue.ref("")`，由客户条目的 `brand`、新建客户返回的 `.brand`、导入订单的 `"品牌"` 赋值）；`userinfo.registrant` 是**门店名字符串**（同一变量在 `...param2=`+registrant 的 URL 拼接里用过） | `order.client_name \|\| tenantName \|\| '客户'` + 回执单 | ❌ 首选项错：应为**品牌**字段，不是客户名。（团队线索"客户名"有误） |
 | `declaration` | `u.registrant?.declaration \|\| "含安装费"`（token 281 `declaration`、1114 `含安装费`）——注意是**顶层** `u.registrant` | `tenantDeclaration \|\| LEGACY_DECLARATION('含安装费')` | ✅ 一致 |
-| `TotalBalance` | 仅当 `showTotalBalance` 开关开 **且** 客户编号非空：`GET https://www.samrtdoor.com.cn/1?param1=finance_getCustomerBalance&param2={ds}&param3={客户编号}` → `code===200 && (data[473='客户余额'] ?? "")`；否则 `""` | `total - deposit` | ❌ 语义完全不同（见 #4） |
+| `TotalBalance` | 仅当 `showTotalBalance` 开关开 **且** 客户编号非空：`GET https://www.samrtdoor.com.cn/1?param1=finance_getCustomerBalance&param2={ds}&param3={客户编号}` → `code===200 && (data[473='客户余额'] ?? "")`；否则 `""` | ✅ **已按原口径实现**（2026-09-19）：`utils/totalBalance.ts` + `useOrderPrint` + `printPayloads` 的 `TotalBalance`。开关 = `localStorage['showTotalBalance']` | ✅ 一致（见 §0 差异 #6 的更新） |
 | `date` | `_0x44ed1d(日期)` | `order.order_date \|\| today()` | ✅ |
 | `orderNo` | `回执单号` | `order.receipt_no \|\| ''` | ✅ |
 | `tel` | `(电话 ?? "") .toString()` | `order.phone \|\| ''` | ✅ |
@@ -396,7 +396,7 @@ for (i=0;i<len;i+=2){ a=e[i]; b=e[i+1]
 | 3 | ❌ | **basicInfo 分隔符与玻璃段**（productionProduces） | 全部 `<br>`；引擎A/B `单玻*{面玻}*{厚}mm`；引擎C `{面玻}*单玻`（无 mm）；双无 引擎A/C=`无`、引擎B=`无玻璃` | 全部 `\n`；`{面玻}*单玻`；双无恒 `无玻璃` | 分隔符改 `<br>`；按引擎实现三条分支 |
 | 4 | ❌ | **basicInfo 吊趟尾部** | `开向 + "<br>" + 扇数` | `[lineOpenLabel(l), l.fans]` → 输出 `2双开内右\n2`（扇数重复） | 改成 `[displayDirection(direction), l.fans]`（用原始开向） |
 | 5 | ❌ | **回执 `brand`** | `(品牌 \|\| 门店名 \|\| "客户") + "回执单"` | `${client_name \|\| tenantName \|\| '客户'}回执单` | 首项换 `order.brand`（团队线索写"客户名"是错的） |
-| 6 | ❌ | **回执 `TotalBalance`** | 开关开启且有客户编号时服务端拉取 `finance_getCustomerBalance` → `data.客户余额`；否则 `""` | `total - deposit` | 接财务接口；没有就固定 `""`（不要用 total-deposit 冒充） |
+| 6 | ✅ | **回执 `TotalBalance`** | 开关开启且有客户编号时服务端拉取 `finance_getCustomerBalance` → `data.客户余额`；否则 `""` | ~~`total - deposit`~~ → 2026-09-19 起按原口径实现（`utils/totalBalance.ts`） | **已修**，见 §55 #6 |
 | 7 | ❌ | **回执 `payQrcode`** | `await getImage('qrcode') \|\| ""` | `''` | 取图片库收款码 |
 | 8 | ❌ | **回执行 `date` / `payment`（ReceiptList）** | 行对象**没有**这两个键 → 原版渲染**空白** | 逐行填了日期与付款状态 | 保持空白，或确认业务上确实要填（当前是"比原版多"） |
 | 9 | ❌ | **回执 `remark` 前后包加长分隔符** | `[前包加长{v}, 后包加长{v}].join(" ")` | `.join(',')` | 改空格 |
@@ -439,7 +439,9 @@ for (i=0;i<len;i+=2){ a=e[i]; b=e[i+1]
 - **`_0xc8b731(row, …)`**：product1/生产单 remark 末尾的"配件"追加，函数体未展开。
 - **8 个行构造器分别对应哪个业务入口**：已确认它们的 ROW 键集不同（product1 行有 `doorSize/kouWidth/…`；oldSheet 行有 `oldSheet`；生产单行有 `door/basicInfo/doorsheet/…`），但"用户在什么条件下会落到哪个构造器"未完全确定 → 影响差异 #12/#14 的**实际触发面**。
 - **hiprint 对数组值的渲染**：product2/3 的 `size` 原版赋的是**数组**，我们返回 `<br>` 字符串；渲染差异未验证。
-- **`_0x2ffe36`（showTotalBalance 开关）在本系统的对应物**：后端 `tenants` 表暂无该字段。
+- ~~**`_0x2ffe36`（showTotalBalance 开关）在本系统的对应物**：后端 `tenants` 表暂无该字段。~~
+  **2026-09-19 更正**：这个开关**不该**落 `tenants` 表 —— 旧版就是**浏览器 `localStorage` 的一个键**
+  （`showTotalBalance`，逐字同名），不跟租户走。已在 `app/src/utils/totalBalance.ts` 复刻。
 
 ### 10.1 已降级为「未确认」的条目（只靠索引对表、未做上下文自证的）
 
@@ -480,7 +482,7 @@ for (i=0;i<len;i+=2){ a=e[i]; b=e[i+1]
 `receiptPrintData` 行移除 `date`/`payment`、`pricingDetail` 补套线金额与加价项目、`dimSizeLabel` 三分支×新旧格式、
 `lableRow` 尺寸顺序（平开/移门不同）与移门哑口套/门套 lockway、以及全部打印载荷的 `\n` → `<br>`。
 
-**仍未处理（需用户决策或另排）**：`ds`/`declaration` 后端列、`TotalBalance` 财务接口、`payQrcode` 收款码图库、
+**仍未处理（需用户决策或另排）**：`ds`/`declaration` 后端列、`payQrcode` 收款码图库、
 `orderQrcode` token 公式、product1 的 `frameHeigth/frameWidth/glassSize/remark` 前后框拼接、product10 `GlassSize` 部件配对、
 product4（料标签）独立入口、8 个行构造器「何时落到哪个」的入口归属（影响 #12/#14 触发面）、doorImg 的 `图片ID`→`getImage` 取图机制。
 
@@ -606,10 +608,16 @@ exportKouBan:                _0x2b92dc
 3. `Hui.vue` 的 `onMounted` 里把 `me.tenant.declaration` 写进 `tenantDeclaration`、`me.tenant.ds` 写进一个 ref 替代 `TENANT_DS` 常量（`NEW_SIZE_FORMAT` 改为随租户计算的 computed）；
 4. 姑苏后端的 settings/租户配置页（若有）补这两个输入项。
 
-> 另有一项**不属于 tenants 表**的缺口：回执表头 `TotalBalance` 原版是调
-> `https://www.samrtdoor.com.cn/1?param1=finance_getCustomerBalance&param2={ds}&param3={客户编号}`
+> ~~另有一项**不属于 tenants 表**的缺口：回执表头 `TotalBalance` 原版是调
+> `…?param1=finance_getCustomerBalance&param2={ds}&param3={客户编号}`
 > 取「客户账户余额」，仅在「显示客户总余额」开关开启且有客户编号时。本系统无财务模块，
-> 暂以「总价-定金」占位（`receiptPrintData` 内已注释标明）。补财务模块时一并替换。
+> 暂以「总价-定金」占位（`receiptPrintData` 内已注释标明）。补财务模块时一并替换。~~
+>
+> **✅ 2026-09-19 已了结**：财务模块已就位（`backend/src/modules/finance/service.rs` 的
+> `customer_balance` + 前端 `api.getCustomerBalance`），回执表头 `TotalBalance` 按原口径接上了
+> （开关 = `localStorage['showTotalBalance']`）。**它不属于 tenants 表**这点依旧成立 ——
+> 旧版那本来就是个浏览器本地开关，不是租户配置。
+> 详见 `docs/2026-09-19-hui-shell-audit.md` §9 与 `app/src/utils/totalBalance.ts`。
 
 ---
 
@@ -3283,7 +3291,7 @@ d = Math.round(e.price * c * t.数量)
 | 名单二 `_0x2fca47`（艺佳/索力纳）的 SVG 挖孔图 | 需移植 30 行 SVG 生成器，本租户不命中（§20.3） |
 | `_0x5c8c94` 现场生成 SVG | 同上 |
 | 杉杉 / 晟斐 / glassHole 三家的门店特判 | **已实现**（§20 §22.4）—— 对昊艺门窗为惰性分支 |
-| 回执 `TotalBalance`（客户账户余额） | 需财务模块；现以「总价−定金」占位（§13） |
+| ~~回执 `TotalBalance`（客户账户余额）~~ | **✅ 2026-09-19 已实现**（原记「需财务模块，暂以总价−定金占位」—— 财务模块已就位，且原口径本来就不是总价−定金）。见 §9 #6 / §55 #6 |
 | 回执 `payQrcode`（收款码图） | 需图片库；现为空 |
 
 
@@ -4204,7 +4212,7 @@ const trackOk = (k, kw) => !trackMatched(kw) || parts[k].track === track
 | 3 | ✅ 已修 | `basicInfoText()` 用 `<br>` + 引擎 A/B/C 三分支 |
 | 4 | ✅ 已修 | `basicInfoText()` 尾部用 `l.direction`（原始开向）—— 2026-09-14 修 |
 | 5 | ✅ 已修 | 回执 `brand` 首项改 `order.brand` —— 2026-09-14 修 |
-| 6 | ✅ 已修 | 回执 `TotalBalance` 改回 `""`（原版无财务接口时的值）—— 2026-09-14 修 |
+| 6 | ✅ 已修（**2026-09-19 重做**） | ~~2026-09-14「改回 `""`」~~ → 2026-09-19 起按**原口径**实现：开关 `localStorage['showTotalBalance']` + `finance_getCustomerBalance` 取 `客户余额`，取不到才 `""`。见 `app/src/utils/totalBalance.ts`、`docs/2026-09-19-hui-shell-audit.md` §9、差分台 `docs/home-audit/total-balance-logiccheck.mjs` |
 | 7 | ✅ **已修** | 2026-09-14。原文机制解出：`getImage('qrcode')`（`index-c3b16e3f.js` 的 `L` @3999）对 **`id==='qrcode'` 走本地分支** —— `y.images.get('qrcode')` → 返回 `{imageUrl: await I(n.imageBlob)}`（token 494='qrcode'、462='imageBlob'、497='imageUrl' 均已解码）；写入见 @5345 `y.images.put({id:'qrcode', imageBlob:r})`，即**服务端存图 → 客户端下载缓存到本地**。<br>我们无服务端图片库，但**本地那半与 `imageStore`（IndexedDB 按 id 存）完全同构** ⇒ 用固定键 `'qrcode'` 存/取：新增 `loadPayQrcode()` 预取到 `payQrcodeUrl`（照 `hydrateRowImages` 的模式，不把 `receiptPrintData` 改 async）、菜单新增「收款码设置」弹窗（上传/删除）。<br>验证：播种一张图到 IndexedDB 键 `qrcode` 后预览收据单，**该图 base64 出现在渲染结果中** |
 | 8 | ✅ 已修 | 回执行对象不含 `date`/`payment` |
 | 9 | ✅ 已修 | 回执 remark 前后包 `join(' ')` |

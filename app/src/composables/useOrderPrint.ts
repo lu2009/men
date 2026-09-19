@@ -10,6 +10,7 @@ import { api } from '../api/client'
 import { idbGetImage } from '../utils/imageStore'
 import type { ClientDto, FormulaDto, FormulaImageDto, OrderDto } from '../api/types'
 import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
+import { loadTotalBalance, readShowTotalBalance } from '../utils/totalBalance'
 import type { Line } from '../utils/partsEngine'
 import type { PrintPayload } from '../utils/printService'
 
@@ -21,6 +22,15 @@ export interface PrintPrereqs {
   clients: ClientDto[]
   payQrcode: string
   formulaImages: Record<number, FormulaImageDto[]>
+  /**
+   * 客户编号 → 「客户总余额」（旧版回执表头 `TotalBalance`）。**类型跟着旧版走**：
+   * 旧版是 `L = data["客户余额"] ?? ""` 原样塞进 `customerInfo`，服务端那边是 number，
+   * 所以这里是 `number`；`''` 只作为「这个客户取不到」的**缺席**表示（不放进表里）。
+   *
+   * 开关关时为**空对象**（一个请求都不发）；取不到的客户编号**不出现在表里**，
+   * 于是 `buildOrderPrintContext` 落到 `''` —— 与旧版那四条「取不到」路径同义。
+   */
+  totalBalances: Record<string, number>
 }
 
 function today(): string {
@@ -108,7 +118,26 @@ export async function loadPrintPrereqs(
     }),
   )
 
-  return { formulas, clients, payQrcode: payQrcode || '', formulaImages }
+  // 「总余额显示」开关（旧版 `showTotalBalance`）。**开关关时一个请求都不发** —— 旧版也是
+  // 把 `localStorage` 的判断放在 `if` 最前面。见 `utils/totalBalance.ts`。
+  // 批量打印时按**客户编号**去重（同一客户的多张单只取一次），与旧版逐个订单各发一次的
+  // 结果值相同、请求数更少。
+  const totalBalances: Record<string, number> = {}
+  if (readShowTotalBalance()) {
+    const codes = [
+      ...new Set(orders.map((o) => o.client_code).filter((c): c is string => !!c)),
+    ]
+    await Promise.all(
+      codes.map(async (code) => {
+        const v = await loadTotalBalance(true, code, (c) =>
+          api.getCustomerBalance(c).then((r) => r.customer_balance ?? null),
+        )
+        if (v !== '') totalBalances[code] = v
+      }),
+    )
+  }
+
+  return { formulas, clients, payQrcode: payQrcode || '', formulaImages, totalBalances }
 }
 
 /** 订单行 → 打印行的归一（`parts`/`markup` 落库后是 `unknown`，非数组一律当空）。 */
@@ -159,6 +188,9 @@ export function buildOrderPrintContext(
     sortMethod: localStorage.getItem('smartdoor_sort_method') || 'profile',
     formulaImages: prereqs.formulaImages,
     today: today(),
+    // 旧版 `TotalBalance`：开关开且有客户编号时是余额，否则空串。
+    // ⚠️ 只有**打印出来的回执单**用它；电子回执/分享页不显示（见 `utils/totalBalance.ts` 头注）。
+    totalBalance: prereqs.totalBalances[order.client_code || ''] ?? '',
   }
 }
 
