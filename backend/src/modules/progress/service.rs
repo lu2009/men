@@ -294,3 +294,61 @@ pub async fn update_progress(
 
     Ok(r.rows_affected())
 }
+
+// ===== /Qrscanner：标签数据 =====
+//
+// ⚠️ **没有「扫码查单」端点**（旧版 `param1=getScanQRcode`）：它是一条**纯过滤**接口
+// （拿单号去 `row['单号']` 做 trim 后精确匹配，见 `progress.service.ts:511`），
+// 而 `GET /v1/progress` 已经把全量门行连 `单号` 一起给了前端 ⇒ 前端**客户端过滤**即可，
+// 再开一条端点就是重复造。`label_data` 之所以仍然落在服务端：它要按单号**反查**
+// （前端手里没有「单号 → 行」的索引，只有全量行）。
+
+/// `POST /v1/scan/labels` —— 标签云打印要的数据。
+///
+/// 对应旧版 `param1=getLabelData`（`progress.service.ts:490`）。
+///
+/// ## ★ 匹配口径：按**行级单号**，**不照抄旧版的订单级 `orderNo`**
+///
+/// 旧版这个接口**自相矛盾**：前端传上来的 `refs` 是**行级** `单号`（二维码里装的就是它，
+/// 见分析文档 §3.1），可服务端却拿它去 **`orderNo`（订单号）** 上过滤 ——
+///
+/// ```ts
+/// prisma.order.findMany({ where: { databaseName, orderNo: { in: wanted } } })
+///   .then(orders => orders.flatMap(o => doorRowsFromSpecs(parseSpecs(o.doorSpecs)).map(labelRow)))
+/// ```
+///
+/// 于是：① 绝大多数情况下**一个订单号都不等于某个行级单号** ⇒ 打不出标签；
+/// ② 万一撞上了，返回的是**那张单的全部行**（不是选中的那几行）⇒ 多打。
+/// 同一份源码里的 `getScanQrCode` 用的却是 `row['单号']`（行级）—— **两个接口自己都对不上**。
+///
+/// 新版统一到**行级**（`order_lines.line_no`，`orders::service::find_lines_by_no`）。
+/// 理由：**打印出来的二维码，扫出来应当还是同一件事** —— 码里装的是行级单号，
+/// 那么「按码打标签」也必须按行级单号找行，否则扫码链路首尾不是同一个键。
+///
+/// ## 返回结构：整行，不是旧版 `labelRow` 的 18 个中文键投影
+///
+/// 与 `GET /v1/progress` 用**同一个 `build_row`** ⇒ 前端一套 `ProgressRowDto` 吃两条接口。
+/// 理由：
+/// · 旧版那 18 个键（单号/型材/门洞宽/…）是「当时那个打印模板恰好用到的字段」的快照，
+///   不是业务边界；新版前端要自己算**标签张数**（旧版 `za`：按 `扇数` 查表 × `数量`、
+///   按 `亮窗总高`/`墙厚` 加数、再叠一堆租户名硬编码），算张数要读的字段比 18 个只多不少。
+/// · 投影的键是**中文**，而新版全栈统一用英文键（`profile`/`door_width`…）
+///   —— `Progress.vue` 的文件头已经写明这条口径。多一套中文键 = 多一个真相源。
+///
+/// ⚠️ **旧版 `labelRow` 里根本没有 `套线单价`**，所以旧版 `za` 那句
+/// `Number(t3["套线单价"]||0) > 0 && (l3 += p2)`（移门的 `diao_tabs.add`）**永远是 false**
+/// —— 是条死分支。新版若照抄「按 `套线单价` 加张数」，必须自己决定这个字段从哪来，
+/// 别以为旧版在算它。
+///
+/// ## 不做的事
+///
+/// · **不做云打印。** 旧版这条链路的后半截是 `transitPrintSingle(templateId, rows, …)`
+///   —— 那是**打印服务**（走 hiprint socket 推给客户端），不是数据接口。本模块只负责给数据。
+/// · 与旧版一样：**空入参返回空列表**（不是 400）—— 旧版 `wanted.length === 0` 时
+///   返回 `{code:200, data:[]}`；这是读接口，空 = 没有东西可打，不是调用方的错。
+///   前端本来也先判 `et2.length > 0`（「没有选中的单号可打印」）。
+pub async fn label_data(pool: &PgPool, tenant_id: i64, line_nos: &[String]) -> ApiResult<Value> {
+    let pairs = orders_service::find_lines_by_no(pool, tenant_id, line_nos).await?;
+    let rows: Vec<Value> = pairs.iter().map(|(h, l)| build_row(h, l)).collect();
+    Ok(json!({ "rows": rows }))
+}

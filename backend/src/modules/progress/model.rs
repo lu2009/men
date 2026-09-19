@@ -57,6 +57,20 @@ pub struct ProcedureSlotInput {
     pub color: String,
 }
 
+/// `POST /v1/scan/labels` 的请求体 —— 标签云打印的数据。
+///
+/// 对应旧版 `param1=getLabelData&param2={ds}`，body = `["单号", …]`（**裸数组**）。
+/// 新版包一层 `line_nos`：与 `POST /v1/procedures` 包 `slots` 同理，
+/// 裸数组做 body 以后想加参数就没地方放。
+///
+/// ⚠️ 这里的「单号」是**行级** `单号`（= `order_lines.line_no`），不是订单号 —— 见 `service::label_data`。
+#[derive(Debug, Deserialize)]
+pub struct LabelDataInput {
+    /// 要打标签的**行级单号**（= 页面上勾选的那批，也是二维码里装的那个）。
+    #[serde(default)]
+    pub line_nos: Vec<String>,
+}
+
 /// `POST /v1/progress/update` 的请求体。
 ///
 /// 对应旧版 `param1=updataProgress`（`param3`=槽名、`param4`=要写的值、body=行 id 列表）。

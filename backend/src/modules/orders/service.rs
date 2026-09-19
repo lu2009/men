@@ -29,7 +29,8 @@ const LINE_COLUMNS: &str = "id, line_type, row_index, profile, color, direction,
      double_ding, light_window_count, image_id, image_url, progress, hole_size, line_no, \
      procedure_slots";
 
-#[derive(sqlx::FromRow)]
+/// `Clone` 是为了 `find_lines_by_no`：那边按「行」出结果，每行都要带一份自己的订单头。
+#[derive(sqlx::FromRow, Clone)]
 pub(crate) struct OrderHeaderRow {
     pub(crate) id: i64,
     pub(crate) receipt_no: String,
@@ -1307,4 +1308,94 @@ pub async fn list_with_lines(
             (h, lines)
         })
         .collect())
+}
+
+/// 按**行级单号**（`order_lines.line_no`）取「订单头 + 行」，只返回命中的行。
+///
+/// 给 `/Qrscanner` 的「扫码查单」与「标签打印」用：二维码里存的就是**单号**
+/// （见 `docs/2026-09-19-qrscanner-analysis.md` §3.1），扫到之后按它反查门行。
+///
+/// ## 匹配口径：`trim` 后**精确**相等
+///
+/// 逐字照抄旧服务端 `getScanQrCode`（`progress.service.ts:511`）：
+/// `wantedSet` 是 `String(ref||'').trim()` 的集合，再拿 `String(row['单号']||'').trim()` 去 `Set.has`。
+/// 所以 SQL 里也是 `btrim(line_no) = ANY(...)` —— **不是** `LIKE`、**不是**前缀匹配。
+///
+/// ⚠️ 与旧版一样**区分大小写**（旧版 `Set.has` 就是区分大小写的）。
+///
+/// ## 为什么不像旧版那样「拉全量再在内存里筛」
+///
+/// 旧版确实是 `findMany({where:{databaseName}})` 拉全租户订单再逐行筛的
+/// —— 那是旧的性能问题，不是口径。这里**先用单号定位到订单 id，再取这几张单**，
+/// 结果集与旧版逐行筛出来的**完全一致**（同样的 trim 精确匹配），只是不白拉全表。
+///
+/// 排序：先按订单 `id`，再按行的 `row_index, id` —— 与 `list_with_lines` 同序，
+/// 于是「扫码查单」的行序与「生产进度」页一致（旧版也是按订单顺序摊平）。
+pub async fn find_lines_by_no(
+    pool: &PgPool,
+    tenant_id: i64,
+    line_nos: &[String],
+) -> ApiResult<Vec<(OrderHeaderRow, OrderLineDto)>> {
+    let wanted: Vec<String> = {
+        let mut v: Vec<String> = line_nos
+            .iter()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    if wanted.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // ① 先定位到「有命中行」的订单。用 `DISTINCT order_id` 而不是直接 JOIN 三张表，
+    //    是为了能复用 `HEADER_COLUMNS` / `LINE_COLUMNS` 这两个私有列清单（见 `list_with_lines` 的理由）。
+    let order_ids: Vec<i64> = sqlx::query_scalar(
+        "SELECT DISTINCT order_id FROM order_lines \
+         WHERE tenant_id = $1 AND btrim(line_no) = ANY($2)",
+    )
+    .bind(tenant_id)
+    .bind(&wanted)
+    .fetch_all(pool)
+    .await?;
+    if order_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // ② 这些订单的头 + 全部行。
+    let header_sql = format!(
+        "SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 AND id = ANY($2) ORDER BY id ASC"
+    );
+    let headers: Vec<OrderHeaderRow> = sqlx::query_as(&header_sql)
+        .bind(tenant_id)
+        .bind(&order_ids)
+        .fetch_all(pool)
+        .await?;
+
+    let line_sql = format!(
+        "SELECT order_id, {LINE_COLUMNS} FROM order_lines \
+         WHERE tenant_id = $1 AND order_id = ANY($2) ORDER BY order_id, row_index, id"
+    );
+    let line_rows: Vec<OwnedLineRow> = sqlx::query_as(&line_sql)
+        .bind(tenant_id)
+        .bind(&order_ids)
+        .fetch_all(pool)
+        .await?;
+
+    // ③ 再按单号筛一次 —— 第 ① 步只保证「这张单里有命中行」，同单的其它行要滤掉。
+    let by_id: std::collections::HashMap<i64, OrderHeaderRow> =
+        headers.into_iter().map(|h| (h.id, h)).collect();
+    let wanted_set: std::collections::HashSet<&str> = wanted.iter().map(|s| s.as_str()).collect();
+    let mut out: Vec<(OrderHeaderRow, OrderLineDto)> = Vec::new();
+    for r in line_rows {
+        if !wanted_set.contains(r.line.line_no.trim()) {
+            continue;
+        }
+        if let Some(h) = by_id.get(&r.order_id) {
+            out.push((h.clone(), line_to_dto(r.line)));
+        }
+    }
+    Ok(out)
 }

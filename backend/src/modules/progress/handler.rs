@@ -1,6 +1,6 @@
 use axum::extract::State;
 use axum::Json;
-use super::model::{ProceduresInput, ProgressUpdateInput};
+use super::model::{LabelDataInput, ProceduresInput, ProgressUpdateInput};
 use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
@@ -57,4 +57,17 @@ pub async fn update_progress(
 ) -> ApiResult<Json<Value>> {
     let n = service::update_progress(&state.pool, user.tenant_id, &req).await?;
     Ok(response::ok(json!({ "updated": n })))
+}
+
+/// `POST /v1/scan/labels` —— 标签云打印的数据（body `{ line_nos: [...] }`，**行级单号**）。
+///
+/// 旧版是 `param1=getLabelData&param2={ds}`，body 是裸的单号数组。
+/// 返回 `{ rows: [ 门行… ] }`，**行结构与 `GET /v1/progress` 完全一致**（同一个 `build_row`）。
+pub async fn label_data(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Json(req): Json<LabelDataInput>,
+) -> ApiResult<Json<Value>> {
+    let v = service::label_data(&state.pool, user.tenant_id, &req.line_nos).await?;
+    Ok(response::ok(v))
 }
