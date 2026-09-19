@@ -5,16 +5,22 @@
  * 切出来跑成本极高，而它的**口径已经在文档里定死了** —— 所以这里拿文档里的旧版口径当**期望值**，
  * 跑**新版真代码**，逐条对。
  *
- * 两块：
+ * 三块：
  *   ① `app/src/utils/roles.ts` —— 门控判定表，逐条断言（谁能进哪条路由、落地页是谁）；
  *   ② `app/src/router/index.ts` 的路由守卫 —— **真跑**。把守卫源码原样切出来、
  *      只把 `createWebHistory` 换成 `createMemoryHistory`（脱离浏览器），
  *      `.vue` 组件与 `api/client` 用桩替掉；**router 本身、守卫、roles.ts、pinia auth store
  *      全是真代码**。然后逐个角色走一遍导航，看**真的落在哪**，而不是「我读了一遍觉得对」。
+ *   ③ 「设置工序」的角色门控 —— `canEditProcedures()` 纯函数逐条断言
+ *      **＋一条源码守卫**（那颗按钮真的带了 `v-if` 吗）。
+ *      ⚠️ 只测纯函数是不够的：函数对、但**没人调用**（或 `v-if` 被删）时②③照样全绿。
  *
  * ⚠️ 本台**不覆盖**的东西（别以为它绿了就全都对）：
  *   1. **界面**。`AppHeader.vue` 的 `visibleItems` 用的是同一张表，但这里不渲染组件 ——
  *      「藏了哪几项」靠的是「表对 + 组件调的是这张表」，组件本身没跑。
+ *      ③ 的源码守卫同理：它只证明**源码里写了那句 `v-if`**，**不证明渲染出来真的对**
+ *      （真渲染验过一次：CDP 拦 `/api/v1/auth/me` 换 role，admin 显示 / scanner 不显示；
+ *      那种法子要起浏览器，不适合当常驻台）。
  *   2. **后端授权**。这里全是前端。前端改一行 JS 就能绕过，见 `utils/roles.ts` 抬头。
  *   3. `defaulted = 1/3`（车间账号 / 终端账号）**不在范围内** —— 新栈没有这两种账号，
  *      也**不发明**对应的 role。见 `docs/2026-09-19-qrscanner-analysis.md` §6.3 / §8.6-(d)。
@@ -29,7 +35,7 @@
  * 用法：node docs/qrscanner-role-logiccheck.mjs
  * （中间产物写在 `app/node_modules/.roletest/` —— 那里才解析得到 vue/pinia，跑完留着无妨。）
  */
-import { mkdir } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -221,6 +227,52 @@ for (const [role, token, from, to, want, why] of NAV) {
   const ok = String(router.currentRoute.value.name) === 'receipt-share'
   check(ok, '无认证分享页被守卫挡了')
   console.log(`   ${ok ? '✓' : '✗'} 无认证分享页不走 /me（落 ${router.currentRoute.value.name}）`)
+}
+
+// ---------------------------------------------------------------------------
+// ③ 「设置工序」的角色门控：canEditProcedures（纯函数）+ 源码守卫
+// ---------------------------------------------------------------------------
+// 旧版口径：`docs/2026-09-19-qrscanner-analysis.md` §6.3 那张表 —— 这颗按钮
+// `yt = (Number(userinfo.defaulted) === 1)` 才显示，**`=2`（扫码账号）与
+// `0/其它`（普通 PC 账号）都看不到**。不是只挡扫码账号。
+// 新版映射成 `role === 'admin'`（用户 2026-09-19 拍板），理由见 `utils/roles.ts`。
+console.log('\n③ 「设置工序」门控（app/src/utils/roles.ts 的 canEditProcedures）')
+
+// ⚠️ `staff` 那一行**不是**「有产品线会创建 staff」—— 建号只有 admin / scanner 两条路，
+//    且 `users.role` 的迁移默认值已改成 admin。这里钉的是**万一有**时的行为：
+//    fail-closed，别把非 admin 放进来。
+const CAN_EDIT = [
+  ['admin',   true,  '唯一能改的 —— 旧版 defaulted=1 那一档'],
+  ['scanner', false, '扫码账号（旧版 defaulted=2）'],
+  ['staff',   false, '普通 PC 账号（旧版 0/其它）—— 同样看不到'],
+  ['',        false, '空串不是 admin'],
+  [null,      false, '未知 ⇒ fail-closed'],
+  [undefined, false, '同上（守卫补 /me 之前就是这一档）'],
+  ['Admin',   false, '大小写敏感 —— 别把 "Admin" 当管理员'],
+]
+for (const [role, want, why] of CAN_EDIT) {
+  const got = roles.canEditProcedures(role)
+  check(got === want, `canEditProcedures(${JSON.stringify(role)}) = ${got}，期望 ${want} —— ${why}`)
+  console.log(
+    `   ${got === want ? '✓' : '✗'} ${String(JSON.stringify(role)).padEnd(10)} → ${String(got).padEnd(5)} ${why}`,
+  )
+}
+
+// ★ 源码守卫：纯函数全绿也可能「没人调用」。这条钉住那颗按钮**确实**带了 v-if。
+//
+// ⚠️ 读的是**源码**，不是 `dist/` 产物 —— 压缩会把标识符改名（`canEditProcedures`
+//    在产物里变成短名，grep 不到），拿产物当依据会把「生效了」误判成「没生效」。
+{
+  const src = await readFile(resolve(APP, 'src/views/Qrscanner.vue'), 'utf8')
+  // 反向自检：先确认文件真读进来了。路径写错 / 文件改名会得到空串，
+  // 下面的正则就永远不匹配 —— 那是**假红**；更糟的是把断言写成 `!test()` 就成假绿。
+  const loaded = src.includes('设置工序')
+  check(loaded, 'Qrscanner.vue 没读到内容（路径写错了？）')
+  console.log(`   ${loaded ? '✓' : '✗'} 反向自检：读到源码且含「设置工序」`)
+
+  const okCall = /v-if="canEditProcedures\(auth\.user\?\.role\)"/.test(src)
+  check(okCall, 'Qrscanner.vue 的「设置工序」按钮没带 v-if="canEditProcedures(auth.user?.role)"')
+  console.log(`   ${okCall ? '✓' : '✗'} Qrscanner.vue 的「设置工序」按钮带 canEditProcedures 的 v-if`)
 }
 
 console.log(bad === 0 ? '\n✓ 全部一致' : `\n✗ ${bad} 处不一致`)
