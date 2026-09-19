@@ -148,6 +148,10 @@ const CHECKS = [
   ['de', 432, '生产进度'],
   ['se', 413, '__scopeId'],
   ['fl', 294, 'data-v-95ebc180'],
+  // Qrscanner 包（三张表 w/f/at）。值经人工核对：`f(255)` 解出组件名 `Qrscanner`。
+  // ⚠️ 加这条之前该包**一条自检都不命中**（脚本会打印「没有被钉住」的告警）——
+  //    轮转配错时它解出的只是别的字符串，不会报错，等于裸奔。
+  ['f', 255, 'Qrscanner'],
 ]
 let ran = 0
 for (const [dec, idx, want] of CHECKS) {

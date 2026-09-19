@@ -171,7 +171,14 @@ function walkInner(node, scope) {
         const alias = declaratorAlias(d)
         if (alias && d.id.type === 'Identifier') {
           const fromDec = scope.lookup(alias.from)
-          if (fromDec && !ARRAY_FNS.has(alias.name)) scope.declare(alias.name, fromDec)
+          // ⚠️ 这里原来还有半句 `&& !ARRAY_FNS.has(alias.name)` —— **判断错对象了**：
+          //    它查的是「别名自己的名字」，而该防的是「从数组函数别名过来」——
+          //    后者由 `fromDec` 为空天然挡住，不需要额外条件。
+          //    后果（2026-09-19 在 Qrscanner 包上撞见）：组件内的局部解码器别名
+          //    一旦与**别的**包里某个数组函数同名（例：`m`），这条别名就被漏声明，
+          //    它管的一大片调用点全部解不出来 —— **而且不报错**（Qrscanner 包
+          //    140 处 vs 应有 1615 处）。修完 Progress 包仍是 4173 处、0 残留。
+          if (fromDec) scope.declare(alias.name, fromDec)
           else scope.declare(alias.name, null)
         } else {
           // 解构声明：一律遮蔽
