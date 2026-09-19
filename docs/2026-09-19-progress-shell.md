@@ -687,6 +687,17 @@ P["value"] ? createBlock(r, { key:2, type:"primary", onClick: () => B.value = tr
 点它 → `B.value = true` → 打开 `ProductionDashboard` 那个全屏看板对话框（`production-dashboard-dialog`）。
 `b`（注册人）另外还控制数据范围（`oo = b ? K2 : K2.filter(r => r.打单人 === L)`），**与硬编码无关**。
 
+**⚠️ 2026-09-19 新版落地的两处差异**（`app/src/views/Progress.vue`）：
+
+1. **看板本版没做**（`-analysis.md` §8.0 的 ⏳5）⇒ 这颗按钮做成「**置灰 + 点了提示『本版还没做』**」，
+   不做死链。
+2. **新版没有按 `P2` 控制显隐**：`P2 = (registrant === name) || name === '开门红'` 依赖
+   `userinfo.registrant` / `userinfo.name` 这套账号字段，而新版账号模型里**还没有**这两个概念
+   （`-analysis.md` §10：`defaulted` 不复刻、账号类型映射等做权限那一步再定）。
+   所以按钮**恒渲染**（只是置灰）。等权限那一步落地时，要么补上 `P2` 等价条件、
+   要么明确决定「任何人都能看到这颗（置灰的）按钮」。⚠️ `'开门红'` 那半条本来也不可达（见 §6.3），
+   别顺手把它当笔误删掉。
+
 ### 6.3 ⚠️ 但这条分支**实际不可达** —— 同 build 的路由守卫会把「开门红」账号踢下线
 
 `index-c3b16e3f.js`（反混淆 @67700 附近）里有一个「反盗版」守卫函数：

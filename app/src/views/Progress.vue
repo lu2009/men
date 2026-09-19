@@ -7,17 +7,35 @@
     ## 本文件进展
 
     - 第一刀：骨架 —— 路由 / 导航项 / 拉全量数据 / **PC 14 列** / 分页（100 每页，可选 [10,20,50,100,200]）。
-    - 第二刀（本笔）：**⏳3 单元格保真** + **⏳2 列头交互**。
+    - 第二刀：**单元格保真** + **列头交互**（`va()` 渲染 / 颜色 / 表头筛 / 查单号 / 颜色筛选）。
+    - 第三刀（本笔）：**工具条 + 统计行**（旧版 `search-row`，§2.2 / §5.4）+ **导出表格**（§4.6）。
 
     ## ⏳ 还没做（按旧版顺序，各自独立可验）
 
-    1. **工具条**：打印选项 / 批量更新 / 查询更多 / 生产分析 / 刷新 / 导出表格 / 搜索框 + 统计行
-       （旧版 `search-row`，见 §2.2）
+    1. ~~**工具条**~~ ✅ **已做（本笔）**：打印选项 / 批量更新(n) / 查询更多 / 生产分析 / 刷新 /
+       导出表格 / 搜索框 / 统计行。⚠️ 其中三颗的**目标 UI 还没做**（见下面 2/3/5），
+       它们做成「**置灰 + 点了给提示**」而不是死链；「批量更新」按旧版条件（已选 > 1）渲染，
+       本页还没有勾选 UI ⇒ 现在**恒不出现**（与旧版「没勾选时」的表现一致）。
+    2. **打印抽屉**（旧版 §4.5：标签 / 生产标签 / 料标签 / 生产单 / … / 收据单 共 12 类）
+       —— 「打印选项」那颗按钮的目标 UI。
+    3. **更多查询对话框**（旧版 `Lo`）—— 「查询更多」那颗按钮的目标 UI。
+       要**先补后端**（`getMoreProgress` / `getClientsInfo`，见 §3.1）；
+       它同时会引入旧版的 `Bo`/`xo`（查询结果集生效标志），`filteredRows` 里已留了说明。
     4. **行内动作**：「更新进度」✅ 已做（弹窗拼 `工序名_操作员_日期` → `POST /v1/progress/update`）；
-       「删除」⏳ 未做
+       「删除」⏳ 未做；**「日期」列的行勾选 checkbox** ⏳ 未做（「批量更新」依赖它）。
     5. **生产分析看板**（echarts，5 KPI + 4 饼图 + 趋势 + 4 个统计 tab）
        ⚠️ 它**不是**我们已有的 `DashboardBigScreen`，指标得重写
     6. **终端模式**（10 列）—— **本版不做**：旧版那条接口在服务端是写死 400，路本来就是坏的
+
+    ## ✅ 第三刀做了什么（逐条对着 §2.2 / §4.6 / §5.4）
+
+    - **工具条**（`.search-row`）：7 颗按钮 + 搜索框，**顺序、类型色、出现条件**照旧版
+      （`type` 依次是 primary / warning / primary / primary / success / warning）。
+    - **搜索框**：空格分词、**每个词都要命中**十个字段之一（字段顺序照旧版）；
+      加了「词一变就回第 1 页」（旧版不重置页码，那是毛病，见 `watch(searchText)` 的注释）。
+    - **统计行**：两种形态（有搜索词 → 「当前筛选」；否则 → 「总计」，且**一条数据都没有时整行不渲染**）。
+    - **导出表格**：ExcelJS 造「筛选结果」表（§4.6），列 / 底色 / 行高 / 文案逐项照抄。
+      依赖 `exceljs@4.4.0`（**动态 import**，只在点导出时才下载那个 ~940KB 的 chunk）。
 
     ## ✅ 第二刀做了什么（逐条对着 §5.2 / §5.3 / §2.3 / §4.1）
 
@@ -53,10 +71,98 @@
     **颜色筛选的分组同理** —— 没配颜色就没有可选项（只剩内置的「未生产」+ 5 个关键词兜底色）。
   -->
   <div class="page">
-    <div class="toolbar">
-      <n-button size="small" :loading="loading" @click="load">刷新</n-button>
-      <span class="grow-spacer" />
-      <span class="count">共 {{ filteredRows.length }} 条</span>
+    <!--
+      工具条（旧版 `.search-row`，从左到右逐项对着 `docs/2026-09-19-progress-analysis.md` §2.2）：
+        打印选项 · 批量更新(n) · 查询更多 · 生产分析 · 刷新 · 导出表格 · 搜索框 · 统计行
+
+      ⚠️ 三颗按钮的**目标 UI 本版还没做**（打印抽屉 / 更多查询对话框 / 生产分析看板）——
+         按本项目对死链的态度做成「**置灰 + 点了给提示**」（机制见 `notYet()` 的注释）。
+
+      ⚠️ 「批量更新」**连按钮都不渲染**（不是置灰）—— 依据是 §2.2 表格第 2 行给的出现条件
+         「`已选条数 > 1` 且 PC 模式」（`ea = te.ping_hui.length + te.diao_hui.length`）：
+         本页还没有行勾选 UI（文件头 ⏳4）⇒ 已选恒为 0 ⇒ **按旧版口径它此刻本来就不该出现在屏幕上**，
+         置灰反而会多出一颗旧版此时不会有的按钮。
+         这里仍把 `v-if` 条件与文案照旧版写上（今天恒假），等勾选列落地即可自动生效。
+    -->
+    <div class="search-row">
+      <n-tooltip>
+        <template #trigger>
+          <!-- ⚠️ 提示语是**给厂里用人看的**，别往里塞 `§`/函数名这类文档记号（那些写在代码注释里） -->
+          <span class="pending-slot" @click="notYet('打印选项', '标签 / 生产单 / 玻璃合片单 / 收据单等打印')">
+            <n-button type="primary" disabled>打印选项</n-button>
+          </span>
+        </template>
+        打印抽屉本版还没做
+      </n-tooltip>
+
+      <n-tooltip v-if="selectedRows.length > 1">
+        <template #trigger>
+          <span class="pending-slot" @click="openBatchUpdate">
+            <n-button type="warning" disabled>批量更新 ({{ selectedRows.length }})</n-button>
+          </span>
+        </template>
+        批量更新本版还没做（要先有行勾选）
+      </n-tooltip>
+
+      <!-- 「查询更多」旧版恒出现（§2.2 表格第 3 行）。⚠️ 它要的**后端也没有**：
+           `getMoreProgress` / `getClientsInfo` 在新版后端**不存在**（见 §3.1 与文件头 ⏳3），
+           所以这颗要落地得前后端一起补，不是只差一个弹窗组件。 -->
+      <n-tooltip>
+        <template #trigger>
+          <span class="pending-slot" @click="notYet('查询更多', '按客户 / 安装地址 / 日期范围查询')">
+            <n-button type="primary" disabled>查询更多</n-button>
+          </span>
+        </template>
+        更多查询本版还没做
+      </n-tooltip>
+
+      <n-tooltip>
+        <template #trigger>
+          <span class="pending-slot" @click="notYet('生产分析', '生产分析看板（KPI / 饼图 / 趋势 / 分客户业务员工序型材统计）')">
+            <n-button type="primary" disabled>生产分析</n-button>
+          </span>
+        </template>
+        生产分析看板本版还没做
+      </n-tooltip>
+
+      <n-button type="success" :loading="loading" @click="refresh">刷新</n-button>
+
+      <!-- 旧版：只有搜索词/更多查询条件非空（`zo`）时才出现 -->
+      <n-button v-if="searchText" type="warning" :loading="exporting" @click="exportTable">导出表格</n-button>
+
+      <n-input
+        v-model:value="searchText"
+        class="search-input"
+        clearable
+        placeholder="输入关键词搜索（可用空格分隔多个关键词）"
+      >
+        <template #prefix>
+          <!-- 旧版前缀是 index chunk 里的图标组件（`h as u`），我们没那个件 ⇒ 用同形的放大镜 SVG -->
+          <svg viewBox="0 0 1024 1024" width="14" height="14" aria-hidden="true">
+            <path
+              fill="currentColor"
+              d="M909.6 854.5L649.9 594.8C690.2 542.7 712 479 712 412c0-80.2-31.3-155.4-87.9-212.1-56.6-56.7-132-87.9-212.1-87.9s-155.5 31.3-212.1 87.9C143.2 256.5 112 331.8 112 412c0 80.1 31.3 155.5 87.9 212.1C256.5 680.8 331.8 712 412 712c67 0 130.6-21.8 182.7-62l259.7 259.6a8.2 8.2 0 0 0 11.6 0l43.6-43.5a8.2 8.2 0 0 0 0-11.6zM570.4 570.4C528 612.7 471.8 636 412 636s-116-23.3-158.4-65.6C211.3 528 188 471.8 188 412s23.3-116.1 65.6-158.4C296 211.3 352.2 188 412 188s116.1 23.2 158.4 65.6S636 352.2 636 412s-23.3 116.1-65.6 158.4z"
+            />
+          </svg>
+        </template>
+      </n-input>
+
+      <!--
+        统计行（旧版两种形态，见 §2.2 / §5.4）。注意两段的**文案与分段位置**是逐字抄的：
+          · 「当前筛选」形态：正文是 `" 当前筛选: {词} ({n} 条结果)"`（**开头带空格**），
+            后面那个 `<span class="total-info">` 从 `" | 时间: …"` 开始；
+          · 「总计」形态：` 总计: {n} 条记录 | 时间: … ` **整段都在** `total-info` 里。
+        后者的外层条件不是「搜索词为空」，而是旧版的 `K.length > 0`（**一条数据都没有时整行不渲染**）。
+        （旧版「当前筛选」那句在 `条结果)` 后还有一个尾空格，和 span 开头的空格连成两个 ——
+          模板编译器会把节点末尾的空白吃掉，这里只剩一个；HTML 本来就会把连续空白并成一个，
+          渲染结果没有差别，不去人为补 `&#32;`。）
+      -->
+      <div v-if="searchText" class="search-info">
+        当前筛选: {{ searchText }} ({{ filteredRows.length }} 条结果)<span class="total-info">{{ statsTail }}</span>
+      </div>
+      <div v-else-if="rows.length > 0" class="search-info">
+        <span class="total-info"> 总计: {{ filteredRows.length }} 条记录{{ statsTail }}</span>
+      </div>
     </div>
 
     <n-data-table
@@ -108,8 +214,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import type { VNodeChild } from 'vue'
+import type { Workbook as ExcelJSWorkbook } from 'exceljs'
 import {
   NButton,
   NDataTable,
@@ -118,11 +225,13 @@ import {
   NPagination,
   NPopover,
   NSelect,
+  NTooltip,
   useMessage,
 } from 'naive-ui'
 import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
 import { api } from '../api/client'
 import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
+import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 
 const message = useMessage()
 
@@ -151,6 +260,10 @@ async function load() {
 }
 
 onMounted(async () => {
+  // ⚠️ 开向自定义命名（localStorage `openDirectionCustomNames`）**必须显式载入**：
+  //    旧版是每次算统计时现读 localStorage（`t = l()`），我们这份是模块级 ref，
+  //    目前只有 `views/Hui.vue` 在加载它 ⇒ 不在这里补一句，「平开门扇数/其它」会漏掉改名后的开向。
+  loadOpenDirectionSettings()
   await Promise.all([load(), loadSlots()])
 })
 
@@ -660,7 +773,9 @@ const orderNoRestoring = ref(false)
  * ① **补年份后缀**：输入里若没有 `-两位数字`（`/-\d{2}\b/`）就补 `-` + 当前年份后两位。
  *    ⚠️ 与 `views/Home.vue:2262` 同一套规则（Home 的「查单号」是另一个函数，但正则/后缀一致）。
  * ② 候选集 = 已过「单号列筛 `ia`」「颜色筛 `Z`」的行（旧版 `ya` 里 `a` 就是这么构造的）
- *    —— **不含**搜索框那一步（本页还没做搜索框，见文件头 ⏳1）。
+ *    —— **不含**搜索框那一步。⚠️ 这是**旧版原样**（`ya` 里那两句只筛 `ia`/`Z`），
+ *    不是「搜索框还没做」：搜索框已经做了（见 `filteredRows`），但这里**照旧版**不带上它 ——
+ *    带上会让「查单号」的命中判定依赖当前搜索词，行为就和旧版不一样了。
  * ③ 没命中 → `warning("查不到「{关键字}」单号！")`，且**清空** `Va`（不留下一个筛不出东西的关键字）。
  * ④ 命中 → 写 `Va`、回第 1 页、关 popover。
  */
@@ -819,19 +934,44 @@ const progressHeader = (): VNodeChild =>
     ),
   ])
 
+/**
+ * 搜索框命中的十个字段 —— **顺序与旧版逐字一致**
+ * （旧版：`客户 日期 型材 安装地址 备注 单号 业务员 打单人 生产进度 回执单号`）。
+ * ⚠️ 这里的键名按 `ProgressRowDto` 的真实字段写：后端 DTO 是英文列名（见 `api/types.ts`
+ *    的 `OrderLineDto`），所以「型材」在这个 DTO 里叫 **`profile`** —— 其余九个恰好是中文键。
+ *    别照抄旧版的中文 `型材`（那个键在 `ProgressRowDto` 上不存在，会静默筛不到东西）。
+ */
+const SEARCH_FIELDS = [
+  '客户',
+  '日期',
+  'profile',
+  '安装地址',
+  '备注',
+  '单号',
+  '业务员',
+  '打单人',
+  '生产进度',
+  '回执单号',
+] as const satisfies readonly (keyof ProgressRowDto)[]
+
 // ── B3. 筛选链 + 分页 ─────────────────────────────────────────────────────
 /*
  * 旧版 §4.1 的链路：`K2`（原始）→ `oo` → `no`（最终）→ `io`（当页切片）。
- * 本页目前只做链里的三步（其余几步属于文件头 ⏳1 的工具条）：
+ * 本页目前做了链里的四步（剩下没做的只有 `oo` 那一步，理由见下）：
  *
  *   `oo`（只看自己打单的行）—— 旧版 `b2 ? K2 : K2.filter(打单人 === 自己)`。
  *     ⚠️ 新版**还没做**：它依赖 `userinfo.registrant/name` 这套账号字段，
  *        旧版 §10 明确「`defaulted` 我们不复制，账号类型映射等做权限那一步再定」。
  *        这里先跳过，等权限那一步补 —— **不要**用「当前登录名」凑一个近似值。
- *   `ia` 单号列筛 → `Z2` 颜色筛 → `Va` 查单号前缀（**顺序照旧版**）
+ *   `ia` 单号列筛 → `Z2` 颜色筛 → `Va` 查单号前缀 → `zo` 搜索框（**顺序照旧版**）
  *
  * ⚠️ 与 Home 同款的**有意偏离**：旧版的列头筛发生在分页切片**之后**（只筛当前页、总数不含它），
- *    新版把三步都并进 `filteredRows` ⇒ **全量筛选、总数跟随**。
+ *    新版把这几步都并进 `filteredRows` ⇒ **全量筛选、总数跟随**。
+ *
+ * ⚠️ 旧版 `no` 的第一句是 `let t = Bo.value ? xo.value : oo.value` —— `Bo`/`xo` 是
+ *    **「查询更多」的结果集与其生效标志**（点确认后 `xo=d, Bo=true`；**动搜索框或清空**就把
+ *    `Bo` 置回 `false`，退回全量 `oo`）。本版「查询更多」还没做 ⇒ 这里没有 `Bo`/`xo` 这一层，
+ *    搜索永远作用在 `oo`（= 本页的 `rows`）上。等 ⏳「查询更多」落地时要把它补回来。
  */
 const filteredRows = computed(() => {
   let list = rows.value
@@ -846,6 +986,19 @@ const filteredRows = computed(() => {
   if (orderNoQuery.value) {
     const q = orderNoQuery.value.toLowerCase()
     list = list.filter((r) => String(r['单号'] ?? '').toLowerCase().startsWith(q))
+  }
+  // 搜索框：空格分词，**每个词都要命中**十个字段里的任意一个（全部 `toLowerCase()` 后 `includes`）。
+  // 逐字对着旧版 `no` 的最后一段抄：字段顺序、`String(x ?? '')` 的空值处理都一样。
+  // ⚠️ 旧版用 `?.toString().toLowerCase().includes(w)`，null/undefined 会短路成 falsy；
+  //    这里等价写成 `String(x ?? '')`（`null` → `''`，`''.includes(w)` 只有 `w` 为空才真，
+  //    而 `w` 已经 `filter(Boolean)` 过了 ⇒ 同样恒 false）。
+  const words = searchText.value.toLowerCase().split(/\s+/).filter((w) => w)
+  if (words.length) {
+    list = list.filter((r) =>
+      words.every((w) =>
+        SEARCH_FIELDS.some((k) => String(r[k] ?? '').toLowerCase().includes(w)),
+      ),
+    )
   }
   return list
 })
@@ -908,6 +1061,432 @@ const columns = computed<DataTableColumn<ProgressRowDto>[]>(() => [
   { title: '打单人', key: '打单人', width: 90, cellProps: cellPad, render: (r) => line(r['打单人']) },
   { title: '业务员', key: '业务员', width: 90, cellProps: cellPad, render: (r) => line(r['业务员']) },
 ])
+
+// ═══════════════════════════════════════════════════════════════════════════
+// C. 工具条 + 统计行（旧版 §2.2 / §5.4）
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * `await import('exceljs')` 的结果形状。
+ * exceljs 的 `browser` 字段指向 UMD 包，**没有 ESM 默认导出**，Rollup 的 CJS interop
+ * 有可能只给到 `default` ⇒ 运行期两个位置都取一下（见 `exportTable`）。
+ */
+type ExcelJSInterop = {
+  Workbook?: typeof ExcelJSWorkbook
+  default?: { Workbook: typeof ExcelJSWorkbook }
+}
+
+/** 导出中（按钮 loading，防止连点两次生成两个文件）。旧版没有这个 flag，是本页加的。 */
+const exporting = ref(false)
+
+/**
+ * 搜索词（旧版 `zo`）。
+ * ⚠️ 它**同时**是「导出表格」按钮的显隐开关 —— 旧版那颗按钮的条件就是 `zo` 非空
+ * （见 §2.2 与 §4.6），不是「有没有数据」也不是「有没有筛选」。
+ */
+const searchText = ref('')
+
+/**
+ * 行勾选（旧版 `te = {ping_hui:[], diao_hui:[], customerInfo:{}, hui_picture:[]}`）——
+ * 「批量更新」的显隐与计数只用到前两个数组的长度和（`ea`）。
+ * ⚠️ **本页还没有行勾选 UI**（旧版那个 checkbox 在「日期」列里，属于文件头 ⏳4），
+ *    所以这里恒为空数组 ⇒ 那颗按钮现在恒不出现。**不要**为了让它出现而写死一个假计数。
+ */
+const selectedRows = ref<ProgressRowDto[]>([])
+
+/** 旧版 `pa()`：重拉数据 + **清空勾选**（`Ta()` + 逐个 `isSelected=false` + 重置 `te`）。 */
+async function refresh() {
+  selectedRows.value = []
+  await load()
+}
+
+/**
+ * 三颗「目标 UI 本版还没做」的按钮的点击反馈（置灰 + 给提示，**不做死链**）。
+ *
+ * ⚠️ 为什么要有外层 `span`：`<button disabled>` 在 Chrome 里**根本不派发 click**
+ *    （事件被浏览器吞掉），所以监听挂在 button 上是收不到的。
+ *    模板里把 button 设成 `pointer-events: none`（见 `.pending-slot` 的样式），
+ *    命中测试就落到这个 span 上 ⇒ 点得到、也提示得到。
+ */
+function notYet(name: string, what: string) {
+  message.info(`「${name}」本版还没做：${what}`)
+}
+
+/**
+ * 「批量更新」的入口（旧版 `ta`）。
+ * 按钮现在恒不出现（见 `selectedRows` 的注释），走到这里只可能是将来补了勾选列但没接弹窗。
+ */
+function openBatchUpdate() {
+  notYet('批量更新', '要先勾选多行，且批量弹窗本版还没做')
+}
+
+/**
+ * 搜索词一变就回第 1 页。
+ *
+ * ⚠️ **有意偏离**：旧版动搜索框**不重置页码**（`zo` 只被 v-model 写、`ao` 只清 `Bo`），
+ *    在旧版上「停在第 2 页搜一个只剩 3 条的词」就会看到空表 —— 那是毛病。
+ *    本页本就把筛选放在分页**之前**（见 `filteredRows` 的注释），不重置页码只会更容易撞上它。
+ *    另：旧版 `onClear`（`lo`）只清 `zo` 和 `Bo`，在「还没有查询更多」的本版里是纯空操作
+ *    ⇒ 这里不复刻那个 handler，靠 `clearable` + 这个 watch 覆盖。
+ */
+watch(searchText, () => {
+  page.value = 1
+})
+
+// ── C1. 统计数字（旧版 `yo` / `vo` / `mo` / `go` / `fo` / `po`，全部作用在 `no` = 筛选后）──
+/*
+ * ⚠️ 五个数都是**前端逐行算的**，后端不参与；口径与看板的 `ke2` **不完全一样**（看板另有
+ *    「不含单玻」开关），**别把这两处合并**。
+ *
+ * ⚠️ 全部读的是**筛选后**的 `filteredRows`（= 旧版 `no`）。
+ *
+ * ⚠️ 旧版这一大段是从 `ProgressRowDto` 的**中文键**上读的（`型材` / `扇数` / `开向` / `数量` /
+ *    `亮窗总高` / `轨道种类`）；我们的 DTO 是英文列名 ⇒ 逐项换成
+ *    `profile` / `fans` / `direction` / `quantity` / `light_window_height` / `track`。
+ */
+
+/**
+ * 「移门」判据用的扇数枚举（**旧版 `fo` 里那张独立数组** `d` 的原样，顺序照抄）。
+ *
+ * ⚠️ 旧版把同一批字面量写了**两份**：`yo` 是一条 if 链（每项还带「每樘几扇」的值）、
+ *    `fo` 是这张只看「是不是移门扇数」的数组。改动时**两处都要改**
+ *    （`moveFans` 的 if 链 / 这张表），差分台 `docs/progress-toolbar-logiccheck.mjs`
+ *    里有一条自检会比对这两份的字面量集合，漏改一处会红。
+ */
+const MOVE_FAN_NAMES = [
+  '2轨2扇',
+  '2轨3扇',
+  '2轨4扇',
+  '3轨2扇1纱',
+  '3轨4扇2纱',
+  '3轨3扇',
+  '4轨4扇',
+  '5轨5扇',
+  '6轨6扇',
+  '7轨7扇',
+  '8轨8扇',
+  '9轨9扇',
+  '单轨单扇',
+  '单轨2扇',
+  '折叠2扇',
+  '折叠3扇',
+  '折叠4扇',
+  '折叠5扇',
+  '折叠6扇',
+  '折叠7扇',
+  '折叠8扇',
+  '折叠9扇',
+] as const
+
+/** 平开门「单开」的 8 个开向（旧版 `vo` 的 `o` 数组，顺序照抄）。 */
+const PING_SINGLE_DIRECTIONS = [
+  '内左',
+  '内右',
+  '外左',
+  '外右',
+  '左锁内开',
+  '右锁内开',
+  '左锁外开',
+  '右锁外开',
+]
+
+/** 平开门「双开」的 6 个开向（旧版 `vo` 的 `n` 数组）。 */
+const PING_DOUBLE_DIRECTIONS = ['双开内开', '双开外开', '双开内左', '双开内右', '双开外左', '双开外右']
+
+/** `其它` 用的 14 项合并表（旧版 `fo` 的 `o` 数组 = 单开 8 + 双开 6）。 */
+const ALL_PING_DIRECTIONS = [...PING_SINGLE_DIRECTIONS, ...PING_DOUBLE_DIRECTIONS]
+
+/** 旧版 `vo`/`fo` 都用的开向归一化：显示名 → 原始开向（`openDirectionNaming` 的 `g`）。 */
+const normDirection = (d: string) => getOriginalOpenDirection(d)
+
+/**
+ * `yo` 移门扇数：逐行按 `扇数` 查表得「每樘几扇」，再乘 `数量` 累加。
+ *
+ * ⚠️ 三处照抄的细节：
+ *  ① 型材含「哑口」的行**直接跳过**（注意：只在这里跳，不影响「其它」的判定 —— 见 `others`）；
+ *  ② 查不到对应扇数 ⇒ `r` 保持 0 ⇒ **跳过**（不按 1 扇算）；
+ *  ③ 旧版那句 `(l["型材"]&&l["型材"].includes("+0"), t+o*r)` 里 `includes("+0")` 是个
+ *     **没有任何作用的残留表达式**（逗号运算符左边），不复制。
+ */
+const moveFans = computed(() =>
+  filteredRows.value.reduce((acc, r) => {
+    if (r.profile && r.profile.includes('哑口')) return acc
+    const n = r.fans
+    let per = 0
+    if (n === '2轨2扇' || n === '单轨2扇' || n === '折叠2扇') per = 2
+    else if (n === '2轨3扇' || n === '3轨3扇' || n === '折叠3扇' || n === '3轨2扇1纱') per = 3
+    else if (n === '2轨4扇' || n === '4轨4扇' || n === '折叠4扇') per = 4
+    else if (n === '3轨4扇2纱' || n === '折叠6扇' || n === '6轨6扇') per = 6
+    else if (n === '单轨单扇') per = 1
+    else if (n === '折叠5扇' || n === '5轨5扇') per = 5
+    else if (n === '折叠7扇' || n === '7轨7扇') per = 7
+    else if (n === '折叠8扇' || n === '8轨8扇') per = 8
+    else if (n === '折叠9扇' || n === '9轨9扇') per = 9
+    if (per === 0) return acc
+    return acc + (r.quantity || 0) * per
+  }, 0),
+)
+
+/**
+ * `vo` 平开门扇数：型材含「钻石」跳过；归一化后的开向 ∈ 单开 8 项 `+数量`、
+ * ∈ 双开 6 项 `+2×数量`、其余不计。
+ */
+const pingFans = computed(() =>
+  filteredRows.value.reduce((acc, r) => {
+    if (r.profile && r.profile.includes('钻石')) return acc
+    const d = normDirection(r.direction)
+    if (PING_SINGLE_DIRECTIONS.includes(d)) return acc + (r.quantity || 0)
+    if (PING_DOUBLE_DIRECTIONS.includes(d)) return acc + 2 * (r.quantity || 0)
+    return acc
+  }, 0),
+)
+
+/**
+ * `mo` 移门亮窗个数：`亮窗总高 > 0` 且 `轨道种类` 非空且**不等于字符串 `"NULL"`** ⇒ `+数量`。
+ * ⚠️ `"NULL"` 是**四个字母的字符串**（旧库里真出现过），不是 `null` —— 别改成 `!= null`。
+ */
+const lightWindows = computed(() =>
+  filteredRows.value.reduce(
+    (acc, r) =>
+      r.light_window_height > 0 && r.track && r.track !== 'NULL' && r.track !== ''
+        ? acc + (r.quantity || 0)
+        : acc,
+    0,
+  ),
+)
+
+/** `go` 淋浴房扇数：扇数 ∈ {一固一活, 双活} ⇒ `+2×数量`；否则型材含「钻石」⇒ `+数量`。 */
+const showerFans = computed(() =>
+  filteredRows.value.reduce((acc, r) => {
+    if (r.fans === '一固一活' || r.fans === '双活') return acc + 2 * (r.quantity || 0)
+    if (r.profile && r.profile.includes('钻石')) return acc + (r.quantity || 0)
+    return acc
+  }, 0),
+)
+
+/**
+ * `fo` 其它：**不属于上面任何一类**的行才 `+数量`。
+ *
+ * ⚠️ 这里有个**容易照文档写错**的地方：分析文档 §5.4 把「其它」写成「（且非哑口）」，
+ *    但旧版源码里「哑口」**只参与「移门」那一条判据**（`d = 是移门扇数 && !哑口`），
+ *    并没有一个总的「哑口 ⇒ 不算其它」的分支。所以一行「哑口」如果没有亮窗 / 不是淋浴 /
+ *    不是钻石 / 开向不在 14 项里，它**是会被算进「其它」的**。
+ *    这里**照源码写**（`includes(哑口)` 只影响 `isMove`），并已在
+ *    `docs/2026-09-19-progress-analysis.md` §5.4 记明这处措辞与源码的差别。
+ */
+const others = computed(() =>
+  filteredRows.value.reduce((acc, r) => {
+    const isYakou = !!r.profile && r.profile.includes('哑口')
+    const isMove = (MOVE_FAN_NAMES as readonly string[]).includes(r.fans) && !isYakou
+    const isLight =
+      r.light_window_height > 0 && !!r.track && r.track !== 'NULL' && r.track !== ''
+    const isShower = r.fans === '一固一活' || r.fans === '双活'
+    const isDiamond = !!r.profile && r.profile.includes('钻石')
+    const isPing = ALL_PING_DIRECTIONS.includes(normDirection(r.direction))
+    return isMove || isLight || isShower || isDiamond || isPing ? acc : acc + (r.quantity || 0)
+  }, 0),
+)
+
+/**
+ * `po` 时间区间：`no` 里所有 `日期` 的 min/max，格式化成 `YYYY-MM-DD`（`toISOString().slice(0,10)`）。
+ * 空集 ⇒ `{earliest:'', latest:''}`。
+ * ⚠️ 旧版对**解析不出来的日期**没有防护（`new Date(x)` 得到 Invalid Date ⇒ `toISOString()` 会抛）。
+ *    日期是后端 `dateText()` 格式化过的串，这里不改口径、也不加兜底。
+ */
+const dateRange = computed(() => {
+  const list = filteredRows.value
+  if (list.length === 0) return { earliest: '', latest: '' }
+  const stamps = list
+    .map((r) => r['日期'])
+    .filter((d) => d)
+    .map((d) => new Date(d).getTime())
+  if (stamps.length === 0) return { earliest: '', latest: '' }
+  const fmt = (ms: number) => new Date(ms).toISOString().split('T')[0]
+  return { earliest: fmt(Math.min(...stamps)), latest: fmt(Math.max(...stamps)) }
+})
+
+/**
+ * 统计行的后半段（旧版那个 `<span class="total-info">` 的内容，**含开头的空格与竖线**）。
+ * ⚠️ 导出用的那句**不是**直接拼它 —— 旧版两处文案**有两处不同**（见 `exportTable` 的注释）。
+ */
+const statsTail = computed(
+  () =>
+    ` | 时间: ${dateRange.value.earliest} 至 ${dateRange.value.latest}` +
+    ` | 移门扇数: ${moveFans.value} | 平开门扇数: ${pingFans.value}` +
+    ` | 移门亮窗个数: ${lightWindows.value} | 淋浴房扇数: ${showerFans.value}` +
+    ` | 其它: ${others.value}`,
+)
+
+// ── C2. 导出表格（旧版 `z`，§4.6）──────────────────────────────────────────
+/*
+ * 旧版是**纯前端** ExcelJS 造一个「筛选结果」表 → `writeBuffer()` → Blob → `<a download>`。
+ * 列 / 底色 / 行高 / 文案**逐项照抄**，包括下面这些反直觉的地方：
+ *
+ *  ① 导的是**筛选后**的 `no`（= 本页 `filteredRows`），不是当前页、也不是全量；
+ *  ② 标题行 `筛选结果: {搜索词}`、统计行 `统计信息: {n}条记录 | …`（⚠️ 见下面的文案差异）；
+ *  ③ **会多出一行重复表头** —— `ws.columns = cols` 让 ExcelJS 自己插了一行表头，
+ *     随后旧版又 `addRow(cols.map(c => c.header))` 手工加了一行带样式（蓝底/居中/高 25）的表头，
+ *     于是成品里 row3 / row4 是两行一样的表头。**这是旧版线上导出的真实样子，照抄不清理**
+ *     （真要清理属于「改输出」，得先拍板；已记在 `docs/2026-09-19-progress-analysis.md` §4.6）。
+ *  ④ 行高按 `生产进度` 里 `➞` 的个数算：`max(22, 18*(n+1))`（`n=0` 时按 1 算 ⇒ 22）；
+ *  ⑤ 「生产进度」是**第 4 列**，只有它的对齐带 `wrapText`。
+ */
+async function exportTable() {
+  exporting.value = true
+  try {
+    // exceljs 只在**真点导出**时才下载（浏览器包 ~950KB，不能进主 chunk）。
+    // ⚠️ 写法与 `utils/printService.ts` 引 vue-plugin-hiprint 同一套路：exceljs 的
+    //    `browser` 字段指向 UMD 包（`dist/exceljs.min.js`），**没有 ESM 默认导出**，
+    //    所以「类型走 type-only import、运行期双取（命名空间 / default）」。
+    const mod = (await import('exceljs')) as unknown as ExcelJSInterop
+    const WorkbookCtor = mod.Workbook ?? mod.default?.Workbook
+    if (!WorkbookCtor) throw new Error('exceljs 未正确加载')
+    const wb = new WorkbookCtor()
+    const ws = wb.addWorksheet('筛选结果')
+
+    // 列定义（header / key / width）逐字照抄旧版。
+    const cols = [
+      { header: '日期', key: 'date', width: 15 },
+      { header: '客户', key: 'customer', width: 15 },
+      { header: '单号', key: 'orderNo', width: 15 },
+      { header: '生产进度', key: 'progress', width: 30 },
+      { header: '型材', key: 'profile', width: 12 },
+      { header: '颜色', key: 'color', width: 12 },
+      { header: '底玻', key: 'bottomGlass', width: 12 },
+      { header: '面玻', key: 'topGlass', width: 12 },
+      { header: '玻璃厚', key: 'glassThick', width: 10 },
+      { header: '开向', key: 'direction', width: 12 },
+      { header: '扇数', key: 'fanCount', width: 12 },
+      { header: '门洞高', key: 'height', width: 10 },
+      { header: '门洞宽', key: 'width', width: 10 },
+      { header: '墙厚', key: 'wallThick', width: 10 },
+      { header: '轨道长', key: 'trackLen', width: 10 },
+      { header: '亮窗总高', key: 'brightHeight', width: 12 },
+      { header: '数量', key: 'quantity', width: 10 },
+      { header: '平方数', key: 'area', width: 10 },
+      { header: '金额', key: 'amount', width: 12 },
+      { header: '备注', key: 'remark', width: 20 },
+      { header: '安装地址', key: 'address', width: 20 },
+      { header: '打单人', key: 'creator', width: 12 },
+      { header: '业务员', key: 'salesman', width: 12 },
+    ]
+    ws.columns = cols
+
+    // 第 1 行：标题（合并 → 蓝底 FFE6F4FF → 16 号粗体居中 → 高 30）
+    ws.insertRow(1, [`筛选结果: ${searchText.value}`])
+    ws.mergeCells(1, 1, 1, cols.length)
+    const title = ws.getRow(1)
+    title.height = 30
+    title.font = { size: 16, bold: true }
+    title.alignment = { vertical: 'middle', horizontal: 'center' }
+    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4FF' } }
+
+    // 第 2 行：统计（黄底 FFFFF7E6；行高按**字符数** `max(25, 18*ceil(len/80))`，不是按行数）
+    //
+    // ⚠️ 这句与工具条上的 `statsTail` **不是同一串**，两处措辞不同、别合并成一个函数：
+    //    · 「N条记录」后面**直接**跟 `" | 时间:"`（工具条那句是「N 条记录 | 时间:」，中间有空格）；
+    //    · 这里是「**移门亮窗**」，工具条上是「**移门亮窗个数**」。
+    const statLine =
+      `统计信息: ${filteredRows.value.length}条记录` +
+      ` | 时间: ${dateRange.value.earliest} 至 ${dateRange.value.latest}` +
+      ` | 移门扇数: ${moveFans.value} | 平开门扇数: ${pingFans.value}` +
+      ` | 移门亮窗: ${lightWindows.value} | 淋浴房扇数: ${showerFans.value}` +
+      ` | 其它: ${others.value}`
+    ws.insertRow(2, [statLine])
+    ws.mergeCells(2, 1, 2, cols.length)
+    const statRow = ws.getRow(2)
+    statRow.height = Math.max(25, 18 * Math.ceil(statLine.length / 80))
+    statRow.font = { size: 11, bold: true }
+    statRow.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
+    statRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E6' } }
+
+    // 第 3/4 行：表头（见函数头 ③，旧版就是这么摆的）
+    const header = ws.addRow(cols.map((c) => c.header))
+    header.height = 25
+    header.font = { bold: true, size: 10 }
+    header.alignment = { vertical: 'middle', horizontal: 'center' }
+    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9ECFF' } }
+
+    // 数据行：值全部 `|| ''`（`0` 也会落成空串，与旧版一致）；整行居中，第 4 列带 wrapText。
+    for (const r of filteredRows.value) {
+      const row = ws.addRow([
+        r['日期'] || '',
+        r['客户'] || '',
+        r['单号'] || '',
+        r['生产进度'] || '',
+        r.profile || '',
+        r.color || '',
+        r.bottom_glass || '',
+        r.face_glass || '',
+        r.glass_thickness || '',
+        r.direction || '',
+        r.fans || '',
+        r.door_height || '',
+        r.door_width || '',
+        r.wall_thickness || '',
+        r.track_length || '',
+        r.light_window_height || '',
+        r.quantity || '',
+        r.square || '',
+        r.amount || '',
+        r.remark || '',
+        r.install_address || '',
+        r['打单人'] || '',
+        r['业务员'] || '',
+      ])
+      row.alignment = { vertical: 'middle', horizontal: 'center' }
+      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+      const arrows = ((r['生产进度'] || '').match(/➞/g) || []).length
+      row.height = Math.max(22, 18 * (arrows > 0 ? arrows + 1 : 1))
+    }
+
+    // 所有单元格加细边框（旧版在写完数据后统一 `eachRow`/`eachCell` 刷一遍）
+    ws.eachRow((row) =>
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        }
+      }),
+    )
+
+    const buf = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // 文件名：`筛选结果_{YYYY-MM-DD_HH-mm-ss}.xlsx`（旧版把 `toLocaleString('zh-CN')` 的
+    // `/` `:` 空格分别换成 `-` `-` `_`；照抄它的**字符替换**而不是手写日期格式）
+    a.download = `筛选结果_${exportStamp()}.xlsx`
+    a.click()
+    URL.revokeObjectURL(url)
+    message.success('导出成功')
+  } catch (e) {
+    message.error('导出失败: ' + (e instanceof Error ? e.message : String(e)))
+  } finally {
+    exporting.value = false
+  }
+}
+
+/** 旧版导出文件名里的时间戳（`toLocaleString('zh-CN', …)` 后逐字符替换）。 */
+function exportStamp(): string {
+  return new Date()
+    .toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+    .replace(/\//g, '-')
+    .replace(/:/g, '-')
+    .replace(/\s/g, '_')
+}
 </script>
 
 <style scoped>
@@ -917,19 +1496,50 @@ const columns = computed<DataTableColumn<ProgressRowDto>[]>(() => [
   background: #fff;
   padding: 12px 16px 24px;
 }
-.toolbar {
+/*
+ * 工具条 / 统计行的四条规则**逐字抄** `legacy/css/Progress-4dee25cf.css` 的
+ * `[data-v-95ebc180]` 段（`.search-row` / `.search-input` / `.search-info` / `.total-info`）：
+ *
+ *   .search-row  {margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ *   .search-input{width:300px;margin-right:10px}
+ *   .search-info {margin-top:8px;font-size:14px;color:#606266}
+ *   .total-info  {font-weight:500}
+ *
+ * ⚠️ 值别"顺手改成" 8px/gap:8px：旧版就是 10px 的 gap + 300px 的输入框。
+ * ⚠️ 这几条是**本组件自己的模板元素**（不在 naive 的 render 里）⇒ scoped 就能命中，
+ *    不需要 `:deep()`；带上 `[data-v-*]` 也**正是我们要的**（旧版同样带 scope）。
+ */
+.search-row {
+  margin-bottom: 15px;
   display: flex;
-  flex-wrap: wrap;
+  gap: 10px;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
+  flex-wrap: wrap;
 }
-.grow-spacer {
-  flex: 1;
+.search-input {
+  width: 300px;
+  margin-right: 10px;
 }
-.count {
-  font-size: 13px;
-  color: #909399;
+.search-info {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #606266;
+}
+.total-info {
+  font-weight: 500;
+}
+/*
+ * 「本版还没做」的按钮外层的可点容器（见 `notYet()` 的注释）：
+ * 里面那颗 button 是 `disabled` 的，Chrome **不会**从它派发 click ⇒ 用 `pointer-events:none`
+ * 把它从命中测试里摘出去，事件就落到这个 span 上。`cursor: not-allowed` 也得挪到这儿来
+ * （button 自己收不到 hover 了）。
+ */
+.pending-slot {
+  display: inline-flex;
+  cursor: not-allowed;
+}
+.pending-slot :deep(button) {
+  pointer-events: none;
 }
 .table-footer {
   display: flex;
