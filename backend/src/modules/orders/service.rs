@@ -1275,25 +1275,73 @@ pub async fn list_with_lines(
     pool: &PgPool,
     tenant_id: i64,
 ) -> ApiResult<Vec<(OrderHeaderRow, Vec<OrderLineDto>)>> {
-    let header_sql =
-        format!("SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 ORDER BY id ASC");
-    let headers: Vec<OrderHeaderRow> =
-        sqlx::query_as(&header_sql).bind(tenant_id).fetch_all(pool).await?;
+    list_with_lines_filtered(pool, tenant_id, None, None, None, None).await
+}
+
+/// `list_with_lines` 的**带筛选版** —— 生产进度页「查询更多」（旧版 `getMoreProgress`）用它。
+///
+/// 四个过滤条件与 `orders::service::search`（Home 的「查询更多」）**逐字同口径**：
+/// 客户名 / 安装地址 ILIKE 子串、日期闭区间、空串 = 不过滤、非法日期 400。
+/// 两边共用 `text_filter` / `parse_date_filter`，以后改口径只改一处。
+///
+/// ⚠️ **排序是 `id ASC`**（与 `list_with_lines` 一致，也就是与 `GET /v1/progress` 同序），
+/// **不是** `search` 那个 `id DESC` —— 旧版 `getProgress` 与 `getMoreProgress` 都是
+/// `orderBy: { orderNo: 'asc' }`（`progress.service.ts:312/352`），两条接口同序。
+/// 前端拿到「查询更多」的结果后本来就会自己按 `回执单号` 倒序重排（见 `-analysis.md` §3.3）。
+///
+/// 明细按命中的订单 id 取，不再像以前那样把本租户全表拉回来：
+/// 空筛选时 `headers` 就是全部订单，结果与旧的「拉全量再分组」**完全一致**，只是不白拉。
+pub async fn list_with_lines_filtered(
+    pool: &PgPool,
+    tenant_id: i64,
+    client_name: Option<&str>,
+    install_address: Option<&str>,
+    start_date: Option<&str>,
+    end_date: Option<&str>,
+) -> ApiResult<Vec<(OrderHeaderRow, Vec<OrderLineDto>)>> {
+    let client = text_filter(client_name).unwrap_or_default();
+    let address = text_filter(install_address).unwrap_or_default();
+    let start = parse_date_filter(start_date)?.unwrap_or_default();
+    let end = parse_date_filter(end_date)?.unwrap_or_default();
+
+    // 过滤条件写法与 `search` 一字不差（含 `NULLIF($n,'')::date` 那条注释里的理由：
+    // OR 不保证短路，空串那一支会被求值成非法日期，所以不能写成 `$n::date`）。
+    let header_sql = format!(
+        "SELECT {HEADER_COLUMNS} FROM orders \
+         WHERE tenant_id = $1 \
+         AND ($2 = '' OR client_name ILIKE '%' || $2 || '%') \
+         AND ($3 = '' OR install_address ILIKE '%' || $3 || '%') \
+         AND ($4 = '' OR order_date >= NULLIF($4, '')::date) \
+         AND ($5 = '' OR order_date <= NULLIF($5, '')::date) \
+         ORDER BY id ASC"
+    );
+    let headers: Vec<OrderHeaderRow> = sqlx::query_as(&header_sql)
+        .bind(tenant_id)
+        .bind(client)
+        .bind(address)
+        .bind(start)
+        .bind(end)
+        .fetch_all(pool)
+        .await?;
+
+    if headers.is_empty() {
+        return Ok(Vec::new());
+    }
+    let order_ids: Vec<i64> = headers.iter().map(|h| h.id).collect();
 
     // 明细一次取完再按 order_id 分组，避免 N+1。
+    // `LINE_COLUMNS` 里没有 order_id，所以这条查询单独前置一列；
+    // 用 `#[sqlx(flatten)]` 把行字段摊平进外层 struct（元组不行：`OrderLineRow`
+    // 只 derive 了 `FromRow`，没有 `Decode`）。
     let line_sql = format!(
-        "SELECT {LINE_COLUMNS} FROM order_lines WHERE tenant_id = $1 ORDER BY order_id, row_index, id"
+        "SELECT order_id, {LINE_COLUMNS} FROM order_lines \
+         WHERE tenant_id = $1 AND order_id = ANY($2) ORDER BY order_id, row_index, id"
     );
-    let line_rows: Vec<OwnedLineRow> = {
-        // `LINE_COLUMNS` 里没有 order_id，所以这条查询单独前置一列；
-        // 用 `#[sqlx(flatten)]` 把行字段摊平进外层 struct（元组不行：`OrderLineRow`
-        // 只 derive 了 `FromRow`，没有 `Decode`）。
-        let sql = format!(
-            "SELECT order_id, {LINE_COLUMNS} FROM order_lines WHERE tenant_id = $1 ORDER BY order_id, row_index, id"
-        );
-        sqlx::query_as(&sql).bind(tenant_id).fetch_all(pool).await?
-    };
-    let _ = line_sql;
+    let line_rows: Vec<OwnedLineRow> = sqlx::query_as(&line_sql)
+        .bind(tenant_id)
+        .bind(&order_ids)
+        .fetch_all(pool)
+        .await?;
 
     let mut by_order: std::collections::HashMap<i64, Vec<OrderLineDto>> =
         std::collections::HashMap::new();

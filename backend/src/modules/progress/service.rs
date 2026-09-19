@@ -2,7 +2,7 @@ use serde_json::{json, Map, Value};
 use sqlx::PgPool;
 
 use crate::core::error::{ApiError, ApiResult};
-use crate::modules::orders::model::OrderLineDto;
+use crate::modules::orders::model::{OrderLineDto, OrderSearchQuery};
 use crate::modules::orders::service::{self as orders_service, OrderHeaderRow};
 
 use super::model::{ProcedureSlotDto, ProceduresDto, ProceduresInput, ProgressUpdateInput};
@@ -225,6 +225,60 @@ pub async fn get_progress(pool: &PgPool, tenant_id: i64) -> ApiResult<Value> {
     let orders = orders_service::list_with_lines(pool, tenant_id).await?;
     let mut progress_data: Vec<Value> = Vec::new();
     for (header, lines) in &orders {
+        for line in lines {
+            progress_data.push(build_row(header, line));
+        }
+    }
+    Ok(json!({ "progressData": progress_data }))
+}
+
+/// `GET /v1/progress/more` —— 「查询更多」：按客户 / 安装地址 / 日期范围**再取一批进度行**。
+///
+/// 对应旧版 `param1=getMoreProgress&param2={ds}&param3={客户}&param4={地址}&param5={起}&param6={止}`
+/// （`progress.service.ts:324`，前端调用点 `legacy/js/Progress-f4bdef35.js@118671`）。
+///
+/// ## 与 `GET /v1/progress` 的差别只有「筛掉哪些订单」
+///
+/// 旧版两个函数除了 `where` 以外**逐行相同**：都是
+/// `order.findMany({where, include:{client}})` → 逐单 `buildProgressRowsForOrder` → 摊平成 `progressData`。
+/// 所以这里**复用 `build_row`**（同一个函数），返回结构也与 `get_progress` 同构 ——
+/// 前端一套 `ProgressRowDto` 吃两条接口。
+///
+/// ## 两处**有意偏离**旧版
+///
+/// 1. **地址筛的是订单上的 `安装地址`，不是客户档案里的 `address`。**
+///    旧版写的是 `where.client = { address: { contains: address } }` —— 拿**客户档案**的地址筛，
+///    却在行里显示 `customerInfo['安装地址'] ?? customerInfo['地址'] ?? client.address`
+///    （`progress.service.ts:159`）。档案地址与订单地址不一致时，用户会看到「按某地址搜出来的行
+///    显示的是别的地址」。新版筛**显示出来的那一格**（`orders.install_address`），
+///    与 Home 的「查询更多」（`orders::service::search`）同口径。
+/// 2. **不把 `ds` 传进 URL** —— 租户从登录态取，见迁移 `0021` 头注（只有一把键 `tenant_id`）。
+///
+/// ## 空筛选 = 全量
+///
+/// 旧版 `if (customer)` / `if (address)` / `if (startDate || endDate)` 都是**有才加条件**，
+/// 全空时就是 `getProgress` 的结果。新版照做：四个条件都空 ⇒ 与 `GET /v1/progress` 同一批行。
+///
+/// ⚠️ **不做「结果集合并」**。旧版把返回行**并进**已有行集 `K2`（`Bo` 置真、`xo` 存结果集，
+/// 之后搜索只在 `xo` 上做，见 `-analysis.md` §2.2 第 3 条）—— 那是**前端**的事，
+/// 本接口只负责取数，与 Home 的「查询更多」一致（`Home.vue` 的 `submitQuery` 里合并）。
+pub async fn get_more_progress(
+    pool: &PgPool,
+    tenant_id: i64,
+    q: &OrderSearchQuery,
+) -> ApiResult<Value> {
+    let pairs = orders_service::list_with_lines_filtered(
+        pool,
+        tenant_id,
+        q.client_name.as_deref(),
+        q.install_address.as_deref(),
+        q.start_date.as_deref(),
+        q.end_date.as_deref(),
+    )
+    .await?;
+
+    let mut progress_data: Vec<Value> = Vec::new();
+    for (header, lines) in &pairs {
         for line in lines {
             progress_data.push(build_row(header, line));
         }

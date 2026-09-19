@@ -680,7 +680,7 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 > | 本节的条目 | 状态 |
 > |---|---|
 > | 1 路由 / 2 导航 | ✅ 已落 |
-> | 3 后端端点 | ✅ 已落（`/v1/progress`、`/v1/procedures` 读+写、`/v1/progress/update`）；`delete` ⏳ 未落 |
+> | 3 后端端点 | ✅ 已落（`/v1/progress`、`/v1/procedures` 读+写、`/v1/progress/update`）；`delete` ⏳ 未落。<br>✅ **2026-09-19 补：`GET /v1/progress/more`（「查询更多」取数）已落**；`getClientsInfo` **不另开端点**，复用 `GET /v1/clients` —— 见 §8.3 |
 > | 4 数据流（全量 + 前端筛/分页） | ✅ 已落 |
 > | 5 列集 | ⚠️ **只落 PC 14 列**。终端 10 列**不做** —— 见 §10「不做终端分支」 |
 > | 6 可复用 | 部分：**工具条 / 统计行 / 导出表格已落**（2026-09-19）；打印抽屉、密码校验、看板仍未接 |
@@ -725,6 +725,22 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
    - `POST /v1/procedures` → `{ slots: [...] }` 整体 upsert（**颜色进库**，不落 localStorage）；
      槽名非法 400。逆向依据：`docs/2026-09-19-qrscanner-analysis.md` §4 / §8
    - `POST /v1/progress/update`（`slot` + `refs[]` + `segment`）、`POST /v1/progress/delete`
+   - ✅ **2026-09-19 已落：`GET /v1/progress/more`** —— 「查询更多」的取数口，对应旧版 `getMoreProgress`。
+     入参 `client_name` / `install_address` / `start_date` / `end_date`（**复用 Home「查询更多」的
+     `OrderSearchQuery` 结构**，`GET /v1/orders/search` 同款）；返回 `{ progressData: [...] }`，
+     **行结构与 `GET /v1/progress` 一模一样**（同一个 `build_row`）⇒ 前端一套 `ProgressRowDto` 吃两条接口。
+     空筛选 = 全量。两处**有意偏离**：① 地址筛的是行里**显示的那一格** `orders.install_address`，
+     不是旧版那种「拿客户档案 `client.address` 筛、却显示 `customerInfo.安装地址`」；
+     ② 租户从登录态取，URL 里没有 `ds`。**合并结果集（旧版 `K2`/`xo`/`Bo`）是前端的事**，本口只取数。
+   - ✅ **`getClientsInfo` 不另开端点**：旧版 = `clientServ.getClients(ds)` = 本租户**全部客户**
+     （`client.service.ts:219`），正是 `GET /v1/clients?search=`（空搜索）的结果。
+     前端按 `{ name: c.name, tel: c.phone, address: c.address, id: c.code }` 映射成下拉项即可
+     （旧版前端读 `客户/电话/地址/编号` 四个中文键 —— 见 §3.3）。
+     唯一差异：旧版按 `createdAt desc` 给，`/v1/clients` 按 `客户编号` 升序；**不改** `/v1/clients`
+     的排序（它还被别的页面用着），下拉本身带本地过滤，顺序只影响观感。
+     ⚠️ 顺带记一条旧版毛病：`/Users/aaa/Downloads/server` 的 `getclientsinfo` 直接 `res.json` prisma 行
+     （**camelCase**），而前端读的是 `e['客户']` —— 四个键全 `undefined`，`bo` 里的
+     `l.name.toLowerCase()` 会直接抛。**这个口在旧服务端上是坏的**，别拿它当"旧版能跑"的证据。
 4. **数据流**：页面只拉一次全量 `progressData` → 前端筛选/分页（**与旧版一致**，旧版确实不重新请求）；
    看板吃**全量**（`K2`），不是筛选后的 `no`。
 5. **列集**：按 §2.3 实现两套（PC 14 列 / 终端 10 列），**备注列位置在两种模式下不同**。

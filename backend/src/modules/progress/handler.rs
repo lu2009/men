@@ -1,4 +1,4 @@
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::Json;
 use super::model::{LabelDataInput, ProceduresInput, ProgressUpdateInput};
 use serde_json::{json, Value};
@@ -7,6 +7,7 @@ use crate::core::auth::CurrentUser;
 use crate::core::error::ApiResult;
 use crate::core::response;
 use crate::core::AppState;
+use crate::modules::orders::model::OrderSearchQuery;
 
 use super::service;
 
@@ -43,6 +44,24 @@ pub async fn set_procedures(
 ///    那条路本来就是坏的 ⇒ 新版**不做终端分支**（有意偏离，见 `-analysis.md` §10）。
 pub async fn get_progress(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<Value>> {
     let v = service::get_progress(&state.pool, user.tenant_id).await?;
+    Ok(response::ok(v))
+}
+
+/// `GET /v1/progress/more` —— 「查询更多」：按客户 / 安装地址 / 日期范围再取一批进度行。
+///
+/// 旧版是 `param1=getMoreProgress&param2={ds}&param3…6={客户,地址,起,止}`；新版走 RESTful 路径。
+/// **入参复用 `OrderSearchQuery`**（Home「查询更多」`GET /v1/orders/search` 用的同一个结构）——
+/// 两个「查询更多」在旧版里就是同一组参数（`param3..param6`）、同一套语义，
+/// 共用一个结构前端也好共用一份查询参数。
+///
+/// 返回 `{ progressData: [ 门行… ] }`，**行结构与 `GET /v1/progress` 完全一致**（同一个 `build_row`）。
+/// 语义与两处有意偏离见 `service::get_more_progress` 的注释。
+pub async fn more_progress(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    Query(q): Query<OrderSearchQuery>,
+) -> ApiResult<Json<Value>> {
+    let v = service::get_more_progress(&state.pool, user.tenant_id, &q).await?;
     Ok(response::ok(v))
 }
 
