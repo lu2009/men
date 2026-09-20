@@ -1500,7 +1500,7 @@ const MORE_DATE_SHORTCUTS: Record<string, () => number> = {
   最近三个月: () => dayStart(-90),
 }
 
-/** 自动完成永远展示候选（旧版 `trigger-on-focus`；与 `Home.vue` 的 `AUTOCOMPLETE_ALWAYS_SHOW` 同一招）。 */
+/** 自动完成永远展示候选（旧版 `trigger-on-focus`；与 `Home.vue` 的 `AUTOCOMPLETE_ALWAYS_SHOW` 同一招 —— 该常量的**声明**已于 2026-09-20 归位到 `app/src/utils/homeConstants.ts`，纯搬迁，`Home.vue` 那边只剩 import 与模板里两处 `:get-show`）。 */
 const AUTOCOMPLETE_ALWAYS_SHOW = () => true
 
 /** 客户候选：按 `name` 子串（忽略大小写）本地过滤；查询词为空给全量（旧版 `bo`）。 */

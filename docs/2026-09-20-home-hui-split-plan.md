@@ -540,6 +540,9 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 - Modify: `app/src/views/Home.vue`
 - Modify: `docs/home-audit/home-extract-movecheck.mjs`（守卫登记）
 - Modify: `docs/home-audit/orderno-logiccheck.mjs` · `docs/home-audit/autocomplete-logiccheck.mjs`（**同笔**：这两台的漂移守卫按名字从 `Home.vue` 真身抠源码，搬走就抠不到 ⇒ 必须重新指向新文件，见「修正 F」）
+  - ⚠️ **本笔确实只涉及这两台**（`docs/roles-admin-logiccheck.mjs` 本笔**没红** —— 本笔没动它数的 `canSeeAllOrders` token）——
+    但那是**「这次侥幸」，不是「它不受影响」**：它也在 `run-all.mjs:70` 的收集范围内、且确实在跑，
+    绊到它的是 Task 5 / 6 / 8。详见 Step 5 的订正。
 
 **Interfaces:**
 - Produces（**13 件**）：
@@ -652,10 +655,48 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 - [ ] **Step 5: 守卫 + 全套**
 
 🔴 **先做「修正 F」，再跑本节** —— 本节原文写「`homeDate` 的改动会被 `orderno-logiccheck`（119 条）、
-`rowstate-logiccheck`（105 条）**覆盖到**」，**那是错的**：那两台的漂移守卫不是比自己的副本，
-而是**按名字从 `Home.vue` 真身里抠源码**（`fnBody('X')` / `near('X')`）⇒ **把函数搬走，它们就抠不到、直接报红**。
-全仓库只有 **2 个**台子读 `Home.vue` 真身（`orderno-logiccheck` / `autocomplete-logiccheck`），
-而 `run-all.mjs` 按文件名后缀收台子 ⇒ **`npm run verify` 会红**。
+`rowstate-logiccheck`（105 条）**覆盖到**」，**那是错的** —— 而且那两台**错法不一样**（2026-09-20 订正）：
+
+- **`orderno-logiccheck`：会红。** 它的 `fnBody('X')` / `near('X')` 是**按名字从 `Home.vue` 真身里抠源码**
+  （不是比自己的副本）⇒ **把函数搬走，它抠不到、直接报红**。
+  （`autocomplete-logiccheck` 也读真身，但用的是**正则 `test`**，不走 `fnBody`/`near`。）
+- **`rowstate-logiccheck`：不会红，也保护不了你 —— 这是假绿，比上面那条更危险。**
+  它 **`readFileSync` ×0**、**根本不读 `Home.vue`**：`:19` 是 `import { SRC, … } from './legacy-slice.mjs'`（切**旧版 bundle**），
+  `:14` 自述「**新版那几段是本文件里照抄的一份**（同逻辑、同夹具）。改 `Home.vue` 时要同步改这里」。
+  ⇒ 谁搬走它抄的那几段（`dupKey` / `duplicateKeys` / `rowClass` / `unpaidOf` 的回退分支），
+  **必须手工同步那份副本** —— 台子不会替你报红。同族的还有 `headerfilter-logiccheck.mjs`
+  （`readFileSync` ×0，`:67`：「与 `app/src/views/Home.vue` 同值，改那边要同步改这里」）。
+  ⇒ **一条会红、一条是假绿**：只按「哪台会红」排计划，会把这一族整个漏掉。
+
+**全仓库有 3 个台子读 `Home.vue` 真身**（`orderno-logiccheck` / `autocomplete-logiccheck` /
+**`docs/roles-admin-logiccheck.mjs`**），而 `run-all.mjs:70` 按文件名后缀收台子、`docs/` 是第一层
+⇒ 三个都在收集范围内 ⇒ **`npm run verify` 会红**。
+（⚠️ 当初 grep 成「只有 2 个」，是因为**同一个文件有四种路径写法**：`resolve(SRC, 'views/Home.vue')` ·
+`` `${ROOT}/app/src/views/Home.vue` `` · `new URL('../../app/src/views/Home.vue', …)`，
+以及搬迁守卫本体的 `OLD_PATH = 'app/src/views/Home.vue'`（`:71`）+ `git show <REF>:…`（`:1062`）。
+**只 grep 一种写法就会静默漏数**；把守卫本体也算上是 **4 个读者**。）
+
+**`roles-admin-logiccheck.mjs` 断言什么**（`:140` `HOME = readFileSync(resolve(SRC, 'views/Home.vue'), 'utf8')`）：
+- `:145-146` —— `canSeeAllOrders(auth.user?.role)` **恰好 3 次**；
+- `:153-154` —— `!canSeeAllOrders(` **恰好 2 次**（看板那处是三元、**没有** `!`；写反了这里会红）；
+- `:147-149` —— `Home.vue` 从 `../utils/roles` 导入了 `canSeeAllOrders`。
+
+**本笔没让它红**（本笔没动 `canSeeAllOrders` 这个 token）—— 那是**「这次侥幸」，不是「它不受影响」**。
+**会被它绊到的三个任务**（⚠️ **别照抄复审原文的「Task 7（B4）搬 `submitMore`」—— 那句两处都错**：
+T7 是 `useHomeOrderNo.ts`（单号那摊），`submitMore` **在任何简报里都不存在**，
+那是台子 `:151` 注释**自己的错名**，已挂账、本笔不改台子）：
+
+| 处 | `Home.vue` 行 | 所在函数 | 归谁搬 |
+|---|---|---|---|
+| 看板 | 1373 | `dashboardOrders = computed(...)` | **Task 5**（B1 `useHomeData`） |
+| 主表 | 620 | `filtered = computed(...)` | **Task 6**（B3 `useHomeFilterView`） |
+| 查询更多 | 1155 | `submitQuery()`（`:1139` 定义、`:344` 按钮 `@click`） | **Task 8**（B5 `useHomeQueryMore`） |
+
+⚠️ 上表的行号是 **Task 4 之后**的**现文件**快照（实测：`:620` / `:1155` 就是那两处 `!canSeeAllOrders(`，
+`:1373` 是看板那处三元）—— **不是** REF `28e36d21` 的行号，且**每搬一笔都会漂** ⇒ 开工时**按函数名重核**，别照抄数字。
+
+⇒ **这三个任务各自**在同一笔里把该台子的**被数源扩到新家**（`Home.vue` + 该函数的新家），
+**断言仍为 `=== 3` / `=== 2`** —— **不许降成 2 / 1 / 0**（那是把「查三处」降级成「查剩下的」，越搬越松）。
 
 ⇒ 同笔必须：`orderno-logiccheck.mjs` 的 `fnBody('splitOrderNos')` 改指向 `utils/homeOrderNo.ts`；
 `autocomplete-logiccheck.mjs` 那条 `AUTOCOMPLETE_ALWAYS_SHOW` 的断言改指向 `utils/homeConstants.ts`。
