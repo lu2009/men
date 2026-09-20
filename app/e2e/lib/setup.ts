@@ -6,8 +6,10 @@
  * 每一条断言都要**现查克隆库**跟页面对账（差分台的精神：左边数据库、右边页面，逐字段比）。
  *
  * 三件东西：
- *   1. `attachGuards(page)` —— `pageerror` / `console.error` 零容忍 + **`:3000` 请求守卫**；
- *   2. `login(page)` —— 走**真表单**登录（不是塞 token）；
+ *   1. `test` / `expect` —— **从这里 import，不要从 `@playwright/test` import**。
+ *      `test` 上挂了 auto fixture：`pageerror` / `console.error` 零容忍 + **`:3000` 请求守卫**
+ *      自动生效，判定在 fixture 的 teardown 里跑（测试体怎么挂都会跑）。见文件末尾 §4。
+ *   2. `login(page)` —— 走**真表单**登录（不是塞 token），返回落地的 URL；
  *   3. `dbQuery` / `progressLineCount` / `adminTenantId` —— **现查克隆库**的小工具。
  *
  * ⚠️ **期望值一律现查，不许写死会随数据变的常数**。库里的行数、聚合值都从 `dbQuery` 拿，
@@ -15,7 +17,7 @@
  * ⚠️ 每条断言在**它自己这条测试开始时**现查 —— 不依赖 spec 之间的执行顺序：
  *    `progress.spec` 会删行、`home.spec` 会改单元格，`mount.spec` 要数行。
  */
-import { type Page } from '@playwright/test'
+import { expect, test as base, type Page } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 
 // ── 路径与文案（全部实测过的字面量，别改成「看起来更对」的写法）──────────────────
@@ -31,8 +33,14 @@ export const LOGIN_BUTTON_TEXT = '登录'
 /**
  * 用户正在用的 dev 后端端口。**任何请求落到它就判红。**
  * 那是用户真在用的后端，连的是他真在用的开发库 —— 测试的写操作落到那儿就是事故。
+ *
+ * ⚠️ 值**由装置喂进来**（`scripts/e2e.mjs` 的 `E2E_FORBIDDEN_PORT`）：这里再写死一份的话，
+ *    哪天端口变了、只改了一边，守卫就会「盯着一个没人用的端口」而**静默失效**。
+ *    默认值只是「不在装置里跑单条 spec」时的兜底。
  */
-export const FORBIDDEN_PORT = 3000
+// ⚠️ 取默认值的写法与装置那边**逐字一致**（`Number(...) || 3000`，不用 `??`）：
+//    `E2E_FORBIDDEN_PORT=""` 或写错成非数字时，`??` 会放行 `0` / `NaN` ⇒ 守卫**静默盯错端口**。
+export const FORBIDDEN_PORT = Number(process.env.E2E_FORBIDDEN_PORT) || 3000
 
 // ── 装置喂进来的环境变量（都有默认值，默认值 = 装置的默认值）────────────────────
 const DB_CONTAINER = process.env.E2E_DB_CONTAINER ?? 'smartdoor-db'
@@ -75,11 +83,10 @@ export interface GuardHandle {
 }
 
 /**
- * 给一个 page 挂上那三道闸。**每条测试都要挂**（第一个动作之前挂，否则会漏掉早报的错）。
- *
- * `assertClean()` 放在**测试体最后**：中途失败就不必再报噪声了。
+ * 给一个 page 挂上那三道闸。**故意不 export** —— 挂闸只有一条路：文件末尾那个 auto fixture。
+ * （留两条路 = 新 spec 作者可能选错那条「忘了挂 / 只在最后一行审」的路，而那种错是**静默**的。）
  */
-export function attachGuards(page: Page, options: GuardOptions = {}): GuardHandle {
+function attachGuards(page: Page, options: GuardOptions = {}): GuardHandle {
   const allow = [...DEFAULT_ALLOWED, ...(options.allowConsoleError ?? [])]
   const pageErrors: string[] = []
   const consoleErrors: string[] = []
@@ -138,18 +145,19 @@ const indent = (s: string) => `  · ${s.split('\n').join('\n    ')}`
  * 走**真表单**登录：填 placeholder、点「登录」，然后等路由离开 `/login`。
  * 已经登录过（localStorage 里有令牌）就直接返回 —— 守卫会把 `/login` 弹走，这里等不到表单。
  *
- * 返回值是落地的 URL（admin 是 `/`）。**不断言落地页**：不同角色的落地页不同，
+ * 返回值是**落地的 URL**（admin 是 `/`）。**不断言落地页**：不同角色的落地页不同，
  * 由调用方自己断言它关心的页面。
  */
-export async function login(page: Page, opts: { user?: string; pw?: string } = {}): Promise<void> {
+export async function login(page: Page, opts: { user?: string; pw?: string } = {}): Promise<string> {
   await page.goto(LOGIN_PATH)
   // 有登录态的话，路由守卫会把 /login 弹到落地页 ⇒ 这里已经不是 /login 了。
-  if (!new URL(page.url()).pathname.startsWith(LOGIN_PATH)) return
+  if (!new URL(page.url()).pathname.startsWith(LOGIN_PATH)) return page.url()
 
   await page.getByPlaceholder(LOGIN_USER_PLACEHOLDER).fill(opts.user ?? ADMIN_USER)
   await page.getByPlaceholder(LOGIN_PW_PLACEHOLDER).fill(opts.pw ?? ADMIN_PW)
   await page.getByRole('button', { name: LOGIN_BUTTON_TEXT }).click()
   await page.waitForURL((u) => !u.pathname.startsWith(LOGIN_PATH), { timeout: 20_000 })
+  return page.url()
 }
 
 // ── 3. 现查克隆库 ───────────────────────────────────────────────────────────
@@ -202,3 +210,38 @@ export function progressLineCount(tenantId: number = adminTenantId()): number {
       `where l.tenant_id = ${tenantId} and o.tenant_id = ${tenantId}`,
   )
 }
+
+// ── 4. `test` / `expect`：三道闸走 **auto fixture**（结构性生效，不靠自觉）──────────
+/**
+ * spec **一律从这里 import** `test` / `expect`，不要从 `@playwright/test` import ——
+ * 那样三道闸不会挂上，而且是**静默**的（没有任何东西会提醒你）。
+ *
+ * 为什么用 auto fixture 而不是「每条测试自己调 `attachGuards`」：
+ *   ① 新 spec 忘了调 ⇒ 三道闸静默消失；
+ *   ② 判定原本写在测试体**最后一行**，测试体中途失败 ⇒ 那一轮的 `:3000` / console 情况
+ *      **无人审计**。放进 fixture 的 teardown 之后，无论测试体怎么挂，判定都会跑。
+ */
+export interface E2EFixtures {
+  /**
+   * 在默认白名单（`DEFAULT_ALLOWED`）之外**额外**放行的 `console.error`（正则）。
+   * 打印类 spec 用 `test.use({ allowedConsole: [/17521/] })` 覆盖。
+   */
+  allowedConsole: RegExp[]
+  /** 三道闸的句柄。测试体一般**不用管它**；要在中途看一眼 `guards.collected` 才用得上。 */
+  guards: GuardHandle
+}
+
+export const test = base.extend<E2EFixtures>({
+  allowedConsole: [[], { option: true }],
+  guards: [
+    async ({ page, allowedConsole }, use) => {
+      const handle = attachGuards(page, { allowConsoleError: allowedConsole })
+      await use(handle)
+      // teardown：断言本次测试期间零 pageerror / 零（未放行的）console.error / 零 :3000 请求。
+      handle.assertClean()
+    },
+    { auto: true },
+  ],
+})
+
+export { expect }

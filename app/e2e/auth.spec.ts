@@ -8,10 +8,11 @@
  *
  * ⚠️ 凭据从环境变量读，默认值是 `scripts/verify.mjs:71-72` 里已有的开发缺省值
  *    （**不是**生产凭据，也**不引入新口令**）。
+ * ⚠️ `test` / `expect` 从 `./lib/setup` import —— 三道闸（pageerror / console.error / `:3000`）
+ *    挂在那里面的 auto fixture 上，测试体里**不用**（也**不要**）再手工挂一次。
  */
-import { expect, test } from '@playwright/test'
 import {
-  attachGuards,
+  expect,
   HOME_PATH,
   LOGIN_BUTTON_TEXT,
   LOGIN_PATH,
@@ -19,13 +20,12 @@ import {
   LOGIN_USER_PLACEHOLDER,
   login,
   PROGRESS_PATH,
+  test,
   TOKEN_KEY,
 } from './lib/setup'
 
 test.describe('路由与登录状态', () => {
   test('未登录直敲 /progress ⇒ 落到 /login 且带上 redirect；Progress 一点没渲染', async ({ page }) => {
-    const guard = attachGuards(page)
-
     await page.goto(PROGRESS_PATH)
 
     await page.waitForURL((u) => u.pathname === LOGIN_PATH)
@@ -42,27 +42,21 @@ test.describe('路由与登录状态', () => {
     // 是被**挡在门外**，不是「渲染了再跳走」：Progress 的工具条那颗按钮一个都不该在。
     await expect(page.getByRole('button', { name: '打印选项' })).toHaveCount(0)
     await expect(page.locator('.n-data-table')).toHaveCount(0)
-
-    guard.assertClean()
   })
 
   test('走真表单登录 ⇒ 落到 /，AppHeader 与 .home-container 在场', async ({ page }) => {
-    const guard = attachGuards(page)
-
-    await login(page)
+    // `login()` 自己会等到「离开 /login」，它返回的落地 URL 再跟页面当前 URL 对一次。
+    const landed = await login(page)
 
     expect(new URL(page.url()).pathname).toBe(HOME_PATH)
+    expect(new URL(landed).pathname).toBe(HOME_PATH)
     await expect(page.locator('.app-header')).toBeVisible()
     await expect(page.locator('.home-container')).toBeVisible()
     // 令牌是真写进 localStorage 的（不是只在内存里）—— 刷新那一条全靠它。
     expect(await page.evaluate((k) => localStorage.getItem(k), TOKEN_KEY)).toBeTruthy()
-
-    guard.assertClean()
   })
 
   test('登录后刷新 /progress ⇒ 仍是 Progress（令牌从 localStorage 恢复）', async ({ page }) => {
-    const guard = attachGuards(page)
-
     await login(page)
     const tokenBefore = await page.evaluate((k) => localStorage.getItem(k), TOKEN_KEY)
 
@@ -77,7 +71,5 @@ test.describe('路由与登录状态', () => {
     await expect(page.getByRole('button', { name: '打印选项' })).toBeVisible()
     await expect(page.locator('.n-data-table')).toBeVisible()
     expect(await page.evaluate((k) => localStorage.getItem(k), TOKEN_KEY)).toBe(tokenBefore)
-
-    guard.assertClean()
   })
 })

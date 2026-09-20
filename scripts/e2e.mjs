@@ -45,6 +45,8 @@
  * ── 隔离细则 ────────────────────────────────────────────────────────────────
  *   · 库 = `smartdoor_e2e`（**每次跑之前删掉重建**，跑完再删）；源库 `smartdoor` **只读**，
  *     只 `pg_dump` 出来灌进一次性库，绝不回写。
+ *   · `E2E_DB` 有**两行硬守卫**（见常量块之后）：不许等于源库、不许不是 `*_e2e` 结尾 ——
+ *     本文件对库做的第一件事就是 `DROP DATABASE ... WITH (FORCE)`，库名是唯一能真删用户库的入口。
  *   · **不要**「清空 users 让它重新播种」：后端的 `seed_admin` 只在 users 表为空时播种，
  *     而且会**新建租户** —— 新 admin 会落到新租户上，克隆来的订单属于旧租户 ⇒ **页面全空**。
  *     克隆库里的 admin 直接就能登录（`ADMIN_USER` / `ADMIN_PW` 是 `scripts/verify.mjs:71-72`
@@ -53,7 +55,7 @@
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { createServer } from 'node:net'
+import { connect } from 'node:net'
 import { dirname, resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
@@ -70,13 +72,29 @@ const DB_CONTAINER = process.env.DB_CONTAINER || 'smartdoor-db'
 const DB_USER = process.env.DB_USER || 'smartdoor'
 /** 源库：**用户真在用的开发库**。只读，只当克隆源。 */
 const SOURCE_DB = process.env.E2E_SOURCE_DB || 'smartdoor'
-/** 用户正在用的 dev 后端端口 —— 本装置**绝不**碰它，两个端口也绝不许等于它。 */
-const FORBIDDEN_PORT = 3000
+/**
+ * 用户正在用的 dev 后端端口 —— 本装置**绝不**碰它，两个端口也绝不许等于它。
+ *
+ * 值**从环境变量来**（默认仍是 3000），并且由本文件喂给 spec 侧（`E2E_FORBIDDEN_PORT`）
+ * ⇒ 装置与守卫**只可能有一个值**，不会各写一份而静默分叉。
+ * 允许覆盖的用途只有一个：**验证守卫本身真的会红** —— 靶子换成自建的本地 server
+ * （如 3399），绝不去碰真正的 :3000。⚠️ 覆盖它是**故意削弱本次运行的守卫**，
+ * 只许在做这个证明时用。
+ */
+const FORBIDDEN_PORT = Number(process.env.E2E_FORBIDDEN_PORT) || 3000
 
 /** 登录凭据：`scripts/verify.mjs:71-72` 里已有的开发缺省值，**不引入新口令**。 */
 const ADMIN_USER = process.env.E2E_ADMIN_USER || 'admin'
 const ADMIN_PW = process.env.E2E_ADMIN_PW || 'Admin@12345'
 const ADMIN_TENANT = process.env.E2E_ADMIN_TENANT || '默认门窗厂'
+
+// ⛔ **库名守卫** —— 必须在**任何一次 docker 调用之前**（本文件对库做的第一件事就是
+//    `DROP DATABASE IF EXISTS ... WITH (FORCE)`，而库名只由 `E2E_DB` 决定）。
+//    端口那边有三道锁（见文件头「为什么绝对不许碰 :3000」），**库名这边一道都不能少**：
+//    `E2E_DB=smartdoor npm run e2e` 会直接删掉**用户正在用的开发库**。
+//    默认值（smartdoor_e2e）本来就是安全的 —— 这两行防的是「有人手滑改了 E2E_DB」。
+if (DB_NAME === SOURCE_DB) throw new Error(`E2E_DB 不能等于克隆源库 ${SOURCE_DB}`)
+if (!/_e2e$/.test(DB_NAME)) throw new Error(`E2E_DB 必须是 *_e2e 这种一次性库名，收到 ${DB_NAME}`)
 
 const BASE = `http://127.0.0.1:${BACKEND_PORT}`
 const WEB = `http://127.0.0.1:${VITE_PORT}`
@@ -119,12 +137,24 @@ function containerRunning() {
   return r.status === 0 && r.stdout.trim() === 'true'
 }
 
+/**
+ * 端口「空着吗」—— **用 `connect` 探「有没有人在听」，不是探「我能不能绑上」**。
+ *
+ * ⚠️ 别再改回 `createServer().listen(port, '127.0.0.1')` 那种写法：macOS 的 `SO_REUSEADDR`
+ *    允许「指定地址」与「通配地址」在**同一端口**上共存，于是「绑 127.0.0.1 试一下」对
+ *    `0.0.0.0:PORT` 的监听会**假阳**（实测：用户正在用的 dev 后端就是 `TCP *:3000 (LISTEN)`，
+ *    旧写法把它判成「空着」）。反过来绑 `0.0.0.0` 又会漏掉只绑 `127.0.0.1` 的监听 ——
+ *    两种「绑一下试试」各漏一半，**只有 connect 两边都盖得住**。
+ *    这条不严会让两处承诺同时失效：「端口被占就拒绝继续」与收尾自检的「端口已释放」。
+ */
 function portFree(port) {
   return new Promise((ok) => {
-    const s = createServer()
-    s.once('error', () => ok(false))
-    s.once('listening', () => s.close(() => ok(true)))
-    s.listen(port, '127.0.0.1')
+    const c = connect({ port, host: '127.0.0.1' })
+    c.once('connect', () => {
+      c.destroy()
+      ok(false) // 有人在听 ⇒ 不空
+    })
+    c.once('error', () => ok(true))
   })
 }
 
@@ -180,7 +210,12 @@ function resolvedViteConfig() {
 }
 
 /** 收尾：只杀自己起的两个 PID、只删自己建的库。任何情况下都不碰别的东西。 */
+let cleaned = false
 async function cleanup() {
+  // 幂等：`finally` 与信号处理器都会调它（信号可能正好在收尾途中到达），重复调用不能报错、
+  // 也不能把「已经杀掉的东西」再数落一遍。
+  if (cleaned) return
+  cleaned = true
   for (const [child, name] of [
     [vite, 'vite'],
     [backend, '后端'],
@@ -207,6 +242,25 @@ async function cleanup() {
     const r = psql('postgres', `DROP DATABASE IF EXISTS "${DB_NAME}" WITH (FORCE)`)
     if (r.status !== 0) console.error(red(`  ⚠️ 库 ${DB_NAME} 没删掉：${(r.stderr || '').trim()}`))
   }
+}
+
+// ── 信号路径：Ctrl-C / kill 时也要收干净 ────────────────────────────────────
+// `finally` **盖不到信号路径**（实测：给装置单独发 SIGINT 之后，库还在、后端还活着、vite 还活着，
+// `finally` 一次都没跑）。诚实边界：真终端 Ctrl-C 是发给**整个前台进程组**的，那两个子进程
+// 多半也会一起收到信号而死 ⇒ **进程残留是「看情况」；库残留是无条件的**（没人去 DROP）。
+// 所以这一条必须补 —— 报告里那个「上手前容器里已有一个 smartdoor_e2e 残留库」就是这条的生产实例。
+for (const [sig, code] of [
+  ['SIGINT', 130],
+  ['SIGTERM', 143],
+]) {
+  process.on(sig, async () => {
+    console.log(dim(`\n  收到 ${sig} —— 先收尾再退出…`))
+    await cleanup()
+    // 与文件末尾那条报错同样的理由：管道是异步写的，`process.exit()` 会把最后几行截掉。
+    // 这里给 stdout 一点时间把上面那句刷出去（收尾是幂等的，重复调用无害）。
+    await sleep(50)
+    process.exit(code)
+  })
 }
 
 // ── 主流程 ──────────────────────────────────────────────────────────────────
@@ -257,7 +311,9 @@ try {
   dbCreated = true
   record('建库', true)
 
-  const dump = spawnSync('docker', ['exec', DB_CONTAINER, 'sh', '-c', `pg_dump -U ${DB_USER} -d ${SOURCE_DB}`], {
+  // 参数**传数组**，不拼 shell 字符串（同文件别处的 `psql()` 也是这么写的）——
+  // 库名/用户名只从环境变量来，但带引号或空格时拼字符串会**静默**出错。
+  const dump = spawnSync('docker', ['exec', DB_CONTAINER, 'pg_dump', '-U', DB_USER, '-d', SOURCE_DB], {
     maxBuffer: 512 * 1024 * 1024,
   })
   if (dump.status !== 0) {
@@ -312,8 +368,11 @@ try {
   )
 
   // ── 4. 后端二进制 ─────────────────────────────────────────────────────────
-  if (!existsSync(BACKEND_BIN)) {
-    banner('cargo build -p smartdoor-backend（二进制不在，先编一个）')
+  // banner **无条件**打（之前是条件打 ⇒ 二进制已存在时步骤号会跳号，看着像漏了一步）。
+  banner('后端二进制')
+  if (existsSync(BACKEND_BIN)) {
+    console.log(dim(`  已在，跳过编译：${BACKEND_BIN}`))
+  } else {
     const b = spawnSync('cargo', ['build', '-p', 'smartdoor-backend'], { cwd: ROOT, stdio: 'inherit' })
     record('cargo build -p smartdoor-backend', b.status === 0)
   }
@@ -410,8 +469,9 @@ try {
       E2E_DB_USER: DB_USER,
       E2E_ADMIN_USER: ADMIN_USER,
       E2E_ADMIN_PW: ADMIN_PW,
-      E2E_BACKEND_PORT: String(BACKEND_PORT),
-      E2E_VITE_PORT: String(VITE_PORT),
+      // 运行时守卫盯的那个端口**由装置喂进来**：`setup.ts` 里再写一份 3000 的话，
+      // 哪天两边改漏一处，守卫就会「盯着一个没人用的端口」而**静默失效**。
+      E2E_FORBIDDEN_PORT: String(FORBIDDEN_PORT),
     },
   })
   if (pw.error) throw new Error(`playwright 起不来：${pw.error.message}`)
@@ -434,10 +494,11 @@ const leftovers = []
 for (const port of [BACKEND_PORT, VITE_PORT]) {
   if (!(await portFree(port))) leftovers.push(`端口 ${port} 还被占着`)
 }
-if (dbCreated) {
-  const still = psql('postgres', `select count(*) from pg_database where datname = '${DB_NAME}'`).stdout?.trim()
-  if (still !== '0') leftovers.push(`库 ${DB_NAME} 还在`)
-}
+// ⚠️ 这里**不许**再加 `if (dbCreated)`：失败在「建库之前」的那些轮次（前置检查不过、端口被占、
+//    `E2E_PORT=3000`…）dbCreated 是 false，于是库检查整段被跳过、自检却照样印「库已删」——
+//    **没量过就下结论**（实测栽过）。库里没有这个名字就等价于删干净了，查一次即可。
+const still = psql('postgres', `select count(*) from pg_database where datname = '${DB_NAME}'`).stdout?.trim()
+if (still !== '0') leftovers.push(`库 ${DB_NAME} 还在${still === '' ? '（连库都查不动，别当它是干净）' : ''}`)
 if (leftovers.length) {
   console.log(red(`\n  ⚠️ 收尾没干净：${leftovers.join('；')}`))
 } else {
@@ -445,8 +506,8 @@ if (leftovers.length) {
 }
 
 if (failed) {
-  console.log(red(`\n  ❌ 装置挂在：${failed.message.split('\n')[0]}`))
-  console.log(red(`${failed.message}\n`))
+  // 印**一遍**就好（之前首行 + 整条印两遍）。
+  console.log(red(`\n  ❌ 装置挂在：\n\n${failed.message}\n`))
   // ⚠️ 用 `exitCode` 而不是 `process.exit()`：输出管道是异步写的，`exit()` 会把**最后几行
   //    （也就是最要紧的那条报错）截掉**。这里让 node 自然退出。
   process.exitCode = 1

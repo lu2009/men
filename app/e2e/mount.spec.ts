@@ -18,19 +18,23 @@
  * 前端那两张**字面量表**（`MOVE_FAN_NAMES` 22 项「每樘几扇」、`PING_*_DIRECTIONS` 14 项开向）。
  * 把那些字面量抄进 SQL 就等于**同一批字面量写第三份**（`Progress.vue` 自己已经写了两份，
  * 靠 `docs/progress-toolbar-logiccheck.mjs` 的自检钉住）—— 正是本项目明确禁止的做法。
- * 「淋浴房扇数」当前也**没有证据力**：这份数据里那个值是 **0**，0 对 0 是空转（断言留着，
- * 等库里真出现淋浴房才有意义）。
+ * 「淋浴房扇数」当前也**没有证据力**：这份数据里那个值是 **0**，0 对 0 是空转 —— 但**没删断言**，
+ * 改成给它挂一条 `vacuous` 注解（见下面那处）：库里真出现淋浴房它就自动有证据力，
+ * 而在此之前它绿得**诚实**（不是冒充证据）。
+ *
+ * ⚠️ `test` / `expect` 从 `./lib/setup` import —— 三道闸（pageerror / console.error / `:3000`）
+ *    挂在那里面的 auto fixture 上，测试体里**不用**（也**不要**）再手工挂一次。
  */
-import { expect, test } from '@playwright/test'
 import {
   adminTenantId,
-  attachGuards,
   dbNumber,
   dbQuery,
+  expect,
   HOME_PATH,
   login,
   PROGRESS_PATH,
   progressLineCount,
+  test,
 } from './lib/setup'
 
 /**
@@ -72,8 +76,6 @@ const dateRangeSql = (t: number) =>
 
 test.describe('页面真挂载', () => {
   test('Home：挂载出来、零 pageerror、零 console.error', async ({ page }) => {
-    const guard = attachGuards(page)
-
     await login(page)
     await page.goto(HOME_PATH)
 
@@ -81,13 +83,9 @@ test.describe('页面真挂载', () => {
     await expect(page.locator('.app-header')).toBeVisible()
     await expect(page.locator('.home-container')).toBeVisible()
     await expect(page.locator('#app')).not.toBeEmpty()
-
-    guard.assertClean()
   })
 
   test('Progress：渲染出的行数 / 统计行数字 与克隆库逐项对账', async ({ page }) => {
-    const guard = attachGuards(page)
-
     await login(page)
 
     // ★ 每条断言**在本测试开始时**现查基线（见文件头）。
@@ -115,9 +113,22 @@ test.describe('页面真挂载', () => {
 
     // ③ 统计行的三个数 / 时间区间，逐个跟库里算出来的比。
     expect(numAfter(info, '移门亮窗个数')).toBe(dbNumber(lightWindowSql(tenantId)))
-    expect(numAfter(info, '淋浴房扇数')).toBe(dbNumber(showerFansSql(tenantId)))
-    expect(info).toContain(`时间: ${dbQuery(dateRangeSql(tenantId))}`)
 
-    guard.assertClean()
+    // 「淋浴房扇数」：这份数据里今天算出来是 **0** ⇒ 这条是 **0 对 0**，绿得跟真证据一模一样，
+    // 但它什么都没证明。断言**不删**（库里真出现淋浴房就自动有证据力），改成挂个注解**让空转可见**。
+    const dbShower = dbNumber(showerFansSql(tenantId))
+    if (dbShower === 0) {
+      test.info().annotations.push({
+        type: 'vacuous',
+        description: '淋浴房扇数=0：这条是 0 对 0，不算证据（不是失败，是「今天没证据」）',
+      })
+      // ⚠️ 注解是给报告/CI 看的，而 `reporter: [['list']]` **根本不打印注解**（实测，
+      //    `npm run e2e` 的终端输出里一个字都看不到）⇒ 光 push 注解等于白挂。
+      //    再往 stdout 说一句：空转必须**当场看得见**，否则这条绿得跟真证据一模一样。
+      console.log('⚠️ [vacuous] 淋浴房扇数 = 0 —— 这条断言今天**不构成证据**（0 对 0），不是失败')
+    }
+    expect(numAfter(info, '淋浴房扇数')).toBe(dbShower)
+
+    expect(info).toContain(`时间: ${dbQuery(dateRangeSql(tenantId))}`)
   })
 })
