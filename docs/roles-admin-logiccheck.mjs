@@ -137,14 +137,14 @@ check(
   `除 utils/roles.ts 外没有 'admin' 字面量${offenders.length ? ` —— 违规：${offenders.join(', ')}` : ''}`,
 )
 
-const HOME = readFileSync(resolve(SRC, 'views/Home.vue'), 'utf8')
 const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
 /*
  * 2026-09-20 Task 5：Home 的第一块**页面代码**搬出了页面 —— 看板那处 `dashboardOrders`
  * 现在住在 `composables/home/useHomeData.ts`（B1）。
  *
  * ⚠️ 两件事必须**同时**做，**只做前一件台子照样红**（实测，见 `task-5-report.md` §3）：
- *   ① **被数源扩到新家**（下面这份 `DATA`）；
+ *   ① **被数源扩到新家**（当时是 `DATA` 常量；**2026-09-20 终审修复轮起已改为
+ *      `walk(SRC)` 全目录**，那几个常量随之删掉 —— 见下面「终审修复轮」那段）；
  *   ② **正则放宽到能吃 `deps.` 前缀** —— 搬走时那条注入改写
  *      （`auth.user?.` → `deps.auth.user?.`，登记在 `home-extract-movecheck.mjs` 的 B1 块）
  *      把那行的字面改成了 `canSeeAllOrders(deps.auth.user?.role)`，老正则数不到它。
@@ -159,7 +159,7 @@ const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
  * 它带着上面说的**两处之一**走：
  *   · 那处 `!canSeeAllOrders(auth.user?.role)`（`REF:1327`）**从 `Home.vue` 挪到了新家**，
  *     且搬迁的注入改写（`auth.user?.` → `deps.auth.user?.`）把字面也改了；
- *   · ⇒ **两条断言的被数源都要跨到新家**（下面这份 `MORE`）。
+ *   · ⇒ **两条断言的被数源都要跨到新家**（当时是 `MORE` 常量，同上已改为全目录）。
  *     `homeCalls` 的 `(?:deps\.)?` 是 Task 5 放宽的，**本笔不再动正则**；
  *     `homeNegated` 的正则（`/!\s*canSeeAllOrders\(/`）**本来就不含 `auth`** ⇒ 只加源。
  *
@@ -168,11 +168,9 @@ const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
  *    「Home 三处都还在」就再没人看着了。
  *    实测（本笔）：不加源时两条**同时报红**（`实际 2` / `实际 1`），加源后回绿 —— 见 `task-8-report.md` §3。
  */
-const DATA = readFileSync(resolve(SRC, 'composables/home/useHomeData.ts'), 'utf8')
-/** 2026-09-20 Task 8 起：`submitQuery` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
-const MORE = readFileSync(resolve(SRC, 'composables/home/useHomeQueryMore.ts'), 'utf8')
-/** 2026-09-20 Task 6 起：主表 `filtered` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
-const FILTER = readFileSync(resolve(SRC, 'composables/home/useHomeFilterView.ts'), 'utf8')
+// ⚠️ 2026-09-20 终审修复轮：这里原有 `HOME` / `DATA` / `MORE` / `FILTER` 四个常量
+//    （手工维护的「被数源名单」）。本笔把三条断言的源都换成 `walk(SRC)` 全目录之后，
+//    它们**再无读者** ⇒ 删掉（留着就是死读取）。`FORMULAS` 仍在用，保留。
 
 /*
  * ⚠️ **2026-09-20 终审修复轮：下面两条断言的「被数源」从手工名单换成 `walk(SRC)` 全目录。**
@@ -191,14 +189,16 @@ const FILTER = readFileSync(resolve(SRC, 'composables/home/useHomeFilterView.ts'
  * 带 `!` 的是后两个（各 1 次），`Home.vue` 自 Task 6 起贡献 **0**。
  * ⇒ 换的只是被数文本的**来路**，判据没动。
  */
-const APP_SRC = (() => {
-  let all = ''
+const APP_FILES = (() => {
+  const out = []
   for (const f of walk(SRC)) {
     if (resolve(f) === resolve(ROLES_TS)) continue
-    all += '\n' + readFileSync(f, 'utf8')
+    out.push([f.replace(SRC + '/', ''), readFileSync(f, 'utf8')])
   }
-  return all
+  return out
 })()
+/** 全目录拼成一份 —— 数**次数**的断言用它（跨文件求和，不需要知道出处）。 */
+const APP_SRC = APP_FILES.map(([, s]) => s).join('\n')
 
 // Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed。
 // 三处**已经各自归位**：看板 → useHomeData.ts（Task 5）、查询更多 → useHomeQueryMore.ts（Task 8）、
@@ -228,13 +228,25 @@ check(
  *        同笔把那 8 条改成单引号对齐仓库风格，但**正则仍然两种都收** —— 判据不该依赖风格。）
  */
 const IMPORT_RE = /import(?:\s+type)?\s*\{[^}]*\bcanSeeAllOrders\b[^}]*\}\s*from\s*['"](?:\.\.\/)+utils\/roles['"]/
-const ROLE_SOURCES = [
-  ['Home.vue', HOME],
-  ['useHomeData.ts', DATA],
-  ['useHomeQueryMore.ts', MORE],
-  ['useHomeFilterView.ts', FILTER],
-]
-const missingImport = ROLE_SOURCES.filter(([, src]) => src.includes('canSeeAllOrders(') && !IMPORT_RE.test(src))
+/*
+ * ⚠️ **2026-09-20 终审修复轮：这条的源也从「手工 4 文件名单」换成全目录（`APP_FILES`）。**
+ *
+ * 与上面两条计数断言**同一类弱点**：老名单是 `Home.vue` + 三个 home 子模块。
+ * 它在「**搬走**」方向是变严的，但**新增**一个用到 `canSeeAllOrders` 却忘了导入的文件
+ * ⇒ 不在名单里 ⇒ **静默绿**。（这正是「关类」要关掉的那个洞：一条断言替成了全目录、
+ * 隔壁那条还留着名单，等于雷还在。）
+ *
+ * **判据（`IMPORT_RE` 与 `missingImport` 的过滤条件）一字未动**，只换被检文本的来路。
+ * 实测换源后**没有出现新的命中** —— 全目录里含 `canSeeAllOrders(` 的仍旧只有
+ * `useHomeData.ts` / `useHomeFilterView.ts` / `useHomeQueryMore.ts` 三个，且三个都带
+ * `../../utils/roles` 导入（`Home.vue` 自 Task 6 起贡献 0）⇒ **绿度不变**。
+ *
+ * ⚠️ `IMPORT_RE` 写的是 `(?:\.\.\/)+utils\/roles`（一层或两层 `../`）。
+ * 今天用到它的文件最深在 `src/composables/home/`（两层），路径写法实测只有
+ * `../utils/roles` 与 `../../utils/roles` 两种，都能匹配 —— 若将来出现 `src/` 直属文件
+ * 用 `./utils/roles`，这条会**报红而不是静默绿**（那是我们要的方向：宁可吵）。
+ */
+const missingImport = APP_FILES.filter(([, src]) => src.includes('canSeeAllOrders(') && !IMPORT_RE.test(src))
 check(
   missingImport.length === 0,
   `凡用到 canSeeAllOrders 的 Home 子模块都从 utils/roles 导入它${
@@ -243,8 +255,9 @@ check(
 )
 // 两支各自的形状：`!canSeeAllOrders(...)` 两次（filtered + submitQuery），
 // 看板是三元 `canSeeAllOrders(...) ? 全量 : filter`（**没有** `!`）。写反了这里会红。
-// ⚠️ 这条的源也要含 `MORE`（Task 8）与 `FILTER`（Task 6）—— 两处带 `!` 的都搬走了
-//    （正则不含 `auth`，所以只是加源，数字不动）。
+// ⚠️ 这条的源同样是 `walk(SRC)` 全目录 —— 两处带 `!` 的（Task 8 的 `submitQuery` /
+//    Task 6 的主表 `filtered`）各自搬走之后仍在这个目录里，所以搬家免疫、新增也免疫
+//    （正则不含 `auth`，所以换源只是换来路，数字不动）。
 const homeNegated = (APP_SRC.match(/!\s*canSeeAllOrders\(/g) || []).length
 check(
   homeNegated === 2,

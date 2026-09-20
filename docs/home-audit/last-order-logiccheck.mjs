@@ -40,7 +40,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { register } from 'node:module'
-import { HUI, matchBracket, huiDecoder, resolveDecoders, deobf } from './lib/hui-decode.mjs'
+import { HUI, matchBracket, huiDecoder, resolveDecoders, deobf, balanced } from './lib/hui-decode.mjs'
 // 配平法切片 —— 与两个搬迁守卫**同一个** `sliceFn`。2026-09-20 终审修复轮：见下面 ⑧ 的说明。
 import { sliceFn } from './lib/extract-movecheck-core.mjs'
 import { dirname, resolve } from 'node:path'
@@ -422,7 +422,21 @@ const SAMPLE_OURS = JSON.stringify({
   // `onMounted` 里不能再碰「上次订单」
   const at = vue.indexOf('onMounted(async () => {')
   if (at < 0) throw new Error('Hui.vue 里找不到 onMounted')
-  const body = vue.slice(at, vue.indexOf('\n})', at))
+  /*
+   * ⚠️ **2026-09-20 终审修复轮：与上面 ⑧ 一起换成配平法 —— 同一颗雷，同一页里别留两种切法。**
+   *
+   * 原来这里是 `vue.slice(at, vue.indexOf('\n})', at))`，与 ⑧ 的 `'\n}\n'` 同族：
+   * **锚的是「列 0 的收尾」**。`onMounted` 今天在 `Hui.vue` **顶层**，那个 `'\n})'`
+   * 正好落在它自己的收尾上 ⇒ **今天是对的**（实测：旧切法 1277 字符 / 配平法 1271，
+   * 差的只是末尾那个 `})` —— 对下面这条判定的**结论无影响**，两者都不命中那四个词）。
+   * 但 `onMounted` 哪天被挪进 `setup()`、或前面出现别的 `'\n})'`，终止符就会**解析到别处**：
+   *   · 落在**里面**⇒ 切短 ⇒ **下面这条是「不该出现」的否定断言**，切短了就看不见后面的内容
+   *     ⇒ **假绿**（最危险的方向：那句话本来就是「确认没写回去」）；
+   *   · 干脆找不到（`-1`）⇒ `slice(at, -1)` 一路切到 EOF ⇒ 切长 ⇒ 只会**吵**（误报红），不假绿。
+   * ⇒ 换 `balanced()`（`matchBracket` 配平，且能吃字符串 / 注释 / 正则字面量）。
+   * **判据（下面那条正则）一字未动**，只换被检文本的来路 —— 加固，不是放宽。
+   */
+  const body = balanced(vue, vue.indexOf('(', at))
   if (/persistLastOrder|writeLastOrder|restoreLastOrder|importLastOrder/.test(body)) {
     throw new Error('onMounted 里出现了「上次订单」的读写 —— 旧版加载时什么都不恢复')
   }
