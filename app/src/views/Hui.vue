@@ -628,7 +628,9 @@ import type {
 import { printByMode } from '../utils/printService'
 import type { MarkupItem } from '../utils/markupLines'
 import { round2, type Line, type PartPreview } from '../utils/partsEngine'
-import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
+// 2026-09-20 C7：`TENANT_DS` 的唯一消费者是「终端链接」那块（拼 token 的 `a`），已随它搬进
+// `composables/hui/useTerminalLink.ts` ⇒ 本文件不再 import 它（留着就是 TS6133）。
+import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
 // 2026-09-20 C4：`writeShowTotalBalance` / `writeAssistiveMenu` / `writeAssistiveFullscreen` 的三个
 // **写**入口随外壳开关搬进 `composables/hui/useHuiShellToggles.ts`；本文件只留**读**（`onMounted` 里
 // 回写那三个 ref，见下面 `showTotalBalance.value = readShowTotalBalance()` 那三行）。
@@ -655,6 +657,7 @@ import { useHuiPayQrcode } from '../composables/hui/useHuiPayQrcode'
 import { useHuiShellToggles } from '../composables/hui/useHuiShellToggles'
 import { useHuiClients } from '../composables/hui/useHuiClients'
 import { useHuiPreview } from '../composables/hui/useHuiPreview'
+import { useTerminalLink } from '../composables/hui/useTerminalLink'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1721,47 +1724,14 @@ async function printProductionCustom(mode: 'product2' | 'product3' = 'product2')
 // —— 终端链接 token ——
 // 兼容旧版算法：a = tenant_id + 1000, x = 7 × 客户编号 + 1987, t = 时间戳 + 888。
 // 终端页（只读订单视图）后续接入后消费 param2 token；当前仅生成并复制链接。
-const tenantName = ref('')
-// 当前登录用户（原版 maker = userinfo.name，打单人）
-const currentUserName = ref('')
-
-// `currentClient`（按 `order.client_code` 反查当前客户）已随 C5 搬到 `composables/hui/useHuiClients.ts`。
-
-// 原版（@448151 邻近）token = `{a}af{x}wy{now+888}`：
-//   `ds === 'smartdoor'` → a = 1000；否则 a = Number(ds.split('smartdoor')[1]) + 1000
-//   x = 7 × 客户编号 + 1987
-// 注意 a **与租户 id 无关**（原版没有用 tenant.id）。
-function buildTerminalToken(clientId: number): string {
-  const a = TENANT_DS === 'smartdoor' ? 1000 : Number(TENANT_DS.split('smartdoor')[1]) + 1000
-  const x = 7 * clientId + 1987
-  const t = Date.now() + 888
-  return `${a}af${x}wy${t}`
-}
-
-const terminalLink = computed(() => {
-  const c = currentClient.value
-  if (!c) return ''
-  const token = buildTerminalToken(c.id)
-  const p = new URLSearchParams({
-    param1: order.client_name || c.name,
-    param2: token,
-    receiptNo: order.receipt_no,
-  })
-  return `${window.location.origin}/terminal?${p.toString()}`
-})
-
-async function copyTerminalLink() {
-  if (!currentClient.value) {
-    message.warning('请先选择客户')
-    return
-  }
-  try {
-    await navigator.clipboard.writeText(terminalLink.value)
-    message.success('终端链接已复制')
-  } catch {
-    message.error('复制失败，请手动复制')
-  }
-}
+// 2026-09-20 本段 5 个声明搬到 `composables/hui/useTerminalLink.ts`（逐字搬迁，零行为变化），只留调用点。
+//
+// ⚠️ **`tenantName` / `currentUserName` 必须解构**（spec §3.3 点名的雷）：它们**不是只读的** ——
+//    `onMounted` 拿到 `/me` 之后要**回写**这两个 ref。少解构一个 ⇒ 打印出的租户名/打单人是空的，**且不报错**。
+// ⚠️ **只解构 4 个**：`buildTerminalToken` 段外零命中（只被 `terminalLink` 调）⇒ 解构即 TS6133。
+// ⚠️ 上一行的 `currentClient` 是 **C5** 的（已搬走）—— 本块把它**注入**进终端链接，没有重搬。
+const { tenantName, currentUserName, terminalLink, copyTerminalLink } =
+  useTerminalLink({ currentClient, order, message })
 
 // —— 「上次订单」的写入 ——
 //

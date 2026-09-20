@@ -285,6 +285,27 @@ const SPLIT_BLOCKS = [
       templatePreviewTitle: [],
     },
   },
+  {
+    // C7「终端链接」。快照 `Hui.vue:2084-2129`，但段内夹着的 `currentClient` 是 **C5** 的
+    // （C5 先搬走了）⇒ 本块实收 5 个声明，`currentClient` 只作**注入**。
+    // ⚠️ `tenantName`/`currentUserName` 会被 `onMounted` **回写** ⇒ 必须回传该 ref（本脚本只验搬迁）。
+    target: 'app/src/composables/hui/useTerminalLink.ts',
+    names: ['buildTerminalToken', 'copyTerminalLink'],
+    consts: ['tenantName', 'currentUserName', 'terminalLink'],
+    rewrites: {
+      terminalLink: [
+        { from: 'currentClient.value', to: 'deps.currentClient.value' },
+        { from: 'order.', to: 'deps.order.' },
+      ],
+      copyTerminalLink: [
+        { from: 'currentClient.value', to: 'deps.currentClient.value' },
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      tenantName: [],
+      currentUserName: [],
+      buildTerminalToken: [],
+    },
+  },
 ]
 
 /**
