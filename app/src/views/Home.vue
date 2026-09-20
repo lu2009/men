@@ -449,6 +449,7 @@ import { useHomeSelection } from '../composables/home/useHomeSelection'
 import { useHomeQueryMore } from '../composables/home/useHomeQueryMore'
 import { useHomeExpand } from '../composables/home/useHomeExpand'
 import { useHomePrint } from '../composables/home/useHomePrint'
+import { useHomeRowEditing } from '../composables/home/useHomeRowEditing'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
 import { legacyToday, localToday, pad } from '../utils/homeDate'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
@@ -606,93 +607,25 @@ function orderNoCell(r: OrderSummaryDto): string {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // 内联编辑（§4.5：定金/安装地址/订单备注/业务员/打单人）
-// ---------------------------------------------------------------------------
-const editingId = ref<number | null>(null)
-const draft = reactive<OrderHeadInput>({})
-
-function startEdit(row: OrderSummaryDto) {
-  editingId.value = row.id
-  draft.client_code = row.client_code
-  draft.client_name = row.client_name
-  draft.phone = row.phone
-  draft.brand = row.brand
-  draft.order_date = row.order_date
-  draft.production_days = row.production_days
-  draft.deposit = row.deposit
-  draft.remark = row.remark
-  draft.salesperson = row.salesperson
-  // `order_no_set` 不再抄进草稿 —— 它是服务端派生值（= 各行 line_no 去重后 `_` 连接），
-  // 发回去也不会被采纳。见 `docs/2026-09-18-order-no-semantics.md` §6.B。
-  draft.install_address = row.install_address
-  draft.production_status = row.production_status
-  draft.creator_name = row.creator_name
-  draft.lock_direction = row.lock_direction
-}
-
-async function saveEdit() {
-  if (editingId.value == null) return
-  const id = editingId.value
-  try {
-    await api.updateOrderHead(id, { ...draft })
-    message.success('修改成功')
-    editingId.value = null
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '保存失败')
-  }
-}
-
-function cancelEdit() {
-  editingId.value = null
-}
-
-// ---------------------------------------------------------------------------
 // 改客户名 / 改日期（§4.4/§4.6，Phase 1 走 updateOrderHead 就地改）
+// 2026-09-20 整段搬到 `composables/home/useHomeRowEditing.ts`（逐字搬迁，零行为变化），
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以下面的模板与 `columns` 一行都没改。
+//
+// ⚠️ **构造顺序**：`message`（页面顶部 `useMessage()`）与 `load`（B1 `useHomeData` 回传）
+//    都是 setup 顶层即时求值，本行必须在它们**之后**；而 B12（`useHomeCellRender`，也就是
+//    `columns` 里那个 `renderEditable`）还要读本块借出的 `editingId`/`draft`/`startEdit`
+//    ⇒ 本行必须在那一步**之前**。往前挪 = 拿到 `undefined`，且**不一定报错**。
+//
+// ⚠️ **15 个名字全部解构**（不许写成 `rowEditing.xxx`）：`<script setup>` 的模板只对**顶层绑定**
+//    自动解包 ref。模板 177 的 `renameValue` 与 200 的 `dateValue` 是 `v-model` **写入** ⇒
+//    属性访问会把 **ref 对象整个换成字符串**（弹窗当场失效，**静默**）；
+//    `renameShow`/`dateShow` 的显隐也不再响应。完整理由见新家文件头。
 // ---------------------------------------------------------------------------
-const renameShow = ref(false)
-const renameTarget = ref<OrderSummaryDto | null>(null)
-const renameValue = ref('')
-
-function openRename(row: OrderSummaryDto) {
-  renameTarget.value = row
-  renameValue.value = row.client_name
-  renameShow.value = true
-}
-
-async function submitRename() {
-  if (!renameTarget.value) return
-  try {
-    await api.updateOrderHead(renameTarget.value.id, { client_name: renameValue.value })
-    message.success('修改成功')
-    renameShow.value = false
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '修改失败')
-  }
-}
-
-const dateShow = ref(false)
-const dateTarget = ref<OrderSummaryDto | null>(null)
-const dateValue = ref<number | null>(null)
-
-function openDate(row: OrderSummaryDto) {
-  // 旧版 `:11412-11419`：**只有「单号集」为空才让改生产日期**，
-  // 否则 `ElMessage.warning("已生产的单不能修改生产日期")` 并**不开弹窗**。
-  // 判据逐字：`"" === (单号集 ?? "").toString().trim()` 才放行。
-  //
-  // ⚠️ **这条注释 2026-09-19 更正过**：原写「打单操作」，与源码不符 ——
-  //    旧版取的是 `dr(1362)`，`node legacy/decode-token.mjs dr 1362` = **「单号集」**。
-  // ⚠️ **而下面的代码判的是 `production_status`（打单操作），两者不等价**：
-  //    点过「审核确认」（打单操作非空）但**还没「填入单号」**的单，旧版**放行**改日期、我们**拦住**
-  //    （反向亦然）。已记为待拍板的行为偏离（`docs/home-audit/00-summary.md` §五.1），**别照这行改代码**。
-  if ((row.production_status ?? '').toString().trim() !== '') {
-    message.warning('已生产的单不能修改生产日期')
-    return
-  }
-  dateTarget.value = row
-  dateValue.value = row.order_date ? Date.parse(row.order_date) : null
-  dateShow.value = true
-}
+const {
+  editingId, draft, startEdit, saveEdit, cancelEdit,
+  renameShow, renameTarget, renameValue, openRename, submitRename,
+  dateShow, dateTarget, dateValue, openDate, submitDate,
+} = useHomeRowEditing({ message, load })
 
 /**
  * 「审核确认」（旧版 `Ba`/`Ma`/`rn`，`:476268-476400`，审计 `02-actions.md` G2）。
@@ -725,20 +658,6 @@ async function confirmAudit(row: OrderSummaryDto) {
     await load()
   } catch (e) {
     message.error((e as Error).message || '更新失败')
-  }
-}
-
-async function submitDate() {
-  if (!dateTarget.value || dateValue.value == null) return
-  const d = new Date(dateValue.value)
-  const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  try {
-    await api.updateOrderHead(dateTarget.value.id, { order_date: iso })
-    message.success('日期修改成功')
-    dateShow.value = false
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '修改失败')
   }
 }
 

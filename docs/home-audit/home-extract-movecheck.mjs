@@ -572,6 +572,49 @@ const BLOCKS = [
       lineRefOf: [], normalizeLines: [], shownOf: [], homeLineInputOf: [],
       onExpandedKeys: [], renderExpandDetail: [], addRowToExpand: [],
     } },
+  /*
+   * B8（「内联编辑 / 改客户名 / 改生产日期」）—— 15 个声明：7 `names` + 8 `consts`。
+   *
+   * ⚠️ **段是 `1018–1058` + `1060–1106` + `1191–1203` 三段**，不是 `1018–1203` 一整段：
+   *    `1108`（`pad`）与 `1110–1119`（`localToday`）归 Task 4、`1121–1153`（`confirmAudit`）归 **B11**、
+   *    `1155–1189`（`combineSelected`）归 **B10** —— 全夹在中间。本清单按**名字**切，本来就切不到它们；
+   *    这条约束是**删段**时的人工纪律（方案 §3.1 的 B8 行写的是 Task 3/4 跑之前的快照）。
+   *
+   * ⚠️ 三个函数体里都有 `(e as Error).message`（`saveEdit` / `submitRename` / `submitDate`）⇒
+   *    **绝对不许**写裸 `{ from: 'message' }`（Ruling 55）：会把 `e.message` 改成 `e.deps.message`。
+   *    一律用带 `(` 的形态。实测各自声明切片里各命中一次（改写是**按声明切片**分别施加的）。
+   *    ⚠️ `load()` 同理带右括号 —— 裸 `load(` 会打进 `loadDetail(` 这类同前缀标识符。
+   *
+   * ⚠️ **段头注释 `1018–1020`（「内联编辑（§4.5…）」三行）在 `editingId` 的声明之上**，
+   *    `sliceFn` 从**声明**起切 ⇒ **不在任何切片里**，本守卫管不到它（实测：改它一个字不报红）。
+   *    它的保真只有 `git diff` 人工比对一条来源 —— 与 B6 段二那 27 行说明块同一性质。
+   */
+  { target: 'app/src/composables/home/useHomeRowEditing.ts',
+    names: ['startEdit', 'saveEdit', 'cancelEdit', 'openRename', 'submitRename', 'openDate',
+            'submitDate'],
+    consts: ['editingId', 'draft', 'renameShow', 'renameTarget', 'renameValue',
+             'dateShow', 'dateTarget', 'dateValue'],
+    rewrites: {
+      startEdit: [], cancelEdit: [], openRename: [],
+      saveEdit: [
+        { from: 'load()', to: 'deps.load()' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 (e as Error).message
+      ],
+      submitRename: [
+        { from: 'load()', to: 'deps.load()' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 (e as Error).message
+      ],
+      openDate: [
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+      ],
+      submitDate: [
+        { from: 'load()', to: 'deps.load()' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 (e as Error).message
+      ],
+    } },
 ]
 
 /**
