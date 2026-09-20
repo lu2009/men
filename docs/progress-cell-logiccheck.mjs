@@ -8,7 +8,12 @@
  *
  * 左边（旧版）：`legacy/js/Progress-f4bdef35.js` 里 `va=e=>{…}` 那一段。
  *   先按文档给的命令解混淆（`legacy/decode-progress-scoped.mjs`），缓存到 `/tmp`。
- * 右边（新版）：`app/src/views/Progress.vue` 里 `// ── A1.` 到 `// ── A2.` 之间的整段。
+ * 右边（新版）：`const RED_STYLE` 到 `// ── A2.` 之间的整段。
+ *   ⚠️ **2026-09-20 起这一段不在 `Progress.vue` 了** —— P1（单元格保真）已搬到
+ *   `app/src/utils/progressCells.ts`（Progress 拆分第一块，纯搬迁、逐字未改）。
+ *   ⇒ 本台子的「新版侧」改从这个新文件切；**断言与夹具一个字没动**（只换了源路径）。
+ *   颜色那一半（`// ── B1.` 之前）**仍留在** `Progress.vue` ⇒ 第二段切片**跨两个文件**，
+ *   见下面 `NEW_ALL_TS` 的拼法。
  *
  * ⚠️ **已知且有意的一处不同**：新版把非红色部分做了 **HTML 转义**（旧版裸 `innerHTML`）。
  *    所以夹具里一律不放 `<`/`>`/`&`，两边应当**逐字节相等**；
@@ -58,10 +63,17 @@ const legacyVa = new Function('f', `const ${LEGACY_SRC}; return va`)(() => {
 
 // ---------------------------------------------------------------- 新版侧 //
 const vue = readFileSync(VUE, 'utf8')
-const NEW_START = vue.indexOf('const RED_STYLE = ')
-const NEW_END = vue.indexOf('// ── A2.')
-if (NEW_START < 0 || NEW_END < 0) throw new Error('新版 Progress.vue 的锚点变了（`RED_STYLE` / `── A2.`）')
-const NEW_TS = vue.slice(NEW_START, NEW_END)
+/*
+ * ⚠️ **2026-09-20：`va` 那一整段搬去了 `app/src/utils/progressCells.ts`**（Progress 拆分 P1）。
+ *    这里**只换源路径，不动任何断言/夹具** —— 本项目对「台子被搬迁绊红」的既定处置就是
+ *    「**加源，不改夹具**」（先例：B1 搬迁绊红 `docs/roles-admin-logiccheck.mjs`）。
+ */
+const CELLS = resolve(ROOT, 'app/src/utils/progressCells.ts')
+const cells = readFileSync(CELLS, 'utf8')
+const NEW_START = cells.indexOf('const RED_STYLE = ')
+const NEW_END = cells.indexOf('// ── A2.')
+if (NEW_START < 0 || NEW_END < 0) throw new Error('progressCells.ts 的锚点变了（`RED_STYLE` / `── A2.`）')
+const NEW_TS = cells.slice(NEW_START, NEW_END)
 
 // 从 app/ 的 node_modules 里拿 esbuild（根目录没有）。
 const require = createRequire(resolve(ROOT, 'app/package.json'))
@@ -224,22 +236,43 @@ function makeLegacyColor(colorMap, orderList) {
   )
 }
 
-// 新版侧：从 `RED_STYLE` 一直切到「B1」之前（含 A1 `va` + A2 格件 + 颜色整段）。
+/*
+ * 新版侧：从 `RED_STYLE` 一直切到「B1」之前（含 A1 `va` + A2 格件 + 颜色整段）。
+ *
+ * ⚠️ **这一段现在跨两个文件**（2026-09-20 P1 搬迁）：格件那半在 `progressCells.ts`，
+ *    颜色口径那半仍在 `Progress.vue`。**两段的代码一个字没动**，只是把两次 `slice` 拼起来 ——
+ *    拼缝落在 `amountCell` 与颜色段之间，那里的空白/注释对 `esbuild` 的输出零影响。
+ *    ⚠️ 别把这两半的顺序颠倒：`NEW_ALL_JS` 里先格件后颜色，与搬迁前的顺序一致。
+ */
 const NEW_END2 = vue.indexOf('// ── B1.')
 if (NEW_END2 < 0) throw new Error('新版 Progress.vue 的 `── B1.` 锚点变了')
-const NEW_ALL_TS = vue.slice(NEW_START, NEW_END2)
+const COLOR_START = vue.indexOf("const UNPRODUCED_KEY = '__unproduced__'")
+if (COLOR_START < 0) throw new Error('新版 Progress.vue 的颜色段起点锚点变了（`UNPRODUCED_KEY`）')
+const NEW_ALL_TS = `${cells.slice(NEW_START)}\n${vue.slice(COLOR_START, NEW_END2)}`
 const NEW_ALL_JS = esbuild.transformSync(NEW_ALL_TS, { loader: 'ts', format: 'cjs' }).code
 
 const { computed, h, ref } = require('vue')
 const makeNewColor = (slots) => {
   const procedures = ref(slots)
+  /*
+   * ⚠️ **`module` / `exports` 两个形参是 2026-09-20 补的，不是凑数**：
+   *    `NEW_ALL_TS` 现在含 `progressCells.ts` 那半，而那边每个声明都带 `export`
+   *    （搬出去必须导出）⇒ `esbuild` 的 `format: 'cjs'` 会吐出
+   *    `module.exports = __toCommonJS(...)` 这个包装；不传 `module` 就
+   *    `ReferenceError: module is not defined in ES module scope`（实测）。
+   *    搬走之前那段在 `Progress.vue` 里、**没有 export** ⇒ 不需要这两个形参。
+   *    与上面 `newVa` 那处（`new Function('module','exports', …)`）同一处置，**不是新写法**。
+   *    ⚠️ 形参加在**最前面**，实参顺序跟着对齐；`return { … }` 拿的仍是那几个页面级名字。
+   */
   return new Function(
+    'module',
+    'exports',
     'h',
     'computed',
     'ref',
     'procedures',
     `${NEW_ALL_JS}; return { colorKeyOf, progressCellStyle, resolveConfiguredColor, orderedProcedureNames, colorFilterOptions }`,
-  )(h, computed, ref, procedures)
+  )({ exports: {} }, {}, h, computed, ref, procedures)
 }
 
 // ---- 夹具：15 个槽，一部分配了名字 + 颜色 ----

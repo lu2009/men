@@ -14,7 +14,7 @@
  *   2. 前端装依赖（缺 `app/node_modules` 时才装）+ `npm run build`（= vue-tsc + vite build）
  *   3. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
  *   4. `cargo test --workspace`
- *   5. 建库 → 起后端 → 等 health → `run-all.mjs`（36 个差分台）→ 收尾
+ *   5. 建库 → 起后端 → 等 health → `run-all.mjs`（37 个差分台）→ 收尾
  *
  *   ⚠️ **第 2 步必须早于第 3 步**：`app/src-tauri/tauri.conf.json` 的
  *   `frontendDist` 指向 `../dist`，而 `app/dist/` 是 gitignore 的 —— CI 上刚 checkout
@@ -99,7 +99,7 @@ const NEEDS_SEED = ['docs/home-audit/print-lineno-check.mjs']
 /** `VERIFY_SEED=0` 关掉播种（想验「空库能不能起来」时用）。 */
 const SEED = process.env.VERIFY_SEED !== '0'
 
-/** `--quiet` 透传给 `run-all.mjs`：36 个台子逐条那几十行不打了，只留汇总表。 */
+/** `--quiet` 透传给 `run-all.mjs`：37 个台子逐条那几十行不打了，只留汇总表。 */
 const QUIET = process.argv.includes('--quiet')
 const yellow = (s) => `\x1b[33m${s}\x1b[0m`
 const red = (s) => `\x1b[31m${s}\x1b[0m`
@@ -224,8 +224,8 @@ try {
   banner('cargo test --workspace')
   record('cargo test', run('cargo', ['test', '--workspace']))
 
-  // 5 ── 后端 + 36 个差分台
-  banner('差分台（36 个）—— 起 postgres + 后端')
+  // 5 ── 后端 + 37 个差分台
+  banner('差分台（37 个）—— 起 postgres + 后端')
 
   if (!(await portFree(PORT))) {
     throw new Error(

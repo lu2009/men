@@ -85,7 +85,7 @@ npm run tauri dev
 ## 验证
 
 ```bash
-npm run verify          # 全套：fmt → 前端类型检查+生产构建 → clippy → cargo test → 36 个差分台
+npm run verify          # 全套：fmt → 前端类型检查+生产构建 → clippy → cargo test → 37 个差分台
 ```
 
 一条命令跑完**所有**检查，CI（`.github/workflows/ci.yml`）跑的就是它。

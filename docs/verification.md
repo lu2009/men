@@ -21,7 +21,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 | 2 | 前端：缺 `app/node_modules` 才 `npm ci`，然后 `npm run build` | = `vue-tsc --noEmit && vite build` |
 | 3 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | **两个包一起看**（`backend` + `app/src-tauri`） |
 | 4 | `cargo test --workspace` | 当前 24 通过 / 1 忽略 |
-| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（36 个差分台）→ 收尾 | 详见下面第 3 节 |
+| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（37 个差分台）→ 收尾 | 详见下面第 3 节 |
 
 **⚠️ 第 2 步必须早于第 3 步。** `app/src-tauri/tauri.conf.json` 的 `frontendDist` 指向 `../dist`，
 而 `app/dist/` 是 gitignore 的 —— CI 上刚 checkout 出来没有这个目录，先跑 clippy 的话
@@ -29,7 +29,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 > 用户原话把顺序列成「1 前端构建 / 2 cargo test / 3 台子 / 4 fmt / 5 clippy / 6 PG 集成」。
 > 这里把 fmt 提到最前、前端构建提到 clippy 前，其余等价。第 6 项「PostgreSQL 集成测试」
-> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 36 个台子打的全是真后端 + 真 PG）。
+> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 37 个台子打的全是真后端 + 真 PG）。
 
 ---
 
@@ -201,7 +201,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 环境变量，省得「只想看看正式库」时还得去改源码）。见下一节。
 
 两个共用库（`docs/home-audit/lib/hui-decode.mjs`、`docs/legacy-finance/lib/run-legacy-fn.mjs`）
-也一并修了 —— 它们是 36 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
+也一并修了 —— 它们是 37 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
 
 ### 2026-09-20：`docs/legacy-finance/0{5,6,7,9}` 收进统一入口
 

@@ -322,8 +322,10 @@ CSS 差分台）；验收脚本 `docs/home-audit/hui-extract-movecheck.mjs`（�
   （当时的数是 **29 个台子一次跑完，27 通过、2 个需独立后端**；2026-09-20 把
   `docs/legacy-finance/0{5,6,7,9}` 也收进收集范围后，变成 33 个 / 手工 27 通过 + 6 个需独立后端；
   2026-09-20 又把 `docs/home-audit/hui-extract-movecheck.mjs` 接进来，变成 34 个 / 手工 28 通过 + 6 个需独立后端；
-  同日再立 Home 版的 `docs/home-audit/home-extract-movecheck.mjs`，现在是 **36 个 / 手工 30 通过**
-  + 6 个需独立后端。）
+  同日再立 Home 版的 `docs/home-audit/home-extract-movecheck.mjs`，变成 36 个 / 手工 30 通过
+  + 6 个需独立后端；同日为 Progress 拆分再立 `docs/progress-extract-movecheck.mjs`
+  （拆分第一块 P1），现在是 **37 个 / 手工 31 通过** + 6 个需独立后端
+  —— `npm run verify` 实测 **37 通过 / 0 跳过 / 0 红**。）
   加这个入口是因为**当天真的栽了一次**：提交「总余额显示」时只跑了 build + Hui 那几个台子，
   同一笔给 `loadPrintPrereqs` 返回值加的 `totalBalances` 把 `print-lineno-check.mjs` 的**手写桩**打崩，
   一天后才发现。`npm run build` / `vue-tsc` 都抓不到「台子夹具过时」。
