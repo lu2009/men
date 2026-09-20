@@ -1,0 +1,90 @@
+# 每次 push 与 PR 都跑 `npm run verify`（= 仓库根的**统一验证入口**）。
+#
+# 这里**故意不 exclude 任何东西**：clippy / test 跑的是整个 workspace
+# （`backend` + `app/src-tauri`），差分台也是全量 —— 排除掉的那部分恰恰是最没人看、
+# 最容易悄悄坏掉的部分。Tauri 的系统依赖因此必须装（见下面的 apt 一步）。
+#
+# 台子需要的东西，这一份 workflow 全部照本地原样备齐：
+#   · postgres 跑在**同名容器** `smartdoor-db` 里（用户名/库名也同本地）——
+#     多数台子靠 `docker exec smartdoor-db psql -U smartdoor -d …` 直接读库写库，
+#     容器名一变它们就全崩。
+#   · 后端由 `verify` 自己起（自带 migrate + 播种管理员），端口 3100、库 `smartdoor_verify`。
+#
+# ⚠️ 有 3 个台子在 CI 上**跑不了**（verify 会显式列出来，不是静默跳过）：
+#      · 2 个要在**仓库外**的旧版服务端源码上切函数跑，CI 上没有那份源码；
+#      · 1 个要有**业务配置**（公式 / 打印模板），CI 的空库满足不了。
+#    另有 1 个是**已登记的真红**（`finance-reversal-e2e.mjs`，待裁决）。
+#    详见 `docs/verification.md`。
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# 同一分支连推多次时，取消还没跑完的旧任务。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Tauri 2 在 Linux 上的系统依赖。少了 webkit2gtk 那套，`cargo clippy --workspace`
+      # 连 `app/src-tauri` 都编不过 —— 而 workspace 是全量的，所以必须装。
+      - name: 装 Tauri 系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            curl wget file
+
+      - name: 装 Rust 工具链（含 rustfmt / clippy）
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      # 版本与本地一致（本地 node v24）。`app/` 有自己的 lockfile。
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # 跑台子要用 `docker exec` 直接读写库，所以容器名/用户/库名必须与本地**逐字一致**。
+      # 不能改用 Actions 的 `services:`：那种容器的名字是随机的，`docker exec smartdoor-db` 会找不到。
+      - name: 起 postgres（容器名与本地一致：smartdoor-db）
+        run: |
+          # GitHub 的 ubuntu 镜像自带一个跑在 5432 上的 postgres，先让位。
+          sudo systemctl stop postgresql || true
+          docker run -d --name smartdoor-db \
+            -e POSTGRES_USER=smartdoor \
+            -e POSTGRES_PASSWORD=smartdoor \
+            -e POSTGRES_DB=smartdoor \
+            -p 5432:5432 \
+            postgres:16-alpine
+          for i in $(seq 1 30); do
+            docker exec smartdoor-db pg_isready -U smartdoor -d smartdoor && exit 0
+            sleep 1
+          done
+          echo "postgres 30 秒内没就绪" >&2
+          docker logs smartdoor-db >&2
+          exit 1
+
+      # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 29 个差分台。
+      # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」与「哪个是已登记的真红」。
+      - name: npm run verify
+        run: npm run verify
