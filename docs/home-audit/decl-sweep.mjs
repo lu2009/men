@@ -194,7 +194,7 @@ let selftestBad = 0
  *    不许写 `assert(true)` 式的空断言。`norm` / `scriptOf` / `exitCode` 那三组是
  *    Task 3.8 fix round 1（M-3 / M-4）补的 —— 此前只有 `classify` 一个有自测。
  * ⚠️ 每条都必须能**「改坏即红」** —— 在 `/tmp` 副本里把对应判据改坏，确认该条变红。
- *    实测的变异与结果见 `task-3.8-report.md`。
+ *    实测的变异与结果见本节断言。
  *
  * ⚠️ **`--selftest` 不再吞掉同一行的其它开关**（fix round 1 · M-4）：它**单独给**时照旧
  *    只跑自测就退出（文件头那句「不碰 git、不扫目录」继续成立）；与 `--check` / `--against`

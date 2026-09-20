@@ -286,7 +286,7 @@ const BLOCKS = [
    *    这正是简报自己「修正 B」讲的那类错（把「函数体不用改」误当成「整段不用改」）——
    *    只是 B 只点了 `progressSegments` 的**签名**那一条，漏了每个名字都有的 `export` 那一条。
    *    ⇒ 以**实测**为准补全，函数体/表达式体一字未动（本条已按简报要求的「改第二行必须报红」
-   *    逐名变异验过，见 `task-4-report.md` §2）。
+   *    逐名变异验过）。
    */
   { target: 'app/src/utils/homeDate.ts',
     names: ['localToday', 'legacyToday'],
@@ -333,7 +333,7 @@ const BLOCKS = [
       // ① 两个名字各自的 `export`。
       splitOrderNos: [{ from: 'function splitOrderNos(', to: 'export function splitOrderNos(' }],
       orderNosOf: [{ from: 'const orderNosOf = ', to: 'export const orderNosOf = ' }],
-      // ② **零页面作用域捕获**（这是「可以归位」的前提，逐行核过，见 `task-4-report.md` §6）：
+      // ② **零页面作用域捕获**（这是「可以归位」的前提，逐行核过）：
       //    `splitOrderNos` 只读自己的形参 `v`；`orderNosOf` 只调 `splitOrderNos` 与读
       //    `r.order_no_set`。两者都不读 `ref` / `localStorage` / 组件上下文 ⇒ 不需要注入。
     } },
@@ -352,7 +352,7 @@ const BLOCKS = [
    *
    * ⚠️ `dashboardOrders` 是「**跨行、且首行没有 `{`**」的 `const`（`computed(() =>` 断行）——
    *    正是 `sliceFn` 路 1 快车道历史上会**静默切短**的那一族（§9h）。登记时按文件头的「验法」
-   *    变异过一次：改**第二行**（`.name` → `.role`）守卫**报红**，证明整段真被比中（见 `task-5-report.md` §2）。
+   *    变异过一次：改**第二行**（`.name` → `.role`）守卫**报红**，证明整段真被比中。
    *
    * ⚠️ 与 `docs/roles-admin-logiccheck.mjs` 的联动（**别忘**）：本块搬走的 `dashboardOrders` 里
    *    那处 `canSeeAllOrders(auth.user?.role)` 正是那台子数的**三处之一**。而上面那条
@@ -417,7 +417,7 @@ const BLOCKS = [
    * ⚠️ **本块有 2 处守卫登记不了的东西**：`watch([searchText, …])`(REF:945-947) 与
    *    `watch(searchText, …)`(REF:954-956) 是**顶层匿名调用**，没有名字 ⇒ `sliceFn` 匹配不到
    *    （它只按名字切）⇒ 既进不了 `names` 也进不了 `consts`。
-   *    **这 2 处的保真由手工 `git diff` 提供，不由本守卫提供** —— 见 `task-6-report.md`。
+   *    **这 2 处的保真由手工 `git diff` 提供，不由本守卫提供**。
    *    这是本守卫的一条**能力边界**，Task 15 要记账。
    *
    * ⚠️ 本块的 `rewrites` **分两类，顺序有意义**（`split/join` 逐条串行）：
@@ -497,7 +497,7 @@ const BLOCKS = [
    *    `sliceFn(新家, 'openPrintPreview')` **切得出 5 行**，而 `sliceFn(REF, 'openPrintPreview')`
    *    返回 **`null`**（REF 里没有这个名字）⇒ 登记进 `names` 只会报「参照里找不到」。
    *    ⇒ **守卫对这一处零检验力**（不是「切不出来」，是「参照侧根本没有可比之物」）。
-   *    它的保真靠人工核对那三行与 REF `2238`/`2239`/`2242` 的逐字对照（见 `task-9-report.md`）。
+   *    它的保真靠人工核对那三行与 REF `2238`/`2239`/`2242` 的逐字对照。
    *    这也是本守卫的能力边界：**新增件它一概验不到**，只有「搬走的东西」才在它射程内。
    */
   { target: 'app/src/composables/home/useHomePrint.ts',
@@ -524,7 +524,7 @@ const BLOCKS = [
    * ⚠️ **段二是 `2107–2257`，不是 `2134–2257`**（简报修正 A2）：`2107–2133` 那 27 行是
    *    `renderExpandDetail` 头上的 `/* … *\/` 说明块。方案 §3.1 从 `function` 那行起算 ⇒ 会把它
    *    留在旧文件里。本守卫按**声明**切，本来就不看段头注释，所以这条是**人工**核对的
-   *    （见 `task-10-report.md`），不是本脚本保证的。
+   *    不是本脚本保证的。
    *
    * ⚠️⚠️ **`calcSingleRowInExpand` 那一整段替换是本清单里唯一一处「真改代码」** ——
    *    REF 末尾那五行（`printOrders.value = [detail]` / `onOpenMode(...)` / 两行注释 /
@@ -1236,7 +1236,7 @@ if (process.argv.includes('--selftest')) {
    * ⚠️ 断言一律写**逐字相等**（比「几行」强）：修前/修后的行数**都是 3**（见下），
    *    差别在**末行内容** —— 修前末行是 `}`、修后是 `}>({ a: '' })`。
    *    （简报把这段写成「4 行」是数错了：`}` 与 `>({ … })` 在**同一行**上，
-   *      真声明就是 3 行 —— 实测见 task-3.6-report.md。）
+   *      真声明就是 3 行 —— 实测如此。）
    */
   const genSrc = (field, init) => ['const q = reactive<{', `  a: ${field}`, `}>({ a: ${init} })`].join('\n')
   const genR = trySlice(genSrc('string', "''"), 'q')
@@ -1254,7 +1254,7 @@ if (process.argv.includes('--selftest')) {
   )
   /*
    * ⚠️ **这一条是本次修复的证明**：修前它是**绿的**（`firstDiffLine` = 0，初值根本没被比）。
-   *    实测（task-3.6-report.md）：`sawParen` 闩退回「只判栈空」时，这条立刻变 0 并报红。
+   *    实测：`sawParen` 闩退回「只判栈空」时，这条立刻变 0 并报红。
    */
   const genInit = sliceDiff(genSrc('string', "''"), genSrc('string', "'x'"), 'q')
   check(
@@ -1311,7 +1311,7 @@ if (process.argv.includes('--selftest')) {
    *
    * ⚠️ **这是「现存」不是「潜在」**（2026-09-20 Task 3.7 改准；本节此前写「仓库里 0 处」，**错**）：
    *    全 `app/src` 有 **3 个声明**是这个形状（2026-09-20 Task 3.8 实测改准 —— Task 3.7 写的是
-   *    「**1 个**」，**那个数也是错的**，这一段至今错过三次：`task-3.6-report.md` §6🟠4 的「0 处」
+   *    「**1 个**」，**那个数也是错的**，这一段至今错过三次：当时那轮复核报告的 §6🟠4 的「0 处」
    *    → Task 3.7 的「1 个」→ 本次实测「3 个」，**以本次为准**）：
    *    | 声明 | 现核 | 去掉跳注释后 |
    *    |---|---|---|

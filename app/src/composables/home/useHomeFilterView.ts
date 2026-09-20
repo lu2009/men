@@ -25,7 +25,7 @@
  *
  * ⚠️⚠️ **本块有 2 处守卫登记不了的东西**：`watch([searchText, …])` 与 `watch(searchText, …)`
  *    是**顶层匿名调用**（没有名字）⇒ `sliceFn` 匹配不到，既进不了 `names` 也进不了 `consts`。
- *    **这 2 处的保真由「手工 diff」提供，不由守卫提供**（见 `task-6-report.md` 里贴的两个 hunk 全文）。
+ *    **这 2 处的保真由「手工 diff」提供，不由守卫提供**。
  *    ⚠️ 顺带钉住两条：① 第一处 `watch` 的依赖数组是
  *    `[searchText, onlyUnproduced, paymentFilter, progressFilter]` —— **没有 `pageSize`**
  *    （第二轮审计把它记成「✅ 已做」是错的）；② `nextTick` 的顺序不能动。
@@ -363,7 +363,7 @@ export function useHomeFilterView(deps: HomeFilterViewDeps) {
   /*
    * ⚠️ **两个顶层匿名 `watch` 就在上面这段里**（`REF:945-947` 与 `954-956`）——
    *    它们没有名字，`home-extract-movecheck.mjs` 的 `sliceFn` **验不到**（只按名字切）。
-   *    这两处的保真靠 `task-6-report.md` 里的手工 `git diff` 全文。
+   *    这两处的保真靠手工 `git diff` 全文（未入库）。
    */
   return {
     // —— 页面模板直接读（模板留在 `Home.vue`，名字仍在同一作用域）
