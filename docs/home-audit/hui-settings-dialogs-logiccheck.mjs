@@ -35,6 +35,9 @@
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { HUI, matchBracket, huiDecoder, resolveDecoders, deobf } from './lib/hui-decode.mjs'
+// 配平法切片 —— 与两个搬迁守卫**同一个** `sliceFn`（`decl-sweep.mjs` / `home-extract-movecheck.mjs` 同款）。
+// 2026-09-20 终审修复轮：原来这里用的是 `indexOf('\n}\n')`，见下面 `src()` 的说明。
+import { sliceFn } from './lib/extract-movecheck-core.mjs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -530,10 +533,29 @@ cmp('保存后弹窗要关（排序方式）', { 弹窗开着: false }, saveSort
    * ⚠️ `srcFile` **默认仍是 `Hui.vue`** —— 只有**搬走了**的函数才显式传新家
    * （C13 之后 `saveSortMethod`；C8 之后 `saveAutoMarkup` 也走了 ⇒ **两个都显式传**）。
    */
+  /**
+   * ⚠️ **2026-09-20 终审修复轮：切片器从 `indexOf('\n}\n')` 换成配平法（`sliceFn`）。**
+   *
+   * 原来那行是 `srcFile.slice(at, srcFile.indexOf('\n}\n', at))`，而 `'\n}\n'`
+   * **只能匹配「列 0 的收尾括号」**。这两个函数搬进工厂函数之后收尾变成了 `'\n  }\n'`
+   * ⇒ 那个 `indexOf` **穿过了函数自己的收尾、命中的是外层工厂的收尾括号**，
+   * haystack 一路多切到**工厂的 `return {…}` 对象里**。
+   * 实测（本笔）：`saveAutoMarkup` 切到 **1010** 字符、配平法真实 **848** ⇒ **多 162 字符**，
+   * 尾巴正是 `…toMarkupOpen, onAutoMarkupDraft, saveAutoMarkup, }`；`saveSortMethod` 同理。
+   *
+   * ⚠️ **这是「放宽判定」，不是「换被检文本」** —— 与 C8/C13 那两笔性质不同，别混：
+   * 下面 8 条断言走的是 `haystack.includes(needle)`，haystack **变长**之后，
+   * needle 可能在**尾随的无关文本**里被找到 ⇒ **真的漂了也不报（假绿）**。
+   * （本笔实测：这 8 条 needle 今天都仍落在配平区间内 ⇒ **改完不会变红**；
+   *   也就是说这是一次**加固**——把一个潜伏的假绿堵掉，没有放松任何判据。）
+   *
+   * **判据（下面那 8 条 needle）一条都没动**，只换被检文本的**来路**。
+   */
   const src = (fn, srcFile = HUI_VUE_SRC, where = 'Hui.vue') => {
-    const at = srcFile.indexOf(`function ${fn}(`)
-    if (at < 0) throw new Error(`${where} 里找不到 ${fn}`)
-    return srcFile.slice(at, srcFile.indexOf('\n}\n', at))
+    // 保留显式的「找不到」报错：`sliceFn` 自己也抛，但它抛的是「切片不平衡」，
+    // 分不出「函数不在这个文件里」和「函数在、只是括号数不对」—— 前者是搬走了，后者才是真漂。
+    if (!srcFile.includes(`function ${fn}(`)) throw new Error(`${where} 里找不到 ${fn}`)
+    return sliceFn(srcFile, fn)
   }
   // 2026-09-20 C8：声明已搬到 `composables/hui/useHuiAutoMarkup.ts`（判据一字未动，只换了被检文本）。
   const auto = src('saveAutoMarkup', HUI_AUTOMARKUP_SRC, 'composables/hui/useHuiAutoMarkup.ts')

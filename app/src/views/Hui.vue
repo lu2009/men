@@ -999,9 +999,15 @@ const { openAutoMarkup, autoMarkupOpen, onAutoMarkupDraft, saveAutoMarkup } =
   useHuiAutoMarkup({ disableAutoMarkup, message })
 
 // 旧版租户列显隐默认值（`PING_COL_DEFAULTS` / `DIAO_COL_DEFAULTS`）+ `seedColumnDefaults`
-// + `loadColumnConfig` 已随 C2 搬到 `composables/hui/useHuiColumnConfig.ts`（逐字搬迁）——
+// 已随 C2 搬到 `composables/hui/useHuiColumnConfig.ts`（逐字搬迁）——
 // 调用点在上面「列显隐」那一节（本块两段合并成一个 composable，故此处不留代码）。
-// 这四个名字**不回传**（段外零命中）⇒ 这里也不解构。
+// ⚠️ **不回传**的是这 4 个：`colVis` / `PING_COL_DEFAULTS` / `DIAO_COL_DEFAULTS` / `seedColumnDefaults`
+//    （段外零命中，解构出来就是 TS6133）。
+// ⚠️ **`loadColumnConfig` 不在这 4 个里，别把它当死代码删掉** —— 它**有**回传
+//    （`useHuiColumnConfig.ts:222`）、**有**解构（本文件 `:965`）、且被 `onMounted` 调用
+//    （本文件 `:1524` 的 `void loadColumnConfig()`）。
+//    删掉任一处 ⇒ **租户列配置静默不再加载**，表格退回种子默认：零类型错、守卫不红、
+//    而且「列显隐」**没有差分台**兜底（这是本页唯一一处删了不报错的地方）。
 
 function onConfirmOpenDirMode() {
   message.success(confirmOpenDirMode())

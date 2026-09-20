@@ -156,7 +156,14 @@ const SPLIT_BLOCKS = [
         { from: 'message.', to: 'deps.message.' },
         { from: 'dialog.', to: 'deps.dialog.' },
       ],
-      // 其余 8 个名字体内没有 `message.`/`dialog.` ⇒ 零改写（不是漏写）。
+      // 其余 9 个声明体内没有 `message.`/`dialog.` ⇒ 零改写（不是漏写）。
+      // ⚠️ 本块共 **13** 个声明（`names` 7 + `consts` 6），上面 4 个有规则 ⇒ 这里必须凑满 **9** 个。
+      //    `openMarkupAdd` 一度漏在这张表外（既不在有规则的 4 个里，也不在这 9 个里）：
+      //    判定上无害 —— `applyRewrites` 走 `rules[name] || []`，**缺席 ≡ 空数组**；
+      //    但这张表的用处正是**「证明零改写给查过」**，漏一个这句话就不成立：
+      //    将来谁给它加一行 `deps.message.`，**守卫不会红**（没规则就没有 `from` 去命中），
+      //    而注释仍读作「都查过了」。⇒ 补进名单（2026-09-20 终审修复轮）。
+      openMarkupAdd: [],
       openMarkupMgmt: [],
       pickMarkupEdit: [],
       markupMgmtOpen: [],

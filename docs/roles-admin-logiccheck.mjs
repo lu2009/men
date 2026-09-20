@@ -174,16 +174,42 @@ const MORE = readFileSync(resolve(SRC, 'composables/home/useHomeQueryMore.ts'), 
 /** 2026-09-20 Task 6 起：主表 `filtered` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
 const FILTER = readFileSync(resolve(SRC, 'composables/home/useHomeFilterView.ts'), 'utf8')
 
+/*
+ * ⚠️ **2026-09-20 终审修复轮：下面两条断言的「被数源」从手工名单换成 `walk(SRC)` 全目录。**
+ *
+ * 原来数的是 `HOME + DATA + MORE + FILTER` 这四份**手工维护的名单**。
+ * 它在「**搬走**」方向是**变严**的（再搬出一处就报红，数字没松）——
+ * 但它把「整个 `app/src`」这个**结构性全集**换成了名单
+ * ⇒ **新增第 5 个调用点会静默绿**：那正是搬迁守卫「看不住新增」的毛病传染到了台子上。
+ * 换成全目录之后：**搬家免疫**（搬去哪都还在 `app/src` 里）、**新增也免疫**。
+ * 排除 `utils/roles.ts` —— 那是**定义**所在、不是调用点，与上面「`'admin'` 字面量」那条同一个排除法
+ * （`resolve(f) === resolve(ROLES_TS)`，见 `:129`）。
+ *
+ * ⚠️ **断言数字 `3` / `2` 一个字都没改** —— 这是**加固**，不是放宽。
+ * 实测今天全目录数的结果与那四份名单**恰好相同**（3 / 2）：含 `canSeeAllOrders(` 的文件
+ * 只有 `useHomeData.ts` / `useHomeFilterView.ts` / `useHomeQueryMore.ts` 三个（各 1 次），
+ * 带 `!` 的是后两个（各 1 次），`Home.vue` 自 Task 6 起贡献 **0**。
+ * ⇒ 换的只是被数文本的**来路**，判据没动。
+ */
+const APP_SRC = (() => {
+  let all = ''
+  for (const f of walk(SRC)) {
+    if (resolve(f) === resolve(ROLES_TS)) continue
+    all += '\n' + readFileSync(f, 'utf8')
+  }
+  return all
+})()
+
 // Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed。
 // 三处**已经各自归位**：看板 → useHomeData.ts（Task 5）、查询更多 → useHomeQueryMore.ts（Task 8）、
 // 主表 filtered → useHomeFilterView.ts（Task 6）。
 // ⚠️ **Task 6 之后 `Home.vue` 自己贡献 0 处命中** —— 但**仍要把它留在被数源里**：
 //    它还有别的角色相关代码，而且「三处必须都在」这件事要靠这个和数看着。
 // 数**调用次数**而不是锚定某一行 —— 行号会漂，次数不会。
-const homeCalls = (HOME + DATA + MORE + FILTER).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
+const homeCalls = APP_SRC.match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
 check(
   homeCalls === 3,
-  `Home.vue + 三个 home 子模块（useHomeData/useHomeQueryMore/useHomeFilterView）里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
+  `app/src 全目录（排除 utils/roles.ts 的定义）里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
 )
 /*
  * ⚠️ **这条在 Task 6 之前是「`Home.vue` 导入了 `canSeeAllOrders`」**（只查页面那一个文件），
@@ -219,10 +245,10 @@ check(
 // 看板是三元 `canSeeAllOrders(...) ? 全量 : filter`（**没有** `!`）。写反了这里会红。
 // ⚠️ 这条的源也要含 `MORE`（Task 8）与 `FILTER`（Task 6）—— 两处带 `!` 的都搬走了
 //    （正则不含 `auth`，所以只是加源，数字不动）。
-const homeNegated = ((HOME + MORE + FILTER).match(/!\s*canSeeAllOrders\(/g) || []).length
+const homeNegated = (APP_SRC.match(/!\s*canSeeAllOrders\(/g) || []).length
 check(
   homeNegated === 2,
-  `Home.vue + useHomeQueryMore.ts + useHomeFilterView.ts 里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`,
+  `app/src 全目录（排除 utils/roles.ts 的定义）里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`,
 )
 
 check(

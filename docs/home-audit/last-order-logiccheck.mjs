@@ -41,6 +41,8 @@
 import { readFileSync } from 'node:fs'
 import { register } from 'node:module'
 import { HUI, matchBracket, huiDecoder, resolveDecoders, deobf } from './lib/hui-decode.mjs'
+// 配平法切片 —— 与两个搬迁守卫**同一个** `sliceFn`。2026-09-20 终审修复轮：见下面 ⑧ 的说明。
+import { sliceFn } from './lib/extract-movecheck-core.mjs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -430,9 +432,22 @@ const SAMPLE_OURS = JSON.stringify({
 //    我们必须在 `saveOrder` 里写、而且**只在那儿**写（别又在哪个 watch 里落盘回去）。
 {
   const vue = readFileSync(`${ROOT}/app/src/views/Hui.vue`, 'utf8')
-  const at = vue.indexOf('async function saveOrder(')
-  if (at < 0) throw new Error('Hui.vue 里找不到 saveOrder')
-  const body = vue.slice(at, vue.indexOf('\n}\n', at))
+  if (!vue.includes('async function saveOrder(')) throw new Error('Hui.vue 里找不到 saveOrder')
+  /*
+   * ⚠️ **2026-09-20 终审修复轮：切片器从 `indexOf('\n}\n')` 换成配平法（`sliceFn`）。**
+   *
+   * `'\n}\n'` **只能匹配「列 0 的收尾括号」**。`saveOrder` 今天还在 `Hui.vue` 顶层，
+   * 那个终止符正好落在它自己的收尾上 ⇒ **今天没坏**（实测：切到 2395 字符 vs 完整 2403，
+   * 少的只是收尾那个 `}` —— 对 `includes` 判定无影响）。
+   * 但**它哪天被抽出 `Hui.vue`，就会静默变成** `hui-settings-dialogs-logiccheck.mjs`
+   * 刚刚修掉的那种假绿：函数搬进工厂后收尾是 `'\n  }\n'`，终止符会**穿过函数自己的收尾**、
+   * 命中**外层工厂的**收尾 ⇒ haystack 一路多切进工厂的 `return {…}`。
+   * ⇒ 那两处是**同一个雷**（本轮一起换掉），不是两个独立缺陷。
+   *
+   * **断言一字未动**（下面 `persistLastOrder()` 与「全页调用次数 = 1」两条判据原样保留），
+   * 只换被检文本的**来路** —— 这是**加固**，不是放宽。
+   */
+  const body = sliceFn(vue, 'saveOrder')
   if (!body.includes('persistLastOrder()')) {
     throw new Error('saveOrder 里没有写「上次订单」—— 旧版就是保存成功那一刻写的')
   }
