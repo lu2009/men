@@ -528,7 +528,7 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
 //   ⇒ 连带把 P3 那处拆成「先接住工厂结果、再解构」，只为给这层 thunk 一个可引用的名字。
 // ⚠️ 本块 **5 个注入项**：3 个**值**在这个位置早已声明（`rows` REF 364 / `load` REF 374 /
 //   `message` REF 352）；第 4 个 `filteredRows`（REF 1250）与第 5 个 `openUpdateDialog`
-//   （P3，REF 1640）都来自**下面** ⇒ 各靠一层迟求值的写法才敢这么排（前者见下面的 ⚠️、
+//   （P3，声明点 REF 470）都来自**下面** ⇒ 各靠一层迟求值的写法才敢这么排（前者见下面的 ⚠️、
 //   后者是上面那层 thunk）。复量：
 //   `git show f097a9b1:app/src/views/Progress.vue | grep -nE '^const rows|^const message|^async function load'`。
 //   〔一律写 REF 行号 —— 本文件行号会随后面每块搬走而漂。〕
@@ -720,14 +720,14 @@ const { filteredRows, pageRows, columns } = useProgressColumns({
 // ---------------------------------------------------------------------------
 // C3. 「打印」链路（`printShow`/`printOrders`/`previewShow`/`previewMode`/`previewTitle`/
 //      `printOrderCache`/`printOrdersOf`/`printToken`/`syncPrintOrders`/`openPrint`/
-//      `onOpenPrintMode`，连段首横幅、那 29 行旧版原文块注释，**以及段尾那两条顶层
+//      `onOpenPrintMode`，连段首横幅、那 28 行旧版原文块注释，**以及段尾那两条顶层
 //      `watch`**）已归位到 `composables/progress/useProgressPrint.ts`
 //      （Progress 拆分 **P9**，REF `f097a9b1`:1653–1799）。
 // ⚠️ **调用点为什么还在原位**：本块 4 个注入项 —— `message`（REF 352）· `page`（REF 368）·
 //   `searchText`/`selectedRows`（REF 1396 / 1408，P7 工厂的回传）—— **全部**在 REF 里就排在本块
 //   之前 ⇒ **没有 TDZ 约束**；而本块段外的**脚本**引用为 **0**（真 TS 解析器数标识符节点，
 //   不是 grep 裸名）⇒ 7 个回传**只被模板读**，模板与位置无关。两条合起来：调用点原地不动，
-//   `useProgressHeader(...)`（P5，上面 775 行）那处也一个字不用改（它不吃本块任何名字）。
+//   `useProgressHeader(...)`（P5，就在本块上面，REF 998–1225）那处也一个字不用改（它不吃本块任何名字）。
 // ⚠️ **7 个回传全部解构**（都有段外活读者，一个不多一个不少 —— 多一个是死局部 `TS6133`，
 //   少一个是 `TS2304`），而且**七个都只被模板用**（段外脚本引用 0）：
 //   模板 `printShow` 294 · `printOrders` 296/307 · `previewShow` 306 · `previewMode` 308 ·
