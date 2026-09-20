@@ -36,6 +36,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { applyRewrites, norm, sliceFn } from './lib/extract-movecheck-core.mjs'
+
 // 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
 // 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
 // （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
@@ -112,94 +114,6 @@ const REWRITES = {
   ],
 }
 
-/**
- * 切出一个声明（`function NAME(...) {...}` / `const NAME = ...`）的整段。
- *
- * ⚠️ 切的难点：参数表**后面还有返回类型**，而返回类型里自己就带花括号 ——
- * `function pingCasingOptions(l: Line): { label: string; value: string }[] {`
- * 。按「参数表后第一个 `{`」会切到返回类型上（本脚本前两版都栽在这）。
- *
- * 用的判据：**函数体的 `{` 是那个后面紧跟换行的 `{`** —— 本仓库里返回类型字面量一律写在一行内
- * （`{ label: string; value: string }`），从不换行；而所有函数/对象字面量的体都换行。
- * 找到它再做花括号配对，切到配对的 `}`。单行声明（`const x = ref([])`）没有这种 `{`，
- * 退化成按行切。
- */
-function sliceFn(src, name) {
-  // 允许行首缩进 —— 新文件里它们缩在工厂函数内部（多 2 格）。
-  // ⚠️ 用 `[ \t]*` 而不是 `\s*`：`\s` 会把**前一个换行**也吃进去，`m.index` 就落在空行上，
-  //    后面按行切全错（表现为「HEAD 里找不到」）。
-  const re = new RegExp(`^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var)\\s+${name}\\b`, 'm')
-  const m = re.exec(src)
-  if (!m) return null
-  const i = m.index
-
-  // 单行声明（`const x = computed(() => f(y))`）连花括号都没有 —— 先按行判：整行括号收支为 0 就到此为止。
-  // ⚠️ 不能靠「行尾有分号」判 —— 本仓库这两行都没写分号，会一路扫进下一个函数的体里（本脚本前几版就栽在这）。
-  const firstNl = src.indexOf('\n', i)
-  const firstLine = src.slice(i, firstNl < 0 ? src.length : firstNl)
-  let lineDepth = 0
-  for (const c of firstLine) {
-    if (c === '{' || c === '(' || c === '[') lineDepth++
-    else if (c === '}' || c === ')' || c === ']') lineDepth--
-  }
-  if (lineDepth === 0) return firstLine.replace(/\s+$/, '')
-
-  // 找「后面紧跟换行」的第一个 `{`（跳过字符串里的）
-  let inStr = null
-  let body = -1
-  for (let k = i; k < src.length; k++) {
-    const c = src[k]
-    if (inStr) { if (c === '\\') { k++; continue } if (c === inStr) inStr = null; continue }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; continue }
-    if (c === '{') {
-      const rest = src.slice(k + 1)
-      if (/^\s*\n/.test(rest)) { body = k; break }
-      // 否则是类型字面量/对象一行写法，跳过它的配对
-      let d = 0
-      for (let j = k; j < src.length; j++) {
-        if (src[j] === '{') d++
-        else if (src[j] === '}') { d--; if (d === 0) { k = j; break } }
-      }
-    }
-    if (c === '\n') break
-  }
-  if (body < 0) {
-    const end = src.indexOf('\n', i)
-    return src.slice(i, end < 0 ? src.length : end)
-  }
-  let d = 0
-  inStr = null
-  for (let k = body; k < src.length; k++) {
-    const c = src[k]
-    if (inStr) { if (c === '\\') { k++; continue } if (c === inStr) inStr = null; continue }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; continue }
-    if (c === '{') d++
-    else if (c === '}') { d--; if (d === 0) return src.slice(i, k + 1) }
-  }
-  return null
-}
-
-/** 归一化：逐行去行首缩进、去行尾空白、丢空行。 */
-const norm = (s) =>
-  s
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l !== '')
-    .join('\n')
-
-/** 应用声明的改写；`from` 找不到就报错（规则失效比差异漏网更危险）。 */
-function applyRewrites(name, text) {
-  const rules = REWRITES[name] || []
-  let out = text
-  for (const r of rules) {
-    if (!out.includes(r.from)) {
-      throw new Error(`声明的改写失效：${name} 里找不到 from 片段\n  ${r.from.slice(0, 120)}`)
-    }
-    out = out.split(r.from).join(r.to)
-  }
-  return out
-}
-
 let pass = 0
 const fail = []
 let missing = 0
@@ -210,7 +124,8 @@ for (const name of [...MOVED, ...MOVED_CONSTS]) {
   if (!o) { fail.push(`${name}: 在 ${REF}:${OLD_PATH} 里找不到（MOVED 清单写错了？）`); continue }
   if (!n) { fail.push(`${name}: 新文件 ${NEW_PATH} 里找不到 —— 没搬过去？`); missing++; continue }
   // ⚠️ 顺序：**先归一化再套改写规则**。`norm()` 去了行首缩进，多行的 `from` 片段匹配不上。
-  const a = applyRewrites(name, norm(o))
+  // 规则从模块级 `REWRITES` 来 —— 这就是与 Home 版唯一的分歧，现在走共享核心的第三个形参。
+  const a = applyRewrites(name, norm(o), REWRITES)
   const b = norm(n)
   if (a === b) { pass++; continue }
   const A = a.split('\n'), B = b.split('\n')

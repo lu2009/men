@@ -28,14 +28,23 @@
  *   反过来它**抓不到「漏了一条改写」** —— 那只会表现成 diff（这是有意的：宁可多报）。
  *
  * 姊妹件：`docs/home-audit/hui-extract-movecheck.mjs`（Hui.vue 那一版）。
- * 两者的 `sliceFn` / `norm` **逐字相同**（`node -e` 比对过），`applyRewrites` 只差
- * 「规则从哪来」—— 那边是模块级 `REWRITES`，这边因为是多目标 manifest 而按 block 传参。
- * 改其中一份的 `sliceFn`/`norm` 时**必须同步另一份**。
+ *
+ * 比对**核心**（`sliceFn` / `norm` / `applyRewrites` / `firstDiffLine`）现在**只有一份实现**，
+ * 在 `lib/extract-movecheck-core.mjs`（2026-09-20 Task 3.5 抽的）。
+ * 在此之前两边各存一份逐字相同的副本、靠「改一份必须同步另一份」的自觉维持 ——
+ * Task 3 撞出了那个死结：Home 侧的 `sliceFn` 实测有洞，而**修它就得动两份**，
+ * 于是「改一份」与「别碰另一份」互相矛盾。抽成共用件正是解那个死结。
+ *
+ * 留在这边的只有**搬迁清单**与**判定/输出文案** —— 两版的形状本来就不同
+ * （这边是多目标 manifest、规则按 block 传；那边是模块级 `MOVED` / `REWRITES`），
+ * 硬合并只会让两边都变难懂。
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { applyRewrites, firstDiffLine, norm, sliceFn } from './lib/extract-movecheck-core.mjs'
 
 // 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
 // 别写死 `/Users/aaa/Desktop/door-main`：本机跑得通，换台机器或进 CI（checkout 路径不同）就崩。
@@ -57,13 +66,21 @@ const OLD_PATH = 'app/src/views/Home.vue'
  * 一条的形状：
  *   { target: 'app/src/utils/xxx.ts',   // 相对仓库根；有多个目标就写多条 block
  *     names:  ['foo', 'bar'],           // function foo() {} / 箭头函数都算
- *     consts: ['BAZ'],                  // const BAZ = ...（含 computed / ref）
+ *     consts: ['BAZ'],                  // const BAZ = ... / type BAZ = ...（含 computed / ref）
  *     rewrites: { foo: [{ from: '…', to: '…' }] } }  // 声明的改写，可省
  *
  * ⚠️ **清单是空的那些日子**（2026-09-20 立骨架时）本脚本对真代码**没有任何检验力**
  * （它只证明「跑得起来」）。Task 2 加了第一条（B2 → `utils/homeMetrics.ts`，纯函数样板），
  * Task 3 加了第二条（B10 → `composables/home/useHomeSelection.ts`，**composable 样板**：
  * 注入响应式依赖 + 回传状态）。后两条是后面各块的样板，改它们等于改一整片。
+ *
+ * ⚠️⚠️ **登记新名字前先验「切片切得完整」** —— 本脚本的绿只等于「切出来的那一段逐字一致」，
+ * **不等于「整个声明都对过」**。切片器的已知残留（`lib/extract-movecheck-core.mjs` 文件头有全表）：
+ * 对**「首行括号正好配平、声明却在下一行继续」**的写法，它只切首行 ——
+ * 例：`type TextFilterKey =`（`REF:769`，下面 9 行union 成员一行都不比）、
+ * `const engine: OrderLines =`（`DetailLinesTable.vue:149`）。
+ * **验法**（Task 4 简报里那套，抄过来）：把该声明的**第二行**随便改一下 → 跑本脚本 →
+ * **必须报红**；不红就别登记（登记了等于给自己发一张假绿卡）。改完**还原**。
  */
 const BLOCKS = [
   {
@@ -122,22 +139,29 @@ const BLOCKS = [
        *    换句话说 `rewrites` 记的是「相对参照提交的全部文本差异」，不只是「注入面」。
        */
       /*
-       * ⚠️⚠️ **`onCheckedKeys` 本脚本实际验不到 —— 它的 `rewrites` 只能是空的，别往里加规则。**
+       * ⚠️⚠️ **这条曾经是空的，而且是被迫空的 —— 记住这段历史，别再退回那个状态。**
        *
-       * 实测（Task 3）：`sliceFn` 对**签名跨行**的函数只切到**第一行**（`function onCheckedKeys(`），
-       * 函数体一行都不比。原因是它找函数体 `{` 的那个循环末尾有一句 `if (c === '\\n') break`
-       * —— 参数表一旦换行，体 `{` 就在那个换行之后，永远找不到 ⇒ 退化成「按行切」。
+       * `onCheckedKeys`(REF:1601) 的**参数表跨行**。旧的 `sliceFn` 找函数体 `{` 的循环末尾
+       * 有一句「遇到换行就 break」，参数表一换行就永远找不到体 ⇒ 退化成「按行切」，
+       * **只返回 `function onCheckedKeys(` 这一行，函数体一行都不比**。
        * 后果有两层：① 往里写任何 `from` 都会抛「声明的改写失效」；
        *            ② 更危险的是**它不抛也不报** —— 本来就没在比，看起来却是绿的。
+       * （Task 3 当时判定「本脚本保证不了这个名字」，只做了**手工**切段比对。）
        *
-       * ⇒ 这个名字的保真**由本脚本保证不了**，它的归一化一致是**假的**（只比了签名那一行）。
-       *    Task 3 是**手工**切段比对过的（见 `task-3-report.md`）。
-       *    根因修复要动 `sliceFn`，而它与 `hui-extract-movecheck.mjs` **必须逐字同步**
-       *    （见文件头），所以**不在这里单方面改**。全 `Home.vue` 只有 3 个这种函数：
-       *    `onCheckedKeys`(REF:1601)、`renderEditable`(REF:2807)、`headerFilter`(REF:2866)
-       *    —— 后两个属 B12，搬它们时**同样验不到**，别被绿勾骗了。
+       * **2026-09-20 Task 3.5 修好了根因**：`sliceFn` 移进 `lib/extract-movecheck-core.mjs`
+       * 并重写为「只在**括号栈空**时遇换行才停」，参数表跨行不再挡路。修好后这个名字
+       * **第一次被真正比对**，当场报出一处此前看不见的真差异（就是下面那条规则）。
+       *
+       * 全 `Home.vue` 里参数表跨行的**函数声明**只有 3 个：`onCheckedKeys`(REF:1601)、
+       * `renderEditable`(REF:2807)、`headerFilter`(REF:2866) —— 后两个属 B12。
+       * 它们现在**同样**受加固后的 `sliceFn` 保护（不必再手工复核）。
+       *
+       * ⚠️ 下面这条规则是**修好根因之后按报出的 diff 补的**，不是为了让守卫变绿而删名字 ——
+       *    「把它从 BLOCKS 里删掉」是本仓库 CLAUDE.md 明令禁止的那种改法。
+       *    边界已核对：本函数旧文里 `filtered.value` **只出现 1 次**（L10），
+       *    不存在 `xfiltered.value` 这种会被朴素 split/join 误伤的前缀。
        */
-      onCheckedKeys: [],
+      onCheckedKeys: [{ from: 'filtered.value', to: 'deps.filtered.value' }],
       deleteSelected: [
         { from: 'rawOrders.value.', to: 'deps.rawOrders.value.' },
         { from: 'await load()', to: 'await deps.load()' },
@@ -175,117 +199,20 @@ const allNames = () => BLOCKS.flatMap(blockNames)
 /**
  * 声明探测（反查用）：`src` 里**自己定义**了 `name` 吗。
  *
- * ⚠️ 前缀必须与 `sliceFn` 的取法对齐（含 `async`）—— 否则 `async function foo()` 搬走后
- * 这一条认不出来，反查会**静默漏报**（立骨架时实测踩到：`load` 正是 `async function`）。
+ * ⚠️ 前缀必须与 `sliceFn` 的取法**逐字对齐**（含 `async`）—— 否则 `async function foo()`
+ * 搬走后这一条认不出来，反查会**静默漏报**（立骨架时实测踩到：`load` 正是 `async function`）。
  * `--selftest` 有一例专门钉住这个 `async`。
+ *
+ * ⚠️ `type` / `interface` 是 2026-09-20（Task 3.5）跟着 `sliceFn` 一起加的 —— 正是
+ * 「前缀必须对齐」这条规矩要求的。Task 4 要把 `type ProgressSegment` 搬进
+ * `utils/homeConstants.ts`，反查若认不出 `type` 声明，那个名字就成了**反查的暗区**：
+ * 搬走之后 `Home.vue` 里再长出一份同名 `type`，本脚本不会吭声。
  */
 const declares = (src, name) =>
-  new RegExp(`^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var)\\s+${name}\\b`, 'm').test(src)
-
-/**
- * 比对的**核心**：返回首个不同行的行号（1 基），两串一致则返回 0。
- *
- * ⚠️ 主比对循环与 `--selftest` **共用这一个函数**（不是各写一份）——
- * 否则自测验的就不是主循环真正跑的那段代码，等于没测。
- */
-function firstDiffLine(a, b) {
-  const A = a.split('\n')
-  const B = b.split('\n')
-  for (let i = 0; i < Math.max(A.length, B.length); i++) {
-    if (A[i] !== B[i]) return i + 1
-  }
-  return 0
-}
-
-/**
- * 切出一个声明（`function NAME(...) {...}` / `const NAME = ...`）的整段。
- *
- * ⚠️ 切的难点：参数表**后面还有返回类型**，而返回类型里自己就带花括号 ——
- * `function pingCasingOptions(l: Line): { label: string; value: string }[] {`
- * 。按「参数表后第一个 `{`」会切到返回类型上（姊妹件前两版都栽在这）。
- *
- * 用的判据：**函数体的 `{` 是那个后面紧跟换行的 `{`** —— 本仓库里返回类型字面量一律写在一行内
- * （`{ label: string; value: string }`），从不换行；而所有函数/对象字面量的体都换行。
- * 找到它再做花括号配对，切到配对的 `}`。单行声明（`const x = ref([])`）没有这种 `{`，
- * 退化成按行切。
- */
-function sliceFn(src, name) {
-  // 允许行首缩进 —— 新文件里它们缩在工厂函数内部（多 2 格）。
-  // ⚠️ 用 `[ \t]*` 而不是 `\s*`：`\s` 会把**前一个换行**也吃进去，`m.index` 就落在空行上，
-  //    后面按行切全错（表现为「HEAD 里找不到」）。
-  const re = new RegExp(`^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var)\\s+${name}\\b`, 'm')
-  const m = re.exec(src)
-  if (!m) return null
-  const i = m.index
-
-  // 单行声明（`const x = computed(() => f(y))`）连花括号都没有 —— 先按行判：整行括号收支为 0 就到此为止。
-  // ⚠️ 不能靠「行尾有分号」判 —— 本仓库这两行都没写分号，会一路扫进下一个函数的体里（本脚本前几版就栽在这）。
-  const firstNl = src.indexOf('\n', i)
-  const firstLine = src.slice(i, firstNl < 0 ? src.length : firstNl)
-  let lineDepth = 0
-  for (const c of firstLine) {
-    if (c === '{' || c === '(' || c === '[') lineDepth++
-    else if (c === '}' || c === ')' || c === ']') lineDepth--
-  }
-  if (lineDepth === 0) return firstLine.replace(/\s+$/, '')
-
-  // 找「后面紧跟换行」的第一个 `{`（跳过字符串里的）
-  let inStr = null
-  let body = -1
-  for (let k = i; k < src.length; k++) {
-    const c = src[k]
-    if (inStr) { if (c === '\\') { k++; continue } if (c === inStr) inStr = null; continue }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; continue }
-    if (c === '{') {
-      const rest = src.slice(k + 1)
-      if (/^\s*\n/.test(rest)) { body = k; break }
-      // 否则是类型字面量/对象一行写法，跳过它的配对
-      let d = 0
-      for (let j = k; j < src.length; j++) {
-        if (src[j] === '{') d++
-        else if (src[j] === '}') { d--; if (d === 0) { k = j; break } }
-      }
-    }
-    if (c === '\n') break
-  }
-  if (body < 0) {
-    const end = src.indexOf('\n', i)
-    return src.slice(i, end < 0 ? src.length : end)
-  }
-  let d = 0
-  inStr = null
-  for (let k = body; k < src.length; k++) {
-    const c = src[k]
-    if (inStr) { if (c === '\\') { k++; continue } if (c === inStr) inStr = null; continue }
-    if (c === '"' || c === "'" || c === '`') { inStr = c; continue }
-    if (c === '{') d++
-    else if (c === '}') { d--; if (d === 0) return src.slice(i, k + 1) }
-  }
-  return null
-}
-
-/** 归一化：逐行去行首缩进、去行尾空白、丢空行。 */
-const norm = (s) =>
-  s
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l !== '')
-    .join('\n')
-
-/**
- * 应用声明的改写；`from` 找不到就报错（规则失效比差异漏网更危险）。
- * 与姊妹件的唯一差别：改写规则按 block 传进来（这边是多目标 manifest 驱动）。
- */
-function applyRewrites(name, text, rules) {
-  let out = text
-  for (const r of rules[name] || []) {
-    if (!out.includes(r.from)) {
-      throw new Error(`声明的改写失效：${name} 里找不到 from 片段\n  ${r.from.slice(0, 120)}`)
-    }
-    out = out.split(r.from).join(r.to)
-  }
-  return out
-}
+  new RegExp(
+    `^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var|type|interface)\\s+${name}\\b`,
+    'm',
+  ).test(src)
 
 /**
  * 自测：拿一对**已知故意改坏**的样本跑一遍比对核心，断言它报红且**定位到正确的行**。
@@ -374,6 +301,75 @@ if (process.argv.includes('--selftest')) {
     '返回类型里的 `{}` 不骗走切片',
     retGot === retTxt,
     `实得 ${JSON.stringify(retGot)}`,
+  )
+
+  /*
+   * ⑤ 洞①：**参数表跨行时，函数体也必须被比对**（2026-09-20 Task 3.5 补）。
+   *
+   * 这一例的构造就是 `Home.vue` 的 `onCheckedKeys` / `renderEditable` 的形状：参数表换行。
+   * 改坏的是**函数体的第 2 行**（`String` → `Number`）。
+   * ⚠️ 断言必须**经过 `sliceFn`**，不能只比 `norm` 的两段常量 —— 洞就长在 `sliceFn` 里：
+   *    旧版对跨行签名只返回 `function onKeys(`，两边都只剩签名那一行 ⇒ 无论体内怎么改都判「一致」。
+   *    经过 `sliceFn` 才有检验力（实测：把 `sliceFn` 换回旧版，这一例立刻红）。
+   */
+  const multiSig = (body2) =>
+    ['function onKeys(', '  keys: DataRowKey[],', '  meta?: { row?: unknown },', ') {', '  if (!keys.length) return', `  checked.value = keys.map(${body2})`, '}'].join('\n')
+  const multiGone = firstDiffLine(norm(sliceFn(multiSig('String'), 'onKeys') ?? ''), norm(sliceFn(multiSig('Number'), 'onKeys') ?? ''))
+  check(
+    '跨行签名的**函数体**被改坏 → 报红且定位到体内那行',
+    multiGone === 6,
+    `期望首个差异在第 6 行，实得 ${multiGone}（0 = 函数体根本没被比对 ⇒ 洞① 复发）`,
+  )
+
+  /*
+   * ⑥ 洞②：`type` 别名要能切、且改坏要报红（2026-09-20 Task 3.5 补）。
+   *
+   * Task 4 要把 `type ProgressSegment` 搬进 `utils/homeConstants.ts`；切不出来就**登记不了**
+   * （登记了也是假绿）。改坏的是字段类型（`flex: number` → `flex: string`）。
+   * ⚠️ 判据里显式判 `null`：旧版 `sliceFn` 的正则不认 `type`，返回的是 `null` 而不是「切歪了」，
+   *    直接丢给 `norm()` 会抛，整个自测崩掉、后面的断言一条都不跑。
+   */
+  const typeSrc = (field) => ['type Seg = {', '  label: string', `  flex: ${field}`, '  done: boolean', '}'].join('\n')
+  const tOldS = sliceFn(typeSrc('number'), 'Seg')
+  const tNewS = sliceFn(typeSrc('string'), 'Seg')
+  const tDiff = tOldS == null || tNewS == null ? -1 : firstDiffLine(norm(tOldS), norm(tNewS))
+  check(
+    '`type` 别名被改坏 → 报红且定位到那行',
+    tDiff === 3,
+    tOldS == null
+      ? '`type X = {…}` 根本没被切出来（洞② 复发：正则不认 `type`）'
+      : `期望首个差异在第 3 行，实得 ${tDiff}`,
+  )
+  // `interface` 与 `type` 是两条独立的正则分支，只钉住一条等于「只在单侧被钉住」（洞③ 的教训）。
+  const ifaceSrc = (field) => ['interface Seg {', '  label: string', `  flex: ${field}`, '}'].join('\n')
+  const iOldS = sliceFn(ifaceSrc('number'), 'Seg')
+  const iNewS = sliceFn(ifaceSrc('string'), 'Seg')
+  const iDiff = iOldS == null || iNewS == null ? -1 : firstDiffLine(norm(iOldS), norm(iNewS))
+  check(
+    '`interface` 被改坏 → 报红且定位到那行',
+    iDiff === 3,
+    iOldS == null
+      ? '`interface X {…}` 根本没被切出来（洞② 复发：正则不认 `interface`）'
+      : `期望首个差异在第 3 行，实得 ${iDiff}`,
+  )
+
+  /*
+   * ⑦ 洞③：`async` 前缀 —— 这次钉的是 **`sliceFn`**，不是 `declares`。
+   *
+   * 上面第 ② 组那条 `declares` 的 async 断言只钉住了**反查**那一侧：把 `sliceFn` 正则里的
+   * `(?:async\s+)?` 删掉，此前自测**全绿**。而 `sliceFn` 认不出 `async function foo()` 的后果
+   * 更直接：正比对里旧文件那侧返回 `null` ⇒ 报「参照里找不到」（名字明明在），
+   * 或者反查与新文件两侧一起出错 ⇒ 静默漏报。
+   *
+   * ⚠️ 样本里**故意没有 `export`** —— 这样唯一能把匹配挡在 `function` 前面的就只剩 `async`，
+   *    这一例才「只可能由 async 前缀差异触发」。
+   */
+  const asyncTxt = `async function load() {\n  return 1\n}`
+  const asyncGot = sliceFn(asyncTxt, 'load')
+  check(
+    '`sliceFn` 认得 `async function`（去掉 `(?:async\\s+)?` 这例即红）',
+    asyncGot === asyncTxt,
+    `实得 ${JSON.stringify(asyncGot)}`,
   )
 
   process.exit(bad ? 1 : 0)
