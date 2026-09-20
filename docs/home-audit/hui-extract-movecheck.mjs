@@ -13,8 +13,9 @@
  *   · `//` 注释保留（注释也是文档，改了要看得见）
  *
  * 用法：
- *   node docs/home-audit/hui-extract-movecheck.mjs            # 与 HEAD 比
- *   node docs/home-audit/hui-extract-movecheck.mjs <ref>      # 与指定 ref 比
+ *   node docs/home-audit/hui-extract-movecheck.mjs              # 与默认参照比（两半一起）
+ *   node docs/home-audit/hui-extract-movecheck.mjs <ref>        # 与指定 ref 比（**只换引擎那半**）
+ *   node docs/home-audit/hui-extract-movecheck.mjs --selftest   # 只跑 C 块那半的自测（不碰 git）
  *
  * ⚠️ **声明的改写**（`REWRITES`）只有这些，多一处都要报错：
  *   出现「未声明的差异」= 搬迁过程中动了逻辑，必须回查。
@@ -30,13 +31,66 @@
  *
  * 这个快照是**临时的**：等步骤 1–5 提交之后，`HEAD` 就成了正确参照，那个文件可以不要
  * （找不到时脚本会退回过期会话并打印提示，不会静默放过）。
+ *
+ * ## 🔴 本脚本现在有**两半**，各钉各的参照 —— 别合并（2026-09-20 加的第二半）
+ *
+ * | 半 | 参照 | 旧文件 | 验什么 |
+ * |---|---|---|---|
+ * | **引擎 + 组件**（`MOVED` / `MOVED_CONSTS` / `MOVED_TO_COMPONENT`） | `d6057283` | `app/src/views/Hui.vue` | 引擎 → `useOrderLines.ts`；列/单元格/编辑态 → `DetailLinesTable.vue` |
+ * | **C 块**（`SPLIT_BLOCKS`） | **`28e36d21`** | **同一个** `Hui.vue` | 2026-09-20 的 Hui 拆分（C1–C13）→ 各新文件 |
+ *
+ * ⚠️ **为什么不能把上面那个 `REF` 直接改成 `28e36d21`**（**实测**，不是推理）：
+ *   `d6057283` 是**引擎抽取之前**的快照；而 `28e36d21:Hui.vue` 是**抽取之后**的
+ *   （与当前工作区的 `Hui.vue` 逐字节相同）⇒ 拿它去查引擎那 47 项，
+ *   **47 项全部「在参照提交里找不到」、EXIT 1**。
+ *   两个参照各自服务一半，所以 `SPLIT_REF` 是**另加的一个常量**，不是把 `REF` 换掉。
+ *   （这条 plan `:36` 与 spec §8.2-4 都明写着，别「顺手统一」。）
+ *
+ * ### C 块怎么登记（`SPLIT_BLOCKS`）
+ *
+ * 形状与 Home 守卫的 `BLOCKS` **逐字同形**（那边也是多目标 manifest）：
+ *   { target: 'app/src/composables/hui/xxx.ts',   // 相对仓库根；多个目标就写多条 block
+ *     names:  ['foo', 'bar'],                     // function / 箭头函数都算
+ *     consts: ['BAZ'],                            // const / type / interface（含 computed / ref）
+ *     rewrites: { foo: [{ from: '…', to: '…' }] } }
+ *
+ * `rewrites` 里每条 `from` 都必须在旧文里**找得到**（找不到 `applyRewrites` 会抛 —— 白送的检查）；
+ * 反过来**漏登记不会抛**，只表现成 diff ⇒ 改完必须**逐行看 diff**，不能只看退出码。
+ * 规则一律**带边界**（写 `dialog.warning({` 而不是 `dialog`）：它是朴素 `split/join`，
+ * 裸名会把别的标识符一起改坏（写 `load` 会顺手打到 `loadedIds` 上）。
+ *
+ * ⚠️ **空清单必须照常绿**（C 块还没动时）：`SPLIT_BLOCKS = []` ⇒ 循环一次都不跑、
+ *   不报错、退出码仍是 0；收尾那一行会**明说「C 块清单 0 条」**，别把那个绿当成「C 块验过了」。
+ *
+ * ### ⚠️ 能力边界（C 块这一半；引擎那半的老边界见 `lib/extract-movecheck-core.mjs` 文件头）
+ *
+ * 1. **只验清单里点名过的名字**。没搬的、搬了却忘了登记的，它**完全不知道** ⇒
+ *    「本脚本绿」只等于「清单内逐字一致」，**不等于「搬迁完整」**。
+ * 2. **它抓不到「登记本身写错」**（2026-09-20 在 Home 侧实测撞出来的）：
+ *    它证明的是「搬迁**符合登记过的改写**」，**不是**「登记过的改写**是对的**」——
+ *    `rewrites` 写错时，参照侧套的是**同一份错规则** ⇒ **两边同错** ⇒ 归一化后逐字一致、
+ *    **照样绿**。实证：Home 的 B4 第一版把该块**自己拥有**的三个 ref 也当成注入项、
+ *    体里写成 `deps.orderNoInput.value` ⇒ **8 处 `TS2339`**，而守卫**全绿**。
+ *    ⇒ 抓这一类的是 **`vue-tsc` / `npm run build`**。
+ *    **结论：守卫与 `vue-tsc` 必须成对跑，缺一不可** —— 守卫管「搬的时候有没有偷偷改」，
+ *    `vue-tsc` 管「搬完的名字与形状对不对」。只跑一个都会漏掉另一半。
+ * 3. **`sliceFn` 是文本切片器、不是解析器** —— 已知残留（泛型实参里的多行类型字面量、
+ *    正则字面量里的括号、`${}` 与内层反引号、嵌套件…）逐条列在
+ *    `lib/extract-movecheck-core.mjs` 文件头的「能力边界」。它每多认一种形状都要单独钉一例自测。
+ * 4. **「绿」不等于「这段验过」**（本文件自己的历史，见 spec §9c）：Hui 侧曾有 4 个已登记的名字
+ *    （`sqCell` / `cCol` / `sub` / `orderNoCell`）因为命中「单行声明」快车道、**只比了第一行**，
+ *    而守卫照样报「逐字一致」。修好后它们**恰好**都是真的逐字一致 —— 恒等式的结论没变，
+ *    但那 4 条绿从「空绿」变成了「真绿」。⇒ **别拿绿勾当覆盖率。**
+ *
+ * **登记前必做的验法**（别只看绿勾）：把该声明的**第二行**随便改一下 → 跑本脚本 →
+ * **必须报红**；不红就别登记（登记了等于给自己发一张假绿卡）。改完**还原**。
  */
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { applyRewrites, norm, sliceFn } from './lib/extract-movecheck-core.mjs'
+import { applyRewrites, firstDiffLine, norm, sliceFn } from './lib/extract-movecheck-core.mjs'
 
 // 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
 // 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
@@ -51,6 +105,185 @@ const ROOT = resolve(HERE, '..', '..')
 const REF = process.argv[2] || 'd6057283'
 const OLD_PATH = 'app/src/views/Hui.vue'
 const NEW_PATH = `${ROOT}/app/src/composables/useOrderLines.ts`
+
+// ─────────────────────────────────────────────────────────────────────────
+// C 块（2026-09-20 的 Hui 拆分 C1–C13）—— 与上面两半**各钉各的参照**，见文件头「现在有两半」
+// ─────────────────────────────────────────────────────────────────────────
+/**
+ * ⚠️ C 块这一半的参照是 **`28e36d21`**（Hui 拆分**动工前**那一个提交），与引擎那半的
+ *   `d6057283` **不同**，两个都要留着。
+ *
+ *   🔴 **别把上面那个 `REF` 改成它**（实测）：`28e36d21:Hui.vue` 是**引擎抽取之后**的状态，
+ *   拿它去查引擎那 47 项 ⇒ **47 项全部「找不到」、EXIT 1**。
+ *   两个参照各自服务一半：`d6057283` 服引擎/组件那两轮，`28e36d21` 服 C 块。
+ */
+const SPLIT_REF = '28e36d21'
+/** C 块搬的是**同一个** `Hui.vue`，只是参照提交不同 —— 单列一个名字，免得读的人以为它俩无关。 */
+const SPLIT_OLD_PATH = OLD_PATH
+
+/**
+ * C 块（C1–C13）的搬迁清单。**每搬完一块就在这里加一条** —— 形状见文件头「C 块怎么登记」，
+ * 与 Home 守卫的 `BLOCKS` 逐字同形（`{ target, names, consts, rewrites }`）。
+ *
+ * ⚠️ **它现在是空的**（2026-09-20 立骨架时）：这一半此刻**没有任何检验力**，
+ *    收尾那一行会明说「C 块清单 0 条」。第一条由 C1 登记。
+ */
+const SPLIT_BLOCKS = []
+
+/**
+ * 摊平一个 block 的 `names` + `consts`（两者都可省 —— 缺了当空数组）。
+ *
+ * ⚠️ `|| []` **不能省**：漏写一个键时裸的展开会抛 `TypeError: b.consts is not iterable`，
+ *    那句话对着清单看不出是哪个 block 缺了什么。主循环与 `--selftest` **共用这一个**。
+ */
+const blockNames = (b) => [...(b.names || []), ...(b.consts || [])]
+
+/** C 块清单里所有被点名的名字（反查「搬走后旧文件里不该再有同名定义」用）。 */
+const splitNames = () => SPLIT_BLOCKS.flatMap(blockNames)
+
+/**
+ * 声明探测（反查用）：`src` 里**自己定义**了 `name` 吗。
+ *
+ * ⚠️ 前缀必须与 `sliceFn` 的取法**逐字对齐**（含 `async` / `type` / `interface`）——
+ *    否则「搬走之后旧文件里又长出一份同名 `type`」这类会**静默漏报**。
+ *    （**实测**：把它换成引擎那半原来的窄前缀 `(?:function|const|let|var)`，
+ *     在本仓库当前状态上两者对那 47 项的命中数**都是 0** ⇒ 收严**不改变今天的结论**，
+ *     只是把那个暗区堵掉。这也是「反查与切片器的前缀必须对齐」这条规矩的要求。）
+ */
+const declares = (src, name) =>
+  new RegExp(
+    `^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var|type|interface)\\s+${name}\\b`,
+    'm',
+  ).test(src)
+
+/**
+ * 比对**一条**（C 块那半）。返回 `null` = 逐字一致；否则返回
+ * `{ text, line?, missing? }`（`text` 是要打印的失败说明）。
+ *
+ * ⚠️ 主循环与 `--selftest` **共用这一个** —— 分开写的话，自测验的就不是主循环真正跑的那段
+ *    代码，等于没测（Home 版立的规矩，照抄）。
+ * ⚠️ `sliceFn`（切片不配平 ⇒ 结构性硬闸）与 `applyRewrites`（登记的 `from` 找不到）
+ *    **都会抛** —— 由调用侧接住转成一条计入 `fail` 的错误，别让整个脚本崩掉
+ *    （那样后面的名字一条都不查）。两处调用侧都补了同款壳。
+ * ⚠️ 引擎/组件那两半的判定**维持原样、没动**：它们还带着「过渡期快照」那层逻辑，不属本次改动。
+ */
+function compareOne({ refSrc, newSrc, name, rules, ref, target }) {
+  const o = sliceFn(refSrc, name)
+  if (!o) return { text: `${name}: 在 ${ref}:${SPLIT_OLD_PATH} 里找不到（清单写错了？）` }
+  const n = sliceFn(newSrc, name)
+  if (!n) return { text: `${name}: ${target} 里找不到 —— 没搬过去？`, missing: true }
+  // ⚠️ 顺序：**先归一化再套改写规则**。`norm()` 去了行首缩进，多行的 `from` 片段匹配不上
+  //    ⇒ 规则里的 `from` 要写成**归一化后**的样子。
+  const a = applyRewrites(name, norm(o), rules)
+  const b = norm(n)
+  const line = firstDiffLine(a, b)
+  if (line === 0) return null
+  const A = a.split('\n')
+  const B = b.split('\n')
+  const diffs = []
+  for (let i = line - 1; i < Math.max(A.length, B.length) && diffs.length < 6; i++) {
+    if (A[i] !== B[i]) {
+      diffs.push(`    L${i + 1}\n      旧: ${String(A[i]).slice(0, 150)}\n      新: ${String(B[i]).slice(0, 150)}`)
+    }
+  }
+  return { line, text: `${name}: 归一化后仍不一致（旧 ${A.length} 行 / 新 ${B.length} 行）\n${diffs.join('\n')}` }
+}
+
+/**
+ * `--selftest`：只跑 **C 块那半**的判定（在**合成夹具**上），不碰 git、不读真代码。
+ *
+ * ⚠️ **位置不能往后挪** —— 它必须早于本文件里**任何** git 调用（就在下面几十行）。
+ *    自测验证的是判定本身，不该依赖仓库状态（浅克隆 / detached HEAD 下也要能跑）。
+ *
+ * ⚠️ **为什么 Hui 这半特别需要它**：`SPLIT_BLOCKS` 立骨架时是**空的** ⇒ 主循环一次都不跑
+ *    ⇒ 新写的 `compareOne` 在第一条 C 块登记之前**没人验过**。Home 守卫立骨架时正是这么栽的
+ *    （清单空着的时候，绿勾什么都不代表）—— 所以这里把「已知输入上会不会红」钉住。
+ */
+if (process.argv.includes('--selftest')) {
+  let bad = 0
+  /** 一条断言：`cond` 为假就记红（`detail` 只在红时打出来，说明实得什么）。 */
+  const check = (what, cond, detail = '') => {
+    if (cond) console.log(`✓ 自测：${what}`)
+    else {
+      console.log(`✗ 自测失败：${what}${detail ? ` —— ${detail}` : ''}`)
+      bad++
+    }
+  }
+  // 参照侧（旧）+ 新侧的合成样本。两侧都**故意写得和真代码同形**（缩进、`export`）。
+  const REFS = `const a = () => {
+  const s = name.value
+  return s
+}
+const KEEP = 1
+`
+  // 新侧：多一个 `export`、多一层缩进、`name` 改成经 `deps` 注入 —— 正是 C 块的常态形状。
+  const NEWS_OK = `export const a = () => {
+    const s = deps.name.value
+    return s
+  }
+  const KEEP = 1
+  `
+  /** 常态登记：① 搬到模块级要加 `export`；② 闭包捕获的 `name` 改成 `deps.name`。 */
+  const RULES = {
+    a: [
+      { from: 'const a = ', to: 'export const a = ' },
+      { from: 'name.value', to: 'deps.name.value' },
+    ],
+  }
+  const one = (newSrc, name = 'a', rules = RULES) =>
+    compareOne({ refSrc: REFS, newSrc, name, rules, ref: SPLIT_REF, target: '合成样本' })
+
+  check('只加 export + 登记过的注入改写 ⇒ 判绿', one(NEWS_OK) === null, JSON.stringify(one(NEWS_OK)))
+
+  // 第二行（`const s = …`）被改坏 ⇒ 必须报红，且**定位到第 2 行**（归一化后的行号：
+  // `norm()` 丢了空行，所以行号是「声明内第几行」而不是文件行号）。
+  const newsBad = NEWS_OK.replace('deps.name.value', 'deps.name.values')
+  const rBad = one(newsBad)
+  check('改坏第二行 ⇒ 报红', rBad !== null)
+  check('报红的行号 = 2（不是 0、也不是别的行）', rBad?.line === 2, `实得 line=${rBad?.line}`)
+
+  // 未登记的差异（新侧多了一个 `export`，而 `rewrites` 里没写）⇒ 必须报红。
+  // 这就是文件头那句「多一处都要报错」：**漏登记不会抛**，只表现成 diff ⇒ 宁可多报。
+  check('未登记的差异 ⇒ 报红（宁可多报）', one(NEWS_OK, 'a', {}) !== null)
+
+  /*
+   * 🔴 **盲区断言（有意让它绿）** —— 文件头「能力边界」第 2 条的可执行证据。
+   *
+   * `applyRewrites` 只改**参照侧**：登记里写什么，参照侧就变成什么。所以**只要新侧与那条
+   * 规则的输出字面一致，本脚本就报绿** —— 哪怕规则本身是错的。
+   * 这里故意用一条**荒谬**的 `to`（`THIS.IS.NONSENSE`）把它钉死：守卫验的是
+   * 「搬迁**符合登记过的改写**」，**不是**「登记过的改写**是对的**」。
+   *
+   * 这不是假想：Home 侧 B4 真栽过 —— 把该块**自己拥有**的三个 ref 也登记成注入项
+   * ⇒ 新文件里 8 处 `TS2339`，而守卫**全绿**（它把同一条错规则也套在参照侧了）。
+   * ⇒ **抓这一类的是 `vue-tsc` / `npm run build`**；两者必须成对跑，缺一不可。
+   */
+  const NONSENSE = `export const a = () => {
+    const s = THIS.IS.NONSENSE
+    return s
+  }
+  const KEEP = 1
+  `
+  const absurdRules = {
+    a: [
+      { from: 'const a = ', to: 'export const a = ' },
+      { from: 'name.value', to: 'THIS.IS.NONSENSE' },
+    ],
+  }
+  const absurd = one(NONSENSE, 'a', absurdRules)
+  check(
+    '盲区：登记写成荒谬的 `to`，只要新侧与之字面一致 ⇒ **照样判绿**（抓它的是 vue-tsc）',
+    absurd === null,
+    JSON.stringify(absurd),
+  )
+
+  // 空清单 / 缺键的 block 都不能抛（收尾的「C 块 0 条」那条路靠它）。
+  check('blockNames 容忍缺 names/consts', blockNames({}).length === 0 && blockNames({ names: ['x'] }).length === 1)
+  check('SPLIT_BLOCKS 为空时 splitNames() = 0 条（空转那条路）', splitNames().length === 0, `实得 ${splitNames().length}`)
+
+  console.log(bad ? `\n✗ 自测 ${bad} 条失败` : '\n✓ 自测全部通过（C 块判定的已知输入）')
+  process.exit(bad ? 1 : 0)
+}
 
 const oldSrc = execSync(`git -C ${ROOT} show ${REF}:${OLD_PATH}`, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 const newSrc = readFileSync(NEW_PATH, 'utf8')
@@ -303,10 +536,72 @@ if (fail2.length) {
 }
 fail.push(...fail2)
 
+// ─────────────────────────────────────────────────────────────────────────
+// C 块（2026-09-20 的 Hui 拆分 C1–C13）—— 参照 `SPLIT_REF`（`28e36d21`），见文件头「现在有两半」
+// ─────────────────────────────────────────────────────────────────────────
+/**
+ * ⚠️ **参照先取一次、且必须取到** —— 放在 block 循环**外面**是有意的：
+ *    `SPLIT_BLOCKS` 为空时循环体一次都不跑，若把 `git show` 写在循环里，脚本就**根本不碰这个
+ *    参照** ⇒ 参照取不到也退 0（「未运行 ≠ 通过」的反面）。所以这里无条件先取：取不到就 fail-loud。
+ *
+ * ⚠️ 用 `execFileSync`（**不经 shell**）：参数是常量，但走 shell 拼串既怕空格也怕注入 ——
+ *    与 Home 守卫同一口径。上面引擎那半的 `execSync` 是历史写法，本次**不动它**（超出改动范围）。
+ */
+let splitRefSrc = ''
+try {
+  splitRefSrc = execFileSync('git', ['-C', ROOT, 'show', `${SPLIT_REF}:${SPLIT_OLD_PATH}`], {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    // stderr 也收进来（否则 git 会往终端直接喷一行 fatal，下面又打一遍 —— 重复且刺眼）
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+} catch (e) {
+  console.error(`✗ C 块参照提交 ${SPLIT_REF} 取不到（${SPLIT_OLD_PATH}）—— 浅克隆？见 .github/workflows/ci.yml 的 fetch-depth: 0`)
+  const why = String(e.stderr || e.message || '').trim().split('\n')[0]
+  if (why) console.error(`  git 说：${why}`)
+  process.exit(1)
+}
+
+let passSplit = 0
+let missingSplit = 0
+for (const b of SPLIT_BLOCKS) {
+  const target = `${ROOT}/${b.target}`
+  const rules = b.rewrites || {}
+  let targetSrc
+  try {
+    targetSrc = readFileSync(target, 'utf8')
+  } catch (e) {
+    fail.push(`C 块「${b.target}」读不到 —— ${e.message}`)
+    continue
+  }
+  for (const name of blockNames(b)) {
+    let r
+    try {
+      r = compareOne({ refSrc: splitRefSrc, newSrc: targetSrc, name, rules, ref: SPLIT_REF, target: b.target })
+    } catch (e) {
+      // `sliceFn` 抛（切片不配平）或 `applyRewrites` 抛（登记的 `from` 找不到）——
+      // 转成一条**计入 fail** 的错误：让它抛出去的话整个脚本崩掉、后面的名字一条都不查，
+      // 而这条信息本身（哪个名字、为什么）是有用的。与 Home 版同一处置（那里有实测）。
+      fail.push(`${name}: ${e.message}`)
+      continue
+    }
+    if (r == null) { passSplit++; continue }
+    if (r.missing) missingSplit++
+    fail.push(r.text)
+  }
+}
+/** C 块清单声明的条数（空转判定用它，不用 `passSplit` —— 两者是两回事）。 */
+const splitTotal = splitNames().length
+if (splitTotal) console.log(`  C 块逐字一致：${passSplit} 个`)
+if (missingSplit) console.log(`  C 块未搬走：${missingSplit} 个`)
+
 // 反向检查：搬走的定义不该在 Hui.vue 里留下第二份（否则两份实现会各自漂移）。
-const dupe = [...MOVED, ...MOVED_CONSTS].filter(
-  (n) => new RegExp(`^\\s*(?:function|const|let|var)\\s+${n}\\b`, 'm').test(src_after()),
-)
+// ⚠️ 两半的**处置不同，是有意的**：
+//    · 引擎那半只**警告**（历史行为，本次不动它）；
+//    · C 块这半做成**失败** —— 清单里写「搬走了」= 同一笔里必须删干净，
+//      留着就是「改了一处忘了另一处」，那种不一致是 bug，不是提示。
+// 两处**共用 `declares()`**（前缀与 `sliceFn` 对齐）：分开写两份正则会各自漂开，
+// 而这正是本仓库反复栽过的那一族（「同一判据两份实现」）。
 function src_after() {
   try {
     return readFileSync(`${ROOT}/${OLD_PATH}`, 'utf8')
@@ -314,6 +609,9 @@ function src_after() {
     return ''
   }
 }
+const after = src_after()
+const dupe = [...MOVED, ...MOVED_CONSTS].filter((n) => declares(after, n))
+const splitDupe = splitNames().filter((n) => declares(after, n))
 
 console.log(`搬迁保真检查（${REF}:${OLD_PATH} → ${NEW_PATH}）`)
 console.log(`  逐字一致：${pass} 个`)
@@ -324,4 +622,23 @@ if (fail.length) {
   fail.forEach((f) => console.log('  - ' + f))
   process.exit(1)
 }
-console.log('\n✓ 全部一致 —— 搬迁未改动任何逻辑')
+if (splitDupe.length) {
+  console.log('\n✗ C 块清单里已声明搬走、Hui.vue 里却仍有同名定义（两份实现会各自漂移）：')
+  splitDupe.forEach((n) => console.log('  - ' + n))
+  process.exit(1)
+}
+/*
+ * 收尾那一行**只有一行、且必须是最后一行** —— `run-all.mjs` 的汇总只取 stdout 的**最后一行
+ * 非空行**当说明文字（见它 `:133`）。拆成两行的话，被显示出来的是后一行，
+ * 前面那半（引擎/组件/C 块的读数）就看不着了。
+ *
+ * ⚠️ **`splitTotal === 0` 时也要把「0 条」写进这一行**（而不是删掉不提）：
+ *    清单空着 ⇒ 这一半什么都没验；不写出来的话，一个绿勾会被读成「C 块也验过了」——
+ *    那正是 `run-all.mjs` 文件头禁止的「分不出『查了 0 个名字』和『全一致』」。
+ *    注意它**仍然退 0**：清单还空着不是被检代码的失败，不该把整套 verify 弄红。
+ */
+if (splitTotal === 0) {
+  console.log('\n✓ 全部一致 —— 搬迁未改动任何逻辑（C 块清单 **0 条**：这一半尚未保护任何代码，登记法见文件头）')
+} else {
+  console.log(`\n✓ 全部一致 —— 搬迁未改动任何逻辑（引擎 ${pass} + 组件 ${pass2} + C 块 ${passSplit}）`)
+}
