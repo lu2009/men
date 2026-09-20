@@ -23,6 +23,17 @@
  *   还是搬了却忘了登记 —— 它**完全不知道**。所以「本脚本绿」只等于「清单内逐字一致」，
  *   不等于「搬迁完整」。清单本身由人来维护，每搬一块加一条。
  *
+ * ⚠️⚠️ **「清单内逐字一致」还要再加一句**：比的是 `sliceFn` **切出来的那一段**，
+ *   不是整个声明。切片器多认一种形状，原来那些"空绿"才会变成真绿 ——
+ *   2026-09-20 就有**实证**：Hui 侧 4 个已登记的名字（`sqCell`/`cCol`/`sub`/`orderNoCell`）
+ *   当时只切到第一行，函数体一行都没比，而脚本照样报「逐字一致」。
+ *   ⇒ **登记前按下面「验法」自己变异一次**，别只看绿勾。
+ *
+ * ⚠️ **`sliceFn` 会抛**（2026-09-20 加的结构性硬闸）：切出来的一段如果**括号不配平**
+ *   （跳过字符串与注释后），它会抛错而不是返回一段可疑文本。理由与处理见
+ *   `lib/extract-movecheck-core.mjs` 文件头的「结构性硬闸」。主循环把它转成一条
+ *   计入 `fail` 的错误（不这样就会整个脚本崩掉、后面的名字一条都不查）。
+ *
  * ⚠️ **声明的改写**（每个 block 的 `rewrites`）只有列出来的那些，多一处都要报错：
  *   出现「未声明的差异」= 搬迁过程中动了逻辑，必须回查。
  *   反过来它**抓不到「漏了一条改写」** —— 那只会表现成 diff（这是有意的：宁可多报）。
@@ -75,12 +86,23 @@ const OLD_PATH = 'app/src/views/Home.vue'
  * 注入响应式依赖 + 回传状态）。后两条是后面各块的样板，改它们等于改一整片。
  *
  * ⚠️⚠️ **登记新名字前先验「切片切得完整」** —— 本脚本的绿只等于「切出来的那一段逐字一致」，
- * **不等于「整个声明都对过」**。切片器的已知残留（`lib/extract-movecheck-core.mjs` 文件头有全表）：
- * 对**「首行括号正好配平、声明却在下一行继续」**的写法，它只切首行 ——
- * 例：`type TextFilterKey =`（`REF:769`，下面 9 行union 成员一行都不比）、
- * `const engine: OrderLines =`（`DetailLinesTable.vue:149`）。
- * **验法**（Task 4 简报里那套，抄过来）：把该声明的**第二行**随便改一下 → 跑本脚本 →
- * **必须报红**；不红就别登记（登记了等于给自己发一张假绿卡）。改完**还原**。
+ * **不等于「整个声明都对过」**。切片器是文本启发式，**不是解析器**，
+ * 所以它每多认一种形状都得单独钉一例自测（`--selftest` 现在 21 条，其中 9 条是 2026-09-20
+ * 为「声明跨行」这一族补的）。
+ *
+ * **验法**（别只看绿勾）：把该声明的**第二行**随便改一下 → 跑本脚本 → **必须报红**；
+ * 不红就别登记（登记了等于给自己发一张假绿卡）。改完**还原**。
+ *
+ * ⚠️ **最可靠的独立判据是真 TS 解析器**（`app/node_modules/typescript` 就在仓库里）：
+ * `ts.createSourceFile` + 递归遍历整棵树取同名声明的 `getText()`，与 `sliceFn` 的结果
+ * 都过一遍 `norm()` 再比。2026-09-20 用它复核了双方清单里的**每一个**名字，
+ * **查出 4 个已登记的名字此前是假绿**（见下）。这就是「守卫自己的绿证明不了切片完整」的实证。
+ *
+ * ### 已知残留（切片器还没认的形状，别登记这些）
+ *
+ * 见 `lib/extract-movecheck-core.mjs` 文件头「能力边界」。当前最要紧的一条：
+ * **正则字面量里的括号**（`const re = /}/` 这种）不进括号栈 ⇒ 函数体会**提前收口**，
+ * 而且收口后的片段**是配平的**（所以结构性硬闸也拦不住）。本仓库暂无这种形状被登记。
  */
 const BLOCKS = [
   {
@@ -155,6 +177,15 @@ const BLOCKS = [
        * 全 `Home.vue` 里参数表跨行的**函数声明**只有 3 个：`onCheckedKeys`(REF:1601)、
        * `renderEditable`(REF:2807)、`headerFilter`(REF:2866) —— 后两个属 B12。
        * 它们现在**同样**受加固后的 `sliceFn` 保护（不必再手工复核）。
+       *
+       * ⚠️ **这个数字是 3，不是 4**（2026-09-20 复核过一次，两个数都量了）：
+       *    量法 = 对每个 `function NAME(` 从 `(` 配平找 `)`，看它是否跨行。
+       *    有人把 `open`(REF:1500) 也算进来 —— **它不算**：它是 `onOpenDoc`(REF:1496)
+       *    **函数体内的局部箭头函数**，既不是 `function` 声明、也不是顶层。
+       *    它单切能得 7 行只是巧合（顶层扫描第一个撞到的同名声明就是它那个 `const`）。
+       *    **嵌套件靠外层声明的整段比对覆盖，不需要也不该单独登记**（核心文件头「能力边界」有）。
+       *    当前 `onOpenDoc` **不在**清单里，所以 `open` 现在**没被任何东西保护** ——
+       *    等搬到它所属的那一块时登记 `onOpenDoc` 即可。
        *
        * ⚠️ 下面这条规则是**修好根因之后按报出的 diff 补的**，不是为了让守卫变绿而删名字 ——
        *    「把它从 BLOCKS 里删掉」是本仓库 CLAUDE.md 明令禁止的那种改法。
@@ -234,6 +265,29 @@ if (process.argv.includes('--selftest')) {
     }
   }
 
+  /*
+   * ⚠️ **自测里调 `sliceFn` 一律走 `trySlice`** —— `sliceFn` 现在会**抛**
+   *    （结构性硬闸：切出来不配平就报错，见核心文件头）。裸调会把整段自测崩掉
+   *    （栈糊满屏、后面的断言**一条都不跑**），而自测要的是一行干净的 ✗。
+   *    实测踩过两次：变异「块注释不再被跳过」时 `headerFilter` 那例、
+   *    变异「跨行遇换行就停」时上面那条跨行签名那例，都把 `--selftest` 直接崩了。
+   */
+  const trySlice = (src, name) => {
+    try {
+      return { v: sliceFn(src, name) }
+    } catch (e) {
+      return { e: `${e.constructor.name}: ${e.message.split('\n')[0]}` }
+    }
+  }
+  /** 两次切片 + 首个差异行；切不出来（null 或抛错）时回 `why` 说明。 */
+  const sliceDiff = (aSrc, bSrc, name) => {
+    const a = trySlice(aSrc, name)
+    const b = trySlice(bSrc, name)
+    if (a.e || b.e) return { why: a.e || b.e }
+    if (a.v == null || b.v == null) return { why: `切不出来（${JSON.stringify(a.v)} / ${JSON.stringify(b.v)}）` }
+    return { diff: firstDiffLine(norm(a.v), norm(b.v)), text: a.v }
+  }
+
   // ① 比对核心：一对**已知故意改坏**的样本，必须报红且**定位到正确的行**。
   const oldTxt = `function f(a: number) {\n  const n = Math.round(a * 1.13)\n  return n ?? 0\n}`
   const diffCases = [
@@ -296,11 +350,11 @@ if (process.argv.includes('--selftest')) {
    * 而它此前对自测不可见。判据：切出来必须**就是整段**（含返回类型与函数体）。
    */
   const retTxt = `function pingCasingOptions(l: Line): { label: string; value: string }[] {\n  return []\n}`
-  const retGot = sliceFn(retTxt, 'pingCasingOptions')
+  const retR = trySlice(retTxt, 'pingCasingOptions')
   check(
     '返回类型里的 `{}` 不骗走切片',
-    retGot === retTxt,
-    `实得 ${JSON.stringify(retGot)}`,
+    retR.v === retTxt,
+    retR.e ? `抛错：${retR.e}` : `实得 ${JSON.stringify(retR.v)}`,
   )
 
   /*
@@ -314,11 +368,14 @@ if (process.argv.includes('--selftest')) {
    */
   const multiSig = (body2) =>
     ['function onKeys(', '  keys: DataRowKey[],', '  meta?: { row?: unknown },', ') {', '  if (!keys.length) return', `  checked.value = keys.map(${body2})`, '}'].join('\n')
-  const multiGone = firstDiffLine(norm(sliceFn(multiSig('String'), 'onKeys') ?? ''), norm(sliceFn(multiSig('Number'), 'onKeys') ?? ''))
+  const multiR = sliceDiff(multiSig('String'), multiSig('Number'), 'onKeys')
+  const multiGone = multiR.diff ?? -1
   check(
     '跨行签名的**函数体**被改坏 → 报红且定位到体内那行',
     multiGone === 6,
-    `期望首个差异在第 6 行，实得 ${multiGone}（0 = 函数体根本没被比对 ⇒ 洞① 复发）`,
+    multiR.why
+      ? `切不出来：${multiR.why}`
+      : `期望首个差异在第 6 行，实得 ${multiGone}（0 = 函数体根本没被比对 ⇒ 洞① 复发）`,
   )
 
   /*
@@ -330,26 +387,24 @@ if (process.argv.includes('--selftest')) {
    *    直接丢给 `norm()` 会抛，整个自测崩掉、后面的断言一条都不跑。
    */
   const typeSrc = (field) => ['type Seg = {', '  label: string', `  flex: ${field}`, '  done: boolean', '}'].join('\n')
-  const tOldS = sliceFn(typeSrc('number'), 'Seg')
-  const tNewS = sliceFn(typeSrc('string'), 'Seg')
-  const tDiff = tOldS == null || tNewS == null ? -1 : firstDiffLine(norm(tOldS), norm(tNewS))
+  const tR = sliceDiff(typeSrc('number'), typeSrc('string'), 'Seg')
+  const tDiff = tR.diff ?? -1
   check(
     '`type` 别名被改坏 → 报红且定位到那行',
     tDiff === 3,
-    tOldS == null
-      ? '`type X = {…}` 根本没被切出来（洞② 复发：正则不认 `type`）'
+    tR.why
+      ? `切不出来：${tR.why}（洞② 复发：正则不认 type）`
       : `期望首个差异在第 3 行，实得 ${tDiff}`,
   )
   // `interface` 与 `type` 是两条独立的正则分支，只钉住一条等于「只在单侧被钉住」（洞③ 的教训）。
   const ifaceSrc = (field) => ['interface Seg {', '  label: string', `  flex: ${field}`, '}'].join('\n')
-  const iOldS = sliceFn(ifaceSrc('number'), 'Seg')
-  const iNewS = sliceFn(ifaceSrc('string'), 'Seg')
-  const iDiff = iOldS == null || iNewS == null ? -1 : firstDiffLine(norm(iOldS), norm(iNewS))
+  const iR = sliceDiff(ifaceSrc('number'), ifaceSrc('string'), 'Seg')
+  const iDiff = iR.diff ?? -1
   check(
     '`interface` 被改坏 → 报红且定位到那行',
     iDiff === 3,
-    iOldS == null
-      ? '`interface X {…}` 根本没被切出来（洞② 复发：正则不认 `interface`）'
+    iR.why
+      ? `切不出来：${iR.why}（洞② 复发：正则不认 interface）`
       : `期望首个差异在第 3 行，实得 ${iDiff}`,
   )
 
@@ -365,11 +420,179 @@ if (process.argv.includes('--selftest')) {
    *    这一例才「只可能由 async 前缀差异触发」。
    */
   const asyncTxt = `async function load() {\n  return 1\n}`
-  const asyncGot = sliceFn(asyncTxt, 'load')
+  const asyncR = trySlice(asyncTxt, 'load')
   check(
     '`sliceFn` 认得 `async function`（去掉 `(?:async\\s+)?` 这例即红）',
-    asyncGot === asyncTxt,
-    `实得 ${JSON.stringify(asyncGot)}`,
+    asyncR.v === asyncTxt,
+    asyncR.e ? `抛错：${asyncR.e}` : `实得 ${JSON.stringify(asyncR.v)}`,
+  )
+
+  /*
+   * ⑧ 洞①的同族：**多行、但没有函数体 `{` 的顶层 `const`**，第二行起也必须被比对。
+   *
+   * 样本就是 `PROGRESS_STEPS`(REF:498–504) 的形状（Task 4 要登记它）。
+   * 旧版对「无 `{`」一律退化成「只返回第一行」⇒ 第二行怎么改都判「一致」。
+   * 这里改坏的正是**第二行**（`flex: 1` → `flex: 9`）—— 只比第一行的实现会判它一致。
+   */
+  const stepsSrc = (second) =>
+    ['const STEPS = [', `  { label: \'a\', flex: ${second} },`, '  { label: \'b\', flex: 2 },', ']'].join('\n')
+  const stepsR = sliceDiff(stepsSrc(1), stepsSrc(9), 'STEPS')
+  const stepsGot = stepsR.text ?? null
+  const stepsDiff = stepsR.diff ?? -1
+  check(
+    '多行无 `{` 的 const：**只改第二行** → 报红',
+    stepsGot != null && stepsGot.split('\n').length === 4 && stepsDiff === 2,
+    stepsR.why
+      ? `切不出来：${stepsR.why}`
+      : `切片 ${stepsGot?.split('\n').length} 行（应 4）、首个差异在第 ${stepsDiff} 行（应 2；0 = 第二行根本没被比对）`,
+  )
+
+  /*
+   * ⑨ 续行记号：`const NAME = (…) =>` 这种**表达式体箭头**，函数体在下一行。
+   *
+   * 这一例钉的是 2026-09-20 查出来的**真假绿**：Hui 侧 4 个已登记的名字
+   * （`sqCell`/`cCol`/`sub`/`orderNoCell`）首行括号正好配平 ⇒ 命中「单行声明」快车道
+   * ⇒ 只比了第一行，而守卫照样报「逐字一致」。修法是「行尾续行记号」判据。
+   * 改坏的是**体内**那一行（`open` → `close`）。
+   */
+  const arrowSrc = (fn) =>
+    ['const cell = (l: Line) =>', "  h(", "    'div',", `    { onClick: () => ${fn}(l) },`, '    [String(l.sq)],', '  )'].join('\n')
+  const arrowR = sliceDiff(arrowSrc('open'), arrowSrc('close'), 'cell')
+  const arrowGot = arrowR.text ?? null
+  const arrowDiff = arrowR.diff ?? -1
+  check(
+    '表达式体箭头（`=>` 在行尾）的多行 const：**改体内那行** → 报红且定位正确',
+    arrowGot != null && arrowGot.split('\n').length === 6 && arrowDiff === 4,
+    arrowR.why
+      ? `切不出来：${arrowR.why}`
+      : `切片 ${arrowGot?.split('\n').length} 行（应 6）、首个差异在第 ${arrowDiff} 行（应 4；1 = 只比了首行）`,
+  )
+
+  /*
+   * ⑬-b 续行记号（**行首那一半**）：prettier 风格的联合类型把 `|` 写在**下一行行首**。
+   *
+   * ```ts
+   * type TextFilterKey =
+   *   | 'client_name'      ← 行尾是 'client_name'，只看行尾会在这里**停住**
+   *   | 'order_date'
+   * ```
+   *
+   * `type TextFilterKey`(REF:769) 是**真形状**（10 行）—— 它属 B3（Task 6）要搬的那一段，
+   * 只靠「行尾续行记号」会切出 2 行（第一行以 `=` 收尾续上了，第二行以 `'client_name'`
+   * 收尾就断了）。所以还要看**下一行行首**。
+   * 改坏的是**第 4 行**的成员名（`client_name` → `client_code`）。
+   */
+  const unionSrc = (third) =>
+    ['type TextFilterKey =', "  | 'client_name'", "  | 'order_date'", `  | '${third}'`, "  | 'status'"].join('\n')
+  const unionR = sliceDiff(unionSrc('salesperson'), unionSrc('creator_name'), 'TextFilterKey')
+  const unionGot = unionR.text ?? null
+  const unionDiff = unionR.diff ?? -1
+  check(
+    'prettier 风格联合类型（`|` 在下一行行首）：**改第 4 行** → 报红',
+    unionGot != null && unionGot.split('\n').length === 5 && unionDiff === 4,
+    unionR.why
+      ? `切不出来：${unionR.why}`
+      : `切片 ${unionGot?.split('\n').length} 行（应 5；2 = 只看行尾、在第 2 行就停了）、首个差异在第 ${unionDiff} 行（应 4）`,
+  )
+
+  /*
+   * ⑩ 函数体里的**注释**含不平衡花括号 —— 配平必须跳过注释。
+   *
+   * 这条是 2026-09-20 复审指出的那个根因的形状（它说的是 `headerFilter` 的 JSDoc）。
+   * 改前：配平只看字符串、不看注释 ⇒ 注释里一个孤立的 `{` 就让深度永不归零 ⇒ 返回 `null`
+   * （报「参照里找不到」，名字明明在）。改后：跳过注释 ⇒ 切出整段。
+   */
+  const cmtSrc = ['function f() {', '  // 注释里只有一个左花括号 { 就够骗走配对了', '  return 1', '}'].join('\n')
+  const cmtR = trySlice(cmtSrc, 'f')
+  check(
+    '函数体里的注释含不平衡 `{` → 仍切出整段（配平跳过注释）',
+    cmtR.v === cmtSrc,
+    cmtR.e ? `抛错：${cmtR.e}` : `实得 ${JSON.stringify(cmtR.v)}`,
+  )
+  // 反向那一半：注释里只有 `}` —— 配平会在注释处**提前收口**，切出半段（且不配平）。
+  const cmtSrc2 = ['function g() {', '  const s = 1 // 注释里只有一个右花括号 }', '  return s', '}'].join('\n')
+  const cmtR2 = trySlice(cmtSrc2, 'g')
+  check(
+    '函数体里的注释含不平衡 `}` → 不会在注释处提前收口',
+    cmtR2.v === cmtSrc2,
+    cmtR2.e ? `抛错：${cmtR2.e}` : `实得 ${JSON.stringify(cmtR2.v)}`,
+  )
+
+  /*
+   * ⑪ 字符串字面量里的 `}` —— 同样不许骗走配平。
+   *
+   * ⚠️ 诚实说明：**这一例对改前的核心也是绿的**（旧版函数体配平本来就跳字符串）。
+   *    留着它是**回归钉**：哪天有人把字符串跳过删了，这一例会立刻红。
+   *    真正能区分改前/改后的是 ⑩（注释）与 ⑨（续行记号）。
+   */
+  const strSrc = ['function f() {', "  const s = '}'", '  return s', '}'].join('\n')
+  const strR = trySlice(strSrc, 'f')
+  check(
+    '字符串字面量里的 `}` 不骗走配平',
+    strR.v === strSrc,
+    strR.e ? `抛错：${strR.e}` : `实得 ${JSON.stringify(strR.v)}`,
+  )
+
+  /*
+   * ⑫ 真实形状的 `headerFilter`(REF:2866)：**多行签名 + 参数里的类型字面量 + JSDoc 里
+   *    反引号与引号交错**。这是复审点名的那一处（实测它**在改前就已经切得对** —— 98 行，
+   *    与真 TS 解析器逐字相同；但形状本身值得钉住，因为它是「三件事同时出现」的唯一一处）。
+   *    样本按真源码的骨架缩写了，但**反引号/引号交错那两行是照抄的**。
+   */
+  const hfSrc = [
+    'function headerFilter(opt: {',
+    '  /** 列名（旧版 `<span>未付</span>` / `打单操作`） */',
+    '  columnLabel: string',
+    '  /**',
+    '   * ⚠️ **两列不一样，别统一**：`打单操作` 的值包在',
+    '   *    `<span style="color:#409eff;font-weight:700"> (" 生产进度 " 的 `Ou`，`:11541`)；',
+    '   */',
+    '  highlightValue?: boolean',
+    '  current: Ref<string>',
+    '}) {',
+    '  // 旧版选项容器 `Yu`(`:11485 区`) / `Hu`(`:11545 区`)：`display:flex`',
+    "  return () => h('div', { class: 'header-filter' }, [opt.columnLabel])",
+    '}',
+  ].join('\n')
+  const hfR = trySlice(hfSrc, 'headerFilter')
+  check(
+    '真实形状的 `headerFilter`（多行签名 + 交错反引号/引号 JSDoc）→ 切出整段',
+    hfR.v === hfSrc,
+    hfR.e
+      ? `抛错：${hfR.e}`
+      : hfR.v == null
+        ? '返回 `null`（多发于配平不跳注释）'
+        : `切片 ${hfR.v.split('\n').length} 行（应 ${hfSrc.split('\n').length}）`,
+  )
+
+  /*
+   * ⑬ **结构性硬闸**：切出来但**不配平**的一段，必须**抛错**，绝不许静默返回拿去比对。
+   *
+   * 起因：若两侧（参照 / 目标文件）用同样错误的方式各切一段，比的就是**错误的那段文本**，
+   * 却报「逐字一致」—— 那比假绿更坏。`sliceFn` 现在对非快车道的结果跑一遍
+   * `bracketBalance()`（跳过字符串与注释），不配平就抛。
+   *
+   * 样本 = **一条括号永远没闭合的声明**（模拟文件在声明中途截断，或判据没找着结尾）：
+   * `const UNSET = [` 后面到文件尾都没出现 `]` ⇒ 兜底退回「只切第一行」，
+   * 而那一行带着一个未闭合的 `[` ⇒ 硬闸必须拦下。
+   *
+   * ⚠️ 断言必须区分「抛错」与「返回 null」：**返回 null 不算通过** ——
+   *    null 会被上层当成「参照里找不到」，那是另一回事。
+   */
+  const gateR = trySlice(['const UNSET = [', '  { a: 1 },', '  { b: 2 },'].join('\n'), 'UNSET')
+  check(
+    '切片不平衡 → **抛错**（不是静默返回、也不是 null）',
+    !!gateR.e && /切片不平衡/.test(gateR.e),
+    gateR.e ? `抛了别的错：${gateR.e.slice(0, 80)}` : `没抛，实得 ${JSON.stringify(gateR.v)}`,
+  )
+  // 反向：**合法**的单行声明不许被闸误伤 —— 尤其 `const X = '…'` 这种**收尾引号恰好是
+  // 最后一个字符**的（`EMPTY_FILTER_VALUE`(REF:735) 就是）。实测踩过一次误判：
+  // 用「跳过终点 `>= 长度`」判「字符串没闭合」，会把它误报成切片不配平而抛错。
+  const oneLineR = trySlice(["const EMPTY_FILTER_VALUE = '__EMPTY__'", 'const NEXT = 1'].join('\n'), 'EMPTY_FILTER_VALUE')
+  check(
+    "合法单行声明不被硬闸误伤（`= '…'` 收尾引号在行尾）",
+    oneLineR.v === "const EMPTY_FILTER_VALUE = '__EMPTY__'",
+    oneLineR.e ? `被误判：${oneLineR.e}` : `实得 ${JSON.stringify(oneLineR.v)}`,
   )
 
   process.exit(bad ? 1 : 0)
@@ -413,8 +636,23 @@ for (const b of BLOCKS) {
   }
   // `names` / `consts` 都可省 —— 摊平与 `|| []` 的守卫都在 `blockNames()` 里（自测有一例钉住）。
   for (const name of blockNames(b)) {
-    const o = sliceFn(refSrc, name)
-    const n = sliceFn(newSrc, name)
+    /*
+     * ⚠️ `sliceFn` 现在会**抛**（结构性硬闸：切出来不配平就报错，见 `lib/extract-movecheck-core.mjs`
+     * 文件头）。这里把它转成一条**计入 fail 的**错误 —— 让它抛出去的话，整个脚本崩掉、
+     * 后面的名字一条都不查，而这条信息本身（哪个名字、为什么不配平）是有用的。
+     *
+     * ⚠️ 姊妹件（Hui 版）**没有**这层 try/catch，是有意的：它的判据/输出文案/清单
+     *    一字不许动（Task 3.5 的红线）。所以那边遇到不配平会直接崩 —— 那是**该停下来查**
+     *    的信号，不是「顺手把清单改绿」的理由。实测两侧清单里当前**没有**不配平的切片。
+     */
+    let o, n
+    try {
+      o = sliceFn(refSrc, name)
+      n = sliceFn(newSrc, name)
+    } catch (e) {
+      fail.push(`${name}: ${e.message}`)
+      continue
+    }
     if (!o) { fail.push(`${name}: 在参照 ${REF}:${OLD_PATH} 里找不到（清单写错了？）`); continue }
     if (!n) { fail.push(`${name}: ${b.target} 里找不到 —— 没搬过去？`); missing.push(name); continue }
     // ⚠️ 顺序：**先归一化再套改写规则**。`norm()` 去了行首缩进，多行的 `from` 片段匹配不上。
