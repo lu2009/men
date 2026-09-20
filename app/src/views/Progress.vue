@@ -1492,7 +1492,8 @@ function toIsoDate(ts: number | null): string {
  * 日期快捷项（旧版 `Ao`）：最近一周 / 最近一个月 / 最近三个月，**顺序与文案照抄**
  * （旧版是 `now - 6048e5 / -2592e6 / -7776e6` 三个定值）。
  * ⚠️ 旧版是 setup 里算好的**定值**（跨零点会把「最近一周」选成昨天），这里用函数形态按点击时求值
- * —— 与 `Home.vue` 的 `DATE_SHORTCUTS` 同一个口径。
+ * —— 与 `DATE_SHORTCUTS` 同一个口径（该声明已随 B5 归位到
+ * `app/src/composables/home/useHomeQueryMore.ts`，2026-09-20 纯搬迁）。
  */
 const MORE_DATE_SHORTCUTS: Record<string, () => number> = {
   最近一周: () => dayStart(-7),

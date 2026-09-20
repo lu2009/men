@@ -355,6 +355,50 @@ const BLOCKS = [
       load: [{ from: 'message.error(', to: 'deps.message.error(' }],
       dashboardOrders: [{ from: 'auth.user?.', to: 'deps.auth.user?.' }],
     } },
+  /*
+   * B5（「查询更多」弹窗）—— 第 8 块。11 个声明：5 个 `function` + 6 个 `const`。
+   *
+   * ⚠️ **本块不拥有任何共享状态** —— 十块里唯一一个「只写别人的 ref」的块。
+   *    注入面 8 项：`rawOrders`/`financeSummary`（B1）+ `searchText`/`queryRows`/`queryMode`/
+   *    `querySearchPreset`（B3）+ `auth`/`message`（页面）。**下面每一条 `deps.` 规则对应一次注入写/读。**
+   *
+   * ⚠️ 规则一律**带边界**（Ruling 55）：本段有 7 个 `query` 同前缀家族成员
+   *    （`queryShow`/`queryLoading`/`queryClients`/`queryForm`/`queryRows`/`queryMode`/`querySearchPreset`）
+   *    —— 写裸的 `queryMode` 会把 `queryModeXxx` 一起改而守卫抓不到。
+   *    实测这 7 个名字在本段内**没有更长同前缀标识符**，且 `searchText.value` 与
+   *    `querySearchPreset.value` **互不为子串**（已 `node -e` 验过。
+   *    所以下面每条都写全 `X.value` / `auth.user?.` / `message.error(`。
+   *
+   * ⚠️ 两个 `async function`（`openQuery` / `submitQuery`）—— `rawSlice` 的前缀含 `(?:async\s+)?`，
+   *    登记时按 Step 6 的变异测试 3（对调 `REF:1362/1363`）实测报红过，证明是**整段**比中，
+   *    不是只比签名行。
+   *
+   * ⚠️ 与 `docs/roles-admin-logiccheck.mjs` 的联动（**别忘**）：本块搬走的 `submitQuery` 里
+   *    那处 `!canSeeAllOrders(auth.user?.role)`（`REF:1327`）正是那台子数的**三处之一**
+   *    （`homeCalls === 3` / `homeNegated === 2`）。而上面那条 `auth.user?.` → `deps.auth.user?.`
+   *    会**改掉台子正则要的字面** ⇒ 台子那边**同一笔里**加了第三份被数源（新家）。
+   *    `homeCalls` 的正则 `(?:deps\.)?` 是 Task 5 放宽的，**本笔不再动正则**；
+   *    `homeNegated` 的正则（`/!\s*canSeeAllOrders\(/`）**本来就不含 `auth`** ⇒ 只加源。
+   *    两条断言数字 `3` / `2` **一个字没改**。理由写在那个脚本里。
+   */
+  { target: 'app/src/composables/home/useHomeQueryMore.ts',
+    names: ['dayStart', 'yearAgoStart', 'toIsoDate', 'openQuery', 'submitQuery'],
+    consts: ['queryShow', 'queryLoading', 'queryClients', 'queryForm', 'DATE_SHORTCUTS', 'clientSuggestions'],
+    rewrites: {
+      // `openQuery`：`REF:1306` 的 `message.error('初始化客户信息失败')`。
+      openQuery: [{ from: 'message.error(', to: 'deps.message.error(' }],
+      // `submitQuery`：9 处跨块读/写 + 2 处页面上下文（逐条对应 REF 行见下方注释）。
+      submitQuery: [
+        { from: 'auth.user?.', to: 'deps.auth.user?.' },                     // REF:1327 · 1328（角色过滤）
+        { from: 'queryRows.value', to: 'deps.queryRows.value' },             // REF:1344（写 B3）
+        { from: 'queryMode.value', to: 'deps.queryMode.value' },             // REF:1345（写 B3）
+        { from: 'rawOrders.value', to: 'deps.rawOrders.value' },             // REF:1350 · 1352 · 1353（写 B1）
+        { from: 'querySearchPreset.value', to: 'deps.querySearchPreset.value' }, // REF:1362（写 B3）
+        { from: 'searchText.value', to: 'deps.searchText.value' },           // REF:1363（写 B3）
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },   // REF:1374（写 B1）
+        { from: 'message.error(', to: 'deps.message.error(' },               // REF:1378（页面上下文）
+      ],
+    } },
 ]
 
 /**

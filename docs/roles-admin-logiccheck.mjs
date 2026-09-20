@@ -151,27 +151,48 @@ const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
  *
  * ⚠️ **断言仍是 `=== 3`（跨两份源数）** —— **不许**降成 2：那是把「查三处」降级成
  *    「查剩下的」，越搬越松。
- * ⚠️ `homeNegated`（`!canSeeAllOrders(`，下面那条）**本笔不动**：那两处（主表 `filtered` /
+ * ⚠️ `homeNegated`（`!canSeeAllOrders(`，下面那条）**那笔不动**：那两处（主表 `filtered` /
  *    「查询更多」`submitQuery`）都还留在页面，而看板这处是三元、本来就没有 `!`。
  *    等 Task 6 / Task 8 分别搬走它们时，再按同法把被数源跨到各自的新家。
+ *
+ * 2026-09-20 **Task 8**：「查询更多」那块（B5）搬到了 `composables/home/useHomeQueryMore.ts`，
+ * 它带着上面说的**两处之一**走：
+ *   · 那处 `!canSeeAllOrders(auth.user?.role)`（`REF:1327`）**从 `Home.vue` 挪到了新家**，
+ *     且搬迁的注入改写（`auth.user?.` → `deps.auth.user?.`）把字面也改了；
+ *   · ⇒ **两条断言的被数源都要跨到新家**（下面这份 `MORE`）。
+ *     `homeCalls` 的 `(?:deps\.)?` 是 Task 5 放宽的，**本笔不再动正则**；
+ *     `homeNegated` 的正则（`/!\s*canSeeAllOrders\(/`）**本来就不含 `auth`** ⇒ 只加源。
+ *
+ * ⚠️ **断言数字 `3` / `2` 一个字都没改** —— 这是**跨三份源**数的结果，不是降级。
+ *    只加源、不改数，是这类搬迁唯一允许的做法：`npm run verify` 里这两条一旦变松，
+ *    「Home 三处都还在」就再没人看着了。
+ *    实测（本笔）：不加源时两条**同时报红**（`实际 2` / `实际 1`），加源后回绿 —— 见 `task-8-report.md` §3。
  */
 const DATA = readFileSync(resolve(SRC, 'composables/home/useHomeData.ts'), 'utf8')
+/** 2026-09-20 Task 8 起：`submitQuery` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
+const MORE = readFileSync(resolve(SRC, 'composables/home/useHomeQueryMore.ts'), 'utf8')
 
-// Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed（这一处已搬到 useHomeData.ts）。
+// Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed。
+// 三处**已经各自归位**：看板 → useHomeData.ts（Task 5）、查询更多 → useHomeQueryMore.ts（Task 8）、
+// 主表 filtered 仍在页面（Task 6 会把它移到 useHomeFilterView.ts，届时再加第四份源，数字仍是 3）。
 // 数**调用次数**而不是锚定某一行 —— 行号会漂，次数不会。
-const homeCalls = (HOME + DATA).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
+const homeCalls = (HOME + DATA + MORE).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
 check(
   homeCalls === 3,
-  `Home.vue + useHomeData.ts 里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
+  `Home.vue + useHomeData.ts + useHomeQueryMore.ts 里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
 )
 check(
   /import \{[^}]*canSeeAllOrders[^}]*\} from '\.\.\/utils\/roles'/.test(HOME),
   'Home.vue 从 utils/roles 导入了 canSeeAllOrders',
 )
-// 两支各自的形状：`!canSeeAllOrders(...)` 两次（filtered + submitMore），
+// 两支各自的形状：`!canSeeAllOrders(...)` 两次（filtered + submitQuery），
 // 看板是三元 `canSeeAllOrders(...) ? 全量 : filter`（**没有** `!`）。写反了这里会红。
-const homeNegated = (HOME.match(/!\s*canSeeAllOrders\(/g) || []).length
-check(homeNegated === 2, `Home.vue 里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`)
+// ⚠️ 这条的源也要含 `MORE` —— `submitQuery` 那处带 `!` 的在 Task 8 搬走了（正则不含 `auth`，所以只是加源）。
+const homeNegated = ((HOME + MORE).match(/!\s*canSeeAllOrders\(/g) || []).length
+check(
+  homeNegated === 2,
+  `Home.vue + useHomeQueryMore.ts 里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`,
+)
 
 check(
   /const isAdminUser = computed\(\(\) => isAdmin\(auth\.user\?\.role\)\)/.test(FORMULAS),
