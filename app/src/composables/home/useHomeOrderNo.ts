@@ -210,9 +210,12 @@ export function useHomeOrderNo(deps: HomeOrderNoDeps) {
   }
 
   return {
-    // 6 个全回传 —— 模板与 `columns` 各自有实测读者（`orderNoInput`/`orderNoRestoring`/
-    // `orderNoPopShow` 模板 3 处、`confirmOrderNoQuery`/`clearOrderNoQuery` 模板 3 处、
-    // `orderNoCell` 在留在页面的 `columns` 里）。⇒ 页面**全部解构**。
+    // 6 个**全回传** —— 实测它们的消费者**只有一个**：留在页面的 `columns`（`Home.vue:876-932`
+    // 那一格的 6 处调用）。
+    // ⚠️ **`<template>` 里零命中**（2026-09-20 实测：1–414 行 0 处）—— 本块是「零模板绑定」的一块，
+    //    所以页面侧的解构是**约定**、好处是「让 `columns` 一行都不用改」，**不是**「不解构就静默坏」。
+    //    完整理由（含「别类推到 B7 的 `rowClass`」）见文件头。
+    //    ⚠️ 这里原先写着「模板 3 处 ×2」—— **那是错的**，与文件头自相矛盾，已按实测改掉。
     orderNoInput,
     orderNoRestoring,
     orderNoPopShow,
