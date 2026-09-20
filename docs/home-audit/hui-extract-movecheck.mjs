@@ -236,6 +236,28 @@ const SPLIT_BLOCKS = [
       assistiveFullscreen: [],
     },
   },
+  {
+    // C5「客户」。快照**两段**：`Hui.vue:1370-1410` + `2091-2093`（`currentClient`），6 个声明。
+    // 注入 `order`/`lines`/`dialog`；`lastAppliedClient` 是**裸 `let`** ⇒ 登记它只为逐字比对，
+    // 它**不回传值**（spec §6.2 要求 getter+setter 一对，那对新函数不在搬迁段内、本脚本不管）。
+    target: 'app/src/composables/hui/useHuiClients.ts',
+    names: ['applyClient', 'onClientChange'],
+    consts: ['clients', 'clientOptions', 'lastAppliedClient', 'currentClient'],
+    rewrites: {
+      applyClient: [
+        { from: 'order.', to: 'deps.order.' },
+      ],
+      onClientChange: [
+        { from: 'order.', to: 'deps.order.' },
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'dialog.', to: 'deps.dialog.' },
+      ],
+      currentClient: [{ from: 'order.', to: 'deps.order.' }],
+      clients: [],
+      clientOptions: [],
+      lastAppliedClient: [],
+    },
+  },
 ]
 
 /**

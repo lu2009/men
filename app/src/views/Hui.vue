@@ -615,8 +615,9 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { api } from '../api/client'
+// 2026-09-20 C5：`ClientDto` 的唯一消费者是「客户」那块，已随它搬进
+// `composables/hui/useHuiClients.ts` ⇒ 本文件不再 import 它（留着就是 TS6196）。
 import type {
-  ClientDto,
   FormulaDto,
   FormulaImageDto,
   OrderDto,
@@ -652,6 +653,7 @@ import { useHuiMarkupMgmt } from '../composables/hui/useHuiMarkupMgmt'
 import { useHuiColumnConfig } from '../composables/hui/useHuiColumnConfig'
 import { useHuiPayQrcode } from '../composables/hui/useHuiPayQrcode'
 import { useHuiShellToggles } from '../composables/hui/useHuiShellToggles'
+import { useHuiClients } from '../composables/hui/useHuiClients'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1068,46 +1070,18 @@ function addRowOf(kind: 'ping' | 'diao') {
 }
 
 // 客户
-const clients = ref<ClientDto[]>([])
-const clientOptions = computed(() =>
-  clients.value.map((c) => ({ label: `${c.name}（${c.code}）`, value: c.code })),
-)
-let lastAppliedClient = ''
-
-function applyClient(code: string | null) {
-  const c = clients.value.find((x) => x.code === code)
-  order.client_name = c?.name ?? ''
-  order.phone = c?.phone ?? ''
-  order.brand = c?.brand ?? ''
-  lastAppliedClient = c?.code ?? ''
-}
-
-function onClientChange(code: string | null) {
-  // 仅当「已有归属客户（加载的订单或已选客户）」且切换到另一客户时，才二次确认是否清空订单行。
-  // 新订单首次选择客户不弹窗（已有门类但无归属客户，直接套用客户资料）。
-  if (
-    lines.value.length > 0 &&
-    code &&
-    lastAppliedClient &&
-    code !== lastAppliedClient
-  ) {
-    dialog.warning({
-      title: '切换客户',
-      content: '当前订单已有门类，切换客户将清空现有订单行。是否继续？',
-      positiveText: '清空并切换',
-      negativeText: '取消',
-      onPositiveClick: () => {
-        lines.value = []
-        applyClient(code)
-      },
-      onNegativeClick: () => {
-        order.client_code = lastAppliedClient || ''
-      },
-    })
-    return
-  }
-  applyClient(code)
-}
+// 2026-09-20 两段共 6 个声明搬到 `composables/hui/useHuiClients.ts`（逐字搬迁，零行为变化）：
+//   ① 本处（客户目录 / 套用客户 / 切换确认）② 下面「终端链接」一节里的 `currentClient`。
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以模板一行都没改。
+//
+// 🔴 **裸 `let` 的坑（spec §6.2）**：`lastAppliedClient` 是**裸 `let`**、不是 ref ⇒
+//    它**不回传值**，只回传 `getLastAppliedClient()` / `setLastAppliedClient()` 一对函数。
+//    下面 3 处写它（本文件的 `loadOrder`/清空订单/导入订单）都已改成 `setLastAppliedClient(...)`：
+//    导出「值」= 导出一张**一次快照**，之后 C5 内部再改它就同步不过来，而且**不报错**。
+const {
+  clients, clientOptions, applyClient, onClientChange, currentClient,
+  setLastAppliedClient,
+} = useHuiClients({ order, lines, dialog })
 
 // `formulas` 的声明已上提到 setup 开头（引擎依赖它）。以下型材候选三件套
 // （`PING_FAMILY_TYPES` / `belongsToTable` / `profileOptionsFor`）已搬到 `useOrderLines.ts`。
@@ -1171,7 +1145,7 @@ function applyLastOrder(data: LastOrderSnapshot) {
   if (clients.value.some((c) => c.code === order.client_code)) {
     applyClient(order.client_code)
   } else {
-    lastAppliedClient = order.client_code ?? ''
+    setLastAppliedClient(order.client_code)
   }
   // 导入的行按「已保存」着色（旧版是把上次保存的整表行 splice 回来，那些行本来就带保存态）。
   markSaved()
@@ -1207,7 +1181,7 @@ function resetOrder() {
   order.production_status = ''
   order.lock_direction = ''
   lines.value = []
-  lastAppliedClient = ''
+  setLastAppliedClient('')
   markSaved()
   // ⚠️ **不要**在这里写 `smartdoor_last_order`：旧版那个键全文件只有两处
   // （`H:8853` 保存成功时写、`H:8903` 导入时读），**清空订单不动它**。
@@ -1533,7 +1507,7 @@ async function loadOrder(id: number) {
     orderId.value = o.id
     order.receipt_no = o.receipt_no
     order.client_code = o.client_code
-    lastAppliedClient = o.client_code
+    setLastAppliedClient(o.client_code)
     order.client_name = o.client_name
     order.phone = o.phone
     order.brand = o.brand
@@ -1788,9 +1762,7 @@ const tenantName = ref('')
 // 当前登录用户（原版 maker = userinfo.name，打单人）
 const currentUserName = ref('')
 
-const currentClient = computed(() =>
-  clients.value.find((c) => c.code === order.client_code),
-)
+// `currentClient`（按 `order.client_code` 反查当前客户）已随 C5 搬到 `composables/hui/useHuiClients.ts`。
 
 // 原版（@448151 邻近）token = `{a}af{x}wy{now+888}`：
 //   `ds === 'smartdoor'` → a = 1000；否则 a = Number(ds.split('smartdoor')[1]) + 1000
