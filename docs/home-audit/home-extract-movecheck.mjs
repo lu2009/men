@@ -724,6 +724,64 @@ const BLOCKS = [
       progressPrefix: [], progressSuffix: [], moveRowTip: [], hideRowTip: [], showRowTip: [],
       headerFilter: [],
     } },
+  /*
+   * B4（「查单号」）—— 6 个声明：3 `names` + 3 `consts`。
+   *
+   * ⚠️ **段是三段，且段里夹着两个「不是本块」的声明**（这是本轮最容易搬错的一处）：
+   *    `619–624`（三个 ref + 各自 JSDoc）· `646–664`（`orderNoCell`）·
+   *    `2259–2338`（分区头 + `confirmOrderNoQuery` + `clearOrderNoQuery`）。
+   *    ⛔ `617–618` 是 `orderNoQuery` —— **T6/B3** 的，已在 `useHomeFilterView.ts`，本块**注入**它；
+   *    ⛔ `626–644` 是 `splitOrderNos` / `orderNosOf` —— **Task 4** 的，已在 `utils/homeOrderNo.ts`。
+   *    spec §3.1 写的 `617–664` 把这两处一并算了进来（**多算 3 个声明**）：照它搬会重复搬。
+   *
+   * ⚠️ 改写形态（Ruling 55）：`from` 一律带边界 —— `details[` / `loadDetail(` 带尾字符，
+   *    `message.` 带点。本块体里**没有** `(e as Error).message` 那种「裸名」形态，所以带点足够。
+   *    实测命中数（生成器里写死断言，推错立刻现形）：段③里 `orderNoQuery.value`×3 ·
+   *    `page.value`×3 · `expandedRowKeys.value`×5 · `queryMode`/`queryRows`/`rawOrders`/
+   *    `onlyUnproduced`/`filtered` 的 `.value` 各 ×1 · `details[`×1 · `loadDetail(`×1 ·
+   *    `message.`×1。段①是**纯声明**（零 `.value` 读点）⇒ 三个 ref **零改写**。
+   *
+   * ⚠️⚠️ **那三个 ref 不是注入项** —— `orderNoInput` / `orderNoRestoring` / `orderNoPopShow`
+   *    是**本块自己拥有**的（段①声明），两个动作函数里读写的是自己家的东西，体里就是
+   *    `orderNoInput.value`（**没有** `deps.`）。第一版把这三条也当注入写进了改写表 ⇒
+   *    **8 处 TS2339**。
+   *    ★ 这一条值得记：**本守卫当时是绿的** —— 它只比「新侧文本是否符合**登记过的**改写」，
+   *    登记本身写错，它就跟着一起错（旧侧文本也照同一份错规则改写 ⇒ 两边同错 ⇒ 逐字一致）。
+   *    ⇒ **守卫管「有没有改」，不管「改得对不对」**；后者只有 `vue-tsc` 与 35 个台子抓得到。
+   *
+   * ⚠️ **注入是 11 项，不是 spec 写的 8** —— 少算的正是 B3 那三个回传
+   *    （`page` / `filtered` / `onlyUnproduced`），三个都有活读者。清单见新家文件头。
+   *
+   * ⚠️ **本块在 `Home.vue` 的 `<template>` 里零命中**（6 个名字实测一处都没有），唯一读者是
+   *    留在页面的 `columns`。⇒ 别拿别的块「模板绑定必须解构」去套它（见新家文件头那条 ⚠️）。
+   */
+  { target: 'app/src/composables/home/useHomeOrderNo.ts',
+    names: ['orderNoCell', 'confirmOrderNoQuery', 'clearOrderNoQuery'],
+    consts: ['orderNoInput', 'orderNoRestoring', 'orderNoPopShow'],
+    rewrites: {
+      orderNoCell: [
+        { from: 'orderNoQuery.value', to: 'deps.orderNoQuery.value' },
+      ],
+      confirmOrderNoQuery: [
+        { from: 'orderNoQuery.value', to: 'deps.orderNoQuery.value' },
+        { from: 'page.value', to: 'deps.page.value' },
+        { from: 'queryMode.value', to: 'deps.queryMode.value' },
+        { from: 'queryRows.value', to: 'deps.queryRows.value' },
+        { from: 'rawOrders.value', to: 'deps.rawOrders.value' },
+        { from: 'onlyUnproduced.value', to: 'deps.onlyUnproduced.value' },
+        { from: 'filtered.value', to: 'deps.filtered.value' },
+        { from: 'expandedRowKeys.value', to: 'deps.expandedRowKeys.value' },
+        { from: 'details[', to: 'deps.details[' },
+        { from: 'loadDetail(', to: 'deps.loadDetail(' },
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      clearOrderNoQuery: [
+        { from: 'orderNoQuery.value', to: 'deps.orderNoQuery.value' },
+        { from: 'expandedRowKeys.value', to: 'deps.expandedRowKeys.value' },
+        { from: 'page.value', to: 'deps.page.value' },
+      ],
+      orderNoInput: [], orderNoRestoring: [], orderNoPopShow: [],
+    } },
 ]
 
 /**

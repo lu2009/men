@@ -416,7 +416,6 @@
 import {
   computed,
   h,
-  nextTick,
   onMounted,
   ref,
 } from 'vue'
@@ -448,6 +447,7 @@ import { useHomePrint } from '../composables/home/useHomePrint'
 import { useHomeRowEditing } from '../composables/home/useHomeRowEditing'
 import { useHomeManualProgress } from '../composables/home/useHomeManualProgress'
 import { useHomeCellRender } from '../composables/home/useHomeCellRender'
+import { useHomeOrderNo } from '../composables/home/useHomeOrderNo'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS } from '../utils/homeConstants'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
@@ -472,6 +472,8 @@ import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
 //   · B12 → `useHomeCellRender.ts`：`NDivider` / `progressSegments`（页面另外那两处 `progressSegments`
 //     调用就在 B12 里，已随之走）+ `reactive` 与 `type Ref`（页面最后一处用处也都在 B12 里）
 //   · B11 → `useHomeManualProgress.ts`：`InputHTMLAttributes`（页面只为 `manualNameInputProps` 用它）
+//   · B4 → `useHomeOrderNo.ts`：`nextTick`（页面另外两处用处都在 `confirmOrderNoQuery` /
+//     `clearOrderNoQuery` 里，随它们一起走；新家直接从 `vue` import）
 //   · **整条** `import { legacyToday, localToday, pad } from '../utils/homeDate'` 也一并删了 ——
 //     三个名字在 B11 搬完后**都没有页面上最后一处用处**了（`localToday` 随 `confirmAudit`、
 //     `pad` 随 `isoDate`（与 T12 的 `submitDate`）、`legacyToday` 随 `openManualProgress`），
@@ -554,33 +556,13 @@ async function onLogout() {
 
 // ---------------------------------------------------------------------------
 // 「查单号」（§3.2，旧版 `po`/`fo`/`ho`/`Co` @ `:7671`）
-// ---------------------------------------------------------------------------
-/** 弹窗里输入框的内容（旧版 `fo`）。确认时会被补齐年份后缀后写回。 */
-const orderNoInput = ref('')
-/** 「恢复中…」标志（旧版 `ho`）—— 清除按钮在做收起动画期间显示这个字。 */
-const orderNoRestoring = ref(false)
-/** 「查单号」popover 的显隐（旧版 `Co`，受控，因为确认/清除都要主动关它）。 */
-const orderNoPopShow = ref(false)
-
-/**
- * 单号集单元格显示什么（旧版 `To`，`:7699-7701`）：
- * ```js
- * To = e => { const l = So(e)                       // So = Uo(单号集)
- *             if (!l.length) return ""
- *             const o = String(po.value || "").trim().toLowerCase()
- *             return o ? (l.find(x => String(x||"").toLowerCase().startsWith(o)) || l[0] || "")
- *                      : (l[0] || "") }
- * ```
- * ⇒ **查单号生效时显示「以关键字开头的那一段」**，否则显示第一段。
- * （旧版 `:7700` 用的是 `startsWith`，不是 `includes` —— 别按「包含」理解。）
- */
-function orderNoCell(r: OrderSummaryDto): string {
-  const parts = orderNosOf(r)
-  if (!parts.length) return ''
-  const q = orderNoQuery.value.trim().toLowerCase()
-  if (!q) return parts[0] || ''
-  return parts.find((p) => p.toLowerCase().startsWith(q)) || parts[0] || ''
-}
+//
+// 2026-09-20 本节的**声明**整块搬到 `composables/home/useHomeOrderNo.ts`（逐字搬迁，零行为变化）
+// —— 含原本长在这里的 `orderNoInput` / `orderNoRestoring` / `orderNoPopShow` 三个 ref。
+// **调用点在下面**「查单号的动作」那一节：它注入 B6（`useHomeExpand`）的回传，只能排在 B6 之后，
+// 留不到本处（本处早于 B6）。本节剩下来的只有**页面自己的**东西：留在页面的 `columns` 里那一格
+// （「单号集」列，`title`/`render` 里读写那三个 ref + 调 `orderNoCell`）。
+// ⚠️ 这 6 个名字**在 `<template>` 里零命中**（实测）—— 别照别块的「模板绑定必须解构」类推。
 
 // 「查询更多」的结果集与其生效标志 —— 完整口径见下方「查询更多（审计 C21）」一节。
 // 旧版 `ps` 的头一句就是 `gs.value ? ws.value : fs.value`（`:11153`/`:11172`，`fs` 读全量 `_l`）：
@@ -837,89 +819,27 @@ function rowClass(r: OrderSummaryDto): string {
   return classes.join(' ')
 }
 
-
-
-
 // ---------------------------------------------------------------------------
-// 「查单号」的两个动作（旧版 `Yo`/`Wo`，`:7702-7743`）
+// 「查单号」的动作（§3.2 旧版 `Yo`/`Wo`）—— 声明已归位到 `composables/home/useHomeOrderNo.ts`
+// （2026-09-20 逐字搬迁，零行为变化），这里只留调用点 —— 搬出的名字仍在同一作用域，
+// 所以下面 `columns` 里那一格一行都没改。
+//
+// ⚠️ **构造顺序**：11 项注入分属 B1 / B3 / B6 与页面（`message`）⇒ 本行必须在
+//    `useHomeExpand`(B6) **之后**。这正是它不能留在原处的原因（那三个 ref 原本在「筛选」一节
+//    下面，早于 B6）—— 往前挪 = 拿到 `undefined`，且**不一定报错**。
+//
+// ⚠️ **6 个名字全部解构**（写成 `orderNo.xxx` 也能跑，是**约定**）：实测它们在 `<template>`
+//    里**零命中**，唯一的读者就是下面留在页面的 `columns`（它按 **显式 `.value`** 读写，
+//    那是普通 JS、不吃模板自动解包）⇒ 解构的实际好处是**让 `columns` 一行都不用改**。
+//    完整理由（含「别把这条类推到 B7 的 `rowClass`」）见新家文件头。
 // ---------------------------------------------------------------------------
-/**
- * 「确认」/输入框回车（旧版 `Yo`，`:7702-7729`）。
- *
- * 四步，逐字对齐：
- *  ① **补年份后缀**：输入里若没有 `-两位数字`（正则 `-\d{2}\b`）就补 `-` + 当前年份后两位。
- *     `String((new Date).getFullYear()).slice(-2)`（`dr(962)`=getFullYear、`dr(1001)`=slice）。
- *  ② 在「查询结果集 / 全量列表」`gs ? ws : fs` 里找，**再叠「未生产」那一步** ——
- *     注意：旧版这一步**不含**进度/付款/搜索/列头筛选，与主表 `ps` 的样本不同，照抄。
- *  ③ 没命中 → `warning("查不到「{关键字}」单号！")`，且 **`po` 清空**（不留下一个筛不出东西的关键字）。
- *  ④ 命中 → 写 `po`、回第 1 页、关弹窗、**展开筛选结果的第一行**。
- */
-async function confirmOrderNoQuery() {
-  const raw = orderNoInput.value.trim()
-  // ① 补年份后缀（旧版 :7703-7709）
-  const q = raw ? (/-\d{2}\b/.test(raw) ? raw : `${raw}-${String(new Date().getFullYear()).slice(-2)}`) : ''
-  orderNoInput.value = q
-  if (!q) {
-    orderNoQuery.value = ''
-    page.value = 1
-    orderNoPopShow.value = false
-    return
-  }
-  // ② 找（旧版 :7710-7716）
-  let pool = queryMode.value ? queryRows.value : rawOrders.value
-  if (onlyUnproduced.value) {
-    pool = pool.filter((r) => !r.production_status || r.production_status.trim() === '')
-  }
-  const key = q.toLowerCase()
-  const hit = pool.some((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(key)))
-  // ③ 没命中（旧版 :7717-7718）
-  if (!hit) message.warning(`查不到「${q}」单号！`)
-  orderNoQuery.value = hit ? q : ''
-  page.value = 1
-  orderNoPopShow.value = false
-  if (!hit) return
-  // ④ 展开第一条（旧版 :7719-7728）
-  await nextTick()
-  const first = filtered.value[0]
-  if (!first) return
-  if (!expandedRowKeys.value.some((k) => Number(k) === first.id)) {
-    expandedRowKeys.value = [...expandedRowKeys.value, first.id]
-    if (!details[first.id]) loadDetail(first.id)
-  }
-  // ⚠️ 旧版这里还有一段 800ms 后「滚到居中」：它找的是 `.highlight-matched-order`，
-  //    而那个类由 **Hui 子表**按 `row.单号.startsWith(po)` 加（`Hui.formatted.js:1352-1356`
-  //    / `:3788-3792`，靠 Home 往下传 `highlightOrderQuery`）。
-  //
-  //    ⚠️ **这条注释 2026-09-19 更正过**：原写「新版做不了，`OrderLineDto` 里没有『单号』字段」
-  //    —— **已过期**。迁移 `0020` 之后 `OrderLineDto.line_no` **已经存在**
-  //    （`app/src/api/types.ts:162`），样式也随组件搬到了 `components/DetailLinesTable.vue:1366-1371`。
-  //    ⇒ 现在**做得了、只是没做**（这一点属「数据模型补回之前无落点」那个理由的失效，
-  //    见 `docs/home-audit/02-actions.md` 的 I4，判定已从 ✅ 改成 ⚠️）。
-  //    所以这里仍然刻意不写滚动 —— 但**理由变了**：不是「做不了」，是**还没做**。
-  //    （旧版在找不到该元素时同样直接 return，不滚。）
-}
-
-/**
- * 「清除」（旧版 `Wo`，`:7730-7743`）：清关键字 → 清输入 → 关弹窗 →
- * **收起所有已展开的行**（`jo` 遍历 → `toggleRowExpansion(row, false)` → `jo.clear()`）。
- *
- * ⚠️ 时间轴照抄：先置 `ho=true`（按钮变「恢复中…」），**50ms 后**才干活，干完才 `ho=false`。
- *    那个 `setTimeout(..., 50)` 是旧版原样（`:7741-7743`），不是我们加的。
- */
-function clearOrderNoQuery() {
-  orderNoRestoring.value = true
-  setTimeout(async () => {
-    orderNoQuery.value = ''
-    orderNoInput.value = ''
-    orderNoPopShow.value = false
-    await nextTick()
-    if (expandedRowKeys.value.length) {
-      expandedRowKeys.value = []
-    }
-    page.value = 1
-    orderNoRestoring.value = false
-  }, 50)
-}
+const {
+  orderNoInput, orderNoRestoring, orderNoPopShow,
+  orderNoCell, confirmOrderNoQuery, clearOrderNoQuery,
+} = useHomeOrderNo({
+  rawOrders, orderNoQuery, onlyUnproduced, filtered, page, queryRows, queryMode,
+  expandedRowKeys, details, loadDetail, message,
+})
 
 // ---------------------------------------------------------------------------
 // 手动更新进度 + 自定义进度项（§3 `Ea`/`La`/`ua`；§4.7 `Ha`/`ln`/`on`/`Ua`/`Ia`/`Sa`/`Ta`/`Ya`/`Wa`）

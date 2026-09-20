@@ -5,10 +5,12 @@
  * **真的跑**，拿同一批夹具跑新版实现逐条比。**不手抄旧版函数** ——
  * 手抄等于引入转写错误。
  *
- * ⚠️ 新版实现在**两个**文件里（2026-09-20 Task 4 归位后）：
- *   · `app/src/utils/homeOrderNo.ts` —— `splitOrderNos()`（本笔从 `Home.vue` 搬出，纯搬迁）
- *   · `app/src/views/Home.vue`       —— `orderNoCell()` / `confirmOrderNoQuery()` 第 ① 步 /
- *                                       `filtered` 里那段 `po` filter（**都还没搬走**）
+ * ⚠️ 新版实现在**三个**文件里（2026-09-20 两次归位之后，`Home.vue` 里已经一件都不剩）：
+ *   · `app/src/utils/homeOrderNo.ts`  —— `splitOrderNos()`（Task 4 从 `Home.vue` 搬出，纯搬迁）
+ *   · `app/src/composables/home/useHomeOrderNo.ts` —— `orderNoCell()` 与
+ *     `confirmOrderNoQuery()` 第 ① 步（**Task 7** 从 `Home.vue` 搬出，纯搬迁）
+ *   · `app/src/composables/home/useHomeFilterView.ts` —— `filtered` 里那段 `po` filter
+ *     （**Task 6** 随 `filtered` 整块搬出；不是 Task 7 动的）
  *
  * 对照的四段**纯逻辑**（其余是弹窗显隐 / 翻页 / 展开这类流程，靠读源码 + tsc + 构建兜底）：
  *   ① `Uo`（`:7694-7697`）拆单号集           → `splitOrderNos()`
@@ -16,7 +18,7 @@
  *   ③ `Yo` 里的**补年份后缀**（`:7703-7709`）  → `confirmOrderNoQuery()` 第 ① 步
  *   ④ `ps` 里的 **`po` 筛选谓词**（`:11160`）  → `filtered` 里那段 filter
  *
- * ⚠️ 新版那几段是本文件里照抄的一份（同逻辑、同夹具）。改上面**两个**文件时要同步改这里。
+ * ⚠️ 新版那几段是本文件里照抄的一份（同逻辑、同夹具）。改上面**三个**文件时要同步改这里。
  *
  * 用法：node docs/home-audit/orderno-logiccheck.mjs
  */
@@ -72,8 +74,9 @@ const legacy = runLegacy(
 )
 
 // ------------------------------------------------------------------ 新版实现 //
-// ⚠️ 与 `app/src/views/Home.vue` 的 `splitOrderNos()` / `orderNoCell()` /
-//    `confirmOrderNoQuery()` 第 ① 步 / `filtered` 里那段 `po` filter 同逻辑。
+// ⚠️ 与 `utils/homeOrderNo.ts` 的 `splitOrderNos()`、`composables/home/useHomeOrderNo.ts` 的
+//    `orderNoCell()` / `confirmOrderNoQuery()` 第 ① 步、`composables/home/useHomeFilterView.ts`
+//    里那段 `po` filter 同逻辑（三处都不在 `Home.vue` 了 —— 见文件头）。
 let poValue = '' // 新版 `orderNoQuery`
 function splitOrderNos(v) {
   const s = String(v ?? '').trim()
@@ -122,7 +125,7 @@ const YEAR_CASES = ['', '  ', '199', '199-26', '199-2', 'A1', '199-', 'x199', '1
 let pass = 0
 let fail = 0
 
-// ------------------------------------------- 漂移守卫：对着新版源码真身（两个文件） //
+// ------------------------------------------- 漂移守卫：对着新版源码真身（三个文件） //
 /**
  * ⚠️ 上面「新版实现」那段是**本文件里照抄的一份**（见文件头那句）——
  * 所以**它能过，不代表新版没漂**：函数改名、`_` 改成空格、`startsWith`
@@ -133,19 +136,43 @@ let fail = 0
  *
  * ⚠️ **2026-09-20 Task 4**：`splitOrderNos` / `orderNosOf` 已归位到
  *    `app/src/utils/homeOrderNo.ts`（纯搬迁，逐字未改）⇒ 抠它得改指向新文件。
- *    其余三件（`orderNoCell` / `confirmOrderNoQuery` / `filtered` 的谓词）**还没搬**
- *    （`orderNoCell` 与 `confirmOrderNoQuery` 归 Task 7，`filtered` 归 Task 6）
- *    ⇒ 它们**仍然从 `HOME_SRC` 抠**，一个字都不用改。
+ *
+ * ⚠️ **2026-09-20 Task 7**：`orderNoCell` / `confirmOrderNoQuery` 也归位到
+ *    `app/src/composables/home/useHomeOrderNo.ts`（纯搬迁，逐字未改）⇒ 上面两条各自的
+ *    `src` 跟着换（`CELL_BODY` / `YEAR_SNIP`）。
+ *    ★ 本次实测把**三条锚**一起打红了（6 条 `need`），正好把「锚失效」的三种形态各演了一遍：
+ *      ① `fnBody('orderNoCell')` —— 默认源里**函数没了** ⇒ 返回 `''`（预期之内）；
+ *      ② `near('confirmOrderNoQuery')` —— 函数**不在**默认源里了，可**这个名字还在**
+ *         （页面侧的解构语句 + 调用点注释）⇒ `near()` 抠到的是**标识别处**、窗口里没有函数体，
+ *         于是两条 `need` 报的是**普通不符**（**不是**「抠不到」）—— **这种情况最像真漂**，
+ *         光看输出分不出「搬走了」和「改坏了」⇒ 所以下面把锚**收紧成 `function …`**，
+ *         让它只能命中声明；
+ *      ③ `near('orderNosOf(r)')` —— `orderNosOf` 还在页面里，但**调用点**只剩
+ *         `orderNosOf(row)`（在留在页面的 `columns` 里），**匹配不上 `(r)`** ⇒ 返回 `''`。
+ *         ⇒ 该谓词的**正主**其实是 `filtered`（**Task 6** 已整块搬到 `useHomeFilterView.ts`）
+ *         —— 以前它抠的是 `orderNoCell` 体里那句 `orderNosOf(r)`（**撞对了，不是测对了**：
+ *         测的是 orderNoCell 的一个内部调用，不是筛选谓词）。现在指到真正的谓词那一行。
  */
 const HOME_SRC = readFileSync(new URL('../../app/src/views/Home.vue', import.meta.url), 'utf8')
 // 2026-09-20 Task 4：`splitOrderNos` / `orderNosOf` 已归位到 utils/homeOrderNo.ts（纯搬迁，逐字未改）
 const ORDERNO_SRC = readFileSync(new URL('../../app/src/utils/homeOrderNo.ts', import.meta.url), 'utf8')
+// 2026-09-20 Task 7：`orderNoCell` / `confirmOrderNoQuery` 已归位到 useHomeOrderNo.ts（纯搬迁，逐字未改）
+const ORDERNO_COMPOSABLE_SRC = readFileSync(
+  new URL('../../app/src/composables/home/useHomeOrderNo.ts', import.meta.url),
+  'utf8',
+)
+// `filtered` 里那段 `po` 谓词的正主（Task 6 整块搬走；Task 7 才把指针改准）
+const FILTERVIEW_SRC = readFileSync(
+  new URL('../../app/src/composables/home/useHomeFilterView.ts', import.meta.url),
+  'utf8',
+)
 
 /**
  * 取 `function <name>(` 起那段配平的 `{}`（这几个函数体里没有裸 `}` 字面量，够用）。
  *
- * ⚠️ `src` 默认 `HOME_SRC` —— 那三件「还没搬走」的调用点因此**一个字都不用改**。
- *    只有已经归位的 `splitOrderNos` 显式传 `ORDERNO_SRC`。
+ * ⚠️ `src` 默认 `HOME_SRC`（`filtered` 那几条 `need` 用的 `near` 默认源也是它）。
+ *    `HOME_SRC` **不能删**：本台子里仍有**留在页面**的东西要抠（`columns` 里那些调用点、
+ *    模板里的绑定），只是「三件旧实现」如今都不在它里面了。
  */
 function fnBody(name, src = HOME_SRC) {
   const at = src.indexOf(`function ${name}(`)
@@ -170,42 +197,48 @@ const need = (label, body, re) => {
   else if (!re.test(body)) drift.push(label)
 }
 
-// ⚠️ 只有这一条改用 `ORDERNO_SRC`（Task 4 把它搬走了）；下面三件仍从 `HOME_SRC` 抠。
+// ⚠️ 四条各自指到**自己那件东西的正主**（Task 4 搬了第一件、Task 7 搬了第二三件、Task 6 搬了第四件）。
 const SPLIT_BODY = fnBody('splitOrderNos', ORDERNO_SRC)
 need('splitOrderNos 按 "_" 切', SPLIT_BODY, /split\('_'\)/)
 need('splitOrderNos 逐段 trim', SPLIT_BODY, /\.trim\(\)/)
 need('splitOrderNos 去掉空段', SPLIT_BODY, /filter\(Boolean\)/)
-const CELL_BODY = fnBody('orderNoCell')
+// Task 7：`orderNoCell` 已搬到 useHomeOrderNo.ts（`src` 跟着换）
+const CELL_BODY = fnBody('orderNoCell', ORDERNO_COMPOSABLE_SRC)
 need('orderNoCell 用 startsWith（不是 includes）', CELL_BODY, /startsWith/)
 need('orderNoCell 小写化后再比', CELL_BODY, /toLowerCase/)
 
-const YEAR_SNIP = near('confirmOrderNoQuery', 700)
+// Task 7：锚**收紧成 `function confirmOrderNoQuery`**（原来只有裸名）。
+// 裸名在搬走之后仍会命中页面侧的**解构语句与注释**⇒ `near()` 抠到的是一段没有函数体的文本，
+// 两条 `need` 报的是**普通不符**而不是「抠不到」—— 那种红灯和「真漂了」长得一模一样，分不出。
+// 加 `function ` 之后锚只可能落在声明上（实测新家里这个名字只出现 1 次）。
+const YEAR_SNIP = near('function confirmOrderNoQuery', 700, ORDERNO_COMPOSABLE_SRC)
 need('补年份：已带 -YY 就原样保留', YEAR_SNIP, /\\d\{2\}/)
 need('补年份：取当前年份后两位', YEAR_SNIP, /getFullYear\(\)\)\.slice\(-2\)/)
 
-// `filtered` 里那段 `po` 筛选谓词
+// `filtered` 里那段 `po` 筛选谓词 —— **Task 7 把它的源与锚都改准了**。
 //
-// ⚠️ **2026-09-20 Task 4：这一条有意留在 `HOME_SRC`（默认源），不跟着 `orderNosOf` 搬去新文件。**
-//    锚点 `orderNosOf(r)` 是一个**调用点**、不是声明 —— 声明搬到 `utils/homeOrderNo.ts` 后，
-//    `Home.vue` 里的调用点（`orderNoCell` 的 `const parts = orderNosOf(r)`、`filtered` 的谓词、
-//    `confirmOrderNoQuery` …）**全都还在**。而两个 `need` 要的 `startsWith` / `toLowerCase`
-//    本来就长在**调用点**旁边，不在那个一行声明里。
-//    实测（本笔落地时跑的）：`ORDERNO_SRC.indexOf('orderNosOf(r)')` = **-1**
-//    （新文件里那句是 `const orderNosOf = (r: OrderSummaryDto) => …`，没有 `orderNosOf(r)` 这个子串）
-//    ⇒ 真改指向新文件的话 `near()` 返回 `''`、两条 `need` 直接**假报红**。
-//    ⇒ 裁定：留默认源；`orderNosOf` 的**声明**由 `home-extract-movecheck.mjs` 逐字守着（更强）。
-const PO_SNIP = near('orderNosOf(r)', 300)
+// 改之前（Task 4 那笔）：锚是 `orderNosOf(r)`、源是默认的 `HOME_SRC`，理由是「调用点都还在页面」。
+// 那个理由**当时就不结实，Task 7 之后彻底不成立**：
+//   · `orderNoCell` 里那句 `const parts = orderNosOf(r)` —— 随 Task 7 走了；
+//   · `confirmOrderNoQuery` 里那句 —— 也随 Task 7 走了；
+//   · 页面里**只剩** `columns` 那一处 `orderNosOf(row)`（`(row)` 不是 `(r)`，**匹配不上**）
+//     ⇒ `HOME_SRC.indexOf('orderNosOf(r)')` 现在是 **-1**。
+// ⇒ 更要紧的是：那两条 `need` 本来想钉的是**筛选谓词**，可它以前实际钉的是
+//   `orderNoCell` 内部的调用 —— **撞对了，不是测对了**。现在指到谓词真身
+//   （`filtered` 里 `list.filter((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(q)))`，
+//   Task 6 随 `filtered` 整块搬进 `useHomeFilterView.ts`）⇒ 这两条才**真的**在测谓词。
+const PO_SNIP = near('orderNosOf(r)', 300, FILTERVIEW_SRC)
 need('筛选谓词走 orderNosOf + startsWith', PO_SNIP, /startsWith/)
 need('筛选谓词小写化后再比', PO_SNIP, /toLowerCase/)
 
 if (drift.length) {
   fail += drift.length
-  console.log('\n⛔ `Home.vue` 与本文档的模型已漂开：')
+  console.log('\n⛔ 新版源码真身与本文档的模型已漂开（`Home.vue` + 三个新家）：')
   for (const d of drift) console.log(`   ✗ ${d}`)
   console.log('   （上面那批行为对照**测不出**这个 —— 它比的是本文件里照抄的一份）\n')
 } else {
   pass++
-  console.log('✓ 漂移守卫：`Home.vue` 真身里那几个判据都还在（_ 切分 / startsWith / 补年份 / 小写化）')
+  console.log('✓ 漂移守卫：四件真身里那几个判据都还在（_ 切分 / startsWith / 补年份 / 小写化）')
 }
 
 // -------------------------------------------------------------------- 对照 //
