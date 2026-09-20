@@ -60,10 +60,41 @@ const OLD_PATH = 'app/src/views/Home.vue'
  *     consts: ['BAZ'],                  // const BAZ = ...（含 computed / ref）
  *     rewrites: { foo: [{ from: '…', to: '…' }] } }  // 声明的改写，可省
  *
- * ⚠️ **此刻是空的**（2026-09-20 立骨架时）—— 第一个真条目由 Task 2 加。
- * 空清单下本脚本对真代码**没有任何检验力**（它只证明「跑得起来」）。
+ * ⚠️ **清单是空的那些日子**（2026-09-20 立骨架时）本脚本对真代码**没有任何检验力**
+ * （它只证明「跑得起来」）。Task 2 加了第一条（B2 → `utils/homeMetrics.ts`），现在它开始真保护代码。
  */
-const BLOCKS = []
+const BLOCKS = [
+  {
+    target: 'app/src/utils/homeMetrics.ts',
+    names: ['paymentStatus', 'progressMatch', 'paidOf', 'dateCellClass', 'isUnaudited'],
+    consts: ['fmt', 'unpaidOf'],
+    rewrites: {
+      // ① 搬到模块级并导出（新文件里每个声明都加 `export`）。
+      fmt: [{ from: 'const fmt = ', to: 'export const fmt = ' }],
+      // ② 读 `financeSummary.value` 的两处 → 形参 `fin`（unpaidOf / paidOf 各一处）。
+      unpaidOf: [
+        { from: 'const unpaidOf = (r: OrderSummaryDto) => {', to: 'export const unpaidOf = (r: OrderSummaryDto, fin: Record<string, OrderFinance>) => {' },
+        { from: 'const s = financeSummary.value[r.id]', to: 'const s = fin[r.id]' },
+      ],
+      paidOf: [
+        { from: 'function paidOf(r: OrderSummaryDto): number {', to: 'export function paidOf(r: OrderSummaryDto, fin: Record<string, OrderFinance>): number {' },
+        { from: 'const s = financeSummary.value[r.id]', to: 'const s = fin[r.id]' },
+      ],
+      // ③ 两个下游函数的签名加形参 + 内部调用点跟着改（同一名字的多条规则写在同一个数组里）。
+      paymentStatus: [
+        { from: 'function paymentStatus(r: OrderSummaryDto): string {', to: 'export function paymentStatus(r: OrderSummaryDto, fin: Record<string, OrderFinance>): string {' },
+        { from: 'const unpaid = unpaidOf(r)', to: 'const unpaid = unpaidOf(r, fin)' },
+      ],
+      dateCellClass: [
+        { from: 'function dateCellClass(r: OrderSummaryDto): string {', to: 'export function dateCellClass(r: OrderSummaryDto, fin: Record<string, OrderFinance>): string {' },
+        { from: 'if (!due || unpaidOf(r) === 0) return', to: 'if (!due || unpaidOf(r, fin) === 0) return' },
+      ],
+      // ④ 只加 `export`、签名一字未动的那两个。
+      progressMatch: [{ from: 'function progressMatch(', to: 'export function progressMatch(' }],
+      isUnaudited: [{ from: 'function isUnaudited(', to: 'export function isUnaudited(' }],
+    },
+  },
+]
 
 /**
  * 反查：这些名字搬走后，Home.vue 里不该再有自己的定义（否则两份实现各自漂移）。

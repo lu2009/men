@@ -183,7 +183,7 @@ Home.vue 里下列规则**是裸类名、没有 `:deep()` 版本，且目标元�
 
 | 块 | 落点 | 覆盖行段 | 注入 | 自洽性说明 |
 |---|---|---|---|---|
-| **B2** | `utils/homeMetrics.ts` | 578–604 + 761–764 + 1001–1016 | `financeSummary` | 纯函数集（`fmt`/`unpaidOf`/`paidOf`/`paymentStatus`/`progressMatch`/`isUnaudited`/`dateCellClass`）。**最安全的一刀** |
+| **B2** | `utils/homeMetrics.ts` | **实测**：578–604 + 757–764 + 974–1016<br>（方案原写 578–604 + 761–764 + 1001–1016 —— 差在「紧贴函数上方的文档注释」，见 §8.2 #7） | `financeSummary` | 纯函数集（`fmt`/`unpaidOf`/`paidOf`/`paymentStatus`/`progressMatch`/`isUnaudited`/`dateCellClass`）。**最安全的一刀**。<br>✅ **2026-09-20 实做完毕**：7 个导出逐字搬迁（守卫 `home-extract-movecheck.mjs` 的第一条），`npm run verify` 35/35。**搬走 78 行**（不含 3 行空行） |
 | **B10** | `composables/home/useHomeSelection.ts` | 1550–1886 + 1167–1189 | 8 项 | 删除选中 + 清账。**唯一没有第三方写入者的一块**（`checkedRowKeys` 是它「拥有并借出」的状态）⇒ **建议第一刀** |
 | **B3** | `composables/home/useHomeFilterView.ts` | 606–613 + 689–714 + 716–883 + 885–956 | 7 项 | **必须四段合一**：`watch`(945) 监听 4 个筛选 ref、`watch`(954) 读 `querySearchPreset`。分开就互相注入。全文件最大的 hub：7 项注入换 25+ 项输出 |
 | **B4** | `composables/home/useHomeOrderNo.ts` | 617–664 + 2259–2338 | 8 项 | 注入偏多但都是薄胶水。**不得吞 `filtered`**（那是 B3 的） |
@@ -454,6 +454,7 @@ app/src/components/hui/      ← 同上
 | 4 | ⚠️ **更正：现有 `hui-extract-movecheck.mjs` 的 `REF=d6057283` 必须原样保留，不能改成 `28e36d21`。** 实测（2026-09-20）：默认 REF **退出 0**（47 + 46 逐字一致）；换成 `28e36d21` **退出 1**，12 处报「在 28e36d21:Hui.vue 里找不到」—— 因为那个脚本钉的是**抽 `useOrderLines` 之前**，而 28e36d21 上那些函数早已搬走。**本次新建的 Home 守卫才用 `REF=28e36d21`**（它钉的是「拆分之前」）。两个守卫的参照各钉各的，别合并 |
 | 6 | ⚠️ **接进统一入口会踩 CI 的浅克隆。** `ci.yml` 用 `actions/checkout@v4` 且**没设 `fetch-depth`** ⇒ 默认只取 1 个提交 ⇒ movecheck 的 `git show <旧提交>` 在 CI 上必然失败（`execSync` 抛错 ⇒ 退出非 0 ⇒ 记 ❌ 真失败，**是 fail-loud 的，不会静默放过**）。处置：给 checkout 加 `fetch-depth: 0`。代价实测：本仓库 `size-pack` 651 MiB / 283 提交，比 Rust 构建小一个量级，可接受 |
 | 5 | §1.5 那批死 CSS 的「不生效」依据是**本仓库两次实测记录 + 机制分析**，我**没有**跑浏览器复现（本仓库无浏览器驱动）。若哪天有了浏览器验收手段，这一条应重新实测 |
+| 7 | **B2 实测 vs 方案**（2026-09-20，实做后补记）。① **行段比方案大**：§3.1 原写 `578–604 + 761–764 + 1001–1016`，实测搬的是 `578–604 + 757–764 + 974–1016` —— 多出的 `757–760`、`974–1000` 是**紧贴在 `paidOf` / `dateCellClass` 上方的文档注释**。不跟着搬就会在 `Home.vue` 留下**指向已删函数的悬空注释**（`974–1000` 那条 JSDoc 里写着「见下面 `dateCellClass`」），即本仓库明令禁止的「文档与代码不一致」⇒ 已**随函数一起搬进 `utils/homeMetrics.ts`**（信息零丢失），并同步改掉 `Home.vue` 里「⇒ 下面 `dateCellClass()`」的「下面」二字。**其余 11 块很可能同样比方案写的大**，见 #2。<br>② **方案漏了一种调用点形态**：简报只列了 `unpaidOf(r)` 这类**调用**，而 `Home.vue` 还有两处**裸引用** —— `distinctOptions(paidOf)` / `distinctOptions(unpaidOf)`（把函数本身当 `pick` 回调传走）。加了 `fin` 形参后必须改成 `distinctOptions((r) => paidOf(r, financeSummary.value))`，否则 `fin` 是 `undefined`、`fin[r.id]` 直接抛。**⇒ 后续各块搬迁时，「grep 调用点」要连「把函数当值传走」一起 grep**（`grep -nE '\bname\b'` 而不是 `grep 'name('`） |
 
 ---
 

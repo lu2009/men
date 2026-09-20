@@ -452,6 +452,7 @@ import {
 import { api } from '../api/client'
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
+import { dateCellClass, fmt, isUnaudited, paidOf, paymentStatus, progressMatch, unpaidOf } from '../utils/homeMetrics'
 import type { Line } from '../utils/partsEngine'
 import { canSeeAllOrders } from '../utils/roles'
 import { useAuthStore } from '../stores/auth'
@@ -576,34 +577,6 @@ async function onLogout() {
 }
 
 // ---------------------------------------------------------------------------
-// 财务/进度口径（§7.1）
-// ---------------------------------------------------------------------------
-const fmt = (v: number) => (v ?? 0).toFixed(2)
-// 未收金额：优先取财务摘要（服务端下发的「未收金额」），否则回退 总价-定金（§7.1）。
-const unpaidOf = (r: OrderSummaryDto) => {
-  const s = financeSummary.value[r.id]
-  return s ? s.unpaid_amount : r.total_price - r.deposit
-}
-
-function paymentStatus(r: OrderSummaryDto): string {
-  const unpaid = unpaidOf(r)
-  if (unpaid <= 0) return '已付'
-  if (r.total_price > 0 && unpaid >= r.total_price) return '未付'
-  return '部分付'
-}
-
-function progressMatch(r: OrderSummaryDto, opt: string): boolean {
-  const s = r.production_status || ''
-  if (opt === '已打生产单') return s.includes('生产单')
-  if (opt === '未打生产单') return !s.includes('生产单')
-  if (opt === '已订玻璃') return s.includes('玻璃订单')
-  if (opt === '未订玻璃') return !s.includes('玻璃订单')
-  if (opt === '显示全部') return true
-  // 旧版 `Ao`（`:7684-7686`）的收尾分支：`n.includes(a)` —— 自定义项按「打单操作里含该串」命中。
-  return s.includes(opt)
-}
-
-// ---------------------------------------------------------------------------
 // 筛选（§3.1：未生产 → 付款状态 → 进度 → 搜索文本）
 // ---------------------------------------------------------------------------
 const searchText = ref('')
@@ -702,7 +675,7 @@ const filtered = computed(() => {
     list = list.filter((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(q)))
   }
   if (paymentFilter.value !== '全部显示') {
-    list = list.filter((r) => paymentStatus(r) === paymentFilter.value)
+    list = list.filter((r) => paymentStatus(r, financeSummary.value) === paymentFilter.value)
   }
   if (progressFilter.value !== '显示全部') {
     list = list.filter((r) => progressMatch(r, progressFilter.value))
@@ -754,15 +727,6 @@ function distinctOptions(pick: (r: OrderSummaryDto) => string | number): ColumnF
   return out
 }
 
-// 旧版 `ma`（`:7986-7991`，已付列 `:11469`）：distinct 的是 **`co(row)` 金额数字**，不是「已付」标签。
-// `co`（`:7660`）= `Ht && 已分配金额 != null ? 已分配金额 : 定金||0`；
-// 新版财务摘要的 `allocated_amount`（后端注释即「已分配金额」，finance/service.rs:39-42）就是那个字段，
-// 取不到摘要时回退 `定金||0` —— 与既有 `unpaidOf`（旧版 `so`）同构。
-function paidOf(r: OrderSummaryDto): number {
-  const s = financeSummary.value[r.id]
-  return s ? s.allocated_amount : r.deposit || 0
-}
-
 // 旧版 `ga(value,row,column)`（`:7996-8002`）：
 //   ① 打单操作列 + 哨兵值 → 该列值为空/纯空白即命中（`!v || (typeof v==='string' && v.trim()==='')`）；
 //   ② 其余一律 `row[prop] === value` **严格相等**（不是模糊匹配，也不做类型转换）。
@@ -786,8 +750,8 @@ function textColumnFilter(key: TextFilterKey, value: string | number, row: Order
 }
 
 // 旧版 `ya`（`:8003`）= `co(row)===e`；`fa`（`:8003`）= `so(row)===e`。
-const paidColumnFilter = (value: string | number, row: OrderSummaryDto) => paidOf(row) === value
-const unpaidColumnFilter = (value: string | number, row: OrderSummaryDto) => unpaidOf(row) === value
+const paidColumnFilter = (value: string | number, row: OrderSummaryDto) => paidOf(row, financeSummary.value) === value
+const unpaidColumnFilter = (value: string | number, row: OrderSummaryDto) => unpaidOf(row, financeSummary.value) === value
 
 /**
  * 所有列头筛选的**合并判定**（多值 OR、列间 AND —— 与 naive / Element 的 `filter-multiple` 语义一致）。
@@ -843,8 +807,8 @@ const productionStatusFilterOptions = computed(() => {
   return opts
 })
 // 已付 / 未付（旧版 `ma` `:7986-7991` / `wa` `:7991-7995`）：选项同样是 distinct 的金额数字。
-const paidFilterOptions = computed(() => distinctOptions(paidOf))
-const unpaidFilterOptions = computed(() => distinctOptions(unpaidOf))
+const paidFilterOptions = computed(() => distinctOptions((r) => paidOf(r, financeSummary.value)))
+const unpaidFilterOptions = computed(() => distinctOptions((r) => unpaidOf(r, financeSummary.value)))
 
 // 受控写法：Naive 2.45 的 n-data-table **没有表级 `filters` prop**，受控只能落在列的
 // `filterOptionValues` 上（`use-table-data.mjs:58-68` 的 `mergedFilterStateRef`）。
@@ -873,9 +837,9 @@ const summary = computed(() => {
   const total = list.reduce((s, r) => s + r.total_price, 0)
   // 已付（旧版 `as` `:10994-10996`）：`Σ (已分配金额 ?? 定金||0)` —— 与列头筛选用的
   // `paidOf`（旧版 `co`，`:7660-7662`）**同一个口径**，直接复用。
-  const paid = list.reduce((s, r) => s + paidOf(r), 0)
-  const unpaid = list.reduce((s, r) => s + unpaidOf(r), 0)
-  const unpaidCount = list.filter((r) => unpaidOf(r) > 0).length
+  const paid = list.reduce((s, r) => s + paidOf(r, financeSummary.value), 0)
+  const unpaid = list.reduce((s, r) => s + unpaidOf(r, financeSummary.value), 0)
+  const unpaidCount = list.filter((r) => unpaidOf(r, financeSummary.value) > 0).length
   const unaudited = list.filter(
     (r) => !r.production_status?.trim() && !r.order_no_set?.trim(),
   ).length
@@ -962,7 +926,7 @@ watch(searchText, (v) => {
 //   · **行级** `Qo`（`:7842-7849`，挂在 el-table 的 `row-class-name` 上）——`expanded-row` /
 //     `loaded-row` / `paid-row` / `duplicate-order-row` ⇒ 新版 `rowClass()`，见「展开明细」一节末尾
 //     （它同时依赖 `expandedRowKeys`，所以放在那边）。
-//   · **单元格级** `Ls`（`:11221-11227`）——`date-audit` / `date-warning` ⇒ 下面 `dateCellClass()`。
+//   · **单元格级** `Ls`（`:11221-11227`）——`date-audit` / `date-warning` ⇒ `dateCellClass()`（已搬到 `utils/homeMetrics.ts`）。
 //   · **单元格级** `.paid-customer`（`:11402-11404`）——挂在**客户列**的 `render` 上。
 //
 // ⚠️ **更正一条旧注释**：这里先前写着「`.paid-row`/`.paid-customer`/`.duplicate` 无清晰口径、
@@ -971,50 +935,6 @@ watch(searchText, (v) => {
 //    `.paid-row` 现在仍不实现，但理由换成了真实的那个：**`grep -r paid-row legacy/` 零 CSS 命中**，
 //    旧版加了类却没有对应规则，是不生效的死码。
 // ---------------------------------------------------------------------------
-/**
- * 日期单元格的状态类（旧版 `Ls`，`:11221-11227`）—— **两个类互斥**，且**挂在单元格上**（不是整行）。
- *
- * ```js
- * Ls = e => bs(e) ? "date-audit"                       // 未审核优先，命中就 return
- *                : (0 !== so(e) && 截止日期 &&
- *                   Math.ceil((new Date(截止日期) - now) / 864e5) < 4) ? "date-warning"
- *                : ""
- * ```
- *
- * ⚠️ **`ceil` 不是 `floor`**（`dr(1091)` 解出来就是 `ceil`）—— 这条注释 2026-09-19 更正过，
- *    原写 `floor`。**而且我们的实现目前用的正是 `floor` + 本地午夜**（见下面 `dateCellClass`），
- *    与旧版的 `ceil` + UTC 午夜**不等价**：到期差 4 天那一档旧版不标、我们标，
- *    跨 UTC/本地 8 小时也会差 ⇒ **我们会把「临近截止」标早一天**。
- *    已记为待拍板的行为偏离（`docs/home-audit/00-summary.md` §五），**不是**本注释改了就算对齐。
- *
- * ⚠️ **与旧版对齐时踩过三处，别再改回去**：
- *   ① **`< 4` 没有下界** ⇒ **已逾期（负数）同样命中**。先前写成 `diff >= 0 && diff <= 4`，
- *      把逾期的排除了 —— 而逾期恰恰是最该标红的。
- *   ② **开区间** `< 4`，先前 `<= 4` 多含一天。
- *   ③ 要求 **`未收 != 0`**（已付清不加），先前完全不看付款状态。
- *   另：`Ls` 是**互斥**的（`date-audit` 命中就 return）；先前两个类可以同时命中，
- *      而 CSS 里 `.date-warning` 在后面 ⇒ 后者胜，于是「未审核 + 临近截止」的行颜色也错了。
- *
- * ⚠️ 层级：旧版 CSS 是 **cell 级**（`.date-audit` / `.date-warning`），挂在日期那一格上。
- *    先前用 `rowProps` 挂到了整行 —— 一并改成挂在日期单元格。
- */
-function dateCellClass(r: OrderSummaryDto): string {
-  if (isUnaudited(r)) return 'date-audit'
-  const due = r.due_date
-  if (!due || unpaidOf(r) === 0) return ''
-  const [y, m, d] = due.split('-').map(Number)
-  if (!y || !m || !d) return ''
-  const diff = Math.floor((new Date(y, m - 1, d).getTime() - Date.now()) / 86400000)
-  return diff < 4 ? 'date-warning' : ''
-}
-
-/**
- * 「未审核」判据（旧版 `bs`）。`dateCellClass` 与「审核确认」按钮两处共用 —— 抽出来免得两处漂开。
- */
-function isUnaudited(r: OrderSummaryDto): boolean {
-  return !r.production_status?.trim() && !r.order_no_set?.trim()
-}
-
 // ---------------------------------------------------------------------------
 // 内联编辑（§4.5：定金/安装地址/订单备注/业务员/打单人）
 // ---------------------------------------------------------------------------
@@ -1829,7 +1749,7 @@ function clearAccounts() {
   }
   const byCustomer = new Map<string, CGroup>()
   for (const r of rows) {
-    const unpaid = unpaidOf(r)
+    const unpaid = unpaidOf(r, financeSummary.value)
     if (unpaid <= 0) continue
     const g =
       byCustomer.get(r.client_code) ??
@@ -2657,7 +2577,7 @@ function renderProgress(row: OrderSummaryDto) {
       h('span', { style: { color: '#d9001b', fontWeight: '700' } }, progressSuffix(status)),
     ]),
     // 旧版 `Vo(row)` = 未收 **=== 0**（是 `===` 不是 `<=`，见 `:7664`）；徽标样式 `_u`。
-    unpaidOf(row) === 0
+    unpaidOf(row, financeSummary.value) === 0
       ? h(
           'span',
           {
@@ -2717,8 +2637,8 @@ const rowTipInitStyle = reactive({ left: '0px', top: '0px' })
  */
 function rowTipContent(row: OrderSummaryDto) {
   const segs = progressSegments(row.production_status)
-  if (!segs.length && unpaidOf(row) !== 0) return null
-  return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row) === 0 }
+  if (!segs.length && unpaidOf(row, financeSummary.value) !== 0) return null
+  return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row, financeSummary.value) === 0 }
 }
 
 /**
@@ -3085,7 +3005,7 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     // ④ hover tooltip（旧版 `sa`/`da` 挂在 el-table 的 `onCellMouseEnter/Leave` 上，只对这两列生效）
     render: (row) => {
       // `tip-cell` 是给 document 级 mousemove 判断「指针还在不在触发格里」用的（见 `showRowTip`）
-      const cls = `tip-cell ${unpaidOf(row) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'}`
+      const cls = `tip-cell ${unpaidOf(row, financeSummary.value) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'}`
       return h(
         'div',
         {
@@ -3115,7 +3035,7 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
       const cells: ReturnType<typeof h>[] = [
         h(
           'div',
-          { class: `clickable-cell ${dateCellClass(row)}`, onClick: () => openDate(row) },
+          { class: `clickable-cell ${dateCellClass(row, financeSummary.value)}`, onClick: () => openDate(row) },
           row.order_date,
         ),
       ]
@@ -3218,7 +3138,7 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     filter: unpaidColumnFilter,
     filterOptionValues: columnFilterValues('unpaid'),
     render: (row) => {
-      const u = unpaidOf(row)
+      const u = unpaidOf(row, financeSummary.value)
       return h('span', { style: { color: u <= 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' } }, fmt(u))
     },
   },
