@@ -662,6 +662,7 @@ import { useHuiPreview } from '../composables/hui/useHuiPreview'
 import { useTerminalLink } from '../composables/hui/useTerminalLink'
 import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
 import { useHuiLineSelection } from '../composables/hui/useHuiLineSelection'
+import { useHuiAutoMarkup } from '../composables/hui/useHuiAutoMarkup'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -905,11 +906,9 @@ const moreMenuOptions = [
  * ⚠️ 2026-09-19：这颗的**入口从「更多功能」搬回了「添加门类」抽屉**（旧版它就在那儿）。
  * 弹窗本身没动，只是落点归位。
  */
-function openAutoMarkup() {
-  // 打开时把草稿同步成已存值（旧版点「保存」才落盘，取消应丢弃改动）
-  autoMarkupDraft.value = disableAutoMarkup.value
-  autoMarkupOpen.value = true
-}
+// 2026-09-20 `openAutoMarkup` 与下面「自动加价设置」那 4 个声明合并搬到
+// `composables/hui/useHuiAutoMarkup.ts`（逐字搬迁，零行为变化）—— 本块**两段合成一个 composable**，
+// 故这里只留指针；调用点是模板 `:273`（「添加门类」抽屉里那颗按钮），解构在下面那一段处。
 
 function refreshPage() {
   message.info('已刷新')
@@ -987,32 +986,14 @@ const {
 //   旧版读写都是 `=== "true"` / `String(v)`（`Hui.formatted.js:835` / `:8009-8014`），
 //   必须一致，否则从旧版迁过来的浏览器里那份设置会被读反。
 //   旧版点「保存」才落盘，故这里也用草稿态。
-const autoMarkupOpen = ref(false)
-// `disableAutoMarkup` 的声明已上提到 setup 开头（引擎依赖它）。
-const autoMarkupDraft = ref(disableAutoMarkup.value)
-function onAutoMarkupDraft(v: boolean) {
-  autoMarkupDraft.value = v
-}
-function saveAutoMarkup() {
-  disableAutoMarkup.value = autoMarkupDraft.value
-  LS.set('smartdoor_disable_auto_markup', String(autoMarkupDraft.value))
-  // ⚠️ 旧版这里**还派一个事件**（`H:8019`，`_0x23343f`）：
-  //     `window.dispatchEvent(new CustomEvent('auto-markup-setting-changed', { detail: 值 }))`
-  //     —— 与「辅助菜单设置」那两个是同一族（写 localStorage + 派事件给手机端外壳）。
-  //     bundle 里搜不到监听者（事件名在旧版是 token `e(725)`，不是字面量；解码后才认得出来），
-  //     所以监听方在外壳那边。我们先前漏了这一句，现补上。
-  //     ⚠️ 落盘的是 `String(布尔)`（`"true"`/`"false"`），但**派出去的是布尔值本身**
-  //     （旧版 `detail:_0x963b41.value`）—— 两者别搞混。
-  try {
-    window.dispatchEvent(
-      new CustomEvent('auto-markup-setting-changed', { detail: autoMarkupDraft.value }),
-    )
-  } catch {
-    /* 没有 CustomEvent 的环境跳过派发 */
-  }
-  autoMarkupOpen.value = false
-  message.success('设置已保存')
-}
+// 2026-09-20 本段 4 个声明搬到 `composables/hui/useHuiAutoMarkup.ts`（逐字搬迁，零行为变化），只留调用点。
+// 🔴 **`disableAutoMarkup` 必须传 ref 本身**（不是 `.value`）：新家里的 `autoMarkupDraft` 是**即时读值**
+//    `ref(deps.disableAutoMarkup.value)`，而 `saveAutoMarkup` 还要**写回**它。传值 ⇒ 写不进页面，
+//    表现是「点保存后提示照弹、弹窗照关、开关却不生效」；`vue-tsc` 会抓成 TS2339，**守卫完全不看这个**。
+// ⚠️ `autoMarkupDraft`（草稿）**有意不回传** —— 页面里零读者（模板那个勾选框绑的是 `disableAutoMarkup`）。
+// 回传 4 项：模板 `:273`(openAutoMarkup) · `:418`/`:428`(autoMarkupOpen) · `:423`(onAutoMarkupDraft) · `:429`(saveAutoMarkup)。
+const { openAutoMarkup, autoMarkupOpen, onAutoMarkupDraft, saveAutoMarkup } =
+  useHuiAutoMarkup({ disableAutoMarkup, message })
 
 // 旧版租户列显隐默认值（`PING_COL_DEFAULTS` / `DIAO_COL_DEFAULTS`）+ `seedColumnDefaults`
 // + `loadColumnConfig` 已随 C2 搬到 `composables/hui/useHuiColumnConfig.ts`（逐字搬迁）——

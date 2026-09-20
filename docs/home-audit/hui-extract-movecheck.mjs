@@ -351,6 +351,28 @@ const SPLIT_BLOCKS = [
       ],
     },
   },
+  {
+    // C8「自动加价设置」。快照是**两段** `Hui.vue:961-971` + `1226-1256`（中间隔着「刷新/视频教程」那几件，没跟着搬），
+    // 合计 5 个声明。注入 2 项：脊梁 `disableAutoMarkup`（**读+写**）+ 页面 `message`；
+    // `LS` 是 `useOrderLines.ts` 的模块级导出 ⇒ 直接 import，不注入。
+    // 🔴 **`disableAutoMarkup` 必须注入 ref 本身**：新家里 `autoMarkupDraft = ref(deps.disableAutoMarkup.value)`
+    //    是**即时读值**，而 `saveAutoMarkup` 还要写回它 —— 传值 ⇒ 开关冻在初始化那一刻。
+    //    ⚠️ 这一条**本脚本验不了**（它只比「搬的时候有没有偷改」）—— 靠新家文件头 + 页面注释钉住。
+    target: 'app/src/composables/hui/useHuiAutoMarkup.ts',
+    names: ['openAutoMarkup', 'onAutoMarkupDraft', 'saveAutoMarkup'],
+    consts: ['autoMarkupOpen', 'autoMarkupDraft'],
+    rewrites: {
+      openAutoMarkup: [{ from: 'disableAutoMarkup.value', to: 'deps.disableAutoMarkup.value' }],
+      autoMarkupDraft: [{ from: 'disableAutoMarkup.value', to: 'deps.disableAutoMarkup.value' }],
+      saveAutoMarkup: [
+        { from: 'disableAutoMarkup.value', to: 'deps.disableAutoMarkup.value' },
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      // `autoMarkupOpen` 是单行 `ref(false)`、`onAutoMarkupDraft` 只碰同块的 `autoMarkupDraft` ⇒ 零改写（不是漏写）。
+      autoMarkupOpen: [],
+      onAutoMarkupDraft: [],
+    },
+  },
 ]
 
 /**

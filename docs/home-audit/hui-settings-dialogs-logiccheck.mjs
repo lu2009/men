@@ -311,9 +311,16 @@ const HUI_VUE_SRC = readFileSync(`${ROOT}/app/src/views/Hui.vue`, 'utf8')
  * **源码断言**得改读新家。改的理由不是「让闸变绿」：那段断言的判据（落盘键名 / 成功提示 /
  * 保存后关窗 / **不派事件**）**一条都没动**，只是被检文本搬了家 ——
  * 它此前抛 `Hui.vue 里找不到 saveSortMethod`，是**照实报**（函数确实不在那儿了），
- * 不是判据失效。`HUI_VUE_SRC` **保留**：`saveAutoMarkup` 与两个 `n-modal` 的解析还在读它。
+ * 不是判据失效。`HUI_VUE_SRC` **保留**：两个 `n-modal` 的解析还在读它。
+ *
+ * ⚠️ **2026-09-20 C8**（同款、同理由）：`saveAutoMarkup` 的**声明**也随 C8 搬到
+ * `app/src/composables/hui/useHuiAutoMarkup.ts`（逐字搬迁，零行为变化）⇒ 那条源码断言再改一次读入口。
+ * 判据（落盘键名 / **落盘的是 `String(布尔)`** / 派事件、且 `detail` 是**布尔值** / 成功提示 / 保存后关窗）
+ * **五条一条都没动**，只是被检文本搬了家。它此前抛 `Hui.vue 里找不到 saveAutoMarkup`，
+ * 是**照实报**（函数确实不在那儿了），不是判据失效 —— 与 C13 那次是同一件事。
  */
 const HUI_SORTMETHOD_SRC = readFileSync(`${ROOT}/app/src/composables/hui/useHuiSortMethod.ts`, 'utf8')
+const HUI_AUTOMARKUP_SRC = readFileSync(`${ROOT}/app/src/composables/hui/useHuiAutoMarkup.ts`, 'utf8')
 
 /**
  * 取出两个 `n-modal` 的 AST。
@@ -520,15 +527,16 @@ cmp('保存后弹窗要关（排序方式）', { 弹窗开着: false }, saveSort
 //    如实写明，别当成等价物。
 {
   /**
-   * ⚠️ `srcFile` **默认仍是 `Hui.vue`** —— 只有**搬走了**的那个函数才显式传新家
-   * （C13 之后只有 `saveSortMethod`；`saveAutoMarkup` 仍在页面里）。
+   * ⚠️ `srcFile` **默认仍是 `Hui.vue`** —— 只有**搬走了**的函数才显式传新家
+   * （C13 之后 `saveSortMethod`；C8 之后 `saveAutoMarkup` 也走了 ⇒ **两个都显式传**）。
    */
   const src = (fn, srcFile = HUI_VUE_SRC, where = 'Hui.vue') => {
     const at = srcFile.indexOf(`function ${fn}(`)
     if (at < 0) throw new Error(`${where} 里找不到 ${fn}`)
     return srcFile.slice(at, srcFile.indexOf('\n}\n', at))
   }
-  const auto = src('saveAutoMarkup')
+  // 2026-09-20 C8：声明已搬到 `composables/hui/useHuiAutoMarkup.ts`（判据一字未动，只换了被检文本）。
+  const auto = src('saveAutoMarkup', HUI_AUTOMARKUP_SRC, 'composables/hui/useHuiAutoMarkup.ts')
   // 2026-09-20 C13：声明已搬到 `composables/hui/useHuiSortMethod.ts`（判据一字未动，只换了被检文本）。
   const sort = src('saveSortMethod', HUI_SORTMETHOD_SRC, 'composables/hui/useHuiSortMethod.ts')
   for (const [needle, why] of [
