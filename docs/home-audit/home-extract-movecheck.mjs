@@ -61,7 +61,9 @@ const OLD_PATH = 'app/src/views/Home.vue'
  *     rewrites: { foo: [{ from: '…', to: '…' }] } }  // 声明的改写，可省
  *
  * ⚠️ **清单是空的那些日子**（2026-09-20 立骨架时）本脚本对真代码**没有任何检验力**
- * （它只证明「跑得起来」）。Task 2 加了第一条（B2 → `utils/homeMetrics.ts`），现在它开始真保护代码。
+ * （它只证明「跑得起来」）。Task 2 加了第一条（B2 → `utils/homeMetrics.ts`，纯函数样板），
+ * Task 3 加了第二条（B10 → `composables/home/useHomeSelection.ts`，**composable 样板**：
+ * 注入响应式依赖 + 回传状态）。后两条是后面各块的样板，改它们等于改一整片。
  */
 const BLOCKS = [
   {
@@ -92,6 +94,68 @@ const BLOCKS = [
       // ④ 只加 `export`、签名一字未动的那两个。
       progressMatch: [{ from: 'function progressMatch(', to: 'export function progressMatch(' }],
       isUnaudited: [{ from: 'function isUnaudited(', to: 'export function isUnaudited(' }],
+    },
+  },
+  {
+    target: 'app/src/composables/home/useHomeSelection.ts',
+    names: ['onCheckedKeys', 'deleteSelected', 'clearAccounts', 'combineSelected'],
+    consts: ['checkedRowKeys', 'selectAllMode'],
+    rewrites: {
+      /*
+       * B10（删除选中 / 清账 / 合并订单）。**本块没有 `export` 改写** ——
+       * 6 个声明都由工厂 `return` 借出，不做模块级导出（与 B2 那套不同）。
+       *
+       * 下面是「闭包名 → `deps.名`」的**全量**清单。两件事必须同时成立：
+       *   · 每条 `from` 都得在该函数的旧文里找得到（找不到 `applyRewrites` 会抛 —— 这是白送的检查）；
+       *   · **不能漏**（漏了不抛，只表现成 diff）⇒ 改完必须**逐行看 diff**，不能只看退出码。
+       *
+       * ⚠️ 规则一律**带边界**（写 `dialog.warning({` 而不是 `dialog`）：`applyRewrites` 是朴素
+       *    split/join，裸名会把别的标识符一起改坏（例：写 `load` 会顺手打到 `loadedIds` 上）。
+       *    本块的 `message.` 只锚了右边 —— 左锚写不出（`norm()` 去了行首空白，多行/带缩进的
+       *    `from` 匹配不上），所以**另行核对过**：本块内不存在 `.message.` 这种「属性名恰好叫
+       *    `message`、后面还跟一个点」的序列 ⇒ 不会把 `(e as Error).message` 改坏
+       *    （改完实测全文 `.deps` 出现 0 次）。
+       *
+       * ⚠️ `clearAccounts` 的第一条**不是注入改写**，是 B2 那一刀留下的**调用点变化**：
+       *    参照提交里 `unpaidOf` 自己读 `financeSummary`，抽进 `utils/homeMetrics.ts` 后改成
+       *    显式传参（`unpaidOf(r, financeSummary.value)`）⇒ 这条的 `from` 得写**抽取前**的样子。
+       *    换句话说 `rewrites` 记的是「相对参照提交的全部文本差异」，不只是「注入面」。
+       */
+      /*
+       * ⚠️⚠️ **`onCheckedKeys` 本脚本实际验不到 —— 它的 `rewrites` 只能是空的，别往里加规则。**
+       *
+       * 实测（Task 3）：`sliceFn` 对**签名跨行**的函数只切到**第一行**（`function onCheckedKeys(`），
+       * 函数体一行都不比。原因是它找函数体 `{` 的那个循环末尾有一句 `if (c === '\\n') break`
+       * —— 参数表一旦换行，体 `{` 就在那个换行之后，永远找不到 ⇒ 退化成「按行切」。
+       * 后果有两层：① 往里写任何 `from` 都会抛「声明的改写失效」；
+       *            ② 更危险的是**它不抛也不报** —— 本来就没在比，看起来却是绿的。
+       *
+       * ⇒ 这个名字的保真**由本脚本保证不了**，它的归一化一致是**假的**（只比了签名那一行）。
+       *    Task 3 是**手工**切段比对过的（见 `task-3-report.md`）。
+       *    根因修复要动 `sliceFn`，而它与 `hui-extract-movecheck.mjs` **必须逐字同步**
+       *    （见文件头），所以**不在这里单方面改**。全 `Home.vue` 只有 3 个这种函数：
+       *    `onCheckedKeys`(REF:1601)、`renderEditable`(REF:2807)、`headerFilter`(REF:2866)
+       *    —— 后两个属 B12，搬它们时**同样验不到**，别被绿勾骗了。
+       */
+      onCheckedKeys: [],
+      deleteSelected: [
+        { from: 'rawOrders.value.', to: 'deps.rawOrders.value.' },
+        { from: 'await load()', to: 'await deps.load()' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.warning({', to: 'deps.dialog.warning({' },
+      ],
+      clearAccounts: [
+        { from: 'unpaidOf(r)', to: 'unpaidOf(r, deps.financeSummary.value)' },
+        { from: 'rawOrders.value.', to: 'deps.rawOrders.value.' },
+        { from: 'await load()', to: 'await deps.load()' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.warning({', to: 'deps.dialog.warning({' },
+      ],
+      combineSelected: [
+        { from: 'await load()', to: 'await deps.load()' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.warning({', to: 'deps.dialog.warning({' },
+      ],
     },
   },
 ]
