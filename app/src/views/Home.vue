@@ -418,9 +418,7 @@ import {
   h,
   nextTick,
   onMounted,
-  reactive,
   ref,
-  type Ref,
 } from 'vue'
 import { useRouter } from 'vue-router'
 import {
@@ -429,7 +427,6 @@ import {
   NCheckbox,
   NDataTable,
   NDatePicker,
-  NDivider,
   NForm,
   NFormItem,
   NInput,
@@ -450,7 +447,8 @@ import { useHomeExpand } from '../composables/home/useHomeExpand'
 import { useHomePrint } from '../composables/home/useHomePrint'
 import { useHomeRowEditing } from '../composables/home/useHomeRowEditing'
 import { useHomeManualProgress } from '../composables/home/useHomeManualProgress'
-import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
+import { useHomeCellRender } from '../composables/home/useHomeCellRender'
+import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS } from '../utils/homeConstants'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
 import { useAuthStore } from '../stores/auth'
@@ -471,6 +469,8 @@ import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
 //     `Line` / `DetailLinesTable` / `useDetailLineDialogs` / `LS` / `useOrderLines` /
 //     `NSpin` / `NEmpty` / `DataTableRowKey`
 //   · B1 → `useHomeData.ts`：`OrderFinance`
+//   · B12 → `useHomeCellRender.ts`：`NDivider` / `progressSegments`（页面另外那两处 `progressSegments`
+//     调用就在 B12 里，已随之走）+ `reactive` 与 `type Ref`（页面最后一处用处也都在 B12 里）
 //   · B11 → `useHomeManualProgress.ts`：`InputHTMLAttributes`（页面只为 `manualNameInputProps` 用它）
 //   · **整条** `import { legacyToday, localToday, pad } from '../utils/homeDate'` 也一并删了 ——
 //     三个名字在 B11 搬完后**都没有页面上最后一处用处**了（`localToday` 随 `confirmAudit`、
@@ -951,379 +951,31 @@ const {
 
 // ---------------------------------------------------------------------------
 // 列定义（§3；Phase 1 = 工厂视图 Yt）
+// 2026-09-20 把这一节里的**单元格渲染件**搬到 `composables/home/useHomeCellRender.ts`
+// （逐字搬迁，零行为变化）：`progressPrefix`/`progressSuffix`/`renderProgress`、整段行提示
+// （`rowTipShow`/`rowTipLines`/`rowTipPaid`/`rowTipEl`/`rowTipInitStyle`/`rowTipHandlers`）、
+// `renderEditable`、`headerFilter`。`la()` 底色那 19 行说明、分隔符口径冲突注释、
+// 两个大 JSDoc（`renderEditable` 22 行 + `headerFilter` 34 行）都随声明走了。
+// ⚠️ `progressSegments` **不在这里** —— 它更早（Task 4）就归位到 `utils/homeConstants.ts` 了。
+//
+// ⚠️ **`columns` 仍留在本文件**（用户拍板），本行只是它上面那一节的入口 ——
+//    `paymentPopShow`/`progressPopShow` 也留在页面上（它们是 `columns` 的弹窗状态）。
+//
+// ⚠️ **构造顺序**：`editingId`/`draft`/`startEdit` 来自 B8、`manualActions` 来自 B11、
+//    `financeSummary` 来自 B1 ⇒ 本行必须在三块**之后**。往前挪 = 拿到 `undefined`，
+//    且**不一定报错**。
+//
+// ⚠️ **9 个名字全部解构**（不许写成 `cell.xxx`）：`<script setup>` 的模板只对**顶层绑定**
+//    自动解包 ref，属性访问会让模板 153/154/159 拿到 **Ref 对象**而不是值；
+//    `rowTipEl` 更是**模板 ref**（`ref="rowTipEl"`），写成属性访问连挂载点都对不上。
+//    其余 7 个声明（`progressPrefix`/`progressSuffix`/`rowTipContent`/`moveRowTip`/`hideRowTip`/
+//    `showRowTip`/`rowTipMove`）段外零命中，解构出来就是未使用变量（TS6133）。
 // ---------------------------------------------------------------------------
-/*
- * ⚠️ 旧版 `la`（`:7940-7942`）那套底色（收据单/标签/玻璃订单/生产单/自助下单）
- * **本系统里不渲染，已删** —— 不是漏做，是**到不了**。
- *
- * `la()` 全组件只有两个调用点（`grep` 实测：`:11589` 业务员、`:11597` 打单人），
- * 两处都长这样：
- *   ```js
- *   qt.value ? <el-input class="borderless-input" onFocus={nn}>
- *            : <div style={la(row["业务员"])}>{row["业务员"]}</div>
- *   ```
- * 即带底色的 `div` 是 **`!qt`（只读）分支**。而 `qt`（`:8147`）是
- *   `qt.value = data.registrant === userinfo.name`
- * ——「**正在看的这份数据是不是自己租户的**」，是旧版**租户切换/代看**的只读闸门。
- * 新版没有租户切换 ⇒ **`qt ≡ true`** ⇒ 永远走输入框那一支，`la()` 分支不可达。
- *
- * ★ 这同时更正了本文件先前的一处改动（`a70ac477`）：那次把 `la()` 的底色挂到了
- *   业务员/打单人的「非编辑态显示」上 —— 挂是挂对了函数，但**挂到了一个我们永远进不去的分支**。
- *   正确形态是这两列**常驻输入框**（见 `renderEditable`），没有任何底色。
- */
-
-// ⚠️ 分隔符口径冲突（需上游拍板）：旧版源码**只用下划线**——`oa`/`aa`（`:7943-7952`）`split("_")`，
-// 删除时摘段也是 `x_` / `_x`（`:8100-8103`），全 bundle 查不到按空格切 `打单操作` 的地方；
-// 而 `backend/migrations/0018_home_order_head_fields.sql` 的注释把 `打单操作 -> production_status`
-// 写成「"生产单 玻璃订单 标签 收据单" 等，**空格串**」（同一段注释里 `单号集` 才是空格串）。
-// 这里按**旧版源码**取 `_`；新版自身写入的是单个 token（无分隔符），所以只影响旧数据/多段串。
-// 若上游确认新口径是空格串，改这两处的 split 即可。
-// 旧版 `oa`（`:7943-7947`）：按 `_` 切分去空段，去掉最后一段后**再补回一个 `_`**；只有一段时返回空串。
-function progressPrefix(status: string): string {
-  if (!status) return ''
-  const parts = status.split('_').filter((p) => p !== '')
-  if (parts.length <= 1) return ''
-  return parts.slice(0, -1).join('_') + '_'
-}
-
-// 旧版 `aa`（`:7948-7952`）：最后一段；全是空段时原样返回。
-function progressSuffix(status: string): string {
-  if (!status) return ''
-  const parts = status.split('_').filter((p) => p !== '')
-  return parts.length ? parts[parts.length - 1] : status
-}
-
-// 旧版 `Yt` 分支的格子内容（`:11578-11582`）：色条 + 一行「`前段_` + **深红加粗末段**」+ `✓已付` 徽标。
-function renderProgress(row: OrderSummaryDto) {
-  const status = row.production_status || ''
-  const prefix = progressPrefix(status)
-  return [
-    h(
-      'div',
-      { class: 'progress-bar' },
-      progressSegments(status, manualActions).map((seg) =>
-        h('div', {
-          class: 'progress-seg',
-          title: `${seg.label}${seg.done ? ' ✓' : ''}`,
-          style: {
-            flex: seg.flex,
-            minWidth: '4px',
-            background: seg.done ? seg.color : '#e0e0e0',
-          },
-        }),
-      ),
-    ),
-    h('span', null, [
-      // 旧版 `qu` 样式：`{font-weight:400}`。
-      prefix ? h('span', { style: { fontWeight: '400' } }, prefix) : null,
-      // 旧版 `Ju` 样式：`{color:#d9001b; font-weight:700}`。
-      h('span', { style: { color: '#d9001b', fontWeight: '700' } }, progressSuffix(status)),
-    ]),
-    // 旧版 `Vo(row)` = 未收 **=== 0**（是 `===` 不是 `<=`，见 `:7664`）；徽标样式 `_u`。
-    unpaidOf(row, financeSummary.value) === 0
-      ? h(
-          'span',
-          {
-            style: {
-              marginLeft: '4px',
-              color: '#52c41a',
-              fontSize: '10px',
-              fontWeight: '700',
-              verticalAlign: 'middle',
-            },
-          },
-          '✓已付',
-        )
-      : null,
-  ]
-}
-
-// ---------------------------------------------------------------------------
-// 单元格 hover tooltip（旧版 `sa`/`da`，`:7973-7985`）
-// ---------------------------------------------------------------------------
-/** 是否显示（旧版 `ra`）。 */
-const rowTipShow = ref(false)
-/** 内容（旧版 `ia`，那边存的是 HTML 串；我们用 VNode 渲染）。 */
-const rowTipLines = ref<{ text: string; done: boolean }[]>([])
-const rowTipPaid = ref(false)
-/** 提示元素本身 —— 位置**直接写它的 `style`**，不走响应式（见下）。 */
-const rowTipEl = ref<HTMLElement | null>(null)
-/** 首帧位置。只在**刚显示**那一下用；之后跟随鼠标都是直接改 DOM。 */
-const rowTipInitStyle = reactive({ left: '0px', top: '0px' })
-
-/**
- * 打单操作 / 客户两列 hover 时的进度提示（旧版 `sa`/`da`，`:7973-7985`）。
- *
- * ## 旧版行为
- * ```js
- * sa = (row, column, event) => { …… ca.x = event.clientX; ca.y = event.clientY; ra.value = true }
- * da = () => { ra.value = false }
- * ```
- * 内容为空时不显示（旧版 `n && (…)`）。
- *
- * ## ⚠️ 三处**有意偏离**（先前照着旧版做，用户实测报了三样毛病）
- *
- * ① **跟随鼠标**。旧版另有个 `Va`（`:7983`）就是干这个的
- *    （`ra.value && (ca.x = e.clientX, ca.y = e.clientY)`），但 **`Va(` 全文件零调用**——
- *    写了没接上。结果是提示只在鼠标**进入单元格那一刻**的位置出现、之后不动，
- *    鼠标一动就显得「挂在那儿」。这里把旧版的意图接上：**跟随鼠标**。
- *
- * ② **收起不再依赖单元格的 `mouseleave`**。先前把它挂在单元格内层 div 上，
- *    而 `rowTipShow` 一变 Home 就整体重渲染 ⇒ Naive 重建那一行 ⇒ **承载 `mouseleave`
- *    的节点被换掉**。节点被移除时浏览器**不会**补发 `mouseleave` ⇒ 提示**永远收不掉**。
- *    现在改为：显示期间挂一个 **document 级 `mousemove`**，每次移动检查指针是否还在
- *    触发格（`.tip-cell`）里，不在就收 —— 不管节点有没有被重建都能收尾。
- *
- * ③ **位置直接写 DOM，不走响应式**。先前坐标是 `reactive`，鼠标每动一次就触发一轮
- *    Vue 重渲染（整个表格跟着重渲）⇒ 卡顿。现在 `mousemove` 里只改 `el.style.left/top`，
- *    零重渲染。内容仍然走响应式（它变得少）。
- */
-function rowTipContent(row: OrderSummaryDto) {
-  const segs = progressSegments(row.production_status, manualActions)
-  if (!segs.length && unpaidOf(row, financeSummary.value) !== 0) return null
-  return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row, financeSummary.value) === 0 }
-}
-
-/**
- * 把提示挪到鼠标处。
- *
- * ⚠️ **这是有意偏离**（2026-09-19 更正注释）：原写「和旧版 `Va` 的意图一致」——
- *   而旧版那个 `Va`（`Home.formatted.js:7983`）**全文件零调用，是死码**，
- *   所以旧版**根本不跟手**（位置只在进入单元格那一刻取一次）。
- *   我们是照它的「意图」实现的 ⇒ 行为与旧版不同，已按 ⚠️ 记在
- *   `docs/home-audit/00-summary.md` §五.2（**改回「不跟手」与否待拍板**）。
- */
-function moveRowTip(ev: MouseEvent) {
-  const el = rowTipEl.value
-  if (!el) return
-  el.style.left = `${ev.clientX}px`
-  el.style.top = `${ev.clientY}px`
-}
-
-/** 显示期间挂在 document 上的移动监听（一次性装上，收起时摘掉）。 */
-let rowTipMove: ((ev: MouseEvent) => void) | null = null
-
-function hideRowTip() {
-  rowTipShow.value = false
-  if (rowTipMove) {
-    document.removeEventListener('mousemove', rowTipMove)
-    document.removeEventListener('mouseleave', hideRowTip)
-    rowTipMove = null
-  }
-}
-
-/** 鼠标进入「客户」「打单操作」两列的单元格（旧版 `sa`）。 */
-function showRowTip(row: OrderSummaryDto, ev: MouseEvent) {
-  const content = rowTipContent(row)
-  if (!content) return
-  rowTipLines.value = content.lines
-  rowTipPaid.value = content.paid
-  rowTipInitStyle.left = `${ev.clientX}px`
-  rowTipInitStyle.top = `${ev.clientY}px`
-  rowTipShow.value = true
-
-  if (!rowTipMove) {
-    rowTipMove = (e: MouseEvent) => {
-      const t = e.target
-      // 指针已经离开触发格（或跑出文档）⇒ 收掉。**不依赖节点还在**，所以重建也能收。
-      // `e.target` 可能是 document/Window，`closest` 得先确认是 Element。
-      if (!(t instanceof Element) || !t.closest('.tip-cell')) {
-        hideRowTip()
-        return
-      }
-      moveRowTip(e)
-    }
-    document.addEventListener('mousemove', rowTipMove, { passive: true })
-    // 指针直接移出整个窗口时不会有 mousemove，再兜一层
-    document.addEventListener('mouseleave', hideRowTip, { passive: true })
-  }
-}
-
-/** 挂在「客户」「打单操作」两列单元格上的处理（`mouseleave` 只作兜底）。 */
-const rowTipHandlers = {
-  onMouseenter: (row: OrderSummaryDto) => (ev: MouseEvent) => showRowTip(row, ev),
-  onMouseleave: () => hideRowTip,
-}
-
-/**
- * 可编辑单元格：**常驻一个无边框输入框**（旧版 `订单备注`/`安装地址` `:11527-11531`、
- * `业务员`/`打单人` `:11583-11598`）。旧版**没有「先显示文本、点击才变输入框」这一态**：
- *
- * ```js
- * // 订单备注 / 安装地址（无条件）
- * <el-input type="textarea" autosize={{minRows:1,maxRows:3}} class="input-style"
- *           modelValue={row[字段]} onUpdate:modelValue={v => row[字段] = v} onFocus={() => nn(row)} />
- * // 业务员 / 打单人
- * qt ? <el-input class="borderless-input" onFocus={() => nn(row)} /> : <div style={la(值)}>…
- * ```
- *
- * `nn(row)`（`:8112-8114`）就是「进编辑态」：`za.value = row` 并把
- * 定金/订单备注/安装地址三个字段快照进草稿（`:8112-8114`）。`qt` 恒真，见上面那段说明。
- *
- * 所以这里也**始终**渲染输入框：
- *   · 非编辑态 → 显示行上的值，`onFocus` 进编辑态（旧版的 `onFocus={nn}`）；
- *   · 编辑态   → 绑定草稿。
- *
- * ⚠️ `onUpdate:value` 里要**先确保已进编辑态**再写草稿：极快的一次输入可能赶在
- *    `editingId` 触发的重渲染之前到达，那时 `draft` 还没快照过。先 `startEdit` 再写，两种情况都对。
- */
-function renderEditable(
-  row: OrderSummaryDto,
-  field: 'install_address' | 'remark' | 'salesperson' | 'creator_name',
-) {
-  const editing = editingId.value === row.id
-  // 旧版这两列是 `type="textarea"`、`autosize {minRows:1, maxRows:3}`、`class="input-style"`；
-  // 业务员/打单人是单行 `el-input`、`class="borderless-input"`。
-  const isTextarea = field === 'install_address' || field === 'remark'
-  return h(NInput, {
-    value: editing ? (draft as unknown as Record<string, string>)[field] : row[field] || '',
-    size: 'small',
-    type: isTextarea ? 'textarea' : 'text',
-    autosize: isTextarea ? { minRows: 1, maxRows: 3 } : undefined,
-    borderless: true,
-    class: isTextarea ? 'input-style' : 'borderless-input',
-    onFocus: () => {
-      if (editingId.value !== row.id) startEdit(row)
-    },
-    'onUpdate:value': (v: string) => {
-      if (editingId.value !== row.id) startEdit(row)
-      ;(draft as unknown as Record<string, string>)[field] = v
-    },
-  })
-}
-
-/**
- * 列头筛选 popover（旧版「未付」`:11475-11508`、「打单操作」`:11534-11581`）。
- *
- * 结构逐字对齐旧版：
- * ```html
- * <div>                                        <!-- 列头容器 -->
- *   <span>列名</span>
- *   <el-popover placement="bottom" trigger="click" width="220">
- *     #reference <el-button text size="small"> 按钮名 (当前值) </el-button>
- *     #default
- *       <div>
- *         固定项…                               <!-- 每项 text 按钮，flex-start / 宽 100% -->
- *         分隔线                                <!-- 仅当有自定义项（旧版 `La.length`） -->
- *         自定义项…
- *         清除项                                <!-- 「全部显示 / 显示全部」，**无**选中色 -->
- *       </div>
- *   </el-popover>
- * </div>
- * ```
- *
- * ⚠️ 三处先前与旧版不符（C7/C8/C13/C14），别再改回去：
- *   ① **顺序**：旧版清除项「全部显示 / 显示全部」排在**最后**，先前放**最前**。
- *   ② **当前值回显**：旧版按钮后面带 ` (值)`（`:11481` / `:11541`），先前完全没有。
- *   ③ **popover 里没有标题**：旧版 `#default` 只有选项；先前多渲染了一行 `filter-title`。
- *   另：先前触发器自带一个 `▾`，旧版没有 —— 旧版靠 `text` 按钮自己的观感表示可点。
- *
- * ⚠️ **选中判定**：旧版比的是 `Mo`/`zo`，而「清除」时它俩被置成**空串** ⇒ 清除项**永不选中**，
- *    所以它连 `color`/`fontWeight` 两个条件都没有（`:11507` 那条 style 只有布局三项）。
- *    新版清除态用的是哨兵值（`'全部显示'` / `'显示全部'`，与选项文字同一个串），
- *    必须**显式排除**，否则没筛选时「全部显示」会一直高亮成蓝色加粗。
- *
- * ⚠️ 旧版每个选项的 `onClick` 都带 `.stop`（`:11491` 等的 `withModifiers(..., ["stop"])`）——
- *    列头在 el-table 里，不拦会冒泡到排序/筛选处理器。这里照抄 `stopPropagation`。
- */
-function headerFilter(opt: {
-  /** 列名（旧版 `<span>未付</span>` / `打单操作`） */
-  columnLabel: string
-  /** 按钮上的名字（` 付款状态 ` / ` 生产进度 `） */
-  buttonLabel: string
-  /** 全部选项，**按旧版渲染顺序**（清除项在最后） */
-  items: string[]
-  /** 哪一项是「清除」（旧版 `bo`/`Po`：置空 + 关弹窗 + 回第 1 页） */
-  clearLabel: string
-  /** 在这一项**之前**插分隔线（旧版只在「有自定义项」时插；不传就不插） */
-  dividerBefore?: string
-  /**
-   * 当前值那一段要不要高亮。
-   * ⚠️ **两列不一样，别统一**：`打单操作` 的值包在
-   *    `<span style="color:#409eff;font-weight:700;margin-left:4px"> (" 生产进度 " 的 `Ou`，`:11541`)；
-   *    `未付` 的值是**裸文本节点**（`:11481`，无任何样式）。
-   */
-  highlightValue?: boolean
-  current: Ref<string>
-  show: Ref<boolean>
-  onPick: (v: string) => void
-  onClear: () => void
-}) {
-  return () =>
-    h('div', { class: 'header-filter' }, [
-      h('span', null, opt.columnLabel),
-      h(
-        NPopover,
-        {
-          placement: 'bottom',
-          trigger: 'click',
-          width: 220,
-          show: opt.show.value,
-          'onUpdate:show': (v: boolean) => (opt.show.value = v),
-        },
-        {
-          trigger: () =>
-            h(
-              NButton,
-              { text: true, size: 'small' },
-              // 当前值回显（旧版 `dr(779)`「 付款状态 」/ `dr(1216)`「 生产进度 」+ `" ("+值+") "`）
-              {
-                default: () =>
-                  opt.current.value
-                    ? [
-                        opt.buttonLabel,
-                        opt.highlightValue
-                          ? h(
-                              'span',
-                              { style: { color: '#409eff', fontWeight: '700', marginLeft: '4px' } },
-                              ` (${opt.current.value}) `,
-                            )
-                          : ` (${opt.current.value}) `,
-                      ]
-                    : opt.buttonLabel,
-              },
-            ),
-          default: () =>
-            h(
-              // 旧版选项容器 `Yu`(`:11485 区`) / `Hu`(`:11545 区`)：
-              // `display:flex; flex-direction:column; gap:6px`
-              'div',
-              { style: { display: 'flex', flexDirection: 'column', gap: '6px' } },
-              opt.items.flatMap((item) => {
-                const isClear = item === opt.clearLabel
-                // 清除项永不选中（见上方说明）
-                const active = !isClear && opt.current.value === item
-                const node = h(
-                  'div',
-                  {
-                    class: 'filter-item',
-                    style: {
-                      // 旧版四项的布局完全一样，只有 color/fontWeight 分岔
-                      justifyContent: 'flex-start',
-                      width: '100%',
-                      marginLeft: '0',
-                      color: isClear ? undefined : active ? '#409eff' : '#606266',
-                      fontWeight: isClear ? undefined : active ? '700' : '400',
-                    },
-                    onClick: (e: MouseEvent) => {
-                      e.stopPropagation()
-                      opt.show.value = false
-                      if (isClear) opt.onClear()
-                      else opt.onPick(item)
-                    },
-                  },
-                  item,
-                )
-                // 旧版 `<el-divider style="margin:4px 0"/>`，插在自定义项之前
-                return opt.dividerBefore === item
-                  ? [h(NDivider, { style: { margin: '4px 0' } }), node]
-                  : [node]
-              }),
-            ),
-        },
-      ),
-    ])
-}
+const {
+  renderProgress,
+  rowTipShow, rowTipLines, rowTipPaid, rowTipEl, rowTipInitStyle, rowTipHandlers,
+  renderEditable, headerFilter,
+} = useHomeCellRender({ editingId, draft, startEdit, manualActions, financeSummary })
 
 const paymentPopShow = ref(false)
 const progressPopShow = ref(false)
@@ -1447,7 +1099,7 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
     // ③ `title`（旧版 `dr(1490)`）。第二轮审计抓到 ②③ 先前都缺。
     // ④ hover tooltip（旧版 `sa`/`da` 挂在 el-table 的 `onCellMouseEnter/Leave` 上，只对这两列生效）
     render: (row) => {
-      // `tip-cell` 是给 document 级 mousemove 判断「指针还在不在触发格里」用的（见 `showRowTip`）
+      // `tip-cell` 是给 document 级 mousemove 判断「指针还在不在触发格里」用的（见 `useHomeCellRender.ts` 的 `showRowTip` —— 2026-09-20 随 B12 搬走，指针已改准）
       const cls = `tip-cell ${unpaidOf(row, financeSummary.value) === 0 ? 'clickable-cell paid-customer' : 'clickable-cell'}`
       return h(
         'div',

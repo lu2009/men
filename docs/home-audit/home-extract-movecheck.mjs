@@ -673,6 +673,57 @@ const BLOCKS = [
       forgetManualAction: [], isoDate: [], manualProgressParam: [], headWithStatus: [],
       closeManualProgress: [], onManualNameBlur: [], onRecordDateChange: [],
     } },
+  /*
+   * B12（「列单元格渲染 / 列头筛选 / 行提示」）—— 16 个声明：9 `names` + 7 `consts`。
+   *
+   * ⚠️ **段是五段**：`2566–2587`（列定义分区头 + `la()` 底色那 19 行说明）·
+   *    `2612–2676` · `2678–2783` · `2785–2830` · `2832–2963`（两个大 JSDoc 分别 22 / 34 行）。
+   *    ⛔ `2588–2610` 是 **Task 4** 的 `progressSegments`（已搬走）；⛔ `2965–2966`
+   *    （`paymentPopShow` / `progressPopShow`）**留在页面**（`columns` 的弹窗状态）。
+   *    方案 §3.1 只写 `2678–2963` —— 把段①②漏了、也把 Task 4 那段算了进来。
+   *
+   * ⚠️⚠️ **本清单里有 3 条「非搬迁引入」的改写** —— 它们是 **Task 4 改过签名**留下的既存差异，
+   *    在 REF 文本里长得不一样。**不登记就会对一处正确的代码报红**，所以必须写清楚：
+   *
+   * | REF 侧文本 | 新侧 | 为什么 |
+   * |---|---|---|
+   * | `unpaidOf(row)`（页面局部闭包，体内读 `financeSummary.value`） | `unpaidOf(row, deps.financeSummary.value)` | Task 4 把它改成 `utils/homeMetrics.ts` 的 `unpaidOf(r, fin)`，财务摘要变成**显式第二实参** |
+   * | `progressSegments(status)` | `progressSegments(status, deps.manualActions)` | Task 4 把 `manualActions` 变成**显式第二实参** |
+   * | `progressSegments(row.production_status)` | 同上 | 同上 |
+   *
+   * ⚠️ 顺带一条**实测更正**：简报（`task-14-brief.md` 修正 D）说注入 4 项 —— 少的就是
+   *    `financeSummary`（上表第一行带出来的）。**实测 5 项**：`editingId` / `draft` / `startEdit` /
+   *    `manualActions` / `financeSummary`。简报的改写表里写的 `{ from: 'draft.' }` 在本块
+   *    **一次都命中不了** —— 实际形态是 `(draft as unknown as Record<string, string>)[field]`，
+   *    没有 `draft.` 这种写法（`applyRewrites` 找不到会**抛错**，写错了立刻红）。
+   *
+   * ⚠️ `rowTipMove` 是 `let` ⇒ 登记在 `consts`（判据是**声明形式**）。
+   */
+  { target: 'app/src/composables/home/useHomeCellRender.ts',
+    names: ['progressPrefix', 'progressSuffix', 'renderProgress', 'rowTipContent', 'moveRowTip',
+            'hideRowTip', 'showRowTip', 'renderEditable', 'headerFilter'],
+    consts: ['rowTipMove', 'rowTipShow', 'rowTipLines', 'rowTipPaid', 'rowTipEl',
+             'rowTipInitStyle', 'rowTipHandlers'],
+    rewrites: {
+      renderProgress: [
+        { from: 'progressSegments(status)',
+          to: 'progressSegments(status, deps.manualActions)' },
+        { from: 'unpaidOf(row)', to: 'unpaidOf(row, deps.financeSummary.value)' },
+      ],
+      rowTipContent: [
+        { from: 'progressSegments(row.production_status)',
+          to: 'progressSegments(row.production_status, deps.manualActions)' },
+        { from: 'unpaidOf(row)', to: 'unpaidOf(row, deps.financeSummary.value)' },
+      ],
+      renderEditable: [
+        { from: 'editingId.value', to: 'deps.editingId.value' },
+        { from: '(draft as unknown as', to: '(deps.draft as unknown as' },
+        { from: 'startEdit(', to: 'deps.startEdit(' },
+      ],
+      // 其余 6 个函数体零替换（只读写段内自产的名字 + 直接 import 的 h/naive-ui/类型）。
+      progressPrefix: [], progressSuffix: [], moveRowTip: [], hideRowTip: [], showRowTip: [],
+      headerFilter: [],
+    } },
 ]
 
 /**
