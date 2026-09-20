@@ -306,6 +306,21 @@ const SPLIT_BLOCKS = [
       buildTerminalToken: [],
     },
   },
+  {
+    // C13「排序方式」。快照 `Hui.vue:1919-1932`，5 个声明。
+    // ⚠️ `sortMethod` 本身还被**打印载荷**读（`:1775`）⇒ 必须回传该 ref —— 少回传不报错，
+    //    只是生成的单据行顺序永远走默认。本脚本只验搬迁，回传面靠新家文件头 + 页面注释钉住。
+    target: 'app/src/composables/hui/useHuiSortMethod.ts',
+    names: ['openSortMethod', 'saveSortMethod'],
+    consts: ['sortMethod', 'sortMethodOpen', 'sortMethodDraft'],
+    rewrites: {
+      saveSortMethod: [{ from: 'message.', to: 'deps.message.' }],
+      openSortMethod: [],
+      sortMethod: [],
+      sortMethodOpen: [],
+      sortMethodDraft: [],
+    },
+  },
 ]
 
 /**

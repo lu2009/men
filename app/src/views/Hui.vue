@@ -658,6 +658,7 @@ import { useHuiShellToggles } from '../composables/hui/useHuiShellToggles'
 import { useHuiClients } from '../composables/hui/useHuiClients'
 import { useHuiPreview } from '../composables/hui/useHuiPreview'
 import { useTerminalLink } from '../composables/hui/useTerminalLink'
+import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1594,20 +1595,13 @@ function removeOrder(o: OrderSummaryDto) {
 //   ③ 过滤：丢弃无公式/查不到公式的行；吊趟另丢弃无扇数的行
 //   ④ 收尾：`smartdoor_sort_method === 'order'` 时把 ping+diao 合起来按单号数字前缀升序，
 //      否则保持 ② 的顺序（原版按 `produce.timestamp` 升序，而 timestamp 就是 ② 迭代时写入的，等价）
-const sortMethod = ref(localStorage.getItem('smartdoor_sort_method') || 'profile')
-// 「排序方式」对话框（原版 `_0xff1972` 打开 / `_0x2a0b61` 保存）
-const sortMethodOpen = ref(false)
-const sortMethodDraft = ref(sortMethod.value)
-function openSortMethod() {
-  sortMethodDraft.value = sortMethod.value
-  sortMethodOpen.value = true
-}
-function saveSortMethod() {
-  sortMethod.value = sortMethodDraft.value === 'order' ? 'order' : 'profile'
-  localStorage.setItem('smartdoor_sort_method', sortMethod.value)
-  sortMethodOpen.value = false
-  message.success('排序方式已保存')
-}
+// 2026-09-20 本段 5 个声明搬到 `composables/hui/useHuiSortMethod.ts`（逐字搬迁，零行为变化），只留调用点。
+//
+// 🔴 **5 个名字全部解构** —— `sortMethod` 尤其要紧：**打印载荷构造**要读它（`sortMethod: sortMethod.value`），
+//    只解构对话框那两件是不够的 ⇒ 生成的单据行顺序会**永远走默认**，且**不报错**（spec §3.3 点名的雷）。
+// ⚠️ `sortMethod` 的初值在 setup 顶层**即时读一次** localStorage（`smartdoor_sort_method`）—— 别改成 watch。
+const { sortMethod, sortMethodOpen, sortMethodDraft, openSortMethod, saveSortMethod } =
+  useHuiSortMethod({ message })
 // 原版按**每行自己的「单号」**的数字前缀排（`parseInt(OrderID.split('-')[0]) || 0`）。
 
 
