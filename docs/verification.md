@@ -78,7 +78,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 `npm run verify`：37 个全跑 —— **37 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
 
 > 单独手工跑 `node docs/home-audit/run-all.mjs`（不带 `RUN_ALL_STRICT`）会看到另一组数：
-> **29 绿 + 6 个 ⏭ + 0 已知红**（2026-09-20 实测，不是算出来的；接入 movecheck 前是 27）。
+> **没有真失败：6 个 ⏭ + 0 个已知红**（2026-09-20 手工跑 `node docs/home-audit/run-all.mjs` 实测）。
 > 那 6 个 ⏭ 都是「默认打 `http://127.0.0.1:3999` 的**独立实例**，手工跑时没起」：
 >
 > | 台子 | 手工跑为什么 ⏭ |
@@ -89,7 +89,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 >
 > `verify` 把 `BASE` / `E2E_PORT` / `DB_*` 一起指到自己起的后端与一次性库，所以这 6 个在 verify 里都是 ✅。
 >
-> ⚠️ 那 29 绿**另有一个前提**：**开发后端在 `127.0.0.1:3000` 上起着**。多数台子默认打
+> ⚠️ 那批绿**另有一个前提**：**开发后端在 `127.0.0.1:3000` 上起着**。多数台子默认打
 > `:3000`（可用 `E2E_PORT` 覆盖），而它们**不在** `EXPECTED` 里 —— 忘了起后端会被如实记成
 > ❌，不是 ⏭。这是有意的：`:3000` 是「你本该在用的那套」（未运行 ≠ 通过的反面 ——
 > **跑不动也不该假装是环境问题**），`:3999` 才是「要单独起的那个」。
@@ -129,7 +129,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 - `docs/progress-{cell,dashboard,more,select,toolbar}-logiccheck.mjs` 会**自愈**（缺了就现调
   `legacy/decode-progress-*.mjs` 生成），但其中 `legacy/decode-progress-scoped.mjs` 写死了
   `createRequire('/Users/aaa/Desktop/door-main/app/package.json')` ⇒ CI 的 checkout 在别处，
-  `require('@babel/parser')` 直接 `MODULE_NOT_FOUND`，这 5 个跟着一起红。
+  `require('@babel/parser')` 直接 `MODULE_NOT_FOUND`，这批台子跟着一起红（完整名单现问代码 —— **比上面列的 5 个多**：`grep -rl decode-progress-scoped docs --include='*.mjs'`）。
 
 **改法**（三处，全是「文件从哪来 / 路径怎么算」，**没动任何断言、没动任何夹具期望值**）：
 

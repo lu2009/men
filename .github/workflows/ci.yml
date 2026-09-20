@@ -19,7 +19,7 @@
 #      · 6 个要在**仓库外**的旧版服务端源码上切函数跑，CI 上没有那份源码
 #        （2 个是老的；4 个是 `docs/legacy-finance/0{5,6,7,9}-*.mjs`，2026-09-20 收进收集范围后才显出来）；
 #      · 1 个要有**业务配置**（公式 / 打印模板），CI 的空库满足不了。
-#    其余 29 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
+#    其余**全部**都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
 #    2026-09-20 起是空的，所以没有免红牌可打。详见 `docs/verification.md`。
 
 name: CI
@@ -39,8 +39,8 @@ jobs:
     timeout-minutes: 40
 
     steps:
-      # ⚠️ 必须取全历史：`docs/home-audit/*-movecheck.mjs` 要 `git show <旧提交>:<路径>`
-      # 拿搬迁前的原文来逐字比。默认的 fetch-depth:1 只取 1 个提交 ⇒ 那些 `git show` 会失败。
+      # ⚠️ 必须取全历史：**搬迁保真守卫**（全部 = `git ls-files '*-movecheck.mjs'`）要
+      # `git show <旧提交>:<路径>` 拿搬迁前的原文来逐字比。默认的 fetch-depth:1 只取 1 个提交 ⇒ 那些 `git show` 会失败。
       # 代价实测：本仓库 size-pack 651 MiB / 283 提交，比后面的 Rust 构建小一个量级。
       - uses: actions/checkout@v4
         with:
