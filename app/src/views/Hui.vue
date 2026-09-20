@@ -641,12 +641,10 @@ import {
   type LastOrderIO,
   type LastOrderSnapshot,
 } from '../utils/lastOrder'
-import {
-  fileToDataUrl,
-  idbGetImage,
-  idbPutImage,
-  idbRemoveImage,
-} from '../utils/imageStore'
+// 2026-09-20 C3：`fileToDataUrl`/`idbPutImage`/`idbRemoveImage` 的**唯一**消费者是「收款码」
+// 那块，已随它搬进 `composables/hui/useHuiPayQrcode.ts` ⇒ 本文件不再 import（TS6133）。
+// 仍需要的 `idbGetImage`：下面门花图列按 `image_id` 取图（`:1428`）。
+import { idbGetImage } from '../utils/imageStore'
 // 2026-09-20 C1：`markupCatalog`/`removeCatalogItem`/`syncAddCatalogItem`/`updateCatalogItem`
 // 的**唯一**消费者是「加价项目管理」那块，已随它搬进 `composables/hui/useHuiMarkupMgmt.ts`
 // ⇒ 本文件不再 import 它们（留着就是 TS6133 未使用变量）。
@@ -654,6 +652,7 @@ import {
 import { loadMarkupCatalog, markupUnitOptions } from '../composables/useMarkupCatalog'
 import { useHuiMarkupMgmt } from '../composables/hui/useHuiMarkupMgmt'
 import { useHuiColumnConfig } from '../composables/hui/useHuiColumnConfig'
+import { useHuiPayQrcode } from '../composables/hui/useHuiPayQrcode'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -806,45 +805,16 @@ const order = reactive({
   lock_direction: '',
 })
 
-// 收款码（原版 `getImage('qrcode')`）：
-//   原文 @5345 从服务端拉图后 `y.images.put({ id:'qrcode', imageBlob:r })` —— **缓存到本地 images 表**；
-//   读取见 `index-c3b16e3f.js` 的 `L` @3999：`if (id === 'qrcode') return { imageUrl: await I(n.imageBlob) }`
-//   （token 494='qrcode'、462='imageBlob'、497='imageUrl'，均已解码确认）。
-// 我们无服务端图片库，但那半边的本地缓存与我们的 `imageStore`（IndexedDB 按 id 存）完全同构，
-// 故用**固定键 'qrcode'** 存/取即可。
-const PAY_QRCODE_KEY = 'qrcode'
-const payQrcodeUrl = ref('')
-async function loadPayQrcode() {
-  try {
-    payQrcodeUrl.value = (await idbGetImage(PAY_QRCODE_KEY)) || ''
-  } catch {
-    payQrcodeUrl.value = ''
-  }
-}
-const payQrcodeOpen = ref(false)
-function pickPayQrcode() {
-  const inp = document.createElement('input')
-  inp.type = 'file'
-  inp.accept = 'image/*'
-  inp.onchange = async () => {
-    const f = inp.files?.[0]
-    if (!f) return
-    try {
-      const url = await fileToDataUrl(f)
-      await idbPutImage(PAY_QRCODE_KEY, url)
-      payQrcodeUrl.value = url
-      message.success('已上传收款码')
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '上传收款码失败')
-    }
-  }
-  inp.click()
-}
-async function removePayQrcode() {
-  await idbRemoveImage(PAY_QRCODE_KEY)
-  payQrcodeUrl.value = ''
-  message.success('已删除收款码')
-}
+// 收款码（原版 `getImage('qrcode')`）—— 2026-09-20 整段（6 个声明，含上面那几行原版考据）
+// 搬到 `composables/hui/useHuiPayQrcode.ts`（逐字搬迁，零行为变化），这里只留调用点。
+// 原版考据（服务端拉图后缓存到本地 images 表、我们改用 IndexedDB 固定键 `qrcode`）见新家文件头。
+//
+// ⚠️ **`payQrcodeOpen` 必须解构**（spec §3.3 点名的雷）：写它的有两处 —— 模板 `:490` 与
+//    `onMoreSelect` 的 `case 'payQrcode'`。少解构这一个 ⇒ 菜单里点「收款码」**没反应**，
+//    而类型、构建、守卫**全都不会报**。
+// ⚠️ `payQrcodeUrl` 另有段外读者：模板 `:477`/`:478`/`:483`/`:484` 与打印载荷 `:1935`。
+const { payQrcodeUrl, payQrcodeOpen, loadPayQrcode, pickPayQrcode, removePayQrcode } =
+  useHuiPayQrcode({ message })
 
 // 行数据
 const lines = ref<Line[]>([])

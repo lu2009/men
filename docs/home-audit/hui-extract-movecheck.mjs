@@ -200,6 +200,21 @@ const SPLIT_BLOCKS = [
       DIAO_COL_DEFAULTS: [],
     },
   },
+  {
+    // C3「收款码」。快照 `Hui.vue:810-848`（含 6 行原版考据注释），6 个声明。
+    // 只有 `message` 一条注入改写；`imageStore` 四件是模块级单例，新家直接 import。
+    target: 'app/src/composables/hui/useHuiPayQrcode.ts',
+    names: ['loadPayQrcode', 'pickPayQrcode', 'removePayQrcode'],
+    consts: ['PAY_QRCODE_KEY', 'payQrcodeUrl', 'payQrcodeOpen'],
+    rewrites: {
+      pickPayQrcode: [{ from: 'message.', to: 'deps.message.' }],
+      removePayQrcode: [{ from: 'message.', to: 'deps.message.' }],
+      loadPayQrcode: [],
+      PAY_QRCODE_KEY: [],
+      payQrcodeUrl: [],
+      payQrcodeOpen: [],
+    },
+  },
 ]
 
 /**
