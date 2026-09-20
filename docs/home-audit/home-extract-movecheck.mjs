@@ -782,6 +782,29 @@ const BLOCKS = [
       ],
       orderNoInput: [], orderNoRestoring: [], orderNoPopShow: [],
     } },
+  /*
+   * B7（「行级状态类」）—— 4 个声明：2 `names` + 2 `consts`。
+   *
+   * ⚠️ **段是整一段 `2016–2103`**（分区头 + 四个声明 + 各自的 JSDoc，`rowClass` 那份 30 行）。
+   *    方案 §3.1 写的 `2016–2064` **少算 39 行**，`2064` 正好是 `expandedIds` 那一行
+   *    ⇒ 照它搬会把 `rowClass` 整条切掉（那正是本块唯一有段外读者的声明）。
+   *
+   * ⚠️ **三条改写各只落在一个声明里**：`filtered.value` 在 `duplicateKeys`、
+   *    `expandedRowKeys.value` 在 `expandedIds`、`loadedIds.value` 在 `rowClass`。
+   *    ⇒ 按名字分开登记**是有意义的**（若三条都塞进每个声明，`applyRewrites` 会因为
+   *    「找不到 from」直接抛 —— 那正是本守卫的设计：规则失效比差异漏网更危险）。
+   *    `dupKey` 的零改写是「本块自产」——它被 `duplicateKeys` 与 `rowClass` 各调一次，
+   *    **不许**加 `deps.`（加了就是 TS2339，且**本守卫照样绿** —— 见 B4 那段 ⚠️⚠️）。
+   */
+  { target: 'app/src/composables/home/useHomeRowStatus.ts',
+    names: ['dupKey', 'rowClass'],
+    consts: ['duplicateKeys', 'expandedIds'],
+    rewrites: {
+      duplicateKeys: [{ from: 'filtered.value', to: 'deps.filtered.value' }],
+      expandedIds: [{ from: 'expandedRowKeys.value', to: 'deps.expandedRowKeys.value' }],
+      rowClass: [{ from: 'loadedIds.value', to: 'deps.loadedIds.value' }],
+      dupKey: [],
+    } },
 ]
 
 /**

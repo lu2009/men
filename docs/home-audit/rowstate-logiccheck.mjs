@@ -3,15 +3,19 @@
  * `legacy/js/Home.formatted.js` 里切出来、就地反混淆后**真的跑起来**，再拿同一批夹具跑新版实现，
  * 逐条比结果。**不手抄旧版函数** —— 手抄等于引入转写错误，本项目已经栽过（见 00-summary 的「教训」）。
  *
- * 对照对象（旧版 → 新版，`app/src/views/Home.vue`）：
- *   `Ko`  → `dupKey()` 里的 `k()`
- *   `Zo`  → `dupKey()`
- *   `Xo`  → `duplicateKeys`（computed）
- *   `Qo`  → `rowClass()`
- *   `so`  → `unpaidOf()`（摘要缺失时的回退分支）
- *   `Vo`  → 客户列 render 里的 `unpaidOf(row) === 0`
+ * 对照对象（旧版 → 新版，**都不在 `Home.vue` 里了** —— 2026-09-20 两次归位之后）：
+ *   `Ko`  → `dupKey()` 里的 `k()`     —— `composables/home/useHomeRowStatus.ts`（Task 11 搬出）
+ *   `Zo`  → `dupKey()`                —— 同上
+ *   `Xo`  → `duplicateKeys`（computed）—— 同上
+ *   `Qo`  → `rowClass()`              —— 同上
+ *   `so`  → `unpaidOf()`（摘要缺失时的回退分支）—— `utils/homeMetrics.ts`（Task 2 搬出）
+ *   `Vo`  → 客户列 render 里的 `unpaidOf(row) === 0` —— 那个 render **还在 `Home.vue`**（`columns` 内）
  *
- * ⚠️ **新版那几段是本文件里照抄的一份**（同逻辑、同夹具）。改 `Home.vue` 时要同步改这里。
+ * ⚠️ **新版那几段是本文件里照抄的一份**（同逻辑、同夹具）。改**上面那两处**时要同步改这里。
+ * ★ **本台子不读那个文件**（它只读旧版 bundle）⇒ 那两处搬走时它**不会报红**（实测：105 条照过）。
+ *   ⇒ 也就是说：**真身改了、这里没跟，两边会静默漂开，台子照样绿**。
+ *   `dupKey`/`duplicateKeys`/`rowClass` 的**搬迁保真**由 `home-extract-movecheck.mjs` 逐字守着
+ *   （B7 一条），但**逻辑漂移**这台子测不出来 —— 改了判据就**顺手**改这里那份副本。
  *
  * 用法：node docs/home-audit/rowstate-logiccheck.mjs
  *   前置：/tmp/home-map.json（由 legacy/decode-home-map.mjs 生成）
@@ -69,8 +73,9 @@ const legacy = runLegacy(
 )
 
 // ------------------------------------------------------------------ 新版实现 //
-// ⚠️ 与 `app/src/views/Home.vue` 的 `dupKey()` / `duplicateKeys` / `rowClass()` 同逻辑
-// （`unpaidOf()` 2026-09-20 随 B2 搬去 `app/src/utils/homeMetrics.ts`）。
+// ⚠️ 与 `app/src/composables/home/useHomeRowStatus.ts` 的 `dupKey()` / `duplicateKeys` / `rowClass()`
+// 同逻辑（2026-09-20 随 B7 搬去那里；此前在 `app/src/views/Home.vue`）。
+// （`unpaidOf()` 2026-09-20 随 B2 搬去 `app/src/utils/homeMetrics.ts`。）
 function dupKey(r) {
   const k = (v) => (v == null ? '' : String(v).trim())
   const client = k(r.client_name)

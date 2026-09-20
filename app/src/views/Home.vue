@@ -448,6 +448,7 @@ import { useHomeRowEditing } from '../composables/home/useHomeRowEditing'
 import { useHomeManualProgress } from '../composables/home/useHomeManualProgress'
 import { useHomeCellRender } from '../composables/home/useHomeCellRender'
 import { useHomeOrderNo } from '../composables/home/useHomeOrderNo'
+import { useHomeRowStatus } from '../composables/home/useHomeRowStatus'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS } from '../utils/homeConstants'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
@@ -573,8 +574,9 @@ async function onLogout() {
 //
 // 旧版一共 5 个状态色类，分三层挂钩，新版一一对应：
 //   · **行级** `Qo`（`:7842-7849`，挂在 el-table 的 `row-class-name` 上）——`expanded-row` /
-//     `loaded-row` / `paid-row` / `duplicate-order-row` ⇒ 新版 `rowClass()`，见「展开明细」一节末尾
-//     （它同时依赖 `expandedRowKeys`，所以放在那边）。
+//     `loaded-row` / `paid-row` / `duplicate-order-row` ⇒ 新版 `rowClass()`
+//     （声明已归位到 `composables/home/useHomeRowStatus.ts`，2026-09-20 随 B7 纯搬迁 ——
+//     它不再「在展开明细一节末尾」了）。
 //   · **单元格级** `Ls`（`:11221-11227`）——`date-audit` / `date-warning` ⇒ `dateCellClass()`（已搬到 `utils/homeMetrics.ts`）。
 //   · **单元格级** `.paid-customer`（`:11402-11404`）——挂在**客户列**的 `render` 上。
 //
@@ -731,93 +733,21 @@ const {
 } = useHomePrint({ checkedRowKeys, details, message })
 
 // ---------------------------------------------------------------------------
-// 行级状态类（旧版 `Qo`，`:7842-7849`）
+// 行级状态类（旧版 `Qo` + `Zo`/`Xo`/`jo`）—— 声明已归位到
+// `composables/home/useHomeRowStatus.ts`（2026-09-20 逐字搬迁，零行为变化），这里只留调用点 ——
+// 搬出的名字仍在同一作用域，所以模板里 `:row-class-name="rowClass"` 一行都没改。
+//
+// ⚠️ **构造顺序**：注入的 `filtered`(B3) / `expandedRowKeys`+`loadedIds`(B6) 都是 setup 顶层
+//    即时求值 ⇒ 本行必须在 `useHomeExpand` **之后** —— 它就排在原来那一段的位置，天然满足。
+//
+// ⚠️ **只解构 `rowClass` 一项**：`dupKey`/`duplicateKeys`/`expandedIds` 在段外**零命中**，
+//    解构出来就是未使用变量（`vue-tsc` 的 TS6133）。**别照「把返回的全解构一遍」办。**
+//
+// ⚠️ 它**必须**是顶层绑定（写 `rowStatus.rowClass` 也能编译，但**静默坏**）：模板的
+//    `:row-class-name` 只对顶层绑定自动解包 —— 属性访问会让 naive 拿到 **Ref 对象**而不是
+//    函数，行底色全丢且**不报错**。完整理由见新家文件头。
 // ---------------------------------------------------------------------------
-/**
- * 重复单判据键（旧版 `Zo`，`:7827-7831`）：
- *
- * ```js
- * Ko = e => e == null ? "" : String(e).trim()
- * Zo = e => { const t=Ko(e.客户), l=Ko(e.门数), o=Ko(e.总价)
- *             return t && l && o ? t + "__" + l + "__" + o : "" }
- * ```
- *
- * 三个字段**各自 trim 后都非空**才成键；任一个为空（`""` 是 falsy）⇒ 返回 `""` ⇒ **不参与重复判定**。
- * ⚠️ 数值 `0` 经 `String()` 是 `"0"`（真值）⇒ 门数/总价为 0 的单**仍然参与**。
- */
-function dupKey(r: OrderSummaryDto): string {
-  const k = (v: unknown) => (v == null ? '' : String(v).trim())
-  const client = k(r.client_name)
-  const doors = k(r.door_count)
-  const total = k(r.total_price)
-  return client && doors && total ? `${client}__${doors}__${total}` : ''
-}
-
-/**
- * 「重复单」键集合（旧版 `Xo`，`:7830-7841`）—— 在样本里出现**超过 1 次**的键。
- *
- * ⚠️ **样本是 `ps`**（旧版 `:7832` 读 `ps.value`）＝ **筛选链的全量结果，不是当前页**
- *    （分页切片 `Cs` 是 `ps.slice(...)`，`:11180-11183`）。新版对应 `filtered`。
- *
- * ⚠️ **有意偏离**：新版 `filtered` 里还含**列头筛选**，而旧版那一步在 el-table 内部、**分页之后**
- *    （见 `columnFilterState` 的注释）。⇒ 勾了列头筛选时，新版做重复判定的样本**比旧版大**。
- *    这是「列头筛选改全量」那次拍板（用户 2026-09-18）的连带结果，不另开分支。
- */
-const duplicateKeys = computed(() => {
-  const counts = new Map<string, number>()
-  for (const r of filtered.value) {
-    const k = dupKey(r)
-    if (!k) continue
-    counts.set(k, (counts.get(k) ?? 0) + 1)
-  }
-  const out = new Set<string>()
-  counts.forEach((n, k) => {
-    if (n > 1) out.add(k)
-  })
-  return out
-})
-
-/** 当前展开的订单 id（旧版 `jo`，`:7772` 展开时 add、`:7826` 收起时 delete）。 */
-const expandedIds = computed(() => new Set(expandedRowKeys.value.map((k) => Number(k))))
-
-/**
- * `n-data-table` 的 `row-class-name`（旧版 `Qo`，`:7842-7849`）：
- *
- * ```js
- * Qo = ({ row }) => {
- *   const l = []
- *   jo.value.has(row.回执单号) && l.push("expanded-row")
- *   _o.value.has(row.回执单号) && l.push("loaded-row")
- *   0 === so(row) && l.push("paid-row")            // ← 死码，不实现，见下
- *   const o = Zo(row)
- *   o && Xo.value.has(o) && l.push("duplicate-order-row")
- *   return l.join(" ")
- * }
- * ```
- *
- * ⚠️ **`paid-row` 不实现**：`grep -r paid-row legacy/` **零命中** —— 旧版加了类，但
- *    `legacy/css/*.css`（含 `Home-97d96482.css`）里**没有任何 `.paid-row` 规则**，
- *    渲染出来不产生任何效果。照抄只会多一个不生效的类名，故略去（旧版侧是死码）。
- *
- * ⚠️ **键的等价映射**：旧版这三个集合都按 `回执单号` 建，因为旧版的 `row-key` 就是它
- *    （`:11300` `"row-key":s(467)`，`dr(467)` = 回执单号）。新版 `row-key` 是 DB `id`
- *    （见模板）⇒ 这里一并换成 `id`。
- *    唯一不严格等价的边角：`receipt_no` 在新库里**允许为空串**（`0009_orders.sql:8`
- *    `TEXT NOT NULL DEFAULT ''`，唯一索引是 `WHERE receipt_no <> ''`）。旧版按 `''` 成键时，
- *    展开**任意一条**空号单会让**所有**空号单一起亮；新版按 `id` 只亮展开的那一条。
- *    取值更合理的一侧（真实数据里回执单号必填），且与旧版在「回执单号非空」时逐字一致。
- *
- * ⚠️ 类的**顺序**与旧版一致（`expanded-row` → `loaded-row` → `duplicate-order-row`）；
- *    但 CSS 的层叠不靠顺序，见 `<style>` 里那段说明。
- */
-function rowClass(r: OrderSummaryDto): string {
-  const classes: string[] = []
-  if (expandedIds.value.has(r.id)) classes.push('expanded-row')
-  if (loadedIds.value.has(r.id)) classes.push('loaded-row')
-  const k = dupKey(r)
-  if (k && duplicateKeys.value.has(k)) classes.push('duplicate-order-row')
-  return classes.join(' ')
-}
+const { rowClass } = useHomeRowStatus({ filtered, expandedRowKeys, loadedIds })
 
 // ---------------------------------------------------------------------------
 // 「查单号」的动作（§3.2 旧版 `Yo`/`Wo`）—— 声明已归位到 `composables/home/useHomeOrderNo.ts`
@@ -1511,7 +1441,8 @@ const tableHeight = 'calc(100vh - 300px)'
 }
 
 /*
- * 行状态底色（类由 `rowClass()` 产出）。样式逐字取自 `legacy/css/Home-97d96482.css`：
+ * 行状态底色（类由 `rowClass()` 产出 —— 它的声明已归位到 `composables/home/useHomeRowStatus.ts`）。
+ * 样式逐字取自 `legacy/css/Home-97d96482.css`：
  *
  *   [data-v-…] .el-table__row, [data-v-…] .el-table__row.expanded-row { background-color:#fff!important }
  *   [data-v-…] .loaded-row                 { background-color:#dbdbd8!important }
