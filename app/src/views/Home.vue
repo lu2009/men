@@ -420,7 +420,6 @@ import {
   onMounted,
   reactive,
   ref,
-  type InputHTMLAttributes,
   type Ref,
 } from 'vue'
 import { useRouter } from 'vue-router'
@@ -450,8 +449,8 @@ import { useHomeQueryMore } from '../composables/home/useHomeQueryMore'
 import { useHomeExpand } from '../composables/home/useHomeExpand'
 import { useHomePrint } from '../composables/home/useHomePrint'
 import { useHomeRowEditing } from '../composables/home/useHomeRowEditing'
+import { useHomeManualProgress } from '../composables/home/useHomeManualProgress'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
-import { legacyToday, localToday, pad } from '../utils/homeDate'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
 import { useAuthStore } from '../stores/auth'
@@ -472,9 +471,14 @@ import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
 //     `Line` / `DetailLinesTable` / `useDetailLineDialogs` / `LS` / `useOrderLines` /
 //     `NSpin` / `NEmpty` / `DataTableRowKey`
 //   · B1 → `useHomeData.ts`：`OrderFinance`
+//   · B11 → `useHomeManualProgress.ts`：`InputHTMLAttributes`（页面只为 `manualNameInputProps` 用它）
+//   · **整条** `import { legacyToday, localToday, pad } from '../utils/homeDate'` 也一并删了 ——
+//     三个名字在 B11 搬完后**都没有页面上最后一处用处**了（`localToday` 随 `confirmAudit`、
+//     `pad` 随 `isoDate`（与 T12 的 `submitDate`）、`legacyToday` 随 `openManualProgress`），
+//     而它们的新家都直接 `import` 自 `utils/homeDate`，不经页面转发。
 // 留着它们 `vue-tsc` 会报 TS6133/TS6196（而 `npm run build` 会因此红）—— 同类先例是
 // Task 3 搬 B10 时删掉的 `DataTableRowData`。
-import type { OrderHeadInput, OrderSummaryDto } from '../api/types'
+import type { OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -491,18 +495,11 @@ const PAYMENT_OPTIONS = ['已付', '未付', '部分付', '全部显示']
 const PAYMENT_CLEAR = '全部显示'
 const PROGRESS_CLEAR = '显示全部'
 
-// 「手动更新进度」弹窗 + 自定义进度项（旧版 §4.7，审计 G3–G11/B30/C12）。以下**四个**常量逐个有据：
-//   `Na`（`:8036`）      = autocomplete 的 4 个固定候选
-//   `wr`（`:7568`）      = localStorage 键：自定义操作项数组
-//   `gr`（`:7568`）      = localStorage 键：`记录日期` 持久化偏好
-//   `Bo`（`:7673`）      = 「打单操作」列头 popover 的 4 个固定项（新版把「显示全部」并进了同一个列表）
-// ⚠️ 这段注释**原文描述的是六个常量**。第六行（`dr(1012)` = 自定义进度段的颜色）与后面 `ua` 那行
-//    **已随 `CUSTOM_SEGMENT_COLOR` / `CUSTOM_SEGMENT_FLEX` 归位到 `app/src/utils/homeConstants.ts`**
-//    （2026-09-20，纯搬迁）—— 「四个」就是照此改的，别再当回那份「六个常量」的原文。
-const MANUAL_ACTION_OPTIONS = ['玻璃订单', '生产单', '收据单', '确认生产']
-const MANUAL_ACTIONS_KEY = 'home_manual_progress_actions'
-const RECORD_DATE_KEY = 'home_manual_progress_record_date'
-const PROGRESS_FIXED_FILTERS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
+// 「手动更新进度」弹窗 + 自定义进度项（旧版 §4.7，审计 G3–G11/B30/C12）
+// 2026-09-20 连同它那**四个模块级常量**（`MANUAL_ACTION_OPTIONS` / `MANUAL_ACTIONS_KEY` /
+// `RECORD_DATE_KEY` / `PROGRESS_FIXED_FILTERS`）一起搬到
+// `composables/home/useHomeManualProgress.ts`（逐字搬迁，零行为变化）—— 四个常量各自的旧版
+// 依据（`Na`/`wr`/`gr`/`Bo`）随那段注释走了，调用点在下面「手动更新进度」那一节。
 
 // ---------------------------------------------------------------------------
 // 数据 / 加载（`loading` / `rawOrders` / `financeSummary` / `load`）
@@ -627,39 +624,13 @@ const {
   dateShow, dateTarget, dateValue, openDate, submitDate,
 } = useHomeRowEditing({ message, load })
 
-/**
- * 「审核确认」（旧版 `Ba`/`Ma`/`rn`，`:476268-476400`，审计 `02-actions.md` G2）。
- *
- * 旧版两步：① 把**下单日期改成今天**（`Ma` = 今天 → `rn()`，那条路会重算截止日期）；
- * ② `Hl("确认下单", [回执单号])` = `updataProgress`，把「确认下单」追加进进度串。
- *
- * ⚠️ 新版**不需要**手动重算截止日期 —— `due_date` 由 SQL 推导
- * （`orders/service.rs` 的 `HEADER_COLUMNS`：`order_date + production_days`），改日期自动跟随。
- * （旧版重算那一步算的是 `今天 + ceil((旧截止−旧日期)/天)`，而旧版 `截止 = 日期 + 生产天数`
- *  ⇒ 等价于「今天 + 生产天数」，与我们这条推导一致。2026-09-19 修掉了我们多算的那一天。）
- *
- * 进度串的追加沿用 `submitManualProgress` 那条既有通路（`headWithStatus` + `updateOrderHead`），
- * 不另开后端接口 —— 与「手动更新进度」写的是同一个字段。
- * 文案照旧版：成功 `dr(1279)`=「更新成功」。
- */
-async function confirmAudit(row: OrderSummaryDto) {
-  try {
-    await api.updateOrderHead(row.id, {
-      ...headWithStatus(row, '确认下单'),
-      // ⚠️ **必须用本地日期，不能用 `legacyToday()`** —— 那个走 `toISOString()`（UTC）。
-      // 旧版 `:11425-11426` 用的是本地 `getFullYear/getMonth/getDate`。
-      // 实测（`TZ=Asia/Shanghai`）：本地 2026-09-18 03:00 时，
-      //   走 `legacyToday()` 写的是 **2026-09-17**（早一天，推导出的截止日期也跟着早一天）；
-      //   走本地口径写的才是 2026-09-18。
-      // ⇒ UTC+8 每天 00:00–08:00 点「审核确认」，日期与截止日期都会错一天。
-      order_date: localToday(),
-    })
-    message.success('更新成功')
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '更新失败')
-  }
-}
+// ---------------------------------------------------------------------------
+// 「审核确认」——声明已归位到 `composables/home/useHomeManualProgress.ts`
+// ---------------------------------------------------------------------------
+// 为什么和「手动更新进度」同住一个文件而不是单独一块：它体里走的正是那条既有通路
+// （`headWithStatus` + `updateOrderHead`，与「手动更新进度」写的是同一个字段），
+// 两者的调用点也都在 `columns` 里。
+// 调用点见下面「手动更新进度」那一节（同一个 `useHomeManualProgress(...)`）。
 
 // ---------------------------------------------------------------------------
 // 财务抽屉（§5 FinanceDrawer）
@@ -952,217 +923,31 @@ function clearOrderNoQuery() {
 
 // ---------------------------------------------------------------------------
 // 手动更新进度 + 自定义进度项（§3 `Ea`/`La`/`ua`；§4.7 `Ha`/`ln`/`on`/`Ua`/`Ia`/`Sa`/`Ta`/`Ya`/`Wa`）
+// 2026-09-20 整块（含「审核确认」与四个模块级常量）搬到
+// `composables/home/useHomeManualProgress.ts`（逐字搬迁，零行为变化），
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以模板与 `columns` 一行都没改。
+//
+// ⚠️ **构造顺序**：`message`（页面顶部 `useMessage()`）· `load`（B1 `useHomeData` 回传）·
+//    `progressFilter`（B3 `useHomeFilterView` 借出）都是 setup 顶层即时求值 ⇒ 本行必须在
+//    那两块**之后**；而 B12（`useHomeCellRender`）的 `progressSegments(status, manualActions)`
+//    要读本块借出的 `manualActions` ⇒ 本行必须在那一步**之前**。往前挪 = 拿到 `undefined`，
+//    且**不一定报错**。
+//
+// ⚠️ **只解构页面真正用到的 16 个**（模板 14 处 + `columns` 4 处，逐项实测有活读者，见新家
+//    文件头）：其余 12 个声明（`readManualActions`/`saveManualActions`/`rememberManualAction`/
+//    `forgetManualAction`/`isoDate`/`onManualNameContextMenu`/`manualProgressParam`/`headWithStatus`
+//    等）段外零命中，解构出来就是未使用变量，`vue-tsc` 的 TS6133 会报错。
+//
+// ⚠️ 模板 245/246 的 `manualName` 是**写**（`@update:value` / `@select`）⇒ 必须解构：
+//    写成 `manual.manualName` 会退化成普通属性赋值，**把 ref 对象整个换成字符串**（**静默**）。
 // ---------------------------------------------------------------------------
-// 旧版 `Ea`（`:8036`）：读 localStorage 的 JSON 数组，只留非空字符串；解析失败/非数组 ⇒ []。
-function readManualActions(): string[] {
-  try {
-    const raw = localStorage.getItem(MANUAL_ACTIONS_KEY)
-    if (!raw) return []
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((v): v is string => typeof v === 'string' && v.trim() !== '')
-  } catch {
-    return []
-  }
-}
-
-// 旧版是 `Vue.ref(立即求值)` —— 只在组件建立时读一次，不跨标签页同步。新版照此。
-const manualActions = ref<string[]>(readManualActions())
-
-// 旧版 `Ia`（`:8030`）：整数组回写。
-function saveManualActions() {
-  localStorage.setItem(MANUAL_ACTIONS_KEY, JSON.stringify(manualActions.value))
-}
-
-// 旧版 `La`（`:8036`）：列头 popover 追加的自定义项 = 自定义项里不在固定表 `Bo` 里的那些。
-// （`Ua` 只挡 `Na` 的 4 项，`Ea` 里仍可能出现与 `Bo` 同名的项，所以这里要再滤一次。）
-const customProgressOptions = computed(() =>
-  Array.from(new Set(manualActions.value.filter((v) => !PROGRESS_FIXED_FILTERS.includes(v)))),
-)
-
-// 旧版 `Ua`（`:8032`）：失焦/确认时把新名字入库；固定候选与已有项不重复入库。
-function rememberManualAction(name: string) {
-  const v = name.trim()
-  if (!v || MANUAL_ACTION_OPTIONS.includes(v) || manualActions.value.includes(v)) return
-  manualActions.value.push(v)
-  saveManualActions()
-}
-
-// 旧版 `Ya` 内联的删除逻辑（`:8044-8049`）：固定项一律 false。
-function forgetManualAction(name: string): boolean {
-  const v = name.trim()
-  if (!v || MANUAL_ACTION_OPTIONS.includes(v)) return false
-  const before = manualActions.value.length
-  manualActions.value = manualActions.value.filter((a) => a !== v)
-  if (manualActions.value.length === before) return false
-  saveManualActions()
-  return true
-}
-
-// 弹窗状态（旧版 `ba`/`Da`/`Aa`/`ka`/`Pa`，`:8036-:8064`）。
-const manualShow = ref(false)
-const manualTarget = ref<OrderSummaryDto | null>(null)
-const manualName = ref('')
-const manualDate = ref<number | null>(null)
-// 旧版 `Pa = ref("1" === localStorage.getItem(gr))` —— 持久化偏好：
-// 从未设置过 ⇒ false；存过 "1" ⇒ 勾上。**不是**每次默认勾选。
-const manualRecordDate = ref(localStorage.getItem(RECORD_DATE_KEY) === '1')
-
-// 旧版 `value-format: "YYYY-MM-DD"` ⇒ 提交时拼进操作名的是 `YYYY-MM-DD` 串。
-function isoDate(ts: number): string {
-  const d = new Date(ts)
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
-// 旧版 `Sa`（`:8041`）：候选 = 固定 4 项 + 自定义项，按**输入原值**（不 trim）`includes` 过滤。
-// 旧版给 Element Plus 的只有 `{value}`（它的 value 同时当显示文本）；Naive 的 autocomplete
-// 用 `label` 显示、选中回填的也是 `label`，故这里两者都填同一个串。
-const manualNameOptions = computed(() => {
-  const all = [...MANUAL_ACTION_OPTIONS, ...manualActions.value]
-  const q = manualName.value
-  return (q ? all.filter((v) => v.includes(q)) : all).map((v) => ({ label: v, value: v }))
-})
-
-// 旧版 `Ta`（`:8040`）：失焦即入库。
-function onManualNameBlur() {
-  rememberManualAction(manualName.value)
-}
-
-// 旧版 `Ya`（`:8042`）：在「操作名称」输入框上右键 = 删除自定义操作项。
-function onManualNameContextMenu(e: MouseEvent) {
-  e.preventDefault()
-  const v = manualName.value.trim()
-  if (!v) {
-    message.warning('请先输入要删除的操作项')
-    return
-  }
-  if (MANUAL_ACTION_OPTIONS.includes(v)) {
-    message.warning('固定项不允许删除')
-    return
-  }
-  if (!forgetManualAction(v)) {
-    message.warning('未找到该自定义操作项')
-    return
-  }
-  // 旧版 `Mo.value === l && Po()`：删掉的正是当前筛选值时清掉筛选（新版「清掉」= 显示全部）。
-  if (progressFilter.value === v) progressFilter.value = '显示全部'
-  manualName.value = ''
-  message.success('已删除自定义操作项')
-}
-
-// Naive 的 AutoComplete 不认 `onContextmenu` 顶层 prop，要走 `inputProps` 透传到内层 input。
-const manualNameInputProps: InputHTMLAttributes = { onContextmenu: onManualNameContextMenu }
-
-// 旧版 `Wa`（`:8057`）：`记录日期` 是持久化偏好，写 "1"/"0"。
-function onRecordDateChange(v: boolean) {
-  manualRecordDate.value = v
-  localStorage.setItem(RECORD_DATE_KEY, v ? '1' : '0')
-}
-
-// 旧版 `Ha`（`:8067`）：无回执单号 ⇒ warning 不开窗；开窗时重置操作名与日期（**不动** `记录日期`）。
-function openManualProgress(row: OrderSummaryDto) {
-  if (!row.receipt_no) {
-    message.warning('当前行缺少回执单号，无法更新进度')
-    return
-  }
-  manualTarget.value = row
-  manualName.value = ''
-  manualDate.value = legacyToday()
-  manualShow.value = true
-}
-
-// 旧版 `tn`（`:8072`）：取消。
-function closeManualProgress() {
-  manualShow.value = false
-  manualTarget.value = null
-  manualName.value = ''
-}
-
-// 旧版 `ln`（`:8079`）/`on`（`:8089`）：勾了「记录日期」就把日期拼在操作名后面（`param3`）。
-function manualProgressParam(): string {
-  const name = manualName.value.trim()
-  const date = manualDate.value
-  return manualRecordDate.value && date != null ? `${name}${isoDate(date)}` : name
-}
-
-// `PATCH /orders/{id}` 是**整头覆盖**（后端 `update_head` 绑的是全字段），
-// 所以必须带上原行的全部头字段，只换 `production_status`。
-function headWithStatus(row: OrderSummaryDto, productionStatus: string): OrderHeadInput {
-  return {
-    client_code: row.client_code,
-    client_name: row.client_name,
-    phone: row.phone,
-    brand: row.brand,
-    order_date: row.order_date,
-    production_days: row.production_days,
-    deposit: row.deposit,
-    remark: row.remark,
-    salesperson: row.salesperson,
-    // `order_no_set` 是服务端派生值，不回传（发过去也会被忽略）。
-    install_address: row.install_address,
-    production_status: productionStatus,
-    creator_name: row.creator_name,
-    lock_direction: row.lock_direction,
-  }
-}
-
-// 旧版 `ln`（`:8074`）：确认 → `Hl(param3 = 操作名[+日期])` → 「进度更新成功」。
-// 旧版紧接着 `t["打单操作"] = o`（**整串覆盖**，不是追加），新版照此语义写 `production_status`。
-// 旧版的 `updataProgress` 是旧服务端不透明接口，新版后端没有对应端点 ⇒ 落到订单头字段。
-// TODO(未确认): 旧服务端 `updataProgress` 自身是否还会做合并/追加（旧版前端不刷新，看不到服务端结果），
-//               无法从 bundle 观测；新版按旧版**前端可见**的「整串覆盖」实现。
-async function submitManualProgress() {
-  const row = manualTarget.value
-  if (!row) return
-  if (!row.receipt_no) {
-    message.error('缺少回执单号，无法更新进度')
-    return
-  }
-  if (!manualName.value.trim()) {
-    message.warning('请先选择或输入操作名称')
-    return
-  }
-  rememberManualAction(manualName.value)
-  try {
-    await api.updateOrderHead(row.id, headWithStatus(row, manualProgressParam()))
-    message.success('进度更新成功')
-    closeManualProgress()
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '更新进度失败')
-  }
-}
-
-// 旧版 `on`（`:8088`）：删除 → `deleteProgressForFullOrder` → 「进度删除成功」，
-// 成功后从 `打单操作` 串里摘掉该段（处理 `x` / `x_` / `_x` 三种形态）。
-// 旧版对旧服务端最多重试 5 次；新版后端自洽，PATCH 即持久化 ⇒ 无重试（有意偏离，理由见上）。
-async function deleteManualProgress() {
-  const row = manualTarget.value
-  if (!row) return
-  if (!row.receipt_no) {
-    message.error('缺少回执单号，无法删除进度')
-    return
-  }
-  if (!manualName.value.trim()) {
-    message.warning('请先选择或输入要删除的操作名称')
-    return
-  }
-  const param = manualProgressParam()
-  let status = row.production_status
-  if (status) {
-    if (status === param) status = ''
-    else if (status.includes(`_${param}`)) status = status.replace(`_${param}`, '')
-    else if (status.includes(`${param}_`)) status = status.replace(`${param}_`, '')
-  }
-  try {
-    await api.updateOrderHead(row.id, headWithStatus(row, status))
-    message.success('进度删除成功')
-    closeManualProgress()
-    await load()
-  } catch (e) {
-    message.error((e as Error).message || '删除进度失败')
-  }
-}
+const {
+  confirmAudit, customProgressOptions,
+  manualShow, manualTarget, manualName, manualDate, manualRecordDate,
+  manualNameOptions, manualNameInputProps, onManualNameBlur, onRecordDateChange,
+  openManualProgress, closeManualProgress, submitManualProgress, deleteManualProgress,
+  manualActions,
+} = useHomeManualProgress({ message, load, progressFilter })
 
 // ---------------------------------------------------------------------------
 // 列定义（§3；Phase 1 = 工厂视图 Yt）

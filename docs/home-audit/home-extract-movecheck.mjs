@@ -615,6 +615,64 @@ const BLOCKS = [
         { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 (e as Error).message
       ],
     } },
+  /*
+   * B11（「手动更新进度 / 自定义进度项」+「审核确认」）—— 28 个声明：15 `names` + 13 `consts`。
+   *
+   * ⚠️ **段是三段**：`1121–1153`（`confirmAudit`）· `2340–2397` + `2409–2564`（手动进度主体，
+   *    中间那段 `2398–2408` 是 `legacyToday`，**归 Task 4**，已搬去 `utils/homeDate.ts`）·
+   *    `506–518` 里属于本块的 4 个模块级常量。`1121–2564` 看着连续，其实 `1154–2339`
+   *    全是别人的（B2/B3/B4/B5/B6/B7/B9/B10）—— 这条约束是**删段**时的人工纪律。
+   *
+   * ⚠️ 简报（`task-13-brief.md` 修正 G）的 `consts` 清单**漏了 `customProgressOptions`** ——
+   *    它有活读者（`columns` 两处），也必须登记，否则搬走了没人查。实测总数 **28**（简报写 27）。
+   *
+   * ⚠️ 改写形态（Ruling 55）：`{ from: 'message.', to: 'deps.message.' }` ——
+   *    **带结尾 `.`**。本块三个函数体里都有 `(e as Error).message`（`confirmAudit` /
+   *    `submitManualProgress` / `deleteManualProgress`），但那个 `message` **后面没有点**
+   *    ⇒ 不会被咬到；实测改写后 `(e as Error).message` 仍是 3 处、且**不存在** `.deps.`。
+   *    实测剥注释后 `message.` 共 **15** 处（success 4 / error 5 / warning 6）—— 简报的「14」差一。
+   *
+   * ⚠️ 另外两处**简报说错、按实测不写**：简报说本块要 `import { h }`（服务 `rememberManualAction`
+   *    与 `isoDate`）—— 实测是**假阳性**，那两处命中的是 `manualActions.value.push(v)` 的
+   *    `push(` 与模板串 \`${pad(...)}\`，全块**没有**一处 `h(` 调用。`unpaidOf` / `PROGRESS_STEPS`
+   *    同样零命中 ⇒ 都不 import（写了就是 TS6133）。
+   *
+   * ⚠️ `load()` 必须带右括号 —— 裸 `load(` 会打进 `loadDetail(` 这类同前缀标识符。
+   */
+  { target: 'app/src/composables/home/useHomeManualProgress.ts',
+    names: ['confirmAudit', 'readManualActions', 'saveManualActions', 'rememberManualAction',
+            'forgetManualAction', 'isoDate', 'manualProgressParam', 'headWithStatus',
+            'openManualProgress', 'closeManualProgress', 'submitManualProgress',
+            'deleteManualProgress', 'onManualNameBlur', 'onManualNameContextMenu',
+            'onRecordDateChange'],
+    consts: ['MANUAL_ACTION_OPTIONS', 'MANUAL_ACTIONS_KEY', 'RECORD_DATE_KEY',
+             'PROGRESS_FIXED_FILTERS', 'manualActions', 'customProgressOptions',
+             'manualShow', 'manualTarget', 'manualName', 'manualDate', 'manualRecordDate',
+             'manualNameOptions', 'manualNameInputProps'],
+    rewrites: {
+      confirmAudit: [
+        { from: 'message.', to: 'deps.message.' },   // 体里有 (e as Error).message（后面无点）
+        { from: 'load()', to: 'deps.load()' },
+      ],
+      openManualProgress: [{ from: 'message.', to: 'deps.message.' }],
+      submitManualProgress: [
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'load()', to: 'deps.load()' },
+      ],
+      deleteManualProgress: [
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'load()', to: 'deps.load()' },
+      ],
+      onManualNameContextMenu: [
+        { from: 'message.', to: 'deps.message.' },   // 3 warning + 1 success
+        // 「删掉的正是当前筛选值 ⇒ 清筛选」，读写都在这一行（REF 2447）。
+        { from: 'progressFilter.value', to: 'deps.progressFilter.value' },
+      ],
+      // 其余 10 个函数体零替换（只读写段内自产的名字 + 直接 import 的 api/pad/localToday/legacyToday）。
+      readManualActions: [], saveManualActions: [], rememberManualAction: [],
+      forgetManualAction: [], isoDate: [], manualProgressParam: [], headWithStatus: [],
+      closeManualProgress: [], onManualNameBlur: [], onRecordDateChange: [],
+    } },
 ]
 
 /**
