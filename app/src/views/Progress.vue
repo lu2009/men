@@ -347,6 +347,7 @@ import type { ClientDto, OrderDto, ProcedureSlotDto, ProgressRowDto } from '../a
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
+import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
 import {
   amountCell,
   doorSizeCell,
@@ -431,29 +432,18 @@ onMounted(async () => {
 const dashboardRows = computed(() => rows.value)
 const dashboardShow = ref(false)
 
-// ===== 更新进度 =====
-// 旧版是行内那颗「更新进度」链接开的弹窗；值是三段拼的 `工序名[_操作员]_YYYY-MM-DD`。
-// ⚠️ 服务端**不校验**这个格式（它只当字符串存），拼错了也是自己负责。
-const updOpen = ref(false)
-const updSaving = ref(false)
-const updTarget = ref<ProgressRowDto | null>(null)
-/** 批量模式（旧版 `O`）：勾选多行时开的是同一个弹窗，只换标题、改发一批 id。 */
-const updBatch = ref(false)
-const updSlot = ref<string | null>(null)
-const updOperator = ref('')
-const updDate = ref(today())
-
-/** 工序下拉：本租户配过的槽。没配名的槽**不给选**（旧版也是先丢掉空槽）。 */
+/*
+ * 「更新进度」弹窗（旧版 `O` / `Y` / `S` / `W`）—— 2026-09-20 起**三段一并**搬进
+ * `composables/progress/useProgressUpdateDialog.ts`（Progress 拆分 **P3**，纯搬迁、逐字未改）。
+ * ⚠️ **留在本节里的是壳自己的两件东西，不归 P3**：`procedures`（P2 的颜色口径与下面的
+ *   `loadSlots` 共用它）与 `loadSlots` —— 所以删段是三段具名区间，不是一整段。
+ * ⚠️ 调用点**不在这里**：本块注入的 `selectedRows` 要到下面 `selectedRows` 声明处才存在，
+ *   放这儿会 `TS2448` / 运行期 TDZ ⇒ 那句话挂在 `selectedRows` 之后（在那里有第二段说明）。
+ * ⚠️ `const procedures` 头顶原来那行 JSDoc（「工序下拉：本租户配过的槽…」）**跟着 P3 走了**
+ *   —— 它落在新家 `slotOptions` 的头顶（REF 的行段划分把它算在 P3 内）。所以这里看着「秃」，
+ *   不是漏抄；那句话现在描述的是新家那个下拉候选 `computed`。
+ */
 const procedures = ref<ProcedureSlotDto[]>([])
-const slotOptions = computed(() =>
-  procedures.value.filter((p) => p.name.trim()).map((p) => ({ label: p.name, value: p.slot })),
-)
-
-function today() {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate())
-}
 
 async function loadSlots() {
   try {
@@ -461,66 +451,6 @@ async function loadSlots() {
     procedures.value = r?.slots ?? []
   } catch {
     // 读不到就让下拉空着 —— 不拦页面
-  }
-}
-
-/** 拼值：`工序名_操作员_日期`，操作员留空就省略那一段（旧版也是可省）。 */
-const updValue = computed(() => {
-  const name = procedures.value.find((p) => p.slot === updSlot.value)?.name || ''
-  if (!name) return ''
-  const parts = [name]
-  if (updOperator.value.trim()) parts.push(updOperator.value.trim())
-  parts.push(updDate.value.trim() || today())
-  return parts.join('_')
-})
-
-/**
- * 打开「更新进度」弹窗。`r = null` ⇒ **批量模式**（旧版 `O=true`，标题换成
- * `批量更新进度 (n条)`、footer 不出现「收款/删除」那两颗）。
- *
- * ⚠️ 单行模式旧版有一道 `if (!row.单号) return ElMessage.warning("未开始生产的单无法更新进度")`
- *    —— 那颗链接本来就是 `v-if="单号"`，够不着，新版同样不加。
- */
-function openUpdateDialog(r: ProgressRowDto | null) {
-  updBatch.value = r === null
-  updTarget.value = r
-  updSlot.value = null
-  updOperator.value = ''
-  updDate.value = today()
-  updOpen.value = true
-}
-
-function openUpdate(r: ProgressRowDto) {
-  openUpdateDialog(r)
-}
-
-/** 弹窗标题：旧版 `O.value ? "批量更新进度 (" + ea + "条)" : "更新进度"`。 */
-const updTitle = computed(() =>
-  updBatch.value ? `批量更新进度 (${selectedRows.value.length}条)` : '更新进度',
-)
-
-async function submitUpdate() {
-  const batch = updBatch.value
-  const r = updTarget.value
-  if (!batch && !r) return
-  if (!updSlot.value || !updValue.value) return
-  const ids = batch ? selectedRows.value.map((x) => x.id) : [r!.id]
-  if (!ids.length) return
-  updSaving.value = true
-  try {
-    // 旧版批量时发的是**行 id**（槽 = 工序10）或**行级单号**（其余槽）——那是它服务端的分流口径。
-    // 新版 `/v1/progress/update` **两种都收**（`line_ids` / `line_nos`，二选一取并集；
-    // 见 `api.updateProgress` 的注释，以及分析文档 §10 去掉的「回款→工序10」特判）。
-    // 这一页手里本来就是行 id ⇒ 继续发 id，与旧版那条批量路一致。
-    await api.updateProgress({ slot: updSlot.value, value: updValue.value, lineIds: ids })
-    updOpen.value = false
-    // 成功提示照旧版分两种：批量「批量更新成功，共 N 条」/ 单行「进度已更新」。
-    message.success(batch ? `批量更新成功，共 ${ids.length} 条` : '进度已更新')
-    await load()
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '更新失败')
-  } finally {
-    updSaving.value = false
   }
 }
 
@@ -959,6 +889,20 @@ const searchText = ref('')
  *    于是**唯一事实来源是行上的 `isSelected`**，这里只做一次派生。
  */
 const selectedRows = computed(() => rows.value.filter((r) => r.isSelected))
+
+// ---------------------------------------------------------------------------
+// 「更新进度」弹窗的声明已归位到 `composables/progress/useProgressUpdateDialog.ts`（Progress 拆分 P3）。
+// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `selectedRows` 就是上面这一行才声明的，
+//   把 `useProgressUpdateDialog(...)` 放回 P3 的原位置会**早读一个 TDZ 变量**（`TS2448`）。
+// ⚠️ 只解构段外真有活读者的 11 个：模板 264/268/272/276/278/282/283 + `columns` 的 `openUpdate`(879)
+//   + `openBatchUpdate` 的 `openUpdateDialog`(1203)。另 3 个（`updTarget`/`updBatch`/`today`）段外零引用，
+//   解构出来就是死局部（`TS6133`）。模板里 `updOpen`/`updSlot`/`updOperator`/`updDate` 是 `v-model`
+//   的**写** ⇒ 必须解构，写成 `upd.updOpen` 会把 ref 整个换成字符串（**静默**）。
+const {
+  updOpen, updSaving, updSlot, updOperator, updDate, slotOptions, updValue, updTitle,
+  openUpdateDialog, openUpdate, submitUpdate,
+} = useProgressUpdateDialog({ procedures, selectedRows, message, load })
+// ---------------------------------------------------------------------------
 
 /**
  * 旧版 `pa()`：重拉数据 + **清空勾选**（`Ta()` + 逐个 `isSelected=false` + 重置 `te`）。

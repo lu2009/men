@@ -264,6 +264,60 @@ const BLOCKS = [
       ],
     },
   },
+  {
+    /*
+     * **P3「更新进度弹窗」**（→ `app/src/composables/progress/useProgressUpdateDialog.ts`）。
+     *
+     * 快照 `Progress.vue:420-442`（挖掉 433 的 `procedures`）+ `453-512` —— **三段、不连续**
+     * （82 行 = 13 + 9 + 60），**14 个声明**：
+     *   7 个 `ref`（`updOpen` `updSaving` `updTarget` `updBatch` `updSlot` `updOperator` `updDate`）·
+     *   3 个 `computed`（`slotOptions` `updValue` `updTitle`）·
+     *   4 个 `function`（`today` `openUpdateDialog` `openUpdate` `submitUpdate`）= 7 + 3 + 4 = 14。
+     *   按行段分：`420-432` 里 **7**（就是那 7 个 `upd*` ref —— `433` 的 `procedures` 留壳、不算）·
+     *   `434-442` 里 **2**（`slotOptions` + `today`）· `453-512` 里 **5**（`updValue`
+     *   `openUpdateDialog` `openUpdate` `updTitle` `submitUpdate`）⇒ 7 + 2 + 5 = 14 ✓。
+     *   ⚠️ 12 块里**只有本块的行段是多段**（R1 裁决的产物）⇒ 删段必须是三段具名区间。
+     *
+     * ⚠️ **留壳的两处**（都实测过、都不归本块）：
+     *   · `433` `const procedures` —— P2 的颜色口径与下面那个 `loadSlots` 共用它；
+     *   · `443-452`（空行 + `async function loadSlots` + 空行）—— 写 `procedures` 的是它。
+     *   ⇒ 本块的 82 行是**拼接**出来的：`434-442` 之后直接接 `453-512`，所以新家里
+     *     `today()` 的 `}` 后面紧接 `updValue` 的 JSDoc、中间**没有空行**。
+     *     ⚠️ 那**不是**改写，是本块区间自带的形状 —— 拿「多了/少了一个空行」当红是误判。
+     *
+     * ⚠️ **本块也是工厂式**（`useProgressUpdateDialog(deps)`），**一条 `export` 改写都没有**，
+     *    14 个声明全部由 `return` 借出（函数体里写 `export` 是 `TS1184`）。
+     *
+     * ⚠️ **注入改写 = 4 条规则、命中 7 处**：
+     *   `procedures.value`(×2，`slotOptions` / `updValue`) ·
+     *   `selectedRows.value`(×2，`updTitle` / `submitUpdate`) ·
+     *   `message.`(×2，`submitUpdate` 的 success/error) ·
+     *   `load()`(×1，`submitUpdate` 末尾的 `await load()`)。
+     *   ⚠️ **`load` 那条的边界已核**：段内 `load` 只出现这一次，但 `from` 仍写成带括号的
+     *     `load()`（核心文件头「规则一律要带边界」）。段内**没有** `loadSlots` 那种会被裸名
+     *     误伤的兄弟（`loadSlots` 留壳、不进本块切片）—— 写 `load` 也**碰巧**安全，
+     *     但带括号是能自证的那一种，不靠「碰巧」。
+     *   ⚠️ 这 4 条 vs 探针实测：`procedures.value` / `selectedRows.value` / `message.` 三条
+     *     在段内**各 2 处，且全部落在活代码里**（段内注释里一个都没有）⇒ 不存在 P4 那种
+     *     「规则改到注释里」的风险。
+     */
+    target: 'app/src/composables/progress/useProgressUpdateDialog.ts',
+    names: ['today', 'openUpdateDialog', 'openUpdate', 'submitUpdate'],
+    consts: [
+      'updOpen', 'updSaving', 'updTarget', 'updBatch', 'updSlot', 'updOperator', 'updDate',
+      'slotOptions', 'updValue', 'updTitle',
+    ],
+    rewrites: {
+      slotOptions: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
+      updValue: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
+      updTitle: [{ from: 'selectedRows.value', to: 'deps.selectedRows.value' }],
+      submitUpdate: [
+        { from: 'selectedRows.value', to: 'deps.selectedRows.value' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'load()', to: 'deps.load()' },
+      ],
+    },
+  },
 ]
 
 /**
