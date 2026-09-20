@@ -16,7 +16,7 @@
  * 用法：起后端（默认 3000）后 `node docs/home-audit/print-lineno-check.mjs`
  */
 import { createRequire } from 'node:module'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -52,7 +52,10 @@ globalThis.localStorage = {
   removeItem: () => {},
 }
 
+// ⚠️ 先建目录：原来只 `writeFileSync`，是因为本机 `/tmp/print-verify` 有**旧残留**才跑得通；
+//    换台机器（CI / 别人的机器）直接 ENOENT。同 `hui-engine-logiccheck.mjs` 的口径。
 const ENTRY = '/tmp/print-verify/entry.ts'
+mkdirSync('/tmp/print-verify', { recursive: true })
 writeFileSync(
   ENTRY,
   `export { buildOrderPrintContext, ensureLineNumbersForPrint, loadPrintPrereqs } from '${ROOT}/app/src/composables/useOrderPrint'\n` +

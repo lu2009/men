@@ -26,7 +26,7 @@
  *
  * 用法：node docs/home-audit/total-balance-logiccheck.mjs
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { register } from 'node:module'
 import {
@@ -88,9 +88,17 @@ function assertGatingShape(code, label, needles) {
 /** 取余额那段的公共针脚。 */
 const GATING_COMMON = ['"&param3="', '"客户余额"', '"code"', '"data"', '"json"']
 
-/** Home 的 10 张表（由 `legacy/decode-home-map.mjs` 生成；自检 `dr(755)==='value'`）。 */
+/**
+ * Home 的 10 张表（由 `legacy/decode-home-map.mjs` 生成；自检 `dr(755)==='value'`）。
+ * 与下面的 `progressDecoded()` 同一口径：**产物不在就现生成** —— 它在 `/tmp`、不在仓库里，
+ * CI 上没有本机那份（2026-09-20 CI run #1 的 8 个 ENOENT 之一就是本函数）。
+ */
 function homeDecoders() {
-  const m = JSON.parse(readFileSync('/tmp/home-map.json', 'utf8'))
+  const PATH = '/tmp/home-map.json'
+  if (!existsSync(PATH)) {
+    execFileSync('node', [`${ROOT}/legacy/decode-home-map.mjs`, `${ROOT}/legacy/js/Home-d6b13b9a.js`, PATH], { stdio: 'inherit' })
+  }
+  const m = JSON.parse(readFileSync(PATH, 'utf8'))
   if (m.decoders.dr?.[755] !== 'value') throw new Error('Home 解码表假设不成立：dr(755) ≠ "value"')
   const out = {}
   for (const d of Object.keys(m.decoders)) out[d] = (i) => m.decoders[d][i]

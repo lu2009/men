@@ -9,12 +9,17 @@
 #     多数台子靠 `docker exec smartdoor-db psql -U smartdoor -d …` 直接读库写库，
 #     容器名一变它们就全崩。
 #   · 后端由 `verify` 自己起（自带 migrate + 播种管理员），端口 3100、库 `smartdoor_verify`。
+#   · `/tmp` 里那几个**夹具**（`home-map.json` / `progress*.json` / `progress.decoded.js`）不在仓库里，
+#     CI 上没人事先跑过生成它们的那几步 —— 所以由**台子自己现生成**（缺了就现算，见
+#     `docs/home-audit/legacy-slice.mjs` 与 `docs/progress-*.mjs`）。2026-09-20 CI run #1 就是栽在
+#     这上面：8 个台子 `ENOENT: /tmp/home-map.json`。**别在 workflow 里补生成步骤** ——
+#     台子自给自足才能在别人机器上直接跑。
 #
 # ⚠️ 有 7 个台子在 CI 上**跑不了**（verify 会显式列出来，不是静默跳过）：
 #      · 6 个要在**仓库外**的旧版服务端源码上切函数跑，CI 上没有那份源码
 #        （2 个是老的；4 个是 `docs/legacy-finance/0{5,6,7,9}-*.mjs`，2026-09-20 收进收集范围后才显出来）；
 #      · 1 个要有**业务配置**（公式 / 打印模板），CI 的空库满足不了。
-#    其余 28 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
+#    其余 29 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
 #    2026-09-20 起是空的，所以没有免红牌可打。详见 `docs/verification.md`。
 
 name: CI
@@ -90,7 +95,7 @@ jobs:
           docker logs smartdoor-db >&2
           exit 1
 
-      # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 35 个差分台。
+      # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 36 个差分台。
       # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」（未运行 ≠ 通过）。
       - name: npm run verify
         run: npm run verify

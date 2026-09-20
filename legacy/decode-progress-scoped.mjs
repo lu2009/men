@@ -13,8 +13,16 @@
 // 用法：node legacy/decode-progress-map.mjs && node legacy/decode-progress-scoped.mjs
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const require = createRequire('/Users/aaa/Desktop/door-main/app/package.json')
+// `@babel/parser` 装在 `app/node_modules` 里 ⇒ 锚点必须是**本仓库的** `app/package.json`。
+// 原来写死的是 `'/Users/aaa/Desktop/door-main/app/package.json'`：本机跑得通，换台机器或进 CI
+// （checkout 在 `/home/runner/work/men/men`）就 `MODULE_NOT_FOUND`；而 `docs/progress-*.mjs`
+// 那 5 个台子会**现调本脚本**生成夹具，于是跟着一起红（2026-09-20 CI run #1）。
+// 本文件在 `legacy/` ⇒ 往上**一级**才是仓库根。
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const require = createRequire(resolve(ROOT, 'app/package.json'))
 const parser = require('@babel/parser')
 
 const IN = process.argv[2] || 'legacy/js/Progress-f4bdef35.js'

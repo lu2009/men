@@ -10,9 +10,11 @@
  *   ② **锚点不唯一**：`Qo=` 在 `Home.formatted.js` 里出现 **2 次**，只用它会切到前面那处、
  *      切出几万字符。锚点一律带上前导的 `,` / 上下文。
  *
- * 前置：`/tmp/home-map.json`（由 `legacy/decode-home-map.mjs` 生成）。
+ * 前置：`/tmp/home-map.json`（由 `legacy/decode-home-map.mjs` 生成）。**不在就现生成**，
+ * 见下面 `MAP` 那段 —— 它是本机的逆向产物、不在仓库里，CI 上没人事先跑过那一步。
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -21,7 +23,26 @@ import { fileURLToPath } from 'node:url'
 // （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')
-export const MAP = JSON.parse(readFileSync('/tmp/home-map.json', 'utf8'))
+
+/**
+ * Home 解码表：`legacy/decode-home-map.mjs` 从**混淆包**现算，不是手抄的。
+ *
+ * ⚠️ 它落在 `/tmp`，**不在仓库里**；`verify.mjs` / `run-all.mjs` 都没有准备夹具的环节
+ *    ⇒ 换台机器（CI）直接 ENOENT，**8 个台子一起红**（2026-09-20 CI run #1 就是栽在这里：
+ *    7 个 import 本文件的 + `total-balance-logiccheck.mjs`）。
+ *    所以这里**不在就现生成** —— 与 `docs/progress-*.mjs` 那 5 个台子早就这么做过的口径一致。
+ *    生成是确定性的：2026-09-20 实测「现场生成」与本机那份**字节完全相同**。
+ */
+const MAP_PATH = '/tmp/home-map.json'
+if (!existsSync(MAP_PATH)) {
+  console.log('（首次）解混淆 Home 包、现算解码表 …')
+  execFileSync(
+    'node',
+    [resolve(ROOT, 'legacy/decode-home-map.mjs'), resolve(ROOT, 'legacy/js/Home-d6b13b9a.js'), MAP_PATH],
+    { stdio: 'inherit' },
+  )
+}
+export const MAP = JSON.parse(readFileSync(MAP_PATH, 'utf8'))
 export const SRC = readFileSync(`${ROOT}/legacy/js/Home.formatted.js`, 'utf8')
 
 /** Home 主解码表名。局部别名 `g` 断言指向它（见下面 `assertDecoder`）。 */
