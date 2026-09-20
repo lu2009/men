@@ -1,6 +1,6 @@
 /*
  * Progress「查询更多」的差分台：同一批夹具，左边跑**旧版真代码**（`Io` 里「取回来的行怎么落地」
- * 那一段，从 `Progress-fb4def35.js` 解混淆后切出来真跑），右边跑**新版真代码**
+ * 那一段，从 `Progress-f4bdef35.js` 解混淆后切出来真跑），右边跑**新版真代码**
  * （`app/src/views/Progress.vue` 的 `submitMore` 里对应的那一段）。
  *
  * 这一段值得单独钉 —— 它有三处**抄错不报错、肉眼也看不出来**的地方：
@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
-const BUNDLE = resolve(ROOT, 'legacy/js/Progress-fb4def35.js')
+const BUNDLE = resolve(ROOT, 'legacy/js/Progress-f4bdef35.js')
 const MAP = '/tmp/progress-map.json'
 const DECODED = '/tmp/progress.decoded.js'
 const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
