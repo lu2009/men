@@ -85,7 +85,7 @@ pub async fn set_procedures(pool: &PgPool, tenant_id: i64, req: &ProceduresInput
     // 先把全体的槽名校验完，任何一个不合法 ⇒ 整笔不落库。
     for s in &req.slots {
         if !valid_slot(&s.slot) {
-            return Err(ApiError::bad_request(&format!(
+            return Err(ApiError::bad_request(format!(
                 "槽名不对：{}（应为 工序1 .. 工序{SLOT_COUNT}）",
                 s.slot
             )));
@@ -356,7 +356,7 @@ pub async fn update_progress(
     req: &ProgressUpdateInput,
 ) -> ApiResult<UpdateOutcome> {
     if !valid_slot(&req.slot) {
-        return Err(ApiError::bad_request(&format!(
+        return Err(ApiError::bad_request(format!(
             "槽名不对：{}（应为 工序1 .. 工序{SLOT_COUNT}）",
             req.slot
         )));
@@ -828,7 +828,7 @@ pub async fn scan_stats(
     };
 
     if !is_calendar_date(&start) || !is_calendar_date(&end) {
-        return Err(ApiError::bad_request(&format!(
+        return Err(ApiError::bad_request(format!(
             "获取扫码统计数据异常: 日期 `{resolved}` 不是 YYYY-MM-DD 格式"
         )));
     }

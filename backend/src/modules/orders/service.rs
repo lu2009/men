@@ -667,8 +667,7 @@ fn date_suffix_parts(iso: &str) -> (String, String, String) {
     if p.len() == 3 && p[0].len() == 4 {
         return (p[0][2..].to_string(), p[1].to_string(), p[2].to_string());
     }
-    let now = time_parts_now();
-    now
+    time_parts_now()
 }
 
 /// 现在的时间 → `(YY, MM, DD)`（仅用于日期解析失败时的兜底）。

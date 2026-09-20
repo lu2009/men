@@ -191,7 +191,7 @@ pub async fn resolve_price(
             0
         };
         let key = (client_specific, specificity);
-        if best.map_or(true, |(k, _)| key > k) {
+        if best.is_none_or(|(k, _)| key > k) {
             best = Some((key, r));
         }
     }
@@ -283,7 +283,7 @@ pub async fn resolve_match(
             kw.chars().count() as i32
         };
         let key = (fans_exact, specificity, r.priority);
-        if best.map_or(true, |(k, _)| key > k) {
+        if best.is_none_or(|(k, _)| key > k) {
             best = Some((key, r));
         }
     }

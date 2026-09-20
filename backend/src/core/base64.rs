@@ -4,7 +4,8 @@ const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwx
 
 /// 把字节编码为标准 base64（带 `=` 填充）。
 pub fn encode(data: &[u8]) -> String {
-    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    // `div_ceil(3) * 4` 与旧的 `(len + 2) / 3 * 4` 等价，且不会在 len 接近 usize::MAX 时先加溢出。
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for chunk in data.chunks(3) {
         let b0 = chunk[0] as u32;
         let b1 = *chunk.get(1).unwrap_or(&0) as u32;
