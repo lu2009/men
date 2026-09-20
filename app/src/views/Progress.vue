@@ -894,8 +894,12 @@ const selectedRows = computed(() => rows.value.filter((r) => r.isSelected))
 // 「更新进度」弹窗的声明已归位到 `composables/progress/useProgressUpdateDialog.ts`（Progress 拆分 P3）。
 // ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `selectedRows` 就是上面这一行才声明的，
 //   把 `useProgressUpdateDialog(...)` 放回 P3 的原位置会**早读一个 TDZ 变量**（`TS2448`）。
-// ⚠️ 只解构段外真有活读者的 11 个：模板 264/268/272/276/278/282/283 + `columns` 的 `openUpdate`(879)
-//   + `openBatchUpdate` 的 `openUpdateDialog`(1203)。另 3 个（`updTarget`/`updBatch`/`today`）段外零引用，
+// ⚠️ 只解构段外真有活读者的 11 个：模板 264/268/272/276/278/282/283（模板一行不动 ⇒ 行号恒定）
+//   + `columns` 里的 `openUpdate(`（REF `f097a9b1`:**1326**）
+//   + `openBatchUpdate` 里的 `openUpdateDialog(null)`（REF **1650**）。
+//   〔脚本侧一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。复量：
+//     `git show f097a9b1:app/src/views/Progress.vue | grep -nE 'openUpdate\(r\)|openUpdateDialog\(null\)'`。〕
+//   另 3 个（`updTarget`/`updBatch`/`today`）段外零引用，
 //   解构出来就是死局部（`TS6133`）。模板里 `updOpen`/`updSlot`/`updOperator`/`updDate` 是 `v-model`
 //   的**写** ⇒ 必须解构，写成 `upd.updOpen` 会把 ref 整个换成字符串（**静默**）。
 const {

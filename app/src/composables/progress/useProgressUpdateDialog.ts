@@ -50,7 +50,9 @@
  *   ⚠️ **`Progress.vue` 侧只解构段外真有活读者的 11 个**：模板
  *     `264`（`updOpen` `updTitle`）`268`（`updSlot` `slotOptions`）`272`（`updOperator`）
  *     `276`（`updDate`）`278`（`updValue`）`282`（`updOpen`）`283`（`updSaving` `submitUpdate`）
- *     + `columns` 的 `openUpdate`(879) + `openBatchUpdate` 的 `openUpdateDialog`(1203)。
+ *     + `columns` 里的 `openUpdate(`（REF **1326**）+ `openBatchUpdate` 里的 `openUpdateDialog(null)`（REF **1650**）。
+ *     〔脚本侧两个写 REF 行号而非本文件行号 —— 本文件行号会随后面每块搬走而漂。复量：
+ *       `git show f097a9b1:app/src/views/Progress.vue | grep -nE 'openUpdate\(r\)|openUpdateDialog\(null\)'`。〕
  *     ⚠️ `updOpen` / `updSlot` / `updOperator` / `updDate` 在模板里是 `v-model` 的**写**
  *       ⇒ **必须解构**：写成 `d.updOpen` 会退化成普通属性赋值，**把 ref 对象整个换成字符串**
  *       （**静默**，弹窗再也不响应）。
