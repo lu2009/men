@@ -628,13 +628,11 @@ import { printByMode } from '../utils/printService'
 import type { MarkupItem } from '../utils/markupLines'
 import { round2, type Line, type PartPreview } from '../utils/partsEngine'
 import { createPrintPayloads, TENANT_DS, type PrintContext } from '../utils/printPayloads'
-import { readShowTotalBalance, writeShowTotalBalance } from '../utils/totalBalance'
-import {
-  readAssistiveFullscreen,
-  readAssistiveMenu,
-  writeAssistiveFullscreen,
-  writeAssistiveMenu,
-} from '../utils/assistiveMenu'
+// 2026-09-20 C4：`writeShowTotalBalance` / `writeAssistiveMenu` / `writeAssistiveFullscreen` 的三个
+// **写**入口随外壳开关搬进 `composables/hui/useHuiShellToggles.ts`；本文件只留**读**（`onMounted` 里
+// 回写那三个 ref，见下面 `showTotalBalance.value = readShowTotalBalance()` 那三行）。
+import { readShowTotalBalance } from '../utils/totalBalance'
+import { readAssistiveFullscreen, readAssistiveMenu } from '../utils/assistiveMenu'
 import {
   importLastOrder as importLastOrderFlow,
   writeLastOrder,
@@ -653,6 +651,7 @@ import { loadMarkupCatalog, markupUnitOptions } from '../composables/useMarkupCa
 import { useHuiMarkupMgmt } from '../composables/hui/useHuiMarkupMgmt'
 import { useHuiColumnConfig } from '../composables/hui/useHuiColumnConfig'
 import { useHuiPayQrcode } from '../composables/hui/useHuiPayQrcode'
+import { useHuiShellToggles } from '../composables/hui/useHuiShellToggles'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -850,19 +849,19 @@ const {
   markupError,
 } = engine
 // 两表显隐（仿旧版：平开/移门默认都显示、上下各占整宽）
-const showPing = ref(true)
-const showDiao = ref(true)
-const addTypeOpen = ref(false)
-
-function toggleShow(kind: 'ping' | 'diao') {
-  if (kind === 'ping') showPing.value = !showPing.value
-  else showDiao.value = !showDiao.value
-}
-
-function ensureShown(kind: 'ping' | 'diao') {
-  if (kind === 'ping') showPing.value = true
-  else showDiao.value = true
-}
+// 2026-09-20 两段共 11 个声明搬到 `composables/hui/useHuiShellToggles.ts`（逐字搬迁，零行为变化）：
+//   ① 本处（两表显隐）② 下面「更多功能」下拉之后那三颗开关（总余额 / 辅助菜单 / 全面屏）。
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以模板一行都没改。
+//
+// ⚠️ **11 个名字全部解构**（不许写成 `shell.xxx`）：它们**每一个**在模板或 `loadOrder`/`onMounted`
+//    里都有活读者（含 `showPing`/`showDiao` 在 `loadOrder` 里被**写**、三个开关 ref 在 `onMounted`
+//    里被**写**）⇒ 模板只对顶层绑定自动解包。完整清单见新家文件头。
+const {
+  showPing, showDiao, addTypeOpen, toggleShow, ensureShown,
+  showTotalBalance, onTotalBalanceChange,
+  showAssistiveMenu, assistiveFullscreen,
+  onAssistiveMenuChange, onAssistiveFullscreenChange,
+} = useHuiShellToggles({ message })
 
 // 更多功能（次级菜单）—— 高级入口收进这里，主按钮行贴近旧版
 //
@@ -884,48 +883,10 @@ const moreMenuOptions = [
   { label: '列显隐设置', key: 'columns' },
 ]
 
-/**
- * 「总余额显示」开关。
- *
- * 旧版：`_0x2ffe36 = Vue.ref(!1)`（**默认关**，`H:399836`）+ `onMounted` 里 `_0x1c743a()`
- * 读一次 `localStorage['showTotalBalance']`（`H:400056`）；`onChange` `_0x14b5ca`（`H:7934`）
- * 写回 localStorage 并弹一句成功提示。
- *
- * ⚠️ **开关本身不在这里取余额、也不在打印时读这里的 ref**：真正取余额的是打印链路
- * （`useOrderPrint.loadPrintPrereqs`），它自己去读 localStorage。这样 Hui / Home / Progress
- * 三条路同源，也不会出现「改了开关但打印用的是旧值」。见 `utils/totalBalance.ts`。
- */
-const showTotalBalance = ref(false)
-
-function onTotalBalanceChange(on: boolean) {
-  showTotalBalance.value = on
-  writeShowTotalBalance(on)
-  message.success(on ? '总余额显示已开启' : '总余额显示已关闭')
-}
-
-/**
- * 「辅助菜单设置」两个开关 —— 旧版 `_0x187cf8`（手机辅助菜单）/ `_0x21c393`（全面屏）。
- *
- * 这颗**不影响本页任何渲染**：写 `localStorage` + 往 `window` 派一个 CustomEvent，
- * 由**手机端外壳**监听后决定底部要不要预留空间。见 `utils/assistiveMenu.ts` 的文件头
- * （键名、事件名、四句提示文案都在那儿核过）。
- *
- * 旧版初值和「总余额显示」同一批在 `onMounted` 读（`H:8263` 连着调 `_0x285a13()` `_0x1c743a()`）。
- */
-const showAssistiveMenu = ref(false)
-const assistiveFullscreen = ref(false)
-
-function onAssistiveMenuChange(on: boolean) {
-  showAssistiveMenu.value = on
-  writeAssistiveMenu(on)
-  message.success(on ? '手机辅助菜单已开启' : '手机辅助菜单已关闭')
-}
-
-function onAssistiveFullscreenChange(on: boolean) {
-  assistiveFullscreen.value = on
-  writeAssistiveFullscreen(on)
-  message.success(on ? '全面屏已开启，底部不预留空间' : '全面屏已关闭，底部预留空间')
-}
+// 「总余额显示」+「辅助菜单设置」两颗开关（含各自的 onChange）已随 C4 搬到
+// `composables/hui/useHuiShellToggles.ts`（逐字搬迁）—— 调用点在上面「两表显隐」那一节。
+// ⚠️ `showTotalBalance` / `showAssistiveMenu` / `assistiveFullscreen` 三个 ref 在 `onMounted` 里
+//    被回写（读 localStorage），所以它们**必须**是解构出来的顶层绑定。
 
 /**
  * 开「自动加价设置」弹窗 —— 旧版 `_0x38bc9b`（`H:13292`）只置一个开关

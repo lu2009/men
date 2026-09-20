@@ -215,6 +215,27 @@ const SPLIT_BLOCKS = [
       payQrcodeOpen: [],
     },
   },
+  {
+    // C4「外壳开关」。快照**两段**：`Hui.vue:883-896`（两表显隐）+ `918-959`（总余额/辅助菜单），
+    // 中间隔着 `moreMenuOptions`（**不属本块**，留在页面）。两段合计 11 个声明。
+    // 只有三个 onChange 里有 `message` ⇒ 3 处改写；三个 write* 是模块级单例，新家直接 import。
+    target: 'app/src/composables/hui/useHuiShellToggles.ts',
+    names: ['toggleShow', 'ensureShown', 'onTotalBalanceChange', 'onAssistiveMenuChange', 'onAssistiveFullscreenChange'],
+    consts: ['showPing', 'showDiao', 'addTypeOpen', 'showTotalBalance', 'showAssistiveMenu', 'assistiveFullscreen'],
+    rewrites: {
+      onTotalBalanceChange: [{ from: 'message.', to: 'deps.message.' }],
+      onAssistiveMenuChange: [{ from: 'message.', to: 'deps.message.' }],
+      onAssistiveFullscreenChange: [{ from: 'message.', to: 'deps.message.' }],
+      toggleShow: [],
+      ensureShown: [],
+      showPing: [],
+      showDiao: [],
+      addTypeOpen: [],
+      showTotalBalance: [],
+      showAssistiveMenu: [],
+      assistiveFullscreen: [],
+    },
+  },
 ]
 
 /**
