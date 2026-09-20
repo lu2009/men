@@ -595,6 +595,31 @@ if (process.argv.includes('--selftest')) {
     oneLineR.e ? `被误判：${oneLineR.e}` : `实得 ${JSON.stringify(oneLineR.v)}`,
   )
 
+  /*
+   * ⑭ **声明在文件尾收口**（末尾无换行）与 **后面还有换行** 必须切出同一段。
+   *
+   * 这一例钉的是 `fixtures/hui-pre-3b.ts` 的最后一个声明 `diaoColumns` —— 那个文件末尾
+   * **没有换行**（最后一个字符就是 `)`）。跨行扫描靠「栈空时遇到的那个换行」收工；
+   * 文件尾没有换行 ⇒ 扫到文件尾也没停过 ⇒ 只剩 `rawSlice` 末尾那条「栈空就切到文件尾」
+   * 兜底能救它。**去掉那一行，两侧就不等价**：有换行的一侧 3 行、无换行的一侧只剩首行
+   * ⇒ 两边比出一个「差异」，而那是**切片器自己造出来的假差异**（不是搬迁失真）。
+   * （实测：去掉那一行后，无换行那一侧还会被硬闸拦下、抛「切片不平衡 —— 收支 1」。）
+   *
+   * ⚠️ 断言必须**两侧都覆盖**：只给「有换行」那一侧就会漏掉这个洞 —— 洞恰恰在无换行那侧。
+   */
+  const eofDecl = ['const diaoColumns = computed<T[]>(() =>', '  diaoCols().filter((c) => vis(c)),', ')']
+  const noNl = eofDecl.join('\n') // 夹具的真形状：末尾无换行
+  const withNl = noNl + '\n'
+  const eofA = trySlice(noNl, 'diaoColumns')
+  const eofB = trySlice(withNl, 'diaoColumns')
+  check(
+    '声明收口在文件尾：**末尾无换行**与**有换行**切出同一段（否则是切片器自造的假差异）',
+    eofA.v != null && eofA.v === eofB.v && eofA.v.split('\n').length === 3,
+    eofA.e || eofB.e
+      ? `抛错：${eofA.e || eofB.e}`
+      : `无换行 ${eofA.v == null ? 'null' : eofA.v.split('\n').length + ' 行'} / 有换行 ${eofB.v == null ? 'null' : eofB.v.split('\n').length + ' 行'}（应都是 3 行且逐字相同）`,
+  )
+
   process.exit(bad ? 1 : 0)
 }
 
