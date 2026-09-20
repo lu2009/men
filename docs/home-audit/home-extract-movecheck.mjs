@@ -97,10 +97,26 @@ const BLOCKS = [
 ]
 
 /**
- * 反查：这些名字搬走后，Home.vue 里不该再有自己的定义（否则两份实现各自漂移）。
- * `names` / `consts` 都可省（只搬函数就不必写 `consts: []`）—— 见下面循环里同样的取法。
+ * 摊平一个 block 的 `names` + `consts`（两者都可省 —— 缺了当空数组）。
+ *
+ * ⚠️ `|| []` **不能省**：漏写一个键时裸的展开会抛 `TypeError: b.consts is not iterable`
+ * （立骨架时实测踩到），那句话对着清单看不出是哪个 block 缺了什么。
+ * 主循环与 `allNames()` **共用这一个**，别在两处各写一遍展开 —— `--selftest` 有一例钉住它。
  */
-const allNames = () => BLOCKS.flatMap((b) => [...(b.names || []), ...(b.consts || [])])
+const blockNames = (b) => [...(b.names || []), ...(b.consts || [])]
+
+/** 反查：这些名字搬走后，Home.vue 里不该再有自己的定义（否则两份实现各自漂移）。 */
+const allNames = () => BLOCKS.flatMap(blockNames)
+
+/**
+ * 声明探测（反查用）：`src` 里**自己定义**了 `name` 吗。
+ *
+ * ⚠️ 前缀必须与 `sliceFn` 的取法对齐（含 `async`）—— 否则 `async function foo()` 搬走后
+ * 这一条认不出来，反查会**静默漏报**（立骨架时实测踩到：`load` 正是 `async function`）。
+ * `--selftest` 有一例专门钉住这个 `async`。
+ */
+const declares = (src, name) =>
+  new RegExp(`^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var)\\s+${name}\\b`, 'm').test(src)
 
 /**
  * 比对的**核心**：返回首个不同行的行号（1 基），两串一致则返回 0。
@@ -217,22 +233,85 @@ function applyRewrites(name, text, rules) {
  *    （浅克隆、detached HEAD 下也要能跑）。
  */
 if (process.argv.includes('--selftest')) {
+  let bad = 0
+  /** 一条断言：`cond` 为假就记红（`detail` 只在红时打出来，说明实得什么）。 */
+  const check = (what, cond, detail = '') => {
+    if (cond) console.log(`✓ 自测：${what}`)
+    else {
+      console.log(`✗ 自测失败：${what}${detail ? ` —— ${detail}` : ''}`)
+      bad++
+    }
+  }
+
+  // ① 比对核心：一对**已知故意改坏**的样本，必须报红且**定位到正确的行**。
   const oldTxt = `function f(a: number) {\n  const n = Math.round(a * 1.13)\n  return n ?? 0\n}`
-  const cases = [
+  const diffCases = [
     ['Math.round → Math.floor', `function f(a: number) {\n  const n = Math.floor(a * 1.13)\n  return n ?? 0\n}`, 2],
     ['丢掉 ?? 0',              `function f(a: number) {\n  const n = Math.round(a * 1.13)\n  return n\n}`, 3],
     ['未改坏（应判为一致）',    oldTxt, 0],
   ]
-  let bad = 0
-  for (const [what, newTxt, expectDiffLine] of cases) {
+  for (const [what, newTxt, expectDiffLine] of diffCases) {
     const diff = firstDiffLine(norm(oldTxt), norm(newTxt)) // 返回首个不同的行号（1 基），一致则 0
-    if (diff !== expectDiffLine) {
-      console.log(`✗ 自测失败：${what} —— 期望首个差异在第 ${expectDiffLine} 行，实得 ${diff}`)
-      bad++
-    } else {
-      console.log(`✓ 自测：${what} → 第 ${diff} 行`)
+    const same = diff === expectDiffLine
+    // 绿时把「定位到第几行」打出来（这是这一例的看点）；红时别把实得值也塞进标题 —— 详情里已经有了。
+    check(same ? `${what} → 第 ${diff} 行` : what, same, `期望首个差异在第 ${expectDiffLine} 行，实得 ${diff}`)
+  }
+
+  /*
+   * ② 反查正则（`declares`）：认得出 `async function`，且**不把调用当定义**。
+   * 这一例是补出来的 —— 立骨架时「漏 `async`」这个 bug 是**手工端到端跑**才发现的，
+   * 当时 `--selftest` 对它完全不可见（那正是先例 §5.3「守卫自身的洞」的重演）。
+   */
+  check(
+    '反查认得 `async function`（去掉 `(?:async\\s+)?` 这例即红）',
+    declares('export async function load() {\n  return 1\n}', 'load'),
+    '`async function` 搬走后反查会**静默漏报**',
+  )
+  check(
+    '反查不把普通调用当定义',
+    !declares('void load()\nload()\n', 'load'),
+    '把调用当定义会让每个调用点都误报',
+  )
+
+  /*
+   * ③ `names` / `consts` 都可省 —— 缺键**不能抛** `TypeError`。
+   * 同样是手工跑才发现的：漏写 `consts` 换来一句对不上清单的 TypeError。
+   */
+  // 两条断言都走这个小包装 —— 否则「抛了」会变成**未捕获**的崩溃（栈糊满屏、后面的断言一条不跑），
+  // 而自测要的是一行干净的 ✗（复审变异时实测踩到）。
+  const flatOf = (b) => {
+    try {
+      return { v: blockNames(b) }
+    } catch (e) {
+      return { e: `${e.constructor.name}: ${e.message}` }
     }
   }
+  const namesOnly = flatOf({ names: ['a', 'b'] })
+  check(
+    '只写 `names`、不写 `consts` 不抛',
+    !!namesOnly.v && namesOnly.v.join(',') === 'a,b',
+    namesOnly.e || `实得 ${JSON.stringify(namesOnly.v)}`,
+  )
+  const bothAbsent = flatOf({})
+  check(
+    '`names`/`consts` 都不写 = 空数组',
+    !!bothAbsent.v && bothAbsent.v.length === 0,
+    bothAbsent.e || `实得 ${JSON.stringify(bothAbsent.v)}`,
+  )
+
+  /*
+   * ④ `sliceFn` 的边界：**返回类型里的花括号字面量**不能把切片骗走。
+   * 这是姊妹件「前几版都栽在这」的那个构造（`function f(l: Line): { label: string }[] {`），
+   * 而它此前对自测不可见。判据：切出来必须**就是整段**（含返回类型与函数体）。
+   */
+  const retTxt = `function pingCasingOptions(l: Line): { label: string; value: string }[] {\n  return []\n}`
+  const retGot = sliceFn(retTxt, 'pingCasingOptions')
+  check(
+    '返回类型里的 `{}` 不骗走切片',
+    retGot === retTxt,
+    `实得 ${JSON.stringify(retGot)}`,
+  )
+
   process.exit(bad ? 1 : 0)
 }
 
@@ -272,10 +351,8 @@ for (const b of BLOCKS) {
     fail.push(`块「${b.target}」读不到 —— ${e.message}`)
     continue
   }
-  // `names` / `consts` 都可省 —— 缺了就当空数组。**别省掉 `|| []`**：漏写一个键时
-  // 裸的展开会抛 `TypeError: b.consts is not iterable`（立骨架时实测踩到），
-  // 那句话对着清单看不出是哪个 block 缺了什么。
-  for (const name of [...(b.names || []), ...(b.consts || [])]) {
+  // `names` / `consts` 都可省 —— 摊平与 `|| []` 的守卫都在 `blockNames()` 里（自测有一例钉住）。
+  for (const name of blockNames(b)) {
     const o = sliceFn(refSrc, name)
     const n = sliceFn(newSrc, name)
     if (!o) { fail.push(`${name}: 在参照 ${REF}:${OLD_PATH} 里找不到（清单写错了？）`); continue }
@@ -298,9 +375,8 @@ for (const b of BLOCKS) {
 // ⚠️ 这里做成**失败**而不是姊妹件那样的警告：清单里写「搬走了」= 同一笔里必须删干净，
 //    留着就是「改了一处忘了另一处」——那种不一致是 bug，不是提示。
 const after = readFileSync(`${ROOT}/${OLD_PATH}`, 'utf8')
-// 前缀与 `sliceFn` 的取法**逐字对齐**（含 `async`）—— 否则 `async function foo()` 搬走后
-// 这一条认不出来，反查会静默漏掉它（立骨架时实测踩到：`load` 就是 `async function`）。
-const dupe = allNames().filter((n) => new RegExp(`^[ \\t]*(?:export\\s+)?(?:async\\s+)?(?:function|const|let|var)\\s+${n}\\b`, 'm').test(after))
+// 前缀含 `async` 的道理与自测那一例同源 —— 见 `declares()` 上方的注释。
+const dupe = allNames().filter((n) => declares(after, n))
 
 console.log(`搬迁保真检查（${REF}:${OLD_PATH} → ${BLOCKS.length} 个目标文件）`)
 console.log(`  逐字一致：${pass} 个`)
@@ -316,7 +392,25 @@ if (dupe.length) {
   dupe.forEach((n) => console.log('  - ' + n))
   process.exit(1)
 }
-if (!BLOCKS.length) {
-  console.log('\n⚠️ BLOCKS 清单是空的 —— 本次**没有检验任何东西**（只证明脚本跑得起来）。')
+/*
+ * 收尾的**判定句必须以条数为条件** —— 不能无条件打绿勾。
+ *
+ * 起因（复审 Minor 1）：原来这里无条件打 `✓ 清单内全部一致`，于是 `BLOCKS` 为空
+ * （或每个 block 的 `names`/`consts` 都空）时，`run-all` 照样把它显示成 ✅ ——
+ * 那正是 `run-all.mjs` 文件头明文禁止的那类混淆：**分不出「查了 0 个名字」和「全一致」**
+ * （「未运行 ≠ 通过」）。
+ *
+ * ⚠️ 条数用 `total`（清单声明了多少条），不是 `pass`：
+ *    走到这里时 `pass === total` 恒成立（任何没通过的条目都已经 `fail.push` 并在上面退 1），
+ *    但**空转**看的是「清单里有没有东西」，与「比过几条」是两回事 —— 别弄反。
+ * ⚠️ 空转**仍退 0**：「清单还是空的」不是被检代码的失败，不该把整套 verify 弄红。
+ *    但它打的是 ⚠️ 说明，不是绿勾 —— 读的人必须看得出「这次什么都没验」。
+ */
+const total = BLOCKS.reduce((n, b) => n + blockNames(b).length, 0)
+if (total === 0) {
+  // ⚠️ **只打一行、且这一行必须在最后** —— `run-all.mjs` 的汇总只取 stdout 的**最后一行非空行**
+  //    当说明文字。拆成两行的话，被显示出来的是后一行，看汇总的人就看不到「0 条」这个关键字了。
+  console.log('\n⚠️ 清单内 0 条 —— 守卫此刻**空转**，未保护任何代码 —— 往 BLOCKS 里加条目才有用（见文件头「一条的形状」）。')
+} else {
+  console.log(`\n✓ 清单内 ${pass} 条全部一致 —— 搬迁未改动任何逻辑`)
 }
-console.log('\n✓ 清单内全部一致 —— 搬迁未改动任何逻辑')
