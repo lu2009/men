@@ -50,6 +50,9 @@ const DECODED = '/tmp/progress.decoded.js'
 const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
 // P5（列头交互）2026-09-20 搬到这儿了 —— 本台子只有 `SEARCH_FIELDS` 那一对锚点落在它里面。
 const HEADER = resolve(ROOT, 'app/src/composables/progress/useProgressHeader.ts')
+// P10（统计行）2026-09-20 搬到这儿了 —— 本台子的「统计」段（`NEW_STATS_TS`）
+// 与「两份移门扇数字面量」自检那对锚点（`moveFans`/`pingFans`）都落在它里面。
+const STATS = resolve(ROOT, 'app/src/composables/progress/useProgressStats.ts')
 const USE_OPEN_DIR = resolve(ROOT, 'app/src/composables/useOpenDirection.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
@@ -122,6 +125,7 @@ const legacyNaming = namingModule.exports
 // ---------------------------------------------------------------- 新版侧 //
 const vue = readFileSync(VUE, 'utf8')
 const header = readFileSync(HEADER, 'utf8')
+const stats = readFileSync(STATS, 'utf8')
 
 /**
  * 从 `src` 里按「命中 + 唯一 + 终点在后」切一段。
@@ -138,7 +142,20 @@ function cutIn(src, startAnchor, endAnchor, what) {
 }
 const cutVue = (startAnchor, endAnchor, what) => cutIn(vue, startAnchor, endAnchor, what)
 
-const NEW_STATS_TS = cutVue('const MOVE_FAN_NAMES = [', '// ── C2.', '统计')
+/*
+ * ⚠️ **换源（2026-09-20，Progress 拆分 P10）**：「统计」这一段从 `Progress.vue`
+ *    搬到了 `composables/progress/useProgressStats.ts` ⇒ 起点锚点不动、源换成新文件。
+ *
+ * 终点锚点**必须换掉**，两条理由：
+ *   ① 原来的 `// ── C2.` 是 **P11（导出）的段首横幅** —— P10 一搬走，它与本段之间
+ *      已经隔着工厂的 `return` 与收尾 `}` ⇒ 照原样会切出**跨工厂边界**的一段
+ *      （末尾多出一个悬空的 `}`，`toCjs` 直接语法错）；
+ *   ② 那个锚在 REF 里本来就不唯一（1599 勾选 / 1984 导出），**别指望它**。
+ *   ⇒ 改成**新文件自己的工厂 `return`**：`'\n  return {'`（带换行 ⇒ 不会命中
+ *     `dateRange` 里那句 `return { earliest: … }` 的 4 格缩进版本；实测全文件唯一）。
+ *   ⚠️ 这条锚**只认新文件**，Task 7 搬 P11 时**不必再回来动第二次**。
+ */
+const NEW_STATS_TS = cutIn(stats, 'const MOVE_FAN_NAMES = [', '\n  return {', '统计')
 const NEW_EXPORT_TS = cutVue('async function exportTable() {', '</script>', '导出')
 
 if (NEW_STATS_TS.length < 2000 || !NEW_STATS_TS.includes('const statsTail = computed(')) {
@@ -185,6 +202,16 @@ const GOD_END = uod.indexOf('\n}', GOD_START)
 if (GOD_START < 0 || GOD_END < 0) throw new Error('新版 `getOriginalOpenDirection` 的锚点变了')
 const GOD_TS = uod.slice(GOD_START, GOD_END + 2).replace('export ', '')
 
+/**
+ * ⚠️ **P10 换源之后这段读的是注入对象**（`useProgressStats` 工厂的 `deps`）⇒ 要多搭一个
+ *   `deps` 壳，与 `progress-more-logiccheck.mjs`（P8）同一个改法：
+ *   `deps.filteredRows` **就是**原来那个 `filteredRows` ref 桩本身（同一对象，不是复制）
+ *   ⇒ 调用点、夹具、断言一个字都不用动。
+ *   ⚠️ 实测这段里出现的 `deps.` **只有** `deps.filteredRows`（×6）一个键
+ *     （本块只注入这一项）⇒ 不必多搭别的桩。
+ *   「`filteredRows` 这个裸参数还留着」是有意的：`useProgressStats` 的**注入面**就一项，
+ *     但夹具侧的名字照旧 —— 传进去的那个 ref 桩即 `deps.filteredRows`。
+ */
 function makeNewStats() {
   const js = toCjs(`${GOD_TS}\n${NEW_STATS_TS}`)
   return new Function(
@@ -194,6 +221,7 @@ function makeNewStats() {
     'filteredRows',
     'customDirectionNames',
     'getOriginalOpenDirection',
+    'deps',
     `${js}
      return { moveFans, pingFans, lightWindows, showerFans, others, dateRange, statsTail: undefined }`,
   )
@@ -332,11 +360,13 @@ function runLegacyStats(rows) {
 
 function runNewStats(rows) {
   const make = makeNewStats()
+  /** 注入给工厂的那个 `filteredRows` —— 与 `deps.filteredRows` 是**同一个对象**（见上）。 */
+  const filteredRows = { value: rows }
   const computeds = make(
     { exports: {} },
     {},
     (fn) => ({ get value() { return fn() } }),
-    { value: rows },
+    filteredRows,
     { value: NAMING_MAP },
     (d) => {
       // 与 `useOpenDirection.getOriginalOpenDirection` 同一份 map（新版那个真函数在下面单独跑一遍做自检）
@@ -348,6 +378,8 @@ function runNewStats(rows) {
       }
       return d
     },
+    // `deps` —— P10 换源后那段读的是注入对象（见 `makeNewStats` 上方的 ⚠️）。
+    { filteredRows },
   )
   return computeds
 }
@@ -637,12 +669,14 @@ if (!TS_RE.test(newExp.log.downloads[0] ?? '')) {
     '',
   )
   const legacyFanSet = JSON.parse(foSeg.replace(/^d=/, ''))
+  // ⚠️ 这两处（`MOVE_FAN_NAMES` 表 / `moveFans` 的 if 链）**也在 P10 里** ⇒ 2026-09-20
+  //    随之换源到 `useProgressStats.ts`（起点锚点原文一个字未动，`indexOf` 不吃前导空白）。
   const newFanList = new Function(
-    `${toCjs(cutVue('const MOVE_FAN_NAMES = [', '] as const', 'MOVE_FAN_NAMES') + ']')}\nreturn MOVE_FAN_NAMES`,
+    `${toCjs(cutIn(stats, 'const MOVE_FAN_NAMES = [', '] as const', 'MOVE_FAN_NAMES') + ']')}\nreturn MOVE_FAN_NAMES`,
   )()
   // `yo` 的 if 链里出现的字面量（新版那段里的全部字符串）—— 与上面那张表应当**同集合**
   const moveSeg = toCjs(
-    cutVue('const moveFans = computed(', 'const pingFans = computed(', 'moveFans'),
+    cutIn(stats, 'const moveFans = computed(', 'const pingFans = computed(', 'moveFans'),
   )
   // ⚠️ esbuild 会把单引号统一成双引号 ⇒ 两种引号都要认（第一版只认单引号，抓出个空数组）
   // ⚠️ 这一段里除了扇数，还有那个「哑口」判据的字符串 —— 要排掉，它不是扇数。

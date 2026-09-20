@@ -646,6 +646,83 @@ const BLOCKS = [
       ],
     },
   },
+
+  {
+    /**
+     * **P10「统计行」**（→ `app/src/composables/progress/useProgressStats.ts`）。
+     * REF `f097a9b1`:1800–1983（连续一整段，184 行，**12 个声明**）。
+     *
+     * ⚠️ **区间两端**（R38：终点从 1997 更正为 1983）：1800 = 本段自己的横幅
+     *   （`// ── C1. 统计数字…`）⇒ **横幅跟块走**；1800–1819 **全是注释、0 个声明**
+     *   （横幅 + 11 行块注释 + `MOVE_FAN_NAMES` 的 JSDoc），所以「区间含注释」不影响
+     *   声明清单。1984 起已是 **P11 的段首横幅** + 它下面 14 行块注释 ⇒ **留在原地**
+     *   （原写 1997 会把 P11 的横幅与那 14 行说明一起搬进 `useProgressStats.ts`）。
+     *   1982 是 `statsTail` 的收尾 `)`、1983 是空行 ⇒ **止点 = 1983**。
+     *   复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '1798,1802p'` ·
+     *          `… | sed -n '1981,1986p'`。
+     *   ⚠️ 这条**没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *     它只有「整段与 REF 同区间逐字节比」一条来源（本任务做过，判据 R39，见下）。
+     *
+     * ⚠️ **本段里没有顶层非声明语句**（memory `split-guard-blind-spots` 第 4 类不适用）——
+     *   实测 REF 1800–1983 的顶层语句**全是这 12 个声明**（P9 那两条顶层 `watch` 是另一块的事）。
+     *
+     * ⚠️ **工厂式**（`useProgressStats(deps)`）⇒ **一条 `export` 改写都没有**
+     *   （函数体内写 `export` 是 `TS1184`；与 P2/P3/P5/P7/P8/P9 同形）。
+     *
+     * ⚠️ **注入改写 = 1 条规则、命中 6 处**（整段搬进工厂时的 `deps.` 化）：
+     *   `filteredRows.value` → `deps.filteredRows.value`，分挂在**吃它的 6 个声明**下
+     *   （`moveFans` `pingFans` `lightWindows` `showerFans` `others` `dateRange` 各 1 处）。
+     *   · 规则**带边界**（核心文件头：朴素 split/join，裸名会顺手打到别的标识符上）：
+     *     写成带 `.value` 的整串，而不是裸 `filteredRows`。
+     *   · 段内注释里那处 `filteredRows`（「全部读的是**筛选后**的」）是**裸名**、
+     *     不带 `.value` ⇒ 这条规则**不会碰到注释**（已核）⇒ 不存在 P4 那种
+     *     「规则改到注释里、注释内容就漂了」的风险。
+     *   · 6 处命中**全部落在活代码里**（真 TS 解析器数出来的行：REF 1876 / 1899 / 1913 /
+     *     1924 / 1942 / 1961）。
+     *   · ⚠️ **`statsTail` 不挂规则**：它读的是本块自己的 `dateRange`/`moveFans`/… ⇒ 无改写。
+     *     另 5 个（`MOVE_FAN_NAMES` / `PING_SINGLE_DIRECTIONS` / `PING_DOUBLE_DIRECTIONS` /
+     *     `ALL_PING_DIRECTIONS` / `normDirection`）同理无改写。
+     *   复量法：`applyRewrites` 的 `from` 在文本里找不到就**抛** ⇒ 上面这些计数一旦漂了，
+     *     守卫直接红。
+     *
+     * ⚠️ **回传 7 项**（12 个里真被段外消费的 7 个）—— **7 个，不是 12 个**：
+     *   · **段外脚本** 6 个，**全部落在 `exportTable`（P11，Task 7 才搬）里**：
+     *     `moveFans`(REF **2056**) · `pingFans`(2056) · `lightWindows`(2057) ·
+     *     `showerFans`(2057) · `others`(2058) · `dateRange`(REF **2055**，同行**两处** ——
+     *     `.earliest` 与 `.latest`)。
+     *   · **只被模板读** 1 个：`statsTail`（模板 REF 167 / 170）。
+     *     ⚠️ 段外脚本里那处 `statsTail`（REF 2050）是**注释里的一个词**，不是活引用
+     *     （memory `split-brief-interface-traps` 第 1 类：P1 `va` / P2 `orderedProcedureNames`
+     *     都栽在「grep 命中其实是注释」上；本处反过来核过一遍）。
+     *   ⚠️ **这一条本守卫管不着** —— 它只比「声明搬得像不像」，「壳有没有漏接」由 `vue-tsc`
+     *     （`TS2304`/`TS6133`）管（memory `split-guard-blind-spots` 第 3 类）。
+     *   ⚠️ **不回传、也不许解构的 5 个**：`MOVE_FAN_NAMES` `PING_SINGLE_DIRECTIONS`
+     *     `PING_DOUBLE_DIRECTIONS` `ALL_PING_DIRECTIONS` `normDirection`
+     *     （段外脚本 0 引用、模板 0 引用 —— 真 TS 解析器数标识符节点 + **整文件纯文本搜**
+     *     各量一遍，R46 的四条重量法；解构自身的 `BindingElement` 已排除）。
+     *     **但别把它们从本清单里去掉** —— 它们是本块的内部件（`others` 读 `MOVE_FAN_NAMES`/
+     *     `ALL_PING_DIRECTIONS`，`pingFans`/`others` 读 `normDirection`，后者读
+     *     `PING_SINGLE_DIRECTIONS`/`PING_DOUBLE_DIRECTIONS`），去掉就等于这几段没人验。
+     *     ⚠️ 简报正文原写「全部回传（`exportTable` 要用）」是**错的**（R55 已更正）：
+     *     照它办，壳里会多出 5 个没人用的解构（`TS6133`）。**当时为什么不报错** ——
+     *     唯一的段外消费者 `exportTable` 在 **Task 7** 才搬，在那之前壳里那份还在
+     *     （编译器只看得见「有人用」）。**到 Task 7 才炸。**
+     */
+    target: 'app/src/composables/progress/useProgressStats.ts',
+    names: ['normDirection'],
+    consts: [
+      'MOVE_FAN_NAMES', 'PING_SINGLE_DIRECTIONS', 'PING_DOUBLE_DIRECTIONS', 'ALL_PING_DIRECTIONS',
+      'moveFans', 'pingFans', 'lightWindows', 'showerFans', 'others', 'dateRange', 'statsTail',
+    ],
+    rewrites: {
+      moveFans: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      pingFans: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      lightWindows: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      showerFans: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      others: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      dateRange: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+    },
+  },
 ]
 
 /**
