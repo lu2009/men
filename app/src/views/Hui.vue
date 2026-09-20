@@ -653,6 +653,7 @@ import {
 // 仍然需要的两个：`loadMarkupCatalog`（`onMounted` 里预载目录）、`markupUnitOptions`（模板下拉）。
 import { loadMarkupCatalog, markupUnitOptions } from '../composables/useMarkupCatalog'
 import { useHuiMarkupMgmt } from '../composables/hui/useHuiMarkupMgmt'
+import { useHuiColumnConfig } from '../composables/hui/useHuiColumnConfig'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1002,106 +1003,24 @@ function openVideo(link: string) {
 
 // ===== 列显隐（仿旧版 ping_column/diao_column，租户级）=====
 // 可配置列：key 与列构建里一致；缺省不配置(=显示)。
-const PING_VIS_KEYS = [
-  { key: 'profile_color', label: '型材/颜色' },
-  { key: 'unit_quantity', label: '单价/数量' },
-  { key: 'glass', label: '玻璃' },
-  { key: 'open_dir', label: '开向' },
-  { key: 'track', label: '开向内·锁具(轨道)' },
-  { key: 'casing', label: '开向内·包边(套线)' },
-  { key: 'door_size', label: '门洞尺寸' },
-  { key: 'hole_size', label: '洞尺（门洞尺寸格内「洞/净尺」）' },
-  { key: 'jiao', label: '吊脚' },
-  // 「亮窗总高」原版**无显隐闸门**，故不进本表（仍照常显示）
-  { key: 'hardware', label: '五金' },
-  { key: 'seal_board', label: '封板高' },
-  { key: 'remark', label: '备注' },
-  { key: 'money', label: '金额' },
-  { key: 'markup_summary', label: '加价' },
-  { key: 'price_type', label: '计价方式' },
-  { key: 'discount', label: '打折' },
-  { key: 'front_casing', label: '前包加长' },
-  { key: 'back_casing', label: '后包加长' },
-  { key: 'double_ding', label: '单/双丁' },
-  { key: 'order_no', label: '单号' },
-  { key: 'image_id', label: '图片ID' },
-  { key: 'client', label: '客户' },
-  { key: 'client_code', label: '客户编号' },
-  { key: 'other_fee', label: '其它费用' },
-]
-// 移门表可显隐列（列序同原版，见 diaoCols 注释）
-
-const DIAO_VIS_KEYS = [
-  { key: 'profile_color', label: '型材/颜色' },
-  { key: 'unit_qty', label: '单价/数量' },
-  { key: 'glass', label: '玻璃' },
-  { key: 'fans_dir', label: '扇数/开向' },
-  { key: 'track_line', label: '下轨道/套线' },
-  { key: 'door_size', label: '门洞尺寸' },
-  { key: 'hole_size', label: '洞尺（门洞尺寸格内「洞/净尺」）' },
-  { key: 'lightwin', label: '亮窗信息' },
-  { key: 'hardware', label: '五金' },
-  { key: 'remark', label: '备注' },
-  { key: 'money', label: '金额' },
-  { key: 'markup_summary', label: '加价' },
-  { key: 'up_track_seal', label: '上轨/边封' },
-  { key: 'front_casing', label: '前包加长' },
-  { key: 'back_casing', label: '后包加长' },
-  { key: 'double_ding', label: '单/双丁' },
-  { key: 'price_type', label: '计价方式' },
-  { key: 'discount', label: '打折' },
-  { key: 'order_no', label: '单号' },
-  { key: 'image_id', label: '图片ID' },
-  { key: 'client', label: '客户' },
-  { key: 'client_code', label: '客户编号' },
-  { key: 'other_fee', label: '其它费用' },
-]
-// 是否显示某列（缺省都显示）
-const pingColVis = reactive<Record<string, boolean>>({})
-const diaoColVis = reactive<Record<string, boolean>>({})
-function colVis(map: Record<string, boolean>, key: string): boolean {
-  return map[key] !== false // 仅当显式 false 才隐藏
-}
-// 列显隐设置弹窗
-const visOpen = ref(false)
-const visDraft = reactive({ ping_columns: {} as Record<string, boolean>, diao_columns: {} as Record<string, boolean> })
-const savingVis = ref(false)
-
-function openVisDialog() {
-  // 从当前生效值初始化草稿（缺省都显示）
-  visDraft.ping_columns = {}
-  visDraft.diao_columns = {}
-  for (const c of PING_VIS_KEYS) visDraft.ping_columns[c.key] = colVis(pingColVis, c.key)
-  for (const c of DIAO_VIS_KEYS) visDraft.diao_columns[c.key] = colVis(diaoColVis, c.key)
-  visOpen.value = true
-}
-
-/** 「恢复默认」：把草稿勾回旧版租户配置那套（见 `PING_COL_DEFAULTS`），**要再点保存才生效**。 */
-function resetVisDraft() {
-  for (const c of PING_VIS_KEYS) visDraft.ping_columns[c.key] = PING_COL_DEFAULTS[c.key] !== false
-  for (const c of DIAO_VIS_KEYS) visDraft.diao_columns[c.key] = DIAO_COL_DEFAULTS[c.key] !== false
-}
-
-async function saveVisDialog() {
-  savingVis.value = true
-  try {
-    await api.updateColumnConfig({
-      ping_columns: { ...visDraft.ping_columns },
-      diao_columns: { ...visDraft.diao_columns },
-    })
-    // 回写到生效值
-    Object.keys(pingColVis).forEach((k) => delete pingColVis[k])
-    Object.keys(diaoColVis).forEach((k) => delete diaoColVis[k])
-    for (const [k, v] of Object.entries(visDraft.ping_columns)) pingColVis[k] = v
-    for (const [k, v] of Object.entries(visDraft.diao_columns)) diaoColVis[k] = v
-    visOpen.value = false
-    message.success('列显隐已保存')
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '保存列配置失败')
-  } finally {
-    savingVis.value = false
-  }
-}
+// 2026-09-20 两段共 15 个声明搬到 `composables/hui/useHuiColumnConfig.ts`（逐字搬迁，零行为变化）：
+//   ① 本处（两个列清单 + 生效值 + 设置弹窗四件）② 下面「自动加价设置」之后那段（旧版租户默认值 + loadColumnConfig）。
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以模板一行都没改。
+//
+// ⚠️ **构造顺序**：本块只注入 `message`（页面顶部 `useMessage()`）⇒ 在它之后即可；
+//    `api` 是新家自己 import 的模块单例，不占页面顺序。
+//
+// 🔴 **`pingColVis` / `diaoColVis` 回传的是同一个 `reactive` 对象**（spec §6.1-1）：
+//    `DetailLinesTable` 把 `colVis` 当**普通 prop** 读，而本块的写法是**原地** `delete` / `Object.assign`
+//    —— 原地改就是语义。⚠️ **别改成副本**（`{...}` / `toRefs` / computed）：那样「保存列显隐」后
+//    表格列**不变**，且**没有任何报错**。
+const {
+  PING_VIS_KEYS, DIAO_VIS_KEYS,
+  pingColVis, diaoColVis,
+  visOpen, visDraft, savingVis,
+  openVisDialog, resetVisDraft, saveVisDialog,
+  loadColumnConfig,
+} = useHuiColumnConfig({ message })
 
 // ===== 加价项目管理（复刻旧版主页三弹窗：管理 → 新增 / 修改删除）=====
 // 旧版：`加价项目管理`(400) → 两个按钮；`新增加价项目`(500)；`修改加价项目`(500)
@@ -1154,59 +1073,10 @@ function saveAutoMarkup() {
   message.success('设置已保存')
 }
 
-/**
- * 列显隐默认值 —— 取自**旧版租户配置**（`GET /1?param1=login` 返回的
- * `registrant.ping_column` / `registrant.diao_column`，2026-09-16 实查）：
- *
- *   ping_column = {"五金":1,"前包加长":1,"单双丁":1,"吊脚":0,"后包加长":1,"套线种类":1,
- *                  "封板高":1,"平方数":0,"开向模式":1,"打折":0,"洞尺":1,"轨道种类":0,"锁向":1}
- *   diao_column = {"五金":0,"单双丁":1,"封板高":1,"打折":1,"数量":0,"洞尺":1,"计价方式":0}
- *
- * 旧版的闸门是「真值才渲染」；另外 **日期/回执单号/图片ID/客户/客户编号/其它费用 六列
- * 在旧版里恒 false**（闸门变量 `he`/`ge` = `Vue.ref(!1)`，全组件无赋值），从来没显示过，
- * 所以这里也默认隐藏（仍可在「列显隐设置」里打开）。
- */
-const PING_COL_DEFAULTS: Record<string, boolean> = {
-  jiao: false, // 吊脚:0
-  discount: false, // 打折:0
-  track: false, // 轨道种类:0（开向格里的「锁具」那一行）
-  image_id: false,
-  client: false,
-  client_code: false,
-  other_fee: false,
-}
-const DIAO_COL_DEFAULTS: Record<string, boolean> = {
-  hardware: false, // 五金:0
-  price_type: false, // 计价方式:0
-  image_id: false,
-  client: false,
-  client_code: false,
-  other_fee: false,
-}
-function seedColumnDefaults() {
-  Object.keys(pingColVis).forEach((k) => delete pingColVis[k])
-  Object.keys(diaoColVis).forEach((k) => delete diaoColVis[k])
-  Object.assign(pingColVis, PING_COL_DEFAULTS)
-  Object.assign(diaoColVis, DIAO_COL_DEFAULTS)
-}
-
-async function loadColumnConfig() {
-  seedColumnDefaults()
-  try {
-    const c = await api.getColumnConfig()
-    // 后端存过就用存过的（整表覆盖；未存过保留上面的旧版默认）
-    if (c.ping_columns && Object.keys(c.ping_columns).length) {
-      Object.keys(pingColVis).forEach((k) => delete pingColVis[k])
-      Object.assign(pingColVis, c.ping_columns)
-    }
-    if (c.diao_columns && Object.keys(c.diao_columns).length) {
-      Object.keys(diaoColVis).forEach((k) => delete diaoColVis[k])
-      Object.assign(diaoColVis, c.diao_columns)
-    }
-  } catch {
-    // 忽略：保留旧版默认
-  }
-}
+// 旧版租户列显隐默认值（`PING_COL_DEFAULTS` / `DIAO_COL_DEFAULTS`）+ `seedColumnDefaults`
+// + `loadColumnConfig` 已随 C2 搬到 `composables/hui/useHuiColumnConfig.ts`（逐字搬迁）——
+// 调用点在上面「列显隐」那一节（本块两段合并成一个 composable，故此处不留代码）。
+// 这四个名字**不回传**（段外零命中）⇒ 这里也不解构。
 
 function onConfirmOpenDirMode() {
   message.success(confirmOpenDirMode())

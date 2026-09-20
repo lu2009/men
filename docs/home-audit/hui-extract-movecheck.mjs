@@ -167,6 +167,39 @@ const SPLIT_BLOCKS = [
       markupEditOptions: [],
     },
   },
+  {
+    // C2「列显隐」。快照是**两段**：`Hui.vue:1005-1104`（列清单/生效值/设置弹窗）+ `1258-1310`
+    // （旧版租户默认值 + `loadColumnConfig`），中间隔着「自动加价设置」（属 C8）—— 非连续没关系，
+    // 本脚本按**名字**逐条切片。两段合计 15 个声明。
+    // ⚠️ 本块最要紧的不是逐字比对，而是 spec §6.1-1 的**引用同一性**：`pingColVis`/`diaoColVis`
+    // 必须回传**同一个 `reactive` 对象**（原地 `delete`/`Object.assign` 是语义）——
+    // 那条**本脚本验不了**（它只看文本），靠新家文件头 + 页面注释写明，并由 `vue-tsc` 兜形状。
+    target: 'app/src/composables/hui/useHuiColumnConfig.ts',
+    names: ['colVis', 'openVisDialog', 'resetVisDraft', 'saveVisDialog', 'seedColumnDefaults', 'loadColumnConfig'],
+    consts: [
+      'PING_VIS_KEYS', 'DIAO_VIS_KEYS', 'pingColVis', 'diaoColVis',
+      'visOpen', 'visDraft', 'savingVis', 'PING_COL_DEFAULTS', 'DIAO_COL_DEFAULTS',
+    ],
+    rewrites: {
+      // 全块**只有 `saveVisDialog` 里那两处**是页面拥有的东西（`message`）；`api` 是新家自己
+      // `import` 的模块单例 ⇒ 不产生改写。其余 14 个名字**零改写**（不是漏写）。
+      saveVisDialog: [{ from: 'message.', to: 'deps.message.' }],
+      colVis: [],
+      openVisDialog: [],
+      resetVisDraft: [],
+      seedColumnDefaults: [],
+      loadColumnConfig: [],
+      PING_VIS_KEYS: [],
+      DIAO_VIS_KEYS: [],
+      pingColVis: [],
+      diaoColVis: [],
+      visOpen: [],
+      visDraft: [],
+      savingVis: [],
+      PING_COL_DEFAULTS: [],
+      DIAO_COL_DEFAULTS: [],
+    },
+  },
 ]
 
 /**
