@@ -322,6 +322,12 @@ body: { formula: [...distinct(row.formulaid)], id: [...distinct(row.id)] }
 已补一层**源码级漂移守卫**：直接从 `Home.vue` 真身抠出 `splitOrderNos` / `orderNoCell` /
 补年份那段 / `po` 筛选谓词，把关键判据钉死。变异测试确认两类都能抓住：
 
+> ⚠️ **2026-09-20 位置更正（纯搬迁，逻辑逐字未改）**：上面四段里 `splitOrderNos` 的**声明**已归位到
+> `app/src/utils/homeOrderNo.ts` ⇒ `orderno-logiccheck.mjs` 里抠它的那一处**已改指向新文件**。
+> 另外三件 —— `orderNoCell`、补年份那段（`confirmOrderNoQuery`）、`po` 筛选谓词 —— **仍留在
+> `Home.vue`**（`orderNoCell` 与 `confirmOrderNoQuery` 归 Task 7，谓词在 `filtered` 里、归 Task 6），
+> 所以它们**仍然从 `Home.vue` 真身抠**。本句行号级指针按 Ruling 173 未重编。
+
 ```
 把 splitOrderNos 的 split('_') 改成 split(' ')   → ✗ 漂移守卫报警 + 行为对照挂 1 条
 把 orderNoCell 的 startsWith 改成 includes        → ✗ 漂移守卫报警 + 行为对照挂 2 条

@@ -46,7 +46,8 @@ Task 0–4 与 Task 15 是**逐步写全**的：每一步的命令、代码、�
 | `docs/home-audit/home-extract-movecheck.mjs` | Home 拆分守卫 —— 逐字比 + manifest + 反向检查 + `--selftest` |
 | `app/src/utils/homeMetrics.ts` | 纯函数：金额/付款状态/进度匹配/日期告警（Task 2） |
 | `app/src/utils/homeDate.ts` | `pad` / `localToday` / `legacyToday`（**两套时区口径并存，不合并**）（Task 4） |
-| `app/src/utils/homeConstants.ts` | `PROGRESS_OPTIONS` / `EMPTY_FILTER_VALUE` / `AUTOCOMPLETE_ALWAYS_SHOW` / `progressSegments`（Task 4） |
+| `app/src/utils/homeConstants.ts` | `PROGRESS_OPTIONS` / `PROGRESS_STEPS` / `EMPTY_FILTER_VALUE` / `CUSTOM_SEGMENT_COLOR` / `CUSTOM_SEGMENT_FLEX` / `AUTOCOMPLETE_ALWAYS_SHOW` / `type ProgressSegment` / `progressSegments`（**8 件**）（Task 4） |
+| `app/src/utils/homeOrderNo.ts` | 纯函数 `splitOrderNos` / `orderNosOf`（**不是** B4 那个 `composables/home/useHomeOrderNo.ts`）（Task 4） |
 | `app/src/composables/home/useHomeData.ts` | B1 |
 | `app/src/composables/home/useHomeSelection.ts` | B10（Task 3） |
 | `app/src/composables/home/useHomeFilterView.ts` | B3 |
@@ -535,15 +536,21 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 **为什么单独一笔**：搬迁笔里既有「搬家」又有「切缝」就分不清是谁弄坏的（spec §4 纪律 1）。归位不是搬迁，是先把东西放到它该在的地方，后面几块才切得干净。
 
 **Files:**
-- Create: `app/src/utils/homeDate.ts` · `app/src/utils/homeConstants.ts`
+- Create: `app/src/utils/homeDate.ts` · `app/src/utils/homeConstants.ts` · `app/src/utils/homeOrderNo.ts`
 - Modify: `app/src/views/Home.vue`
+- Modify: `docs/home-audit/home-extract-movecheck.mjs`（守卫登记）
+- Modify: `docs/home-audit/orderno-logiccheck.mjs` · `docs/home-audit/autocomplete-logiccheck.mjs`（**同笔**：这两台的漂移守卫按名字从 `Home.vue` 真身抠源码，搬走就抠不到 ⇒ 必须重新指向新文件，见「修正 F」）
 
 **Interfaces:**
-- Produces: `pad(n)` · `localToday()` · `legacyToday()`（`homeDate.ts`）；`PROGRESS_OPTIONS` · `EMPTY_FILTER_VALUE` · `AUTOCOMPLETE_ALWAYS_SHOW` · `progressSegments(status)`（`homeConstants.ts`）
+- Produces（**13 件**）：
+  - `homeDate.ts` —— `pad(n)` · `localToday()` · `legacyToday()`
+  - `homeConstants.ts` —— `PROGRESS_OPTIONS` · `PROGRESS_STEPS` · `EMPTY_FILTER_VALUE` · `CUSTOM_SEGMENT_COLOR` · `CUSTOM_SEGMENT_FLEX` · `AUTOCOMPLETE_ALWAYS_SHOW` · `type ProgressSegment` · `progressSegments(status, manualActions)`
+  - `homeOrderNo.ts` —— `splitOrderNos(v)` · `orderNosOf(r)`
 
 - [ ] **Step 1: 建 `utils/homeDate.ts`**
 
-搬 `pad`(1108)、`localToday`(1116)、`legacyToday`(2401)。
+搬 `pad`(1108)、`localToday`(1116，**连 JSDoc 1110–1115**)、`legacyToday`(2401，**连它上面那三行注释 2398–2400**)。
+（⚠️ 注释块**要连注释一起搬** —— 与 Task 2/3 栽过的「方案范围漏了注释块」同因。）
 
 ⚠️ **`localToday` 与 `legacyToday` 是两套口径，绝不合并**（spec §6.3-9）：
 - `localToday()` —— 本地时区，返回 `YYYY-MM-DD` 字符串；
@@ -553,18 +560,86 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 
 - [ ] **Step 2: 建 `utils/homeConstants.ts`**
 
-搬 `PROGRESS_OPTIONS`(495)、`EMPTY_FILTER_VALUE`(735)、`AUTOCOMPLETE_ALWAYS_SHOW`(536)、`progressSegments`(2592)。
-`AUTOCOMPLETE_ALWAYS_SHOW` 的**解释性注释（520–535）必须整段跟走** —— 那注释说明了为什么不能省这个恒真函数。
+搬 **8 件**（下表行号是 REF `28e36d21`；「一起要带走的注释」那一列是**清单外的**，方案原文漏了它）：
+
+| 名字 | REF 行 | 归类 | 一起要带走的注释 |
+|---|---|---|---|
+| `PROGRESS_OPTIONS` | 495 | `consts` | —— |
+| `PROGRESS_STEPS` | 498–504 | `consts` | 497 |
+| `EMPTY_FILTER_VALUE` | 735 | `consts` | —— |
+| `CUSTOM_SEGMENT_COLOR` | 515 | `consts` | 506–511 那段共用注释里属于它的那行（510） |
+| `CUSTOM_SEGMENT_FLEX` | 518 | `consts` | 517 |
+| `AUTOCOMPLETE_ALWAYS_SHOW` | 536 | `consts` | **520–535 整段 JSDoc** |
+| `type ProgressSegment` | 2590 | `consts` | 2589 |
+| `progressSegments` | 2592–2610 | `names` | —— |
+
+⚠️ 后 4 件（`PROGRESS_STEPS` / `CUSTOM_SEGMENT_COLOR` / `CUSTOM_SEGMENT_FLEX` / `type ProgressSegment`）**方案原文完全没列**，
+但 `progressSegments` 的函数体引用了它们、返回类型注解就是 `ProgressSegment` ⇒ 不搬就**编译不过**。
+
+⚠️ **别顺手带走的**：`PROGRESS_CLEAR`(496) · `EMPTY_FILTER_LABEL`(736) · `MANUAL_ACTION_OPTIONS` /
+`MANUAL_ACTIONS_KEY` / `RECORD_DATE_KEY`(512–514) · `PROGRESS_FIXED_FILTERS`(516) —— 它们属 B11/Task 13。
+`progressSegments` 实测**没有**用到 `PROGRESS_FIXED_FILTERS`（别凭联想多搬一个）。
+
+⚠️ `AUTOCOMPLETE_ALWAYS_SHOW` 的**解释性注释（520–535）必须整段跟走** —— 那注释说明了为什么不能省这个恒真函数。
+
+⚠️ `506–511` 那段「常量逐个有据」的注释**是六个常量共用的**（`MANUAL_ACTION_OPTIONS` / `MANUAL_ACTIONS_KEY` /
+`RECORD_DATE_KEY` / `CUSTOM_SEGMENT_COLOR` / `PROGRESS_FIXED_FILTERS` / `CUSTOM_SEGMENT_FLEX`）⇒ **要「拆」不要「抄」**：
+引导语（506）**在两个文件里都要重写**（本文件里改成「本文件这两个常量各自的依据」，别原样抄过去 ——
+抄过去就是对剩下四个做**假陈述**）；`507–509`、`511` **留原地给 Task 13**（搬走了 Task 13 就少了依据）。
+
+- [ ] **Step 2b: 建 `utils/homeOrderNo.ts`（搬 **19 行**：`splitOrderNos` 的 JSDoc+本体 626–643 共 18 行，加 `orderNosOf` 1 行）**
+
+搬 `splitOrderNos`(636–643，**连 JSDoc 626–635**)、`orderNosOf`(644)。
+两者**零页面作用域捕获**（`splitOrderNos` 只读形参 `v`；`orderNosOf` 只调 `splitOrderNos` 与读 `r.order_no_set`）。
+文件头必须写明**按下划线 `_` 切**（不是空白）及其依据，并点明与 `composables/home/useHomeOrderNo.ts` 的**同名域不同层**。
 
 - [ ] **Step 3: 守卫登记**
 
 ```js
-  { target: 'app/src/utils/homeDate.ts', names: ['localToday', 'legacyToday'], consts: ['pad'], rewrites: {} },
-  { target: 'app/src/utils/homeConstants.ts', names: ['progressSegments'],
-    consts: ['PROGRESS_OPTIONS', 'EMPTY_FILTER_VALUE', 'AUTOCOMPLETE_ALWAYS_SHOW'], rewrites: {} },
+  { target: 'app/src/utils/homeDate.ts',
+    names: ['localToday', 'legacyToday'],
+    consts: ['pad'],
+    rewrites: {
+      pad: [{ from: 'const pad = ', to: 'export const pad = ' }],
+      localToday: [{ from: 'function localToday(', to: 'export function localToday(' }],
+      legacyToday: [{ from: 'function legacyToday(', to: 'export function legacyToday(' }],
+    } },
+
+  { target: 'app/src/utils/homeConstants.ts',
+    names: ['progressSegments'],
+    consts: ['PROGRESS_OPTIONS', 'PROGRESS_STEPS', 'EMPTY_FILTER_VALUE',
+             'CUSTOM_SEGMENT_COLOR', 'CUSTOM_SEGMENT_FLEX', 'AUTOCOMPLETE_ALWAYS_SHOW',
+             'ProgressSegment'],
+    rewrites: {
+      // ① 八个名字各自的 `export`（`norm()` **不 strip `export`**，所以每一条都要登记）。
+      PROGRESS_OPTIONS: [{ from: 'const PROGRESS_OPTIONS = ', to: 'export const PROGRESS_OPTIONS = ' }],
+      PROGRESS_STEPS: [{ from: 'const PROGRESS_STEPS = ', to: 'export const PROGRESS_STEPS = ' }],
+      EMPTY_FILTER_VALUE: [{ from: 'const EMPTY_FILTER_VALUE = ', to: 'export const EMPTY_FILTER_VALUE = ' }],
+      CUSTOM_SEGMENT_COLOR: [{ from: 'const CUSTOM_SEGMENT_COLOR = ', to: 'export const CUSTOM_SEGMENT_COLOR = ' }],
+      CUSTOM_SEGMENT_FLEX: [{ from: 'const CUSTOM_SEGMENT_FLEX = ', to: 'export const CUSTOM_SEGMENT_FLEX = ' }],
+      AUTOCOMPLETE_ALWAYS_SHOW: [{ from: 'const AUTOCOMPLETE_ALWAYS_SHOW = ', to: 'export const AUTOCOMPLETE_ALWAYS_SHOW = ' }],
+      ProgressSegment: [{ from: 'type ProgressSegment = ', to: 'export type ProgressSegment = ' }],
+      // ② 签名行变了（加了第二形参）⇒ 这条替换是必需的；`to` 里的 `export ` 不能少。
+      progressSegments: [
+        { from: 'function progressSegments(status: string): ProgressSegment[] {',
+          to:   'export function progressSegments(status: string, manualActions: Ref<string[]>): ProgressSegment[] {' },
+      ],
+    } },
+
+  { target: 'app/src/utils/homeOrderNo.ts',
+    names: ['splitOrderNos'],
+    consts: ['orderNosOf'],
+    rewrites: {
+      splitOrderNos: [{ from: 'function splitOrderNos(', to: 'export function splitOrderNos(' }],
+      orderNosOf: [{ from: 'const orderNosOf = ', to: 'export const orderNosOf = ' }],
+    } },
 ```
 
-⚠️ 归类判据是**声明形式不是语义**：`names` = `function` 声明，`consts` = `const X = ...`。按 `28e36d21` 实测：
+⚠️⚠️ **上面这些「加 `export`」的改写不是多余的** —— 写 `rewrites: {}` 会**13 条全红**
+（实测差异全是第 1 行多了 `export `）。原因：`norm()` **有意不 strip `export`**（那样「多加了
+`export` 却没登记」就再也看不见了）⇒ 新文件里每一个多出来的 `export` 都得在这里声明。
+
+⚠️ 归类判据是**声明形式不是语义**：`names` = `function` 声明，`consts` = 其余 `const` / `type` 声明。按 `28e36d21` 实测：
 - `function localToday()`(1116) · `function legacyToday()`(2401) · `function progressSegments()`(2592) ⇒ **`names`**
 - `const pad = (n) => ...`(1108) · `const PROGRESS_OPTIONS = [...]`(495) · `const EMPTY_FILTER_VALUE = '__EMPTY__'`(735) · `const AUTOCOMPLETE_ALWAYS_SHOW = () => true`(536) ⇒ **`consts`**
 
@@ -576,16 +651,33 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 
 - [ ] **Step 5: 守卫 + 全套**
 
+🔴 **先做「修正 F」，再跑本节** —— 本节原文写「`homeDate` 的改动会被 `orderno-logiccheck`（119 条）、
+`rowstate-logiccheck`（105 条）**覆盖到**」，**那是错的**：那两台的漂移守卫不是比自己的副本，
+而是**按名字从 `Home.vue` 真身里抠源码**（`fnBody('X')` / `near('X')`）⇒ **把函数搬走，它们就抠不到、直接报红**。
+全仓库只有 **2 个**台子读 `Home.vue` 真身（`orderno-logiccheck` / `autocomplete-logiccheck`），
+而 `run-all.mjs` 按文件名后缀收台子 ⇒ **`npm run verify` 会红**。
+
+⇒ 同笔必须：`orderno-logiccheck.mjs` 的 `fnBody('splitOrderNos')` 改指向 `utils/homeOrderNo.ts`；
+`autocomplete-logiccheck.mjs` 那条 `AUTOCOMPLETE_ALWAYS_SHOW` 的断言改指向 `utils/homeConstants.ts`。
+（其余抠源码点 —— `orderNoCell` / `confirmOrderNoQuery` / `filtered` 的谓词 —— **本笔别动**，它们还没搬走。）
+**判据**：两台退出 0，**且**改坏新文件里那几个 token ⇒ 必须报红（否则是把断言改成了空转）。
+
 Run: `node docs/home-audit/home-extract-movecheck.mjs && npm run verify`
-Expected: 守卫退出 0；`npm run verify` `✅ 全绿`。
-`homeDate` 的改动会被 `orderno-logiccheck`（119 条）、`rowstate-logiccheck`（105 条）覆盖到；`progressSegments` 被 `progress-*` 那一组覆盖。
+Expected: 守卫退出 0（登记数 **13 → 26**）；`npm run verify` `✅ 全绿`。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add app/src/utils/homeDate.ts app/src/utils/homeConstants.ts app/src/views/Home.vue docs/home-audit/home-extract-movecheck.mjs
-git commit -m "refactor(home): 把放错位置的纯件归位到 utils/（pad/localToday/legacyToday/常量），单独一笔"
+git add app/src/utils/homeDate.ts app/src/utils/homeConstants.ts app/src/utils/homeOrderNo.ts \
+        app/src/views/Home.vue docs/home-audit/home-extract-movecheck.mjs \
+        docs/home-audit/orderno-logiccheck.mjs docs/home-audit/autocomplete-logiccheck.mjs \
+        docs/2026-09-20-home-hui-split-plan.md docs/2026-09-18-order-no-semantics.md \
+        docs/2026-09-19-progress-analysis.md docs/home-audit/01-table.md docs/home-audit/02-actions.md
+git commit -m "refactor(home): 把放错位置的纯件归位到 utils/（pad/localToday/legacyToday/常量/拆单号），单独一笔；顺带把方案里 Task 4 那段补齐"
 ```
+
+⚠️ **「同笔改文档」是硬规矩**（`CLAUDE.md`）：本笔让 9 处「把位置写死在 `Home.vue`」的文档失真
+（`doc-location-sweep.mjs 4` 扫得出），必须在**同一笔**里补名字级指针 —— 另见「修正 F3」。
 
 ---
 

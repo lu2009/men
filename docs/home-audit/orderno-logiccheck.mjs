@@ -2,8 +2,13 @@
  * 「查单号」（旧版 `po`/`fo`/`ho`/`Co` + `Uo`/`So`/`To`/`Yo`/`Wo`）的**逐字对照**。
  *
  * 做法同 `rowstate-logiccheck.mjs`：把旧版源码从 `Home.formatted.js` 切出来、就地反混淆、
- * **真的跑**，拿同一批夹具跑新版实现（`app/src/views/Home.vue`）逐条比。**不手抄旧版函数** ——
+ * **真的跑**，拿同一批夹具跑新版实现逐条比。**不手抄旧版函数** ——
  * 手抄等于引入转写错误。
+ *
+ * ⚠️ 新版实现在**两个**文件里（2026-09-20 Task 4 归位后）：
+ *   · `app/src/utils/homeOrderNo.ts` —— `splitOrderNos()`（本笔从 `Home.vue` 搬出，纯搬迁）
+ *   · `app/src/views/Home.vue`       —— `orderNoCell()` / `confirmOrderNoQuery()` 第 ① 步 /
+ *                                       `filtered` 里那段 `po` filter（**都还没搬走**）
  *
  * 对照的四段**纯逻辑**（其余是弹窗显隐 / 翻页 / 展开这类流程，靠读源码 + tsc + 构建兜底）：
  *   ① `Uo`（`:7694-7697`）拆单号集           → `splitOrderNos()`
@@ -11,7 +16,7 @@
  *   ③ `Yo` 里的**补年份后缀**（`:7703-7709`）  → `confirmOrderNoQuery()` 第 ① 步
  *   ④ `ps` 里的 **`po` 筛选谓词**（`:11160`）  → `filtered` 里那段 filter
  *
- * ⚠️ 新版那几段是本文件里照抄的一份（同逻辑、同夹具）。改 `Home.vue` 时要同步改这里。
+ * ⚠️ 新版那几段是本文件里照抄的一份（同逻辑、同夹具）。改上面**两个**文件时要同步改这里。
  *
  * 用法：node docs/home-audit/orderno-logiccheck.mjs
  */
@@ -117,33 +122,46 @@ const YEAR_CASES = ['', '  ', '199', '199-26', '199-2', 'A1', '199-', 'x199', '1
 let pass = 0
 let fail = 0
 
-// ------------------------------------------------- 漂移守卫：对着 Home.vue 真身 //
+// ------------------------------------------- 漂移守卫：对着新版源码真身（两个文件） //
 /**
  * ⚠️ 上面「新版实现」那段是**本文件里照抄的一份**（见文件头那句）——
- * 所以**它能过，不代表 `Home.vue` 没漂**：函数改名、`_` 改成空格、`startsWith`
+ * 所以**它能过，不代表新版没漂**：函数改名、`_` 改成空格、`startsWith`
  * 改成 `includes`、年份换算法，这里照样全绿。
  *
- * 补一层**源码级**断言：直接从 `Home.vue` 真身里抠出对应片段，把**判据本身**钉住。
+ * 补一层**源码级**断言：直接从新版源码真身里抠出对应片段，把**判据本身**钉住。
  * 这不是重复上面那批对照（那批比的是**行为**，这批比的是**实现里那几个关键 token 还在不在**）。
+ *
+ * ⚠️ **2026-09-20 Task 4**：`splitOrderNos` / `orderNosOf` 已归位到
+ *    `app/src/utils/homeOrderNo.ts`（纯搬迁，逐字未改）⇒ 抠它得改指向新文件。
+ *    其余三件（`orderNoCell` / `confirmOrderNoQuery` / `filtered` 的谓词）**还没搬**
+ *    （`orderNoCell` 与 `confirmOrderNoQuery` 归 Task 7，`filtered` 归 Task 6）
+ *    ⇒ 它们**仍然从 `HOME_SRC` 抠**，一个字都不用改。
  */
 const HOME_SRC = readFileSync(new URL('../../app/src/views/Home.vue', import.meta.url), 'utf8')
+// 2026-09-20 Task 4：`splitOrderNos` / `orderNosOf` 已归位到 utils/homeOrderNo.ts（纯搬迁，逐字未改）
+const ORDERNO_SRC = readFileSync(new URL('../../app/src/utils/homeOrderNo.ts', import.meta.url), 'utf8')
 
-/** 取 `function <name>(` 起那段配平的 `{}`（这几个函数体里没有裸 `}` 字面量，够用）。 */
-function fnBody(name) {
-  const at = HOME_SRC.indexOf(`function ${name}(`)
+/**
+ * 取 `function <name>(` 起那段配平的 `{}`（这几个函数体里没有裸 `}` 字面量，够用）。
+ *
+ * ⚠️ `src` 默认 `HOME_SRC` —— 那三件「还没搬走」的调用点因此**一个字都不用改**。
+ *    只有已经归位的 `splitOrderNos` 显式传 `ORDERNO_SRC`。
+ */
+function fnBody(name, src = HOME_SRC) {
+  const at = src.indexOf(`function ${name}(`)
   if (at < 0) return ''
-  const i = HOME_SRC.indexOf('{', at)
+  const i = src.indexOf('{', at)
   let depth = 0
-  for (let k = i; k < HOME_SRC.length; k++) {
-    if (HOME_SRC[k] === '{') depth++
-    else if (HOME_SRC[k] === '}' && --depth === 0) return HOME_SRC.slice(i, k + 1)
+  for (let k = i; k < src.length; k++) {
+    if (src[k] === '{') depth++
+    else if (src[k] === '}' && --depth === 0) return src.slice(i, k + 1)
   }
   return ''
 }
-/** 从 `anchor` 起取一小段，够看清关键 token 即可。 */
-const near = (anchor, len = 400) => {
-  const at = HOME_SRC.indexOf(anchor)
-  return at < 0 ? '' : HOME_SRC.slice(at, at + len)
+/** 从 `anchor` 起取一小段，够看清关键 token 即可。`src` 默认 `HOME_SRC`（同 `fnBody`）。 */
+const near = (anchor, len = 400, src = HOME_SRC) => {
+  const at = src.indexOf(anchor)
+  return at < 0 ? '' : src.slice(at, at + len)
 }
 
 const drift = []
@@ -152,7 +170,8 @@ const need = (label, body, re) => {
   else if (!re.test(body)) drift.push(label)
 }
 
-const SPLIT_BODY = fnBody('splitOrderNos')
+// ⚠️ 只有这一条改用 `ORDERNO_SRC`（Task 4 把它搬走了）；下面三件仍从 `HOME_SRC` 抠。
+const SPLIT_BODY = fnBody('splitOrderNos', ORDERNO_SRC)
 need('splitOrderNos 按 "_" 切', SPLIT_BODY, /split\('_'\)/)
 need('splitOrderNos 逐段 trim', SPLIT_BODY, /\.trim\(\)/)
 need('splitOrderNos 去掉空段', SPLIT_BODY, /filter\(Boolean\)/)
@@ -165,6 +184,16 @@ need('补年份：已带 -YY 就原样保留', YEAR_SNIP, /\\d\{2\}/)
 need('补年份：取当前年份后两位', YEAR_SNIP, /getFullYear\(\)\)\.slice\(-2\)/)
 
 // `filtered` 里那段 `po` 筛选谓词
+//
+// ⚠️ **2026-09-20 Task 4：这一条有意留在 `HOME_SRC`（默认源），不跟着 `orderNosOf` 搬去新文件。**
+//    锚点 `orderNosOf(r)` 是一个**调用点**、不是声明 —— 声明搬到 `utils/homeOrderNo.ts` 后，
+//    `Home.vue` 里的调用点（`orderNoCell` 的 `const parts = orderNosOf(r)`、`filtered` 的谓词、
+//    `confirmOrderNoQuery` …）**全都还在**。而两个 `need` 要的 `startsWith` / `toLowerCase`
+//    本来就长在**调用点**旁边，不在那个一行声明里。
+//    实测（本笔落地时跑的）：`ORDERNO_SRC.indexOf('orderNosOf(r)')` = **-1**
+//    （新文件里那句是 `const orderNosOf = (r: OrderSummaryDto) => …`，没有 `orderNosOf(r)` 这个子串）
+//    ⇒ 真改指向新文件的话 `near()` 返回 `''`、两条 `need` 直接**假报红**。
+//    ⇒ 裁定：留默认源；`orderNosOf` 的**声明**由 `home-extract-movecheck.mjs` 逐字守着（更强）。
 const PO_SNIP = near('orderNosOf(r)', 300)
 need('筛选谓词走 orderNosOf + startsWith', PO_SNIP, /startsWith/)
 need('筛选谓词小写化后再比', PO_SNIP, /toLowerCase/)

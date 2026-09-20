@@ -148,6 +148,9 @@ ok('操作名称那行挂了右键删除（onContextmenu:Ya）', manualProps.inc
 
 // ⑤ 新版那一侧：两个 autocomplete 都得显式补上，否则回退成「空框不弹」
 const HOME_VUE = readFileSync(`${ROOT}/app/src/views/Home.vue`, 'utf8')
+// 2026-09-20 Task 4：`AUTOCOMPLETE_ALWAYS_SHOW` 已归位到 `utils/homeConstants.ts`（纯搬迁，逐字未改）
+// ⇒ 常量本体从新文件读；模板那两处 `:get-show` 仍在 `Home.vue`，所以 `HOME_VUE` 也要留着。
+const HOME_CONSTANTS = readFileSync(`${ROOT}/app/src/utils/homeConstants.ts`, 'utf8')
 const NEW_ACS = [...HOME_VUE.matchAll(/<n-auto-complete\b[\s\S]*?\/>/g)].map((m) => m[0])
 eq('新版 Home.vue 里 autocomplete 的个数', NEW_ACS.length, 2)
 for (const block of NEW_ACS) {
@@ -156,7 +159,7 @@ for (const block of NEW_ACS) {
 }
 ok(
   '新版那个共享常量确实回 true（且注释写明了理由）',
-  /const AUTOCOMPLETE_ALWAYS_SHOW = \(\) => true/.test(HOME_VUE),
+  /const AUTOCOMPLETE_ALWAYS_SHOW = \(\) => true/.test(HOME_CONSTANTS),
 )
 
 // ⑥ 「聚焦即弹」有个致命副作用：**弹窗开窗时若自动聚焦到输入框，下拉就自己弹出来**

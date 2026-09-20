@@ -259,6 +259,72 @@ const BLOCKS = [
       ],
     },
   },
+  /*
+   * Task 4 —— 「放错位置的纯件」归位（纯搬迁，零行为变化）。
+   *
+   * ⚠️⚠️ **这三块里每一条「加 `export`」的改写都不是多余的** —— 照着简报
+   *    （`.superpowers/sdd/2026-09-20-home-hui-split-plan/task-4-brief.md` Step 3）
+   *    的 `rewrites: {}` 登记会**13 条全红**。实测（2026-09-20，本笔落地时先照抄跑过一遍）：
+   *    `13 处不符`，每一条的差异都长这样 ——
+   *      旧: `function localToday(): string {`
+   *      新: `export function localToday(): string {`
+   *    原因见 `norm()` 的注释：它**不 strip `export`**，而那是有意的（「多加了 `export`
+   *    却没登记」必须看得见）。所以新文件里**每一个**多出来的 `export` 都要在这里声明。
+   *
+   *    这正是简报自己「修正 B」讲的那类错（把「函数体不用改」误当成「整段不用改」）——
+   *    只是 B 只点了 `progressSegments` 的**签名**那一条，漏了每个名字都有的 `export` 那一条。
+   *    ⇒ 以**实测**为准补全，函数体/表达式体一字未动（本条已按简报要求的「改第二行必须报红」
+   *    逐名变异验过，见 `task-4-report.md` §2）。
+   */
+  { target: 'app/src/utils/homeDate.ts',
+    names: ['localToday', 'legacyToday'],
+    consts: ['pad'],
+    rewrites: {
+      // ① 搬到模块级并导出（新文件里每个声明都加 `export`）—— 三个名字各一条。
+      pad: [{ from: 'const pad = ', to: 'export const pad = ' }],
+      localToday: [{ from: 'function localToday(', to: 'export function localToday(' }],
+      legacyToday: [{ from: 'function legacyToday(', to: 'export function legacyToday(' }],
+      // ② 两个函数体**一字未动**：`legacyToday` 里仍是 `toISOString()`（UTC）+ 返回时间戳，
+      //    `localToday` 里仍是本地时区 + 返回 `YYYY-MM-DD` 串 —— **两套口径没有合并**（spec §6.3-9）。
+    } },
+
+  { target: 'app/src/utils/homeConstants.ts',
+    names: ['progressSegments'],
+    consts: ['PROGRESS_OPTIONS', 'PROGRESS_STEPS', 'EMPTY_FILTER_VALUE',
+             'CUSTOM_SEGMENT_COLOR', 'CUSTOM_SEGMENT_FLEX', 'AUTOCOMPLETE_ALWAYS_SHOW',
+             'ProgressSegment'],
+    rewrites: {
+      // ① 八个名字各自的 `export`（`consts` 里那个 `type` 也在内 —— `norm` 同样不 strip 它）。
+      PROGRESS_OPTIONS: [{ from: 'const PROGRESS_OPTIONS = ', to: 'export const PROGRESS_OPTIONS = ' }],
+      PROGRESS_STEPS: [{ from: 'const PROGRESS_STEPS = ', to: 'export const PROGRESS_STEPS = ' }],
+      EMPTY_FILTER_VALUE: [{ from: 'const EMPTY_FILTER_VALUE = ', to: 'export const EMPTY_FILTER_VALUE = ' }],
+      CUSTOM_SEGMENT_COLOR: [{ from: 'const CUSTOM_SEGMENT_COLOR = ', to: 'export const CUSTOM_SEGMENT_COLOR = ' }],
+      CUSTOM_SEGMENT_FLEX: [{ from: 'const CUSTOM_SEGMENT_FLEX = ', to: 'export const CUSTOM_SEGMENT_FLEX = ' }],
+      AUTOCOMPLETE_ALWAYS_SHOW: [{ from: 'const AUTOCOMPLETE_ALWAYS_SHOW = ', to: 'export const AUTOCOMPLETE_ALWAYS_SHOW = ' }],
+      ProgressSegment: [{ from: 'type ProgressSegment = ', to: 'export type ProgressSegment = ' }],
+      // ② 「控制器修正 B」：`progressSegments` 加了第二形参 ⇒ 签名行变了，必须登记这条替换。
+      //    函数体一字未动（形参就叫 manualActions，体内 `manualActions.value` 原样有效）。
+      //    ⚠️ `to` 里那个 `export ` **不能少** —— 简报给的那条 `to` 没有它，是同一个漏项。
+      progressSegments: [
+        { from: 'function progressSegments(status: string): ProgressSegment[] {',
+          to:   'export function progressSegments(status: string, manualActions: Ref<string[]>): ProgressSegment[] {' },
+      ],
+      // ③ 语义上**零注入**：`manualActions` 是**调用方传进来的** ref（`Home.vue` 的
+      //    `manualActions` 此刻仍留在页面，属 B11/Task 13）—— 本块的函数体里没有一处
+      //    改成 `deps.` 或形参改名，除了上面那条签名行。
+    } },
+
+  { target: 'app/src/utils/homeOrderNo.ts',
+    names: ['splitOrderNos'],
+    consts: ['orderNosOf'],
+    rewrites: {
+      // ① 两个名字各自的 `export`。
+      splitOrderNos: [{ from: 'function splitOrderNos(', to: 'export function splitOrderNos(' }],
+      orderNosOf: [{ from: 'const orderNosOf = ', to: 'export const orderNosOf = ' }],
+      // ② **零页面作用域捕获**（这是「可以归位」的前提，逐行核过，见 `task-4-report.md` §6）：
+      //    `splitOrderNos` 只读自己的形参 `v`；`orderNosOf` 只调 `splitOrderNos` 与读
+      //    `r.order_no_set`。两者都不读 `ref` / `localStorage` / 组件上下文 ⇒ 不需要注入。
+    } },
 ]
 
 /**

@@ -343,7 +343,9 @@ GET /1?param1=getMoreProgress&param2={ds}&param3={客户}&param4={地址}&param5
 差分台 `docs/progress-more-logiccheck.mjs`）。三处**要留意的落地细节**：
 
 1. **默认日期与快捷项按本地时区**（旧版两个默认值走 `toISOString()`⇒**UTC**，UTC+8 每天
-   00:00–08:00 打开弹窗默认区间整体早一天）。理由与本仓库既有的 `Home.vue` `localToday()` 那段一致。
+   00:00–08:00 打开弹窗默认区间整体早一天）。理由与本仓库既有的 `localToday()` 那段一致
+   （⚠️ 2026-09-20：那个函数的**声明**已从 `Home.vue` 归位到 `app/src/utils/homeDate.ts`，纯搬迁、
+   逻辑逐字未改；`Home.vue` 仍 `import` 它。行号级指针按 Ruling 173 未重编）。
    快捷项文案照旧版：最近一周 / 最近一个月 / 最近三个月。
    ⚠️ 这是**前端**那一半。**服务端**那一半（`date_anchors` 的「当天/本周/本月」）曾按库会话的
    UTC 算、同样差一天，2026-09-19 已修 —— 两边现在都以北京时间为准，
@@ -755,6 +757,9 @@ import{l,g as a}from"./openDirectionNaming-92dbc91d.js";                   // �
 - **Home 页的「生产进度」**（`docs/2026-09-17-home-analysis.md:108`）是**打单操作**那一套
   （固定项 `已打生产单`/`未打生产单`/`已订玻璃`/`未订玻璃` + localStorage 自定义项），
   新版已在 `app/src/views/Home.vue:2573 progressSegments` 实现成「5 固定段 + 自定义段」色条。
+  ⚠️ 2026-09-20：`progressSegments` 的**声明**已归位到 `app/src/utils/homeConstants.ts`（纯搬迁、
+  逻辑逐字未改；`manualActions` 改由调用方作为第二实参传入，仍是页面那个 ref）。上述 `Home.vue:2573`
+  是**搬迁前的行号**，按 Ruling 173 由 Task 15 一次性对账，本笔**不重编**。
 - 两者**写的是同一个接口** `updataProgress`，靠 `param3` 是否匹配 `/^工序\d+$/` 分流
   （匹配 → `updateProgress` 写工序槽；不匹配 → `updatePrintStatus` 写打单操作）——
   **`legacy-dispatch.ts:791` 已证实**。所以「Progress 页只会写工序」这个说法是对的，但**不能反推 Home 也走工序**。

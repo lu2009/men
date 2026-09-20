@@ -452,7 +452,10 @@ import { api } from '../api/client'
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
 import { useHomeSelection } from '../composables/home/useHomeSelection'
+import { AUTOCOMPLETE_ALWAYS_SHOW, EMPTY_FILTER_VALUE, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
+import { legacyToday, localToday, pad } from '../utils/homeDate'
 import { dateCellClass, fmt, isUnaudited, paidOf, paymentStatus, progressMatch, unpaidOf } from '../utils/homeMetrics'
+import { orderNosOf } from '../utils/homeOrderNo'
 import type { Line } from '../utils/partsEngine'
 import { canSeeAllOrders } from '../utils/roles'
 import { useAuthStore } from '../stores/auth'
@@ -493,48 +496,20 @@ const dialog = useDialog()
 //    旧版「打单操作」列头 `:11547-11581`：4 固定项 → 分隔线 → 自定义项 → 显示全部。
 const PAYMENT_OPTIONS = ['已付', '未付', '部分付', '全部显示']
 const PAYMENT_CLEAR = '全部显示'
-const PROGRESS_OPTIONS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
 const PROGRESS_CLEAR = '显示全部'
-// 打单操作 5 固定步骤（§3 `ua`）：label + 完成色 + flex 比例。
-const PROGRESS_STEPS = [
-  { label: '确认下单', color: '#389e0d', flex: 1 },
-  { label: '生产单', color: '#d48806', flex: 2 },
-  { label: '玻璃订单', color: '#096dd9', flex: 2 },
-  { label: '标签', color: '#c41d7f', flex: 2 },
-  { label: '收据单', color: '#237804', flex: 2 },
-]
 
-// 「手动更新进度」弹窗 + 自定义进度项（旧版 §4.7，审计 G3–G11/B30/C12）。常量逐个有据：
+// 「手动更新进度」弹窗 + 自定义进度项（旧版 §4.7，审计 G3–G11/B30/C12）。以下**四个**常量逐个有据：
 //   `Na`（`:8036`）      = autocomplete 的 4 个固定候选
 //   `wr`（`:7568`）      = localStorage 键：自定义操作项数组
 //   `gr`（`:7568`）      = localStorage 键：`记录日期` 持久化偏好
-//   `dr(1012)`（`:7968`）= 自定义进度段的颜色
 //   `Bo`（`:7673`）      = 「打单操作」列头 popover 的 4 个固定项（新版把「显示全部」并进了同一个列表）
+// ⚠️ 这段注释**原文描述的是六个常量**。第六行（`dr(1012)` = 自定义进度段的颜色）与后面 `ua` 那行
+//    **已随 `CUSTOM_SEGMENT_COLOR` / `CUSTOM_SEGMENT_FLEX` 归位到 `app/src/utils/homeConstants.ts`**
+//    （2026-09-20，纯搬迁）—— 「四个」就是照此改的，别再当回那份「六个常量」的原文。
 const MANUAL_ACTION_OPTIONS = ['玻璃订单', '生产单', '收据单', '确认生产']
 const MANUAL_ACTIONS_KEY = 'home_manual_progress_actions'
 const RECORD_DATE_KEY = 'home_manual_progress_record_date'
-const CUSTOM_SEGMENT_COLOR = '#531dab'
 const PROGRESS_FIXED_FILTERS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
-// `ua`（`:7964`）：自定义段总 flex = 3（5 个固定段 1+2+2+2+2 = 9，合计 12）。
-const CUSTOM_SEGMENT_FLEX = 3
-
-/**
- * Naive 的 `n-auto-complete` **默认「框里有值才弹」** —— `getShow` 缺省是 `!!value`
- * （`naive-ui/es/auto-complete/src/AutoComplete.mjs` 的 `mergedShowOptionsRef`），
- * 所以空框聚焦时什么都不显示。
- *
- * 旧版用的是 `el-autocomplete`，**聚焦即弹**：Home 里三处（`:12058` 客户编辑弹窗、
- * `:12097` 手动更新进度的「操作名称」、`:12141` 查询订单的「客户」）前两处逐字写了
- * `"trigger-on-focus":!0`，第三处没写 —— 而 Element Plus 这个 prop 的默认值就是 `true`
- * （`element-plus/es/components/autocomplete/src/autocomplete.mjs`，`triggerOnFocus.default = true`）。
- * 又因为 `Sa`/`jl` 在查询词为空时回的是**全量候选**（`Sa`：`e ? o.filter(...) : o`），
- * 旧版点进空框就能看到整份下拉。
- *
- * 传 `() => true` 把这层补回来。**不会**导致面板乱弹：Naive 真正决定显隐的是
- * `active = 本函数 && 聚焦中(canBeActivated) && 有候选`，失焦、选中、点面板外都会把它关掉；
- * 查询词滤不出候选时面板同样不弹（Naive 比旧版少一个「空面板」的瞬间，属有意）。
- */
-const AUTOCOMPLETE_ALWAYS_SHOW = () => true
 
 // ---------------------------------------------------------------------------
 // 数据 / 加载
@@ -595,26 +570,6 @@ const orderNoInput = ref('')
 const orderNoRestoring = ref(false)
 /** 「查单号」popover 的显隐（旧版 `Co`，受控，因为确认/清除都要主动关它）。 */
 const orderNoPopShow = ref(false)
-
-/**
- * 单号集 → 单号数组（旧版 `Uo`，`:7694-7697`）：
- * ```js
- * Uo = e => { const l = String(e ?? "").trim()
- *             return l ? l.split("_").map(x => String(x ?? "").trim()).filter(Boolean) : [] }
- * ```
- * ⚠️ **按下划线 `_` 切**（不是空白）。`backend/migrations/0018_home_order_head_fields.sql:4`
- * 的注释写的是「空格串」，与旧版源码不符 —— 这里沿用本文件对 `打单操作` 已经定下的口径
- * （**以旧版源码为准**，见 `progressPrefix` 上方那段说明），两处保持同一套。
- */
-function splitOrderNos(v: unknown): string[] {
-  const s = String(v ?? '').trim()
-  if (!s) return []
-  return s
-    .split('_')
-    .map((x) => String(x ?? '').trim())
-    .filter(Boolean)
-}
-const orderNosOf = (r: OrderSummaryDto) => splitOrderNos(r.order_no_set)
 
 /**
  * 单号集单元格显示什么（旧版 `To`，`:7699-7701`）：
@@ -705,7 +660,8 @@ const columnFilterState = ref<DataTableFilterState>({})
 
 // 旧版 `ta` 里 `unshift` 的哨兵（`:7937-7939`）：value = 字符串表 dr(1196) = "__EMPTY__"，
 // text = dr(1470) = "未生产"。只挂在「打单操作」这一列上。
-const EMPTY_FILTER_VALUE = '__EMPTY__'
+//（`__EMPTY__` 那个常量已归位到 `app/src/utils/homeConstants.ts`，2026-09-20 纯搬迁；
+//  下面 `EMPTY_FILTER_LABEL` 仍在本文件 —— 它不在本任务的搬迁清单里。）
 const EMPTY_FILTER_LABEL = '未生产'
 
 // Naive 的 `FilterOption` / `FilterOptionValue` 没有从包入口导出，这里按结构声明。
@@ -1023,19 +979,6 @@ function openDate(row: OrderSummaryDto) {
   dateTarget.value = row
   dateValue.value = row.order_date ? Date.parse(row.order_date) : null
   dateShow.value = true
-}
-
-const pad = (n: number) => String(n).padStart(2, '0')
-
-/**
- * 「今天」的 **YYYY-MM-DD**，按**本地时区**（旧版口径：`getFullYear/getMonth/getDate`）。
- *
- * ⚠️ 别与 `legacyToday()` 混 —— 那个返回的是 date-picker 用的**时间戳**、且走 `toISOString()`（**UTC**）。
- * 跨层写日期一律用本函数（`submitDate` 早就自己拼了一份等价的，这里抽出来共用）。
- */
-function localToday(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /**
@@ -1959,18 +1902,6 @@ const manualDate = ref<number | null>(null)
 // 从未设置过 ⇒ false；存过 "1" ⇒ 勾上。**不是**每次默认勾选。
 const manualRecordDate = ref(localStorage.getItem(RECORD_DATE_KEY) === '1')
 
-// 旧版 `ka` 初值（`:8036`）= `new Date().toISOString().split("T")[0]` —— **UTC** 日期串。
-// 这里取同一个串再按本地日历还原成时间戳，保证与旧版显示同一天
-//（含 UTC+8 凌晨会取到"昨天"这一旧版行为，属有意保真）。
-function legacyToday(): number {
-  const [y, m, d] = new Date()
-    .toISOString()
-    .split('T')[0]
-    .split('-')
-    .map(Number)
-  return new Date(y, m - 1, d).getTime()
-}
-
 // 旧版 `value-format: "YYYY-MM-DD"` ⇒ 提交时拼进操作名的是 `YYYY-MM-DD` 串。
 function isoDate(ts: number): string {
   const d = new Date(ts)
@@ -2150,29 +2081,6 @@ async function deleteManualProgress() {
  *   正确形态是这两列**常驻输入框**（见 `renderEditable`），没有任何底色。
  */
 
-// 旧版 `ua`（`:7964-7970`）：5 固定段 + 自定义段（flex = 3/个数，色 `#531dab`）。
-type ProgressSegment = { label: string; color: string; flex: number; done: boolean }
-
-function progressSegments(status: string): ProgressSegment[] {
-  const custom = manualActions.value
-  const flex = custom.length > 0 ? CUSTOM_SEGMENT_FLEX / custom.length : 0
-  return [
-    ...PROGRESS_STEPS.map((step) => ({
-      label: step.label,
-      color: step.color,
-      flex: step.flex,
-      // 旧版 `:7967`：`确认下单` 段只看整串是否非空，不要求真的含「确认下单」四个字。
-      done: step.label === '确认下单' ? status.length > 0 : status.includes(step.label),
-    })),
-    ...custom.map((label) => ({
-      label,
-      color: CUSTOM_SEGMENT_COLOR,
-      flex,
-      done: status.includes(label),
-    })),
-  ]
-}
-
 // ⚠️ 分隔符口径冲突（需上游拍板）：旧版源码**只用下划线**——`oa`/`aa`（`:7943-7952`）`split("_")`，
 // 删除时摘段也是 `x_` / `_x`（`:8100-8103`），全 bundle 查不到按空格切 `打单操作` 的地方；
 // 而 `backend/migrations/0018_home_order_head_fields.sql` 的注释把 `打单操作 -> production_status`
@@ -2202,7 +2110,7 @@ function renderProgress(row: OrderSummaryDto) {
     h(
       'div',
       { class: 'progress-bar' },
-      progressSegments(status).map((seg) =>
+      progressSegments(status, manualActions).map((seg) =>
         h('div', {
           class: 'progress-seg',
           title: `${seg.label}${seg.done ? ' ✓' : ''}`,
@@ -2280,7 +2188,7 @@ const rowTipInitStyle = reactive({ left: '0px', top: '0px' })
  *    零重渲染。内容仍然走响应式（它变得少）。
  */
 function rowTipContent(row: OrderSummaryDto) {
-  const segs = progressSegments(row.production_status)
+  const segs = progressSegments(row.production_status, manualActions)
   if (!segs.length && unpaidOf(row, financeSummary.value) !== 0) return null
   return { lines: segs.map((s) => ({ text: s.label, done: s.done })), paid: unpaidOf(row, financeSummary.value) === 0 }
 }
