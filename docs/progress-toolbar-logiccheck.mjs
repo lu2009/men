@@ -15,11 +15,14 @@
  *
  * 左边（旧版）：`legacy/js/Progress-f4bdef35.js` 解混淆后的
  *   `z=async()=>{…}`（导出）与 `yo=…`→`po=…`（统计）两段。
- * 右边（新版）：`app/src/views/Progress.vue` 里对应的两段（锚点见下）。
- *   ⚠️ **`SEARCH_FIELDS` 那一段 2026-09-20 起不在 `Progress.vue` 了** —— Progress 拆分 P5
- *     把它连整个「列头交互」搬去了 `app/src/composables/progress/useProgressHeader.ts`
- *     （纯搬迁、逐字未改）⇒ 那一对锚点改从新文件切，**断言与夹具一个字没动**。
- *     见下面 `SEARCH_FIELDS_TS` 上方的 ⚠️。
+ * 右边（新版）：**三个 composable**（锚点见下）——
+ *   `useProgressHeader.ts`（`SEARCH_FIELDS`）· `useProgressStats.ts`（统计）·
+ *   `useProgressColumns.ts`（搜索框那一段）· `useProgressExport.ts`（导出）。
+ *   ⚠️ **2026-09-20（Task 7 / P6+P11）起本台子一句 `Progress.vue` 都不读了** ——
+ *     最后两对落在 `.vue` 里的锚点（「搜索」段起点 1269、整段「导出」）随 P6/P11 搬进了
+ *     `useProgressColumns.ts` / `useProgressExport.ts`。四段换源都是**纯搬迁、逐字未改**，
+ *     每一处都只改「从哪个文件的哪一段取料」+ 必要的 `deps` 桩壳，
+ *     **断言、夹具、容差一个字没动**（R12 档位 1）。逐段理由写在各自锚点的 ⚠️ 里。
  *
  * ⚠️ **这台差分台不覆盖的东西**（别以为它绿了就全都对）：
  *   1. **开向归一化本身**。两边都注入**同一份**夹具映射（旧版走 `openDirectionNaming` 的真代码，
@@ -47,7 +50,9 @@ const BUNDLE = resolve(ROOT, 'legacy/js/Progress-f4bdef35.js')
 const NAMING = resolve(ROOT, 'legacy/js/openDirectionNaming-92dbc91d.js')
 const MAP = '/tmp/progress.map.json'
 const DECODED = '/tmp/progress.decoded.js'
-const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
+// ⚠️ 原来这里有一个 `const VUE = …'app/src/views/Progress.vue'` —— **2026-09-20（Task 7）
+//    已删**：本台子的锚点**全部**不再落在 `.vue` 里（最后一对随 P6/P11 搬走），
+//    连同 `vue` / `cutVue` 一起归零。理由与回退法写在下面 `cutIn` 的 JSDoc 里。
 // P5（列头交互）2026-09-20 搬到这儿了 —— 本台子只有 `SEARCH_FIELDS` 那一对锚点落在它里面。
 const HEADER = resolve(ROOT, 'app/src/composables/progress/useProgressHeader.ts')
 // P10（统计行）2026-09-20 搬到这儿了 —— 本台子的「统计」段（`NEW_STATS_TS`）
@@ -56,6 +61,8 @@ const STATS = resolve(ROOT, 'app/src/composables/progress/useProgressStats.ts')
 // P6（筛选链 + 分页 + 列定义）2026-09-20 搬到这儿了 —— 本台子「搜索」段（`NEW_SEARCH_TS`）
 // 的起点锚点（`const words = …`，REF 1269）落在它里面。
 const COLUMNS = resolve(ROOT, 'app/src/composables/progress/useProgressColumns.ts')
+// P11（导出表格）2026-09-20 搬到这儿了 —— 本台子「导出」段（`NEW_EXPORT_TS`）整段落在它里面。
+const EXPORT = resolve(ROOT, 'app/src/composables/progress/useProgressExport.ts')
 const USE_OPEN_DIR = resolve(ROOT, 'app/src/composables/useOpenDirection.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
@@ -126,15 +133,22 @@ new Function('module', 'exports', 'window', namingSrc)(namingModule, namingModul
 const legacyNaming = namingModule.exports
 
 // ---------------------------------------------------------------- 新版侧 //
-const vue = readFileSync(VUE, 'utf8')
 const header = readFileSync(HEADER, 'utf8')
 const stats = readFileSync(STATS, 'utf8')
 const columns = readFileSync(COLUMNS, 'utf8')
+const export_ = readFileSync(EXPORT, 'utf8')
 
 /**
  * 从 `src` 里按「命中 + 唯一 + 终点在后」切一段。
- * ⚠️ 2026-09-20（Progress 拆分 P5）起「新版侧」**不再只有一个源文件** ⇒ 把源提成参数，
- *    原来的 `cutVue` 保留成薄壳（十余处调用点一行都不用改）。
+ * ⚠️ 2026-09-20（Progress 拆分 P5）起「新版侧」**不再只有一个源文件** ⇒ 把源提成参数。
+ *
+ * ⚠️⚠️ **2026-09-20（Task 7 / P6+P11）起，本台子一句 `Progress.vue` 都不读了** ——
+ *   最后一对落在 `.vue` 里的锚点（「搜索」段的起点 1269 与「导出」段的整段）随 P6/P11
+ *   搬进了 composable。⇒ 原来那个 `const vue = readFileSync(VUE, 'utf8')` 与薄壳
+ *   `cutVue`（注释当时写着「十余处调用点」）**双双归零**，本任务一并删掉 ——
+ *   留着就是「一条读文件 + 一个没有调用者的函数 + 一句与事实相反的注释」。
+ *   ⚠️ 这一条**不是**换源的必要改动，是**顺手清死代码**；将来若又有锚点落回 `.vue`，
+ *   把 `VUE`/`vue`/`cutVue` 三行原样加回来即可（`git show 130ef34e:docs/progress-toolbar-logiccheck.mjs`）。
  */
 function cutIn(src, startAnchor, endAnchor, what) {
   const a = src.indexOf(startAnchor)
@@ -144,7 +158,6 @@ function cutIn(src, startAnchor, endAnchor, what) {
   if (b < 0) throw new Error(`新版锚点没命中（${what} 的终点）：${endAnchor}`)
   return src.slice(a, b)
 }
-const cutVue = (startAnchor, endAnchor, what) => cutIn(vue, startAnchor, endAnchor, what)
 
 /*
  * ⚠️ **换源（2026-09-20，Progress 拆分 P10）**：「统计」这一段从 `Progress.vue`
@@ -160,7 +173,29 @@ const cutVue = (startAnchor, endAnchor, what) => cutIn(vue, startAnchor, endAnch
  *   ⚠️ 这条锚**只认新文件**，Task 7 搬 P11 时**不必再回来动第二次**。
  */
 const NEW_STATS_TS = cutIn(stats, 'const MOVE_FAN_NAMES = [', '\n  return {', '统计')
-const NEW_EXPORT_TS = cutVue('async function exportTable() {', '</script>', '导出')
+/*
+ * ⚠️ **换源（2026-09-20，Progress 拆分 P11）**：「导出」这一段整段从 `Progress.vue` 搬到了
+ *     `composables/progress/useProgressExport.ts` ⇒ 源换成新文件，**起点锚点一个字没改**
+ *     （新文件里那行与 REF 逐字相同）。
+ *
+ * 终点锚点**必须换掉**：原来那个 `'</script>'` 是 `.vue` 的 script 结束标签 ——
+ *   **新文件里没有这个东西**（`useProgressExport.ts` 是一个普通 `.ts` 模块）。
+ *   ⇒ 改成**新文件自己的工厂 `return`**：`'\n  return {'`（与上一行「统计」段同形）。
+ *   ⚠️ 实测这个锚在新文件里**只命中工厂那一处**：`exportTable` 里一条 `return {` 都没有
+ *   （全段唯一的 `return` 是 `exportStamp` 的 `return new Date()`）。
+ *
+ * ⚠️⚠️ **「旧写法是不是往切片里塞了一个 `</script>`、esbuild 为什么还能跑」—— 本任务实量的答案：
+ *   **它从来没塞进去过，前提本身是错的。**
+ *   · 这条 `cutVue` 的终点语义是 `cutIn` 的 `src.slice(a, b)` —— **不含**终点锚点
+ *     （本文件里**含**终点锚点的是**旧版侧**那个 `cut()`：`src.slice(a, b + endAnchor.length)`。
+ *     两个函数名字像、语义不同，简报把它们混成一个了）。
+ *   · 实测（本任务，用 REF 与当前 `.vue` 各跑一遍）：切片末字符是 `exportStamp` 的收尾 `}`
+ *     `\n`，`</script>` 不在里面；**手工把 `</script>` 拼回切片尾再喂 esbuild，
+ *     它立刻响亮报错**：`<stdin>:157:1: ERROR: Unexpected "/"`（`lineText: '</script>'`）。
+ *   ⇒ **没有「中间还有一层剥注释」这回事**，也不必为新切法补什么等价物。
+ *   ⇒ 新切法与旧切法**在「导出」段上内容等价**（同起同止、只多 2 格工厂缩进 + `deps.` 改写）。
+ */
+const NEW_EXPORT_TS = cutIn(export_, 'async function exportTable() {', '\n  return {', '导出')
 
 if (NEW_STATS_TS.length < 2000 || !NEW_STATS_TS.includes('const statsTail = computed(')) {
   throw new Error(`新版统计段形状不对（len=${NEW_STATS_TS.length}）`)
@@ -566,6 +601,28 @@ async function runNewExport(rows, searchText) {
   const { log, URLStub, documentStub } = makeBrowserStubs()
   const newStats = runNewStats(rows)
   const js = NEW_EXPORT_JS
+  /*
+   * ⚠️ **P11 换源之后这段读的是注入对象**（`useProgressExport` 工厂的 `deps`）⇒ 多搭一个 `deps` 壳，
+   *   与「统计」段（P10）同一个改法：`deps.<name>` **就是**原来那个参数桩本身（**同一对象，不是复制**）
+   *   ⇒ 调用点、夹具、断言一个字都不用动。
+   *   ⚠️ 上面那 10 个**裸参数保留**是有意的（与「统计」段保留 `filteredRows` 同形）：
+   *   它们现在只用来**构造下面这个 `deps` 对象**，不再直接进被评的代码。
+   *   ⚠️ 实测这段里出现的 `deps.` 键**恰好是这 10 个、一个不多一个不少**
+   *   （`exporting`×2 `searchText` `filteredRows`×2 `dateRange`×2 `moveFans` `pingFans`
+   *   `lightWindows` `showerFans` `others` `message`×2）—— 与 `ProgressExportDeps` 一一对上。
+   */
+  const deps = {
+    exporting: { value: false },
+    searchText: { value: searchText },
+    filteredRows: { value: rows },
+    dateRange: newStats.dateRange,
+    moveFans: newStats.moveFans,
+    pingFans: newStats.pingFans,
+    lightWindows: newStats.lightWindows,
+    showerFans: newStats.showerFans,
+    others: newStats.others,
+    message: { success: (m) => log.messages.push(['success', m]), error: (m) => log.messages.push(['error', m]) },
+  }
   const fn = new Function(
     'module',
     'exports',
@@ -579,6 +636,7 @@ async function runNewExport(rows, searchText) {
     'showerFans',
     'others',
     'message',
+    'deps',
     'document',
     'URL',
     'Blob',
@@ -589,16 +647,17 @@ async function runNewExport(rows, searchText) {
   const exportTable = fn(
     { exports: {} },
     {},
-    { value: false },
-    { value: searchText },
-    { value: rows },
-    newStats.dateRange,
-    newStats.moveFans,
-    newStats.pingFans,
-    newStats.lightWindows,
-    newStats.showerFans,
-    newStats.others,
-    { success: (m) => log.messages.push(['success', m]), error: (m) => log.messages.push(['error', m]) },
+    deps.exporting,
+    deps.searchText,
+    deps.filteredRows,
+    deps.dateRange,
+    deps.moveFans,
+    deps.pingFans,
+    deps.lightWindows,
+    deps.showerFans,
+    deps.others,
+    deps.message,
+    deps,
     documentStub,
     URLStub,
     Blob,

@@ -346,11 +346,12 @@ import { loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressColumns } from '../composables/progress/useProgressColumns'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
+import { useProgressExport } from '../composables/progress/useProgressExport'
 import { useProgressHeader } from '../composables/progress/useProgressHeader'
 import { useProgressPrint } from '../composables/progress/useProgressPrint'
 import { useProgressQueryMore } from '../composables/progress/useProgressQueryMore'
 import { useProgressStats } from '../composables/progress/useProgressStats'
-import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
+import { useProgressToolbar } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
 import type { ProgressRow } from '../utils/progressRow'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
@@ -549,8 +550,8 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
 //   + 脚本 C3 打印段(`selectedRows`，REF **1734/1759/1775**)。
 //   〔一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。〕
 // ⚠️ `ExcelJSInterop` **走 `export` 不走 `return`**（它是模块级 `type`，工厂体内不能
-//   `export`，R44）⇒ 这里 `import type` 进来只为 P11 `exportTable`（REF **2005**）那一处；
-//   Task 7 把 P11 搬进 `useProgressExport.ts` 后，这个 import 要跟着摘掉。
+//   `export`，R44）。Task 7 起本文件**不再 import 它**：P11 已搬进 `useProgressExport.ts`，
+//   由那个新文件从本文件 `import type`（它段内只有 REF 2005 一处用它）。
 // ---------------------------------------------------------------------------
 const { exporting, searchText, selectedRows, refresh, allSelected, toggleSelectAll, openBatchUpdate } =
   useProgressToolbar({
@@ -757,196 +758,58 @@ const {
 //      `showerFans` / `others` / `dateRange` / `statsTail`，**连段首横幅与那 11 行块注释**）
 //      已归位到 `composables/progress/useProgressStats.ts`
 //      （Progress 拆分 **P10**，REF `f097a9b1`:1800–1983）。
-// ⚠️ **调用点为什么还在原位**：本块**只注入 1 项** —— `filteredRows`（REF 1250 的
-//   `computed`），在 REF 里就排在本块（1800）之前 ⇒ **没有 TDZ 约束**；本块段外的**脚本**
-//   引用（6 处，全在 `exportTable` 里，REF 2055–2058）**全部排在本块之后** ⇒ 也不需要提前。
-//   两条合起来：调用点原地不动，上面 `useProgressPrint(...)`（P9）那处也一个字不用改
-//   （它不吃本块任何名字）。
-// ⚠️ **7 个回传全部解构**（一个不多一个不少 —— 多一个是死局部 `TS6133`，少一个是 `TS2304`）：
-//   段外脚本 6 个 —— `moveFans`(REF 2056) · `pingFans`(2056) · `lightWindows`(2057) ·
-//   `showerFans`(2057) · `others`(2058) · `dateRange`(2055，同行两处)；
-//   模板 1 个 —— `statsTail`（模板 REF 167 / 170）。
+// ⚠️ **调用点的位置**：本块**只注入 1 项** —— `filteredRows`（REF 1250 的 `computed`）。
+//   Task 7 之前它在壳里，所以「原地不动」；**Task 7 把 P6 搬走之后 `filteredRows` 由上面的
+//   `useProgressColumns(...)` 产出**，而那个调用点也在这条线之前 ⇒ **这行一个字不用改**
+//   （解构名不变、`deps` 里的名字自动继续指向 P6 的回传）。
+//   本块段外的**脚本**引用（6 处，全在 `exportTable` 里，REF 2055–2058）**全部排在本块之后**
+//   ⇒ 也不需要提前。上面 `useProgressPrint(...)`（P9）那处同样不吃本块任何名字。
+// ⚠️ **7 个回传里本块只解构 1 个**（`statsTail`）—— **不是 7 个**：
+//   · 模板 1 个 —— `statsTail`（模板 REF 167 / 170）；
+//   · 段外脚本 6 个（`moveFans` 2056 · `pingFans` 2056 · `lightWindows` 2057 · `showerFans` 2057 ·
+//     `others` 2058 · `dateRange` 2055 同行两处）**全部只被 P11 的 `exportTable` 用**
+//     ⇒ Task 7 起**由下面那处 `useProgressExport(...)` 从工厂结果里直接取**
+//     （`progressStats.moveFans` …），**壳里不再解构它们** —— 解构了就是死局部（`TS6133`）。
+//     ⚠️ 这正是「Task 7 才炸」的那一类：P11 没搬走之前它们在壳里有活读者，编译器不红。
 //   〔一律写 REF 行号/模板行号：本文件行号会随后面每块搬走而漂。〕
 // ⚠️ **另 5 个（`MOVE_FAN_NAMES` / `PING_SINGLE_DIRECTIONS` / `PING_DOUBLE_DIRECTIONS` /
 //   `ALL_PING_DIRECTIONS` / `normDirection`）段外零引用** ⇒ **不解构**；它们仍在本块内部被用，
 //   跟着本块搬走了 —— **不是删掉**。
-// ⚠️ `filteredRows` 此刻还是本文件里的 `computed`（REF 1250，**P6**）—— 直接把壳里那份传进去。
-//   **Task 7 搬走 P6 之后要回来把这行改成接 P6 的回传**（那是 Task 7 的活）。
+// ⚠️ **为什么要「先接住工厂结果、再解构」**：下面的 `useProgressExport(...)` 要从中取 6 个统计量
+//   ⇒ 需要一个能提前写下的名字指到本工厂的结果。语义与「直接解构」逐字等价
+//   （与 P3 那处为了给 thunk 一个名字而先接住 `progressUpdateDialog` 同形）。
 // ---------------------------------------------------------------------------
-const {
-  moveFans, pingFans, lightWindows, showerFans, others, dateRange, statsTail,
-} = useProgressStats({ filteredRows })
+const progressStats = useProgressStats({ filteredRows })
+const { statsTail } = progressStats
 
-// ── C2. 导出表格（旧版 `z`，§4.6）──────────────────────────────────────────
 /*
- * 旧版是**纯前端** ExcelJS 造一个「筛选结果」表 → `writeBuffer()` → Blob → `<a download>`。
- * 列 / 底色 / 行高 / 文案**逐项照抄**，包括下面这些反直觉的地方：
+ * C2. 「导出表格」（旧版 `z`，§4.6）—— 2026-09-20 起整段搬进
+ * `composables/progress/useProgressExport.ts`（Progress 拆分 **P11**，纯搬迁、逐字未改），
+ * **连段首横幅与它下面 13 行的块注释**（五条反直觉的照抄点）。
  *
- *  ① 导的是**筛选后**的 `no`（= 本页 `filteredRows`），不是当前页、也不是全量；
- *  ② 标题行 `筛选结果: {搜索词}`、统计行 `统计信息: {n}条记录 | …`（⚠️ 见下面的文案差异）；
- *  ③ **会多出一行重复表头** —— `ws.columns = cols` 让 ExcelJS 自己插了一行表头，
- *     随后旧版又 `addRow(cols.map(c => c.header))` 手工加了一行带样式（蓝底/居中/高 25）的表头，
- *     于是成品里 row3 / row4 是两行一样的表头。**这是旧版线上导出的真实样子，照抄不清理**
- *     （真要清理属于「改输出」，得先拍板；已记在 `docs/2026-09-19-progress-analysis.md` §4.6）。
- *  ④ 行高按 `生产进度` 里 `➞` 的个数算：`max(22, 18*(n+1))`（`n=0` 时按 1 算 ⇒ 22）；
- *  ⑤ 「生产进度」是**第 4 列**，只有它的对齐带 `wrapText`。
+ * ⚠️ **调用点的位置**：本块注入 P10 的 6 个统计量 ⇒ 必须排在 `useProgressStats(...)` 之后
+ *   （放回 C2 原位会早读一串 TDZ 变量，`TS2448`）⇒ 只好「先接住工厂结果、再取那 6 个」
+ *   （见上面那段 ⚠️）。其余 4 项（`filteredRows` P6 · `searchText`/`exporting` P7 · `message` 壳）
+ *   都在本行之前早已就绪。
+ * ⚠️ **回传 1 项**：`exportTable` —— **只被模板用**（模板 REF **129** 的 `@click="exportTable"`
+ *   与同一行 `:loading="exporting"`）。
+ *   ⚠️ **`exportStamp` 不回传、也不解构**：段外脚本 0、模板 0，它只被 `exportTable` 内部用
+ *   （REF **2128**）⇒ 跟着本块走（解构出来就是死局部 `TS6133`）。
+ * ⚠️ **`exporting` 继续留在上面 P7 那处解构**（模板 129 的 `:loading` 要用）——
+ *   本块只是把它**写**进 `useProgressExport` 的 `deps` 里，别顺手从这里删掉。
  */
-async function exportTable() {
-  exporting.value = true
-  try {
-    // exceljs 只在**真点导出**时才下载（浏览器包 ~950KB，不能进主 chunk）。
-    // ⚠️ 写法与 `utils/printService.ts` 引 vue-plugin-hiprint 同一套路：exceljs 的
-    //    `browser` 字段指向 UMD 包（`dist/exceljs.min.js`），**没有 ESM 默认导出**，
-    //    所以「类型走 type-only import、运行期双取（命名空间 / default）」。
-    const mod = (await import('exceljs')) as unknown as ExcelJSInterop
-    const WorkbookCtor = mod.Workbook ?? mod.default?.Workbook
-    if (!WorkbookCtor) throw new Error('exceljs 未正确加载')
-    const wb = new WorkbookCtor()
-    const ws = wb.addWorksheet('筛选结果')
-
-    // 列定义（header / key / width）逐字照抄旧版。
-    const cols = [
-      { header: '日期', key: 'date', width: 15 },
-      { header: '客户', key: 'customer', width: 15 },
-      { header: '单号', key: 'orderNo', width: 15 },
-      { header: '生产进度', key: 'progress', width: 30 },
-      { header: '型材', key: 'profile', width: 12 },
-      { header: '颜色', key: 'color', width: 12 },
-      { header: '底玻', key: 'bottomGlass', width: 12 },
-      { header: '面玻', key: 'topGlass', width: 12 },
-      { header: '玻璃厚', key: 'glassThick', width: 10 },
-      { header: '开向', key: 'direction', width: 12 },
-      { header: '扇数', key: 'fanCount', width: 12 },
-      { header: '门洞高', key: 'height', width: 10 },
-      { header: '门洞宽', key: 'width', width: 10 },
-      { header: '墙厚', key: 'wallThick', width: 10 },
-      { header: '轨道长', key: 'trackLen', width: 10 },
-      { header: '亮窗总高', key: 'brightHeight', width: 12 },
-      { header: '数量', key: 'quantity', width: 10 },
-      { header: '平方数', key: 'area', width: 10 },
-      { header: '金额', key: 'amount', width: 12 },
-      { header: '备注', key: 'remark', width: 20 },
-      { header: '安装地址', key: 'address', width: 20 },
-      { header: '打单人', key: 'creator', width: 12 },
-      { header: '业务员', key: 'salesman', width: 12 },
-    ]
-    ws.columns = cols
-
-    // 第 1 行：标题（合并 → 蓝底 FFE6F4FF → 16 号粗体居中 → 高 30）
-    ws.insertRow(1, [`筛选结果: ${searchText.value}`])
-    ws.mergeCells(1, 1, 1, cols.length)
-    const title = ws.getRow(1)
-    title.height = 30
-    title.font = { size: 16, bold: true }
-    title.alignment = { vertical: 'middle', horizontal: 'center' }
-    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4FF' } }
-
-    // 第 2 行：统计（黄底 FFFFF7E6；行高按**字符数** `max(25, 18*ceil(len/80))`，不是按行数）
-    //
-    // ⚠️ 这句与工具条上的 `statsTail` **不是同一串**，两处措辞不同、别合并成一个函数：
-    //    · 「N条记录」后面**直接**跟 `" | 时间:"`（工具条那句是「N 条记录 | 时间:」，中间有空格）；
-    //    · 这里是「**移门亮窗**」，工具条上是「**移门亮窗个数**」。
-    const statLine =
-      `统计信息: ${filteredRows.value.length}条记录` +
-      ` | 时间: ${dateRange.value.earliest} 至 ${dateRange.value.latest}` +
-      ` | 移门扇数: ${moveFans.value} | 平开门扇数: ${pingFans.value}` +
-      ` | 移门亮窗: ${lightWindows.value} | 淋浴房扇数: ${showerFans.value}` +
-      ` | 其它: ${others.value}`
-    ws.insertRow(2, [statLine])
-    ws.mergeCells(2, 1, 2, cols.length)
-    const statRow = ws.getRow(2)
-    statRow.height = Math.max(25, 18 * Math.ceil(statLine.length / 80))
-    statRow.font = { size: 11, bold: true }
-    statRow.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
-    statRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7E6' } }
-
-    // 第 3/4 行：表头（见函数头 ③，旧版就是这么摆的）
-    const header = ws.addRow(cols.map((c) => c.header))
-    header.height = 25
-    header.font = { bold: true, size: 10 }
-    header.alignment = { vertical: 'middle', horizontal: 'center' }
-    header.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9ECFF' } }
-
-    // 数据行：值全部 `|| ''`（`0` 也会落成空串，与旧版一致）；整行居中，第 4 列带 wrapText。
-    for (const r of filteredRows.value) {
-      const row = ws.addRow([
-        r['日期'] || '',
-        r['客户'] || '',
-        r['单号'] || '',
-        r['生产进度'] || '',
-        r.profile || '',
-        r.color || '',
-        r.bottom_glass || '',
-        r.face_glass || '',
-        r.glass_thickness || '',
-        r.direction || '',
-        r.fans || '',
-        r.door_height || '',
-        r.door_width || '',
-        r.wall_thickness || '',
-        r.track_length || '',
-        r.light_window_height || '',
-        r.quantity || '',
-        r.square || '',
-        r.amount || '',
-        r.remark || '',
-        r.install_address || '',
-        r['打单人'] || '',
-        r['业务员'] || '',
-      ])
-      row.alignment = { vertical: 'middle', horizontal: 'center' }
-      row.getCell(4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-      const arrows = ((r['生产进度'] || '').match(/➞/g) || []).length
-      row.height = Math.max(22, 18 * (arrows > 0 ? arrows + 1 : 1))
-    }
-
-    // 所有单元格加细边框（旧版在写完数据后统一 `eachRow`/`eachCell` 刷一遍）
-    ws.eachRow((row) =>
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin' },
-          left: { style: 'thin' },
-          bottom: { style: 'thin' },
-          right: { style: 'thin' },
-        }
-      }),
-    )
-
-    const buf = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    // 文件名：`筛选结果_{YYYY-MM-DD_HH-mm-ss}.xlsx`（旧版把 `toLocaleString('zh-CN')` 的
-    // `/` `:` 空格分别换成 `-` `-` `_`；照抄它的**字符替换**而不是手写日期格式）
-    a.download = `筛选结果_${exportStamp()}.xlsx`
-    a.click()
-    URL.revokeObjectURL(url)
-    message.success('导出成功')
-  } catch (e) {
-    message.error('导出失败: ' + (e instanceof Error ? e.message : String(e)))
-  } finally {
-    exporting.value = false
-  }
-}
-
-/** 旧版导出文件名里的时间戳（`toLocaleString('zh-CN', …)` 后逐字符替换）。 */
-function exportStamp(): string {
-  return new Date()
-    .toLocaleString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-    .replace(/\//g, '-')
-    .replace(/:/g, '-')
-    .replace(/\s/g, '_')
-}
+const { exportTable } = useProgressExport({
+  filteredRows,
+  searchText,
+  exporting,
+  message,
+  dateRange: progressStats.dateRange,
+  moveFans: progressStats.moveFans,
+  pingFans: progressStats.pingFans,
+  lightWindows: progressStats.lightWindows,
+  showerFans: progressStats.showerFans,
+  others: progressStats.others,
+})
 </script>
 
 <style scoped>

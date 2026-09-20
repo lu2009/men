@@ -807,6 +807,65 @@ const BLOCKS = [
     },
   },
 
+  {
+    /*
+     * **P11「导出表格」**（→ `app/src/composables/progress/useProgressExport.ts`）。
+     * REF `f097a9b1`:1984–2153（连续一整段，170 行）。
+     *
+     * ⚠️ **本块只登记 1 个名字，这是有意的**：区间里实际有 **2 个声明**
+     *   （`async function exportTable` 1998 · `function exportStamp` 2140），
+     *   但 **`exportStamp` 登记不进来** —— `sliceFn` 切它**必抛「切片不平衡」**。
+     *   根因写在核心文件头「能力边界 · 不认正则字面量」第 ② 条，**它点名的唯一实例就是本声明**
+     *   （`replace(/\//g, '-')` 里那个转义斜杠 + 收尾斜杠被 `skipInert` 当成 `//` 行注释，
+     *   把这一行余下的全跳掉、**含收尾的 `)`** ⇒ 收支多 1 ⇒ 结构性硬闸响亮报错）。
+     *   ⚠️ **那不是切片切错了**（本任务实测：它与真 TS 解析器逐字相同），**错的是判据**，
+     *   所以表现是「响亮拒绝」而不是「静默放过」。**没修**（要认正则得先判一个 `/`
+     *   是除号还是正则起点，属另一档改动，待裁决）。
+     *   ⇒ 照它办会让**整台守卫红**（`compareOne` 把 `sliceFn` 的抛错收成一条 `fail`）。
+     *   **本任务对它的保真另有一条来源**：`exportStamp` 整段（14 行）**与 REF 逐字节比**，
+     *   判据同 R39（归一化掉工厂那层 +2 缩进后必须**与 REF 一字不差**，因为它一条注入改写都没有）。
+     *   ⚠️ **别为了「登记全」把它塞进来**，也别去改核心的切片器（改一处三台守卫一起变）。
+     *
+     * ⚠️ **区间两端**（R38：起点从 1998 更正为 1984）：1984 = 本段自己的横幅
+     *   （`// ── C2. 导出表格（旧版 z，§4.6）…`）⇒ **横幅与它下面 13 行的块注释一起跟块走**；
+     *   1984–1997 **全是注释、0 个声明**。原写 1998 会把横幅与那 13 行照抄说明留在壳里当孤儿。
+     *   2153 是 `exportStamp` 的收尾 `}`、2154 是 `</script>` ⇒ **止点 = 2153**。
+     *   复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '1982,1985p'` ·
+     *          `… | sed -n '2151,2155p'`。
+     *
+     * ⚠️ **本段里没有顶层非声明语句**（盲区第 4 类不适用）—— 实测顶层语句全是那 2 个声明。
+     * ⚠️ **工厂式**（`useProgressExport(deps)`）⇒ **一条 `export` 改写都没有**。
+     *
+     * ⚠️ **注入改写 = 11 条规则、命中 14 处**：`message.success(` / `message.error(` 写成
+     *   **带左括号的整串**（不是裸 `message.`）—— 段内 2133 那句
+     *   `e instanceof Error ? e.message : String(t)` 里 `message` 后面跟的是**空格**，
+     *   裸 `message.` 恰好不会打到它，但带 `(` 才是能自证的那一种，不靠「碰巧」；
+     *   `dateRange.value` 命中 **2 处**（`.earliest` 与 `.latest`，同一行）。
+     *
+     * ⚠️ **回传 1 项**：`exportTable` —— **只被模板用**（模板 REF **129** 的 `@click="exportTable"`）。
+     *   **`exportStamp` 不回传、也不解构**（段外脚本 0、模板 0）—— 它只被 `exportTable`
+     *   内部用（REF **2128**）⇒ 跟着本块走。
+     *   ⚠️ 这一条本守卫管不着（盲区第 3 类），由 `vue-tsc` 的 `TS6133`/`TS2304` 管。
+     */
+    target: 'app/src/composables/progress/useProgressExport.ts',
+    names: ['exportTable'],
+    consts: [],
+    rewrites: {
+      exportTable: [
+        { from: 'filteredRows.value', to: 'deps.filteredRows.value' },
+        { from: 'searchText.value', to: 'deps.searchText.value' },
+        { from: 'exporting.value', to: 'deps.exporting.value' },
+        { from: 'dateRange.value', to: 'deps.dateRange.value' },
+        { from: 'moveFans.value', to: 'deps.moveFans.value' },
+        { from: 'pingFans.value', to: 'deps.pingFans.value' },
+        { from: 'lightWindows.value', to: 'deps.lightWindows.value' },
+        { from: 'showerFans.value', to: 'deps.showerFans.value' },
+        { from: 'others.value', to: 'deps.others.value' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+    },
+  },
 ]
 
 /**
