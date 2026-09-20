@@ -30,8 +30,13 @@ target/
 .idea/
 *.swp
 
-# Claude Code 本地个人设置
-.claude/settings.local.json
+# Claude Code / GitNexus 的本地工具脚手架 —— 只在本机用，不入库（2026-09-20 用户定的）。
+# `.claude/` 下是个人设置（settings.local.json）与 GitNexus 生成的 6 个 `skills/gitnexus-*`；
+# `AGENTS.md` / `CLAUDE.md` 是同一套工具在本仓库的说明（后者就是 GitNexus 那份代码智能规则）。
+# ⚠️ 这一条把整个 `.claude/` 都挡住了：将来若真要入库那几个 skill，得先从这里放行。
+.claude/
+AGENTS.md
+CLAUDE.md
 
 # 旧版第三方库与压缩副本：仅本地参考，不入库（零引用）
 legacy/vendor/
