@@ -71,7 +71,11 @@ const FILES = [...collect('docs'), ...collect('docs/home-audit')].filter((f) => 
  * 它们从没生效过，却让读的人以为「这两个不跑是安排好的」。**已删**。
  */
 const EXPECTED = STRICT ? {} : {
-  'docs/home-audit/finance-reversal-e2e.mjs': '需要独立后端实例（E2E_PORT，默认 3999）',
+  // ⚠️ 这一条在**手工跑**时遮住了一个真红：给它挂上 3999 的独立实例后，它并不会变绿
+  //    —— 它是 `KNOWN_RED` 里那条，失败原因是断言本身与旧版口径矛盾。
+  //    所以「手工跑 0 已知红」不等于「没有已知红」。见 docs/verification.md 第 3 / 5 节。
+  'docs/home-audit/finance-reversal-e2e.mjs':
+    '需要独立后端实例（E2E_PORT，默认 3999）—— 但它拿到实例后也不绿，见 KNOWN_RED',
   'docs/qrscanner-authz-check.mjs': '需要独立后端实例（BASE，默认 http://localhost:3999；它文件头有起法）',
 }
 
