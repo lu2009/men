@@ -466,6 +466,46 @@ const BLOCKS = [
         { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
       ],
     } },
+  /*
+   * B9（「打印选中订单」+「打印选项」抽屉的 4 个入口）—— 第 10 块。23 个声明：4 个 `function` + 19 个 `const`。
+   *
+   * ⚠️ **行段是 `1411–1528`**（`1528 − 1411 + 1 = 118`）。`1529–1531` 起是**另一个分区**
+   *    「电子回执单」（§6.2），`openReceipt`(1532–1538) **不搬** —— 它的调用者是 `columns`，
+   *    而 `columns` 留在页面（用户拍板）。登记时以 `1411–1527` 的**声明文本**为准，
+   *    1528 是那一段尾部的空行（`norm()` 会丢掉它，不影响比对）。
+   *
+   * ⚠️ **本块没有 `export` 改写** —— 23 个声明都由工厂 `return` 借出（同 B10/B1/B5）。
+   *
+   * ⚠️ 只有 `openPrint` 有 `deps.` 改写（实测：`onOpenMode`/`onOpenReceiptOther`/`onOpenDoc`
+   *    三个体里只用本块自己的 ref，逐字不动；19 个 `const` 的初始化式也逐字不动）。
+   *    **每条 `from` 都以 `(` 或 `.` 或 `[` 收尾**（Ruling 55：`applyRewrites` 是裸 split/join）——
+   *    `openPrint` 体里有 `(e as Error).message`，所以**绝对不许**写 `from: 'message'`。
+   *
+   * ⚠️ `openPrintPreview`（本笔新增的接缝）**不在本清单里、也不该登记** —— 实测：
+   *    `sliceFn(新家, 'openPrintPreview')` **切得出 5 行**，而 `sliceFn(REF, 'openPrintPreview')`
+   *    返回 **`null`**（REF 里没有这个名字）⇒ 登记进 `names` 只会报「参照里找不到」。
+   *    ⇒ **守卫对这一处零检验力**（不是「切不出来」，是「参照侧根本没有可比之物」）。
+   *    它的保真靠人工核对那三行与 REF `2238`/`2239`/`2242` 的逐字对照（见 `task-9-report.md`）。
+   *    这也是本守卫的能力边界：**新增件它一概验不到**，只有「搬走的东西」才在它射程内。
+   */
+  { target: 'app/src/composables/home/useHomePrint.ts',
+    names: ['openPrint', 'onOpenMode', 'onOpenReceiptOther', 'onOpenDoc'],
+    consts: ['printShow', 'printOrders', 'previewShow', 'previewMode', 'previewTitle',
+             'previewAutoLineNumbers', 'receiptOtherShow', 'receiptOtherOrders',
+             'receipt2Show', 'receipt2Orders', 'glassSheet2Show', 'glassSheet2Orders',
+             'productionSheet2Show', 'productionSheet2Orders', 'productionSheetShow',
+             'productionSheetOrders', 'qualifiedLabelShow', 'qualifiedLabelOrders',
+             'qualifiedLabelEntry'],
+    rewrites: {
+      openPrint: [
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+        { from: 'checkedRowKeys.value', to: 'deps.checkedRowKeys.value' },
+        { from: 'details[', to: 'deps.details[' },
+      ],
+      // 其余三个函数体只读写本块自己的 ref，零替换。
+      onOpenMode: [], onOpenReceiptOther: [], onOpenDoc: [],
+    } },
 ]
 
 /**

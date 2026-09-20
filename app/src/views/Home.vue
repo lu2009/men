@@ -452,6 +452,7 @@ import { useHomeData } from '../composables/home/useHomeData'
 import { useHomeFilterView } from '../composables/home/useHomeFilterView'
 import { useHomeSelection } from '../composables/home/useHomeSelection'
 import { useHomeQueryMore } from '../composables/home/useHomeQueryMore'
+import { useHomePrint } from '../composables/home/useHomePrint'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
 import { legacyToday, localToday, pad } from '../utils/homeDate'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
@@ -470,7 +471,8 @@ import GlassSheet2Dialog from '../components/GlassSheet2Dialog.vue'
 import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
 import ProductionSheetDialog from '../components/ProductionSheetDialog.vue'
 import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
-import type { QualifiedLabelEntry } from '../components/qualifiedLabelUiProfile'
+// `QualifiedLabelEntry` 2026-09-20 随 B9 搬进 `composables/home/useHomePrint.ts`（本页只剩那一处用处）
+// ⇒ 留着 `vue-tsc` 报 TS6133；同类先例是 Task 3 搬 B10 时删掉的 `DataTableRowData`。
 // `OrderFinance` 2026-09-20 随 B1 搬进 `composables/home/useHomeData.ts`（本页只剩那一处用处）
 // ⇒ 留着 `vue-tsc` 报 TS6196；同类先例是 Task 3 搬 B10 时删掉的 `DataTableRowData`。
 import type {
@@ -777,124 +779,6 @@ async function onFinanceSaved() {
 }
 
 // ---------------------------------------------------------------------------
-// 打印选中订单（§4.2：工具栏 →「打印选项」抽屉 → 单据 × 预览/打印）
-// ---------------------------------------------------------------------------
-const printShow = ref(false)
-const printOrders = ref<OrderDto[]>([])
-/** 打印预览弹窗（旧版那个 `el-dialog`）：入口在「打印选项」抽屉里，点 hiprint 模板即开。 */
-const previewShow = ref(false)
-const previewMode = ref('')
-const previewTitle = ref('')
-/** 见 `calcSingleRowInExpand`：**算料**开着预览时**不许补号**（旧版算料不补）。 */
-const previewAutoLineNumbers = ref(true)
-/** 「回执单-其它」抽屉（旧版嵌套在「打印选项」里的第二层，`Mn`）。 */
-const receiptOtherShow = ref(false)
-const receiptOtherOrders = ref<OrderDto[]>([])
-const receipt2Show = ref(false)
-const receipt2Orders = ref<OrderDto[]>([])
-const glassSheet2Show = ref(false)
-const glassSheet2Orders = ref<OrderDto[]>([])
-const productionSheet2Show = ref(false)
-const productionSheet2Orders = ref<OrderDto[]>([])
-const productionSheetShow = ref(false)
-const productionSheetOrders = ref<OrderDto[]>([])
-const qualifiedLabelShow = ref(false)
-const qualifiedLabelOrders = ref<OrderDto[]>([])
-/** 合格标签族的入口（三个按钮唯一的差别，见 `qualifiedLabelUiProfile.ts`）。 */
-const qualifiedLabelEntry = ref<QualifiedLabelEntry>('all')
-
-async function openPrint() {
-  const ids = checkedRowKeys.value.map((k) => Number(k))
-  if (!ids.length) {
-    message.warning('请先勾选要打印的订单')
-    return
-  }
-  // 已展开过的订单用缓存，其余现拉（旧版不补拉，没展开过就打空白 —— 这是有意的行为改进）。
-  try {
-    printOrders.value = await Promise.all(ids.map((id) => details[id] ?? api.getOrder(id)))
-  } catch (e) {
-    message.error((e as Error).message || '读取订单明细失败')
-    return
-  }
-  printShow.value = true
-}
-
-/**
- * 「打印选项」抽屉里点了**自绘单据**的入口 —— 开对应的抽屉。
- *
- * 旧版工具栏只有一个按钮，那 ~24 个单据入口全在抽屉里（含 `自定义单据：` 分组），
- * 所以这一层是**入口分派**，与「打印选中订单」共用同一套选中订单。
- *
- * ⚠️ **复用 `printOrders`，不再重新请求** —— 打开打印抽屉时已经做过明细兜底
- * （未展开过的订单会 `getOrder` 补全），这里重复拉一遍是白费。
- *
- * ⚠️ **先关自己再开目标**：两个 `n-drawer` 都从右侧出，叠着会互相压。
- */
-/**
- * 「打印选项」抽屉里点了 **hiprint 模板** → 开打印预览弹窗。
- *
- * 结构照原版：抽屉只列入口，点了设 `ic`（这里是 `mode`）并开预览弹窗，
- * 该单据的操作按钮栏长在**弹窗**里（见 `PrintPreviewDialog.vue`）。
- *
- * ⚠️ 与 `onOpenDoc` 一样**复用 `printOrders`**：打开打印抽屉时已做过明细兜底。
- */
-function onOpenMode(mode: string, title: string) {
-  printShow.value = false // 先关抽屉再开弹窗，两者都占屏幕
-  previewAutoLineNumbers.value = true // 打印面照旧补号
-  previewMode.value = mode
-  previewTitle.value = title
-  previewShow.value = true
-}
-
-/**
- * 「打印选项」抽屉顶部点了「回执单-其它」（旧版 `Nn`，:8184）。
- *
- * 旧版那里只是 `Mn.value = true` —— **外层抽屉不关**，第二层嵌套抽屉直接叠上去
- * （`append-to-body` + `direction:"rtl"` + `size:350`，与外层同宽同侧）。
- * 新版沿用本文件 `onOpenDoc` 的口径：先关外层再开 —— 两层 `n-drawer` 都从右侧出，叠着会互相压。
- *
- * 数据复用 `printOrders`（`openPrint` 已做过明细兜底），不重复请求。
- */
-function onOpenReceiptOther() {
-  receiptOtherOrders.value = printOrders.value
-  printShow.value = false
-  receiptOtherShow.value = true
-}
-
-function onOpenDoc(doc: string, entry?: string) {
-  const orders = printOrders.value
-  printShow.value = false
-
-  const open = (
-    target: typeof receipt2Orders,
-    show: typeof receipt2Show,
-  ) => {
-    target.value = orders
-    show.value = true
-  }
-
-  switch (doc) {
-    case 'receipt2':
-      open(receipt2Orders, receipt2Show)
-      break
-    case 'glassSheet2':
-      open(glassSheet2Orders, glassSheet2Show)
-      break
-    case 'productionSheet2':
-      open(productionSheet2Orders, productionSheet2Show)
-      break
-    case 'productionSheet':
-      open(productionSheetOrders, productionSheetShow)
-      break
-    case 'qlabel':
-      // 合格标签族三个入口共用同一个抽屉，只差 `entry`（= 行过滤）
-      qualifiedLabelEntry.value = (entry ?? 'all') as QualifiedLabelEntry
-      open(qualifiedLabelOrders, qualifiedLabelShow)
-      break
-  }
-}
-
-// ---------------------------------------------------------------------------
 // 电子回执单（§6.2 ReceiptView / ReceiptShare）
 // ---------------------------------------------------------------------------
 function openReceipt(row: OrderSummaryDto) {
@@ -1070,6 +954,23 @@ async function loadDetail(id: number) {
     loadingDetail[id] = false
   }
 }
+
+// ---------------------------------------------------------------------------
+// 打印选中订单（§4.2）—— 逻辑已搬出到 `composables/home/useHomePrint.ts`
+// ---------------------------------------------------------------------------
+// ⚠️ **构造顺序**：必须在 `checkedRowKeys`（B10）与 `details`（B6，上面那一摊）**之后** ——
+//    两者都是 setup 顶层即时求值，传早了拿到 `undefined`，且**不一定报错**。
+// ⚠️ 23 个名字**全部解构**（不许写成 `print.xxx`）：`<script setup>` 的模板只对**顶层绑定**
+//    自动解包 ref，写成属性访问会让 7 处 `v-model:show` 把 ref 对象整个换成布尔值（**静默**坏）。
+//    完整理由见新家文件头。
+const {
+  printShow, printOrders, previewShow, previewMode, previewTitle, previewAutoLineNumbers,
+  receiptOtherShow, receiptOtherOrders, receipt2Show, receipt2Orders,
+  glassSheet2Show, glassSheet2Orders, productionSheet2Show, productionSheet2Orders,
+  productionSheetShow, productionSheetOrders,
+  qualifiedLabelShow, qualifiedLabelOrders, qualifiedLabelEntry,
+  openPrint, onOpenMode, onOpenReceiptOther, onOpenDoc,
+} = useHomePrint({ checkedRowKeys, details, message })
 
 // ---------------------------------------------------------------------------
 // 行级状态类（旧版 `Qo`，`:7842-7849`）
