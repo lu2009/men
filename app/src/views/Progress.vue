@@ -322,7 +322,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 import type { VNodeChild } from 'vue'
 import {
   NAutoComplete,
@@ -341,11 +341,12 @@ import {
 } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
 import { api } from '../api/client'
-import type { ClientDto, OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
+import type { OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
 import { SEARCH_FIELDS, useProgressHeader } from '../composables/progress/useProgressHeader'
+import { useProgressQueryMore } from '../composables/progress/useProgressQueryMore'
 import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
 import {
@@ -360,6 +361,7 @@ import {
   remarkCell,
   trackCasingCell,
 } from '../utils/progressCells'
+import type { ProgressRow } from '../utils/progressRow'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
 import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
@@ -368,13 +370,16 @@ const message = useMessage()
 // 行内「删除」的二次确认（旧版是 `ElMessageBox.confirm`，同 Hui/Home 的做法用 `dialog.warning`）。
 const dialog = useDialog()
 
-/**
- * 页面行 = 后端行 + 前端的**勾选态**。
- *
- * 旧版也是把 `isSelected` 直接挂在行对象上（`…map(e => ({...e, isSelected:!1, "生产进度": …}))`，
- * §3.1 末），勾选框就是 `modelValue: row.isSelected` —— 新版照同一套，不另开一张「已选 id」表。
- */
-type ProgressRow = ProgressRowDto & { isSelected: boolean }
+// ---------------------------------------------------------------------------
+// 「页面行」类型（REF `f097a9b1`:**362**）已归位到 **`app/src/utils/progressRow.ts`**
+// （Progress 拆分 **Task 5** 建 —— 全计划唯一一处）。
+// ⚠️ **它不属于任何一个搬迁块**：362 在壳区（P2 起点 828 之前）⇒ 这是本计划唯一一次
+//   「搬一个不属于任何块的声明」。之所以单独成文件：`<script setup>` 里的 `type`
+//   既搬不进别的 `.vue`、也 import 不进来，而它**有四个消费方**（壳 / P6 / P8 / P9）
+//   ⇒ `export type` 一次、四处 `import type`，**别在任何一处再抄第二份**。
+// ⚠️ 原先那 6 行 JSDoc（「页面行 = 后端行 + 勾选态」）**跟着类型一起搬过去了**，
+//   本文件只留这段指路注释（上面 `import type { ProgressRow }` 那行就是接它的口）。
+// ---------------------------------------------------------------------------
 
 const rows = ref<ProgressRow[]>([])
 const loading = ref(false)
@@ -705,59 +710,50 @@ const {
 } = progressUpdateDialog
 // ---------------------------------------------------------------------------
 
-// ── C1b. 查询更多（旧版 `Lo` 开窗 + `Io` 确认）—— 也就是 `no` 链路里的 `Bo`/`xo` 那一层 ──
-/*
- * 旧版原文（反混淆后，逐字）：
- *
- *   ko = 30 天前、Mo = 今天（两个 ISO 日期串）；Ao = 最近一周 / 最近一个月 / 最近三个月 三个快捷项
- *   Lo = async () => { Co=""; Do.selectedClient=""; Do.selectedAddress=""; Do.startDate=ko; Do.endDate=Mo;
- *                      ho=true; 拉 getClientsInfo → No = data.map(e => ({name:e.客户, tel:e.电话, address:e.地址, id:e.编号}))
- *                      拿不到 → ElMessage.error("初始化客户信息失败") }
- *   Io = async () => { …Do.selectedClient = Co…          // ← 提交时取**输入框文本**，不是下拉里选中的那条
- *                      GET getMoreProgress&param3=客户&param4=地址&param5=起始&param6=结束
- *                      非 200 → error(msg || "查询数据失败")
- *                      d = progressData.map(e => ({...e, isSelected:!1, "生产进度": e["生产进度"]||""}))
- *                                       .sort((a,b) => parseInt(b["回执单号"]) - parseInt(a["回执单号"]))  // 倒序
- *                      xo.value = d; Bo.value = true
- *                      并入 K：已有 id 的**换成新的那条**（位置不变）、新 id **追加到末尾**
- *                      zo.value = (客户 + " " + 地址).trim()   // ← 搜索框被赋值，「当前筛选」那句就是它
- *                      ho.value = false; ElMessage.success("查询成功") }
- *
- * ⚠️ 两处**有意偏离**（其余逐字照抄）：
- *
- * ① **默认日期按本地时区算**。旧版那两个默认值是 `new Date().toISOString().split("T")[0]`（**UTC**）
- *    ⇒ UTC+8 每天 00:00–08:00 打开弹窗，默认区间整体早一天。本仓库对 `toISOString()` 的同类问题
- *    已有定论（见 `Home.vue` 的 `localToday()` 那段「必须用本地日期，不能用 `legacyToday()`」），
- *    这里沿用同一口径：默认起始 = **本地**今天 − 30 天、默认结束 = **本地**今天。
- * ② **客户候选走 `GET /v1/clients`**（不照抄旧版那个口）。旧版 `getClientsInfo` 在旧服务端上返回的是
- *    prisma 行（**camelCase**），而旧前端读的是 `e["客户"]/["电话"]/["地址"]/["编号"]` —— 四个键全是
- *    `undefined`，紧接着 `bo` 里的 `l.name.toLowerCase()` 会**直接抛**。⇒ **那个口本来就是坏的，
- *    别拿它当参照**（分析文档 §8.3 与服务端文档各自独立证过同一件事）。
- *    字段映射按新版：`{ name, tel: phone, address, id: code }`。
- * ③ 旧版那颗客户框身上的 `.error-input`（红框）在这个页面里**从没被置真过**（`Eo` 只在 `onInput` 里被
- *    写成 `false`）⇒ 死代码，不复刻。
- */
-const moreShow = ref(false)
-/** 「查询中…」（旧版是 `ElLoading.service`，新版用按钮 loading）。 */
-const moreLoading = ref(false)
-/** 客户候选（旧版 `No`）。⚠️ 只是给下拉用，取不到也不拦查询。 */
-const moreClients = ref<ClientDto[]>([])
-/** 结果集（旧版 `xo`）。 */
-const moreRows = ref<ProgressRow[]>([])
-/**
- * 结果集生效标志（旧版 `Bo`）：为真时筛选链的底表从全量换成 `moreRows`，退出的条件只有两个 ——
- * **动搜索框**或**点搜索框的清除**（旧版 `ao` / `lo`）。
- *
- * ⚠️ **「刷新」不会退出结果集**：旧版 `pa()` 只重拉 `K`，`Bo`/`xo` 原样留着 ⇒ 刷新之后表里显示的
- *    仍是上一次查出来的那批行（且是旧对象）。看着像 bug，但那是旧版的行为，**照抄**
- *    （要退出结果集就按旧版那两条路：动一下搜索框、或点它的清除）。
- */
-const moreActive = ref(false)
+// ---------------------------------------------------------------------------
+// C1b. 「查询更多」开窗（`moreShow`/`moreLoading`/`moreRows`/`moreActive`/`moreForm`/
+//      `dashboardRef`/`MORE_DATE_SHORTCUTS`/`AUTOCOMPLETE_ALWAYS_SHOW`/`moreClientOptions`/
+//      `openMore`/`submitMore`/`onSearchInput`/`onSearchClear`，连段首横幅与那 31 行旧版原文
+//      块注释）已归位到 `composables/progress/useProgressQueryMore.ts`
+//      （Progress 拆分 **P8**，REF `f097a9b1`:1418–1598）。
+// ⚠️ **调用点为什么在这儿**：本块注入的 `searchText` 是**上面 P7 工厂**的回传（REF 1396）
+//   ⇒ 调用点必须排在它之后；而**下面**那处 `useProgressHeader(...)`（P5）又拿本块的
+//   `moreRows`/`moreActive` 当注入 ⇒ 本工厂的调用必须**早于**它。两个约束把调用点夹在这里。
+// ⚠️ **13 个回传全部解构**（都有段外活读者，一个不多一个不少 —— 多一个是死局部 `TS6133`，
+//   少一个是 `TS2304`）：模板 11 个（`moreShow` 209/257 · `moreLoading` 258 ·
+//   `moreForm` 223/228/232/236/246 · `dashboardRef` 189 · `MORE_DATE_SHORTCUTS` 238/248 ·
+//   `AUTOCOMPLETE_ALWAYS_SHOW` 225 · `moreClientOptions` 224 · `openMore` 118/193 ·
+//   `submitMore` 258 · `onSearchInput` 142 · `onSearchClear` 143）+ 脚本 2 个
+//   （`moreRows`/`moreActive`，见下）。
+//   〔一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。〕
+// ⚠️ **`moreRows`/`moreActive` 在 REF 里有两个段外读者、分属两个块**：
+//   REF **1061**（`useProgressHeader` 候选集，**P5** —— 就是下面那处调用）与
+//   REF **1251**（`filteredRows` 的 `computed` 体第一行，**P6** —— **此刻仍在壳里**）。
+//   两处源码**逐字同形**（`moreActive.value ? moreRows.value : rows.value`）
+//   ⇒ 靠 grep 只会看到「有 2 处」，**必须把引用点回落块区间**才知道是**两个**接点。
+//   这里解构出来的这两个名字**同时**喂给那两处；Task 7 搬 P6 时再把 `filteredRows` 那一头
+//   改成接 `useProgressColumns` 的回传。⚠️ 漏接 P6 那一头 ⇒「查询更多」的结果集不再参与
+//   筛选（`filteredRows` 恒按 `rows` 算），**而 `vue-tsc` 与 37 台子都不会红**。
+// ⚠️ 另 3 个（`moreClients`/`dayStart`/`toIsoDate`）段外零引用 ⇒ **不解构**（解构了就是
+//   `TS6133`）；它们仍在本块内部被用（`moreClientOptions`/`MORE_DATE_SHORTCUTS`/`openMore`/
+//   `submitMore`），跟着本块搬走了 —— **不是删掉**。
+// ---------------------------------------------------------------------------
+const {
+  moreShow, moreLoading, moreRows, moreActive, moreForm, dashboardRef,
+  MORE_DATE_SHORTCUTS, AUTOCOMPLETE_ALWAYS_SHOW, moreClientOptions,
+  openMore, submitMore, onSearchInput, onSearchClear,
+} = useProgressQueryMore({
+  rows,
+  dashboardShow,
+  searchText,
+  message,
+})
 
 
 // ---------------------------------------------------------------------------
 // B. 列头交互的声明已归位到 `composables/progress/useProgressHeader.ts`（Progress 拆分 **P5**）。
-// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `moreRows` / `moreActive` 就是上面那两行，
+// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `moreRows`(REF 1456) / `moreActive`(REF 1465)
+//   是**上面 P8 工厂**的回传（Task 5 之前是壳里那两行 `ref`），
 //   而它们在 REF 里**排在本块之后**（属 P8）⇒ 放回原位会早读两个 TDZ 变量（`TS2448`）。
 //   理由与两端复量命令见上面 B 段那段指路注释。
 // ⚠️ **7 个回传全部解构**（都有段外活读者，一个不多一个不少）：
@@ -785,138 +781,6 @@ const {
   colorKeyOf,
   colorFilterOptions,
 })
-const moreForm = reactive<{
-  client: string
-  address: string
-  startTs: number | null
-  endTs: number | null
-}>({ client: '', address: '', startTs: null, endTs: null })
-/** 看板组件引用（旧版 `N`）—— 确认后把日期区间回灌给它（旧版 §3.5 那条环）。 */
-const dashboardRef = ref<InstanceType<typeof ProgressDashboard> | null>(null)
-
-/** 本地「今天 00:00」起算的 `offsetDays` 天前的时间戳（`n-date-picker` 的 model 是时间戳）。 */
-function dayStart(offsetDays = 0): number {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  d.setDate(d.getDate() + offsetDays)
-  return d.getTime()
-}
-
-/** 时间戳 → 本地 `YYYY-MM-DD`（旧版 `value-format:"YYYY-MM-DD"`，Element 按本地日期格式化）。 */
-function toIsoDate(ts: number | null): string {
-  if (ts == null) return ''
-  const d = new Date(ts)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
-
-/**
- * 日期快捷项（旧版 `Ao`）：最近一周 / 最近一个月 / 最近三个月，**顺序与文案照抄**
- * （旧版是 `now - 6048e5 / -2592e6 / -7776e6` 三个定值）。
- * ⚠️ 旧版是 setup 里算好的**定值**（跨零点会把「最近一周」选成昨天），这里用函数形态按点击时求值
- * —— 与 `DATE_SHORTCUTS` 同一个口径（该声明已随 B5 归位到
- * `app/src/composables/home/useHomeQueryMore.ts`，2026-09-20 纯搬迁）。
- */
-const MORE_DATE_SHORTCUTS: Record<string, () => number> = {
-  最近一周: () => dayStart(-7),
-  最近一个月: () => dayStart(-30),
-  最近三个月: () => dayStart(-90),
-}
-
-/** 自动完成永远展示候选（旧版 `trigger-on-focus`；与 `Home.vue` 的 `AUTOCOMPLETE_ALWAYS_SHOW` 同一招 —— 该常量的**声明**已于 2026-09-20 归位到 `app/src/utils/homeConstants.ts`，纯搬迁，`Home.vue` 那边只剩 import 与模板里两处 `:get-show`）。 */
-const AUTOCOMPLETE_ALWAYS_SHOW = () => true
-
-/** 客户候选：按 `name` 子串（忽略大小写）本地过滤；查询词为空给全量（旧版 `bo`）。 */
-const moreClientOptions = computed(() => {
-  const q = moreForm.client.trim().toLowerCase()
-  return moreClients.value
-    .filter((c) => !q || (c.name ?? '').toLowerCase().includes(q))
-    .map((c) => ({ label: c.name, value: c.name }))
-})
-
-/** 旧版 `Lo`：重置表单 + 开窗 + （异步）拉客户候选。看板那条环也走这里。 */
-async function openMore() {
-  moreForm.client = ''
-  moreForm.address = ''
-  moreForm.startTs = dayStart(-30)
-  moreForm.endTs = dayStart(0)
-  moreShow.value = true
-  try {
-    // ⚠️ 旧版这里按 `{name: 客户, tel: 电话, address: 地址, id: 编号}` 映射（那四个键永远读不到，
-    //    见上面第 ② 条）—— 新版直接用 `ClientDto` 的字段。
-    moreClients.value = await api.listClients()
-  } catch {
-    message.error('初始化客户信息失败')
-  }
-}
-
-/** 旧版 `Io`：取数 → 排序 → 换底表 → 并入全量 → 搜索框回显 → 关窗。 */
-async function submitMore() {
-  moreLoading.value = true
-  try {
-    const d = await api.listProgressMore({
-      client_name: moreForm.client,
-      install_address: moreForm.address,
-      start_date: toIsoDate(moreForm.startTs),
-      end_date: toIsoDate(moreForm.endTs),
-    })
-    const list: ProgressRow[] = (d?.progressData ?? [])
-      // 同旧版：补 `isSelected`（勾选态随新对象归零）+ `生产进度` 兜底成空串
-      .map((r) => ({ ...r, isSelected: false, 生产进度: r['生产进度'] || '' }))
-      // 旧版按 `parseInt(回执单号)` **倒序**。⚠️ `parseInt` 解不出来的（空/非数字）是 `NaN`，
-      // 比较函数返回 `NaN` ⇒ 被引擎当成 0（这几行的相对次序不保证）—— 旧版就是这个表现，照抄。
-      .sort((a, b) => parseInt(b['回执单号']) - parseInt(a['回执单号']))
-
-    moreRows.value = list
-    moreActive.value = true
-
-    /*
-     * 并入全量 `K`（旧版 `Io` 末段，逐字）：
-     *   V = new Set(K.map(id)); w = d.filter(r => V.has(r.id)); y = d.filter(r => !V.has(r.id))
-     *   K = K.map(e => w.find(t => t.id === e.id) || e);  K = [...K, ...y]
-     * ⇒ 查回来的**已有行换成新的那条对象**（位置保持在全量里的原位），**新行追加到末尾**。
-     * ⚠️ 副作用照抄：被换掉的那些行对象上的勾选态没了（新对象是 `isSelected:false`）。
-     */
-    const existing = new Set(rows.value.map((r) => r.id))
-    const byId = new Map(list.filter((r) => existing.has(r.id)).map((r) => [r.id, r]))
-    rows.value = [
-      ...rows.value.map((r) => byId.get(r.id) ?? r),
-      ...list.filter((r) => !existing.has(r.id)),
-    ]
-
-    // 搜索框回显「客户 地址」（旧版 `zo = (selectedClient + " " + selectedAddress).trim()`）。
-    // ⚠️ 照抄旧版的两个后果：① 它**同时**是「当前筛选」那句文案与「导出表格」那颗按钮的开关；
-    //    ② 空条件时它是空串 ⇒ 仍按「总计」显示。两者都与旧版一致，别当成 bug 去"修"。
-    searchText.value = `${moreForm.client} ${moreForm.address}`.trim()
-
-    // 看板开着才回灌（旧版 `B.value && N.value`）：`setCustomDateRange` 顺手把时间档位切到「自定义查询」。
-    if (dashboardShow.value && dashboardRef.value) {
-      dashboardRef.value.setCustomDateRange([
-        toIsoDate(moreForm.startTs),
-        toIsoDate(moreForm.endTs),
-      ])
-    }
-
-    moreShow.value = false
-    // 旧版文案。
-    message.success('查询成功')
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '查询数据失败')
-  } finally {
-    moreLoading.value = false
-  }
-}
-
-/** 旧版 `ao`：搜索框一动就打字退出「查询更多」的结果集（**不清** `xo`，也不清 `zo`）。 */
-function onSearchInput() {
-  moreActive.value = false
-}
-
-/** 旧版 `lo`：点清除按钮 —— 清空搜索词**并且**退出结果集。 */
-function onSearchClear() {
-  searchText.value = ''
-  moreActive.value = false
-}
 
 // ---------------------------------------------------------------------------
 // C2. 行勾选（`allSelected`/`toggleSelectAll`/`openBatchUpdate`，连段首横幅与那段

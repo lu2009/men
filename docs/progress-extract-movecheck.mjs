@@ -484,6 +484,115 @@ const BLOCKS = [
       SEARCH_FIELDS: [{ from: 'const SEARCH_FIELDS = [', to: 'export const SEARCH_FIELDS = [' }],
     },
   },
+  {
+    /*
+     * **「页面行」类型**（→ `app/src/utils/progressRow.ts`）—— **不属于任何一个块**。
+     *
+     * 快照 `Progress.vue:362`，**唯一一条只有一个 `type`、一行的块**：
+     *   `type ProgressRow = ProgressRowDto & { isSelected: boolean }`
+     *
+     * ⚠️ **本计划里唯一一次「搬一个不属于任何块的声明」**：362 落在**壳区**
+     *   （P2 起点 828 之前，没有任何块认领它）⇒ 它既不是 P6 的、也不是 P8/P9 的，
+     *   但 **P6/P8/P9 三处都要 `import` 它**（`<script setup>` 里的 `type` 搬不进别的
+     *   `.vue`、也 import 不进来）。归属裁决见方案 R35：归**第一个真正需要它的任务**
+     *   （Task 5）。
+     *
+     * ⚠️ **它是「最容易被名单漏掉」的那一类**（`type` 不是函数）—— 与 P7 的
+     *   `ExcelJSInterop` 同族。漏登记 ⇒ 本守卫不切它 ⇒ 它留在 `Progress.vue` 里、
+     *   **本守卫照样全绿**（memory `split-guard-blind-spots` 第 1 类「登记写错两侧同错」）。
+     *
+     * ⚠️ 它的改写**只有一条**：`type ProgressRow =` → `export type ProgressRow =`
+     *   （`utils/` 是**顶层模块**，不是工厂 ⇒ 照常 `export`；R44 那条「工厂体内不许
+     *   `export`」不适用）。`from` 带 ` = ` 而不是裸名 —— 朴素 `split/join`，
+     *   裸名的边界不如带 ` = ` 自证。
+     *
+     * ⚠️ **那 6 行 JSDoc（「页面行 = 后端行 + 勾选态」）跟着类型一起搬走了，本守卫管不到**
+     *   （`sliceFn` 从**声明**起切）⇒ 它的保真只有「与 REF 371-376 逐字节 `diff`」一条来源。
+     *   本任务做过：`diff <(sed -n '371,376p' REF) <(新文件里同 6 行)` **为空**。
+     */
+    target: 'app/src/utils/progressRow.ts',
+    names: [],
+    consts: ['ProgressRow'],
+    rewrites: {
+      ProgressRow: [{ from: 'type ProgressRow =', to: 'export type ProgressRow =' }],
+    },
+  },
+  {
+    /*
+     * **P8「查询更多」**（→ `app/src/composables/progress/useProgressQueryMore.ts`）。
+     *
+     * 快照 `Progress.vue:1418-1598`（**连续一整段**，181 行），段内**16 个声明**：
+     *   `moreShow`(1450) · `moreLoading`(1452) · `moreClients`(1454) · `moreRows`(1456) ·
+     *   `moreActive`(1465) · `moreForm`(1466) · `dashboardRef`(1473) · `dayStart`(1476) ·
+     *   `toIsoDate`(1484) · `MORE_DATE_SHORTCUTS`(1498) · `AUTOCOMPLETE_ALWAYS_SHOW`(1505) ·
+     *   `moreClientOptions`(1508) · `openMore`(1516) · `submitMore`(1532) ·
+     *   `onSearchInput`(1589) · `onSearchClear`(1594)。
+     *   其余 30 来行是段首那行分区横幅（`// ── C1b. 查询更多…`）与它下面 31 行的块注释
+     *   （旧版 `Lo`/`Io` 原文 + 两处**有意偏离** + 一处死代码说明 ——
+     *   「默认日期按本地时区」「客户候选走 `/v1/clients`」两条的依据全在那里）。
+     *
+     * ⚠️ **区间两端**（R38 把起点从 1450 更正为 1418，理由就在这）：
+     *    1417 是空行、**1418 = 本段自己的横幅** ⇒ **横幅跟块走**（写 1450 会把横幅与那 31 行
+     *    承重注释留在壳里当孤儿）；1418-1449 **全是注释、0 个声明**，所以「区间扩大」不影响
+     *    声明清单。1598 是空行、1599 起已是**下一段**的 C2 横幅（P7 的第二段）⇒ **留在原地**。
+     *    复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '1415,1419p'` ·
+     *          `… | sed -n '1596,1600p'`。
+     *    ⚠️ 这条**没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *      它只有「整段与 REF 同区间逐字节比」一条来源。本任务做过：归一化掉工厂那层统一
+     *      缩进（+2）后，**剩余差异恰好等于下面这 5 条注入改写、不多不少**（R39 判据）。
+     *
+     * ⚠️ **工厂式**（`useProgressQueryMore(deps)`）⇒ **一条 `export` 改写都没有**
+     *   （函数体内写 `export` 是 `TS1184`），16 个声明里**回传 13 个**、由工厂 `return` 借出。
+     *
+     * ⚠️ **注入改写 = 5 条规则、命中 9 处**（`searchText.value`×2 · `dashboardShow.value`×1 ·
+     *   `message.error(`×2 · `message.success(`×1 · `rows.value`×3）：
+     *   · 规则一律**带边界**（核心文件头：朴素 `split/join`，裸名会顺手打到别的标识符上）：
+     *     `message` 写成带 `.` 与左括号的 `message.error(` / `message.success(`。
+     *   · ⚠️ `rows.value` 与 `moreRows.value` **不构成子串关系**（差在 `Rows` 的**大写 R**，
+     *     且 `split/join` 大小写敏感）⇒ 段内那处 `moreRows.value = list`（本块自己的 ref）
+     *     不会被这条规则误伤（已核）。**`moreActive.value` 同理不挂规则**（本块自己的 ref）。
+     *   · ⚠️ 9 处命中**全部落在活代码里**（逐条核过；段内注释里一处都没有 —— 段内注释里
+     *     出现的是旧版标识符 `xo`/`Bo`/`zo`/`K`）⇒ 不存在 P4 那种「规则改到注释里、
+     *     注释内容就漂了」的风险。
+     *   ⚠️ **`submitMore` 里两条 `message.*` 是分开的两条规则**（success / error 各一处），
+     *     不能合并成裸 `message.` —— 那句 `e.message : '查询数据失败'` 里的 `message`
+     *     后面跟的是**空格**，裸 `message.` 恰好不会打到它，但带 `success(`/`error(`
+     *     才是能自证的那一种，不靠「碰巧」。
+     *
+     * ⚠️ **回传 13 项**（16 个里真被段外消费的 13 个）：模板 11 个 —— `moreShow`(模板 209/257)
+     *   `moreLoading`(258) `moreForm`(223/228/232/236/246) `dashboardRef`(189)
+     *   `MORE_DATE_SHORTCUTS`(238/248) `AUTOCOMPLETE_ALWAYS_SHOW`(225) `moreClientOptions`(224)
+     *   `openMore`(118/193) `submitMore`(258) `onSearchInput`(142) `onSearchClear`(143)；
+     *   脚本 2 个 —— `moreRows` / `moreActive`，**段外引用点两处、分属两个块**：
+     *   REF **1061**（`useProgressHeader` 候选集，**P5**）与 REF **1251**
+     *   （`filteredRows` 的 `computed` 体第一行，**P6**）。两处源码**逐字同形**
+     *   （`moreActive.value ? moreRows.value : rows.value`）⇒ 必须把引用点回落块区间
+     *   才知道是**两个**接点，grep 只会说「有 2 处」。
+     *   ⚠️ **这一条本守卫管不着** —— 它只比「声明搬得像不像」，「壳有没有漏接」由 `vue-tsc`
+     *     （`TS2304`/`TS6133`）管（memory `split-guard-blind-spots` 第 3 类）。
+     *   ⚠️ **不回传、也不许解构的 3 个**：`moreClients` `dayStart` `toIsoDate`
+     *     （段外脚本 0、模板 0）。**但别把它们从本清单里去掉** —— 它们是本块的内部件
+     *     （`moreClientOptions` 读 `moreClients`、`MORE_DATE_SHORTCUTS`/`openMore` 读
+     *     `dayStart`、`submitMore` 读 `toIsoDate`），去掉就等于这几段没人验。
+     */
+    target: 'app/src/composables/progress/useProgressQueryMore.ts',
+    names: ['dayStart', 'toIsoDate', 'openMore', 'submitMore', 'onSearchInput', 'onSearchClear'],
+    consts: [
+      'moreShow', 'moreLoading', 'moreClients', 'moreRows', 'moreActive', 'moreForm', 'dashboardRef',
+      'MORE_DATE_SHORTCUTS', 'AUTOCOMPLETE_ALWAYS_SHOW', 'moreClientOptions',
+    ],
+    rewrites: {
+      openMore: [{ from: 'message.error(', to: 'deps.message.error(' }],
+      submitMore: [
+        { from: 'searchText.value', to: 'deps.searchText.value' },
+        { from: 'dashboardShow.value', to: 'deps.dashboardShow.value' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+        { from: 'rows.value', to: 'deps.rows.value' },
+      ],
+      onSearchClear: [{ from: 'searchText.value', to: 'deps.searchText.value' }],
+    },
+  },
 ]
 
 /**
