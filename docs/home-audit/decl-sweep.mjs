@@ -22,6 +22,9 @@
  * node docs/home-audit/decl-sweep.mjs --against <git-ref>   # 额外：该 ref 的核心 vs 工作区核心 方向表
  * ```
  *
+ * ⚠️ `--selftest` **单独给**时才「只跑自测」（上面那句写法仍然成立）；与 `--check` / `--against`
+ *    **同时给**时它不再吞掉后者，两者都跑、退出码一处合成（Task 3.8 fix round 1 · M-4）。
+ *
  * `--against` 是做**回归证明**用的：拿一个历史提交（例如改核心之前的那个）的核心与当前核心比，
  * 打出「旧对新错（**真回归，必须 0**）/ 旧错新对（改进）/ 两边都对但文本不同（口径）」。
  * ⚠️ 报数字时**必须同时写清比的是哪两个 sha** —— 否则这个数没法复现。
@@ -162,15 +165,40 @@ export function classify(slice, truth) {
   return 'other'
 }
 
+/**
+ * 退出码**合成** —— 三条判据只有一处汇合点，别在各分支里提前 `process.exit`。
+ *
+ * | 输入 | 含义 |
+ * |---|---|
+ * | `selftestBad` | `--selftest` 失败的条数（Task 3.8 fix round 1 · M-4 起并入）|
+ * | `shortCount` | `--check` 的「切短」条数（**「口径差」不算** —— 它不是洞，见文件头）|
+ * | `regression` | `--against` 的「旧对 → 新错」条数（真回归）|
+ *
+ * ⚠️ 抽成纯函数是为了**能被自测真调** —— 合成逻辑此前一句断言都没有（复审 M-3 点名）。
+ * 改坏即红：去掉任一项，对应那条自测就红。
+ */
+export function exitCode({ selftestBad = 0, shortCount = 0, regression = 0 } = {}) {
+  return selftestBad > 0 || shortCount > 0 || regression > 0 ? 1 : 0
+}
+
+/** `--selftest` 的失败条数。**先声明在模块作用域**，供文件末尾合成退出码用（M-4）。 */
+let selftestBad = 0
+
 /*
  * ── `--selftest`：本脚本**自己**的判据自测（2026-09-20 Task 3.8 补） ──────────────
  *
  * 为什么要有：Task 3.7 建了这台仪器却没给自测 ⇒「改坏了没人知道」。
  * 本任务还要**改判据**（加「口径差」这一条放松闸门的规则），没有自测就是拿闸门裸奔。
  *
- * ⚠️ 断言一律**真调 `classify`**（就是主循环跑的那个函数），不许写 `assert(true)` 式的空断言。
+ * ⚠️ 断言一律**真调被测的那个函数**（`classify` / `norm` / `scriptOf` / `exitCode`），
+ *    不许写 `assert(true)` 式的空断言。`norm` / `scriptOf` / `exitCode` 那三组是
+ *    Task 3.8 fix round 1（M-3 / M-4）补的 —— 此前只有 `classify` 一个有自测。
  * ⚠️ 每条都必须能**「改坏即红」** —— 在 `/tmp` 副本里把对应判据改坏，确认该条变红。
  *    实测的变异与结果见 `task-3.8-report.md`。
+ *
+ * ⚠️ **`--selftest` 不再吞掉同一行的其它开关**（fix round 1 · M-4）：它**单独给**时照旧
+ *    只跑自测就退出（文件头那句「不碰 git、不扫目录」继续成立）；与 `--check` / `--against`
+ *    同时给时，自测跑完**继续往下走**，退出码在文件末尾由 `exitCode()` 一处合成。
  */
 if (SELFTEST) {
   let bad = 0
@@ -247,7 +275,57 @@ if (SELFTEST) {
     '合成⑥：口径差判据在 **norm() 之后**算 —— raw 下 `startsWith` 不成立（缩进不同），norm 后才成 `asi`',
   )
 
-  process.exit(bad ? 1 : 0)
+  /*
+   * ── ⑦⑧⑨ `norm()`（M-3）────────────────────────────────────────────────────
+   * 这三条钉的是 `classify` **依赖**的三条性质。真调**从核心 import 进来的那个 `norm`**：
+   * 去掉任一性质（不 trim / 不丢空行 / 顺手 strip 注释或 `export`），对应的那条就红。
+   */
+  const normOf = (input, want, what) => {
+    const got = norm(input)
+    check(what, got === want, `期望 ${JSON.stringify(want)}，实得 ${JSON.stringify(got)}`)
+  }
+  normOf('  a  \n\n    b', 'a\nb', '合成⑦：`norm()` 逐行去缩进/去行尾空白、丢空行')
+  normOf('  a // 行尾注释\n\n  // 整行注释  ', 'a // 行尾注释\n// 整行注释', '合成⑧：`norm()` **保留 `//` 注释**（注释改了要看得见）')
+  normOf('  export const a = 1  ', 'export const a = 1', '合成⑨：`norm()` **不 strip `export`**（搬出去多一个 `export` 必须看得见）')
+
+  /*
+   * ── ⑩⑪⑫ `scriptOf()`（M-3）────────────────────────────────────────────────
+   * 它决定「哪些字节进解析器」。⚠️ 它是**函数声明**（会提升）⇒ 在它定义之前也能调。
+   */
+  const scriptOfCase = (file, text, want, what) => {
+    const got = scriptOf(file, text)
+    check(what, got === want, `期望 ${JSON.stringify(want)}，实得 ${JSON.stringify(got)}`)
+  }
+  scriptOfCase('a.ts', 'const a = 1', 'const a = 1', '合成⑩：非 `.vue` 原样返回（不许对 `.ts` 动手）')
+  scriptOfCase(
+    'X.vue',
+    '<template><i/></template>\n<script setup lang="ts">\nconst a = 1\n</script>\n<style scoped>\n.i{}\n</style>',
+    '\nconst a = 1\n',
+    '合成⑪：`.vue` 只取 `<script …>…</script>` 那一段（`<style scoped>` 不许被当成类型断言续上来）',
+  )
+  scriptOfCase(
+    'Y.vue',
+    '<template><i/></template>',
+    null,
+    '合成⑫：`.vue` 里没有 `<script>` ⇒ 返回 `null`（跳过这个文件，而不是拿整份当 TS 去解析）',
+  )
+
+  /*
+   * ── ⑬⑭⑮⑯ 退出码合成（M-4 顺带钉住）──────────────────────────────────────────
+   * 「三条判据怎么合成退出码」此前**一句断言都没有**（复审 M-3 点名）。
+   */
+  const codeOf = (arg, want, what) => {
+    const got = exitCode(arg)
+    check(what, got === want, `期望 ${want}，实得 ${got}`)
+  }
+  codeOf({}, 0, '合成⑬：三条判据全干净 ⇒ 退出码 **0**')
+  codeOf({ shortCount: 1 }, 1, '合成⑭：`--check` 的「切短」非 0 ⇒ 退出码 **1**')
+  codeOf({ regression: 1 }, 1, '合成⑮：`--against` 的「旧对→新错」非 0 ⇒ 退出码 **1**')
+  codeOf({ selftestBad: 1 }, 1, '合成⑯：自测有失败 ⇒ 退出码 **1**（以前这条**根本不影响退出码**）')
+
+  selftestBad = bad
+  // ⚠️ **只在「单独给 `--selftest`」时在这里退出**；与其它开关同时给时继续往下走（M-4）。
+  if (!CHECK && !AGAINST) process.exit(exitCode({ selftestBad }))
 }
 
 // 真 TS 解析器从 **app 的 node_modules** 取（仓库里就有，不用装）。用 createRequire 锚在 app/package.json，
@@ -442,9 +520,9 @@ if (AGAINST) {
   if (oldErr.length) dump('旧核抛错', oldErr, 50)
 }
 
-// 退出码：任何一条红都退 1（`--check` 看「切短」，`--against` 看「旧对→新错」）。
-// ⚠️ **先把两条判据都算完再退出** —— 别在 `--against` 里提前 `process.exit`，
-//    否则「同时传 `--check --against`」时后一条永远轮不到。
+// 退出码：任何一条红都退 1 —— 由 `exitCode()` **一处**合成（`--selftest` 的失败数也在里面）。
+// ⚠️ **先把所有判据都算完再退出** —— 别在 `--against` / `--selftest` 里提前 `process.exit`，
+//    否则「同时传 `--check --against`」时后一条永远轮不到（M-4 修的正是这个形状）。
 if (CHECK && cls.short.length) {
   console.log(`\n✗ --check：${cls.short.length} 处**解析器切得全、sliceFn 切短** —— 这些声明拿去比对就是假绿卡。`)
 }
@@ -457,4 +535,7 @@ if (CHECK && !cls.short.length) {
 if (regression > 0) {
   console.log(`\n✗ --against：${regression} 处**旧核对、新核错** —— 这是真回归，改核心改坏了。`)
 }
-if ((CHECK && cls.short.length) || regression > 0) process.exit(1)
+if (selftestBad > 0) {
+  console.log(`\n✗ --selftest：${selftestBad} 条自测失败（与 \`--check\` / \`--against\` 的结论一起算退出码）。`)
+}
+process.exit(exitCode({ selftestBad, shortCount: cls.short.length, regression }))
