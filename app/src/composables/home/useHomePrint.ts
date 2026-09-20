@@ -186,6 +186,8 @@ export function useHomePrint(deps: HomePrintDeps) {
    * ⚠️ **三句的顺序是语义，不是风格**：`onOpenMode` 内部会把
    * `previewAutoLineNumbers` 置回 `true`（REF `:1475`），所以「算料不补号」那一次赋值
    * **必须排在它后面**。原注释（REF `:2240-2241`）说的就是这件事，随这几句一起搬到这里。
+   *   旧版口径（REF `:2240-2241` 原句）：「**算料不补行级单号**」—— 旧版 `In`/`Un`
+   *   只算料 + 开预览，补号是打印时才做的。
    */
   function openPrintPreview(orders: OrderDto[], autoLineNumbers: boolean) {
     printOrders.value = orders
