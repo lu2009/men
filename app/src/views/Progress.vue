@@ -322,7 +322,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref, watch } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 import type { VNodeChild } from 'vue'
 import {
   NAutoComplete,
@@ -341,11 +341,12 @@ import {
 } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
 import { api } from '../api/client'
-import type { OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
+import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
 import { SEARCH_FIELDS, useProgressHeader } from '../composables/progress/useProgressHeader'
+import { useProgressPrint } from '../composables/progress/useProgressPrint'
 import { useProgressQueryMore } from '../composables/progress/useProgressQueryMore'
 import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
@@ -790,151 +791,40 @@ const {
 //        `selectedRows`/`filteredRows` 只在 C 段出现 ⇒ 拆开两边各自 `TS2448`。
 // ---------------------------------------------------------------------------
 
-// ── C3. 打印（旧版 §4.5：工具条「打印选项」→ 抽屉里 12 类单据 → 预览弹窗）────
-/*
- * ## 旧版这条链
- *
- * 抽屉 `zl` 里那 12 颗按钮**每一颗都是同一个形状**：
- *
- *   ① 从勾选的行（`te.ping_hui` / `te.diao_hui`）算出该单据的行
- *      （`Ca`/`Pa`/`La`/`Ba`/`Ma`/`ka`/`So` … 各自一段，很短：`Dl.value.calculateReceipt(...)`、
- *       `lableForProduct(...)`、`Glasslist()` … —— 调的是**内嵌子组件**的方法）；
- *   ② `commentPreview(registrant.template.xxx, rows)` 生成 HTML；
- *   ③ 开预览弹窗 `ml`（宽 1180px），并把 `pl`（= ic）设成该单据，弹窗据此出现对应的编辑按钮。
- *
- * ## 新版怎么接（**一行旧代码都没搬，全走共用件**）
- *
- *   勾选的行 ──(order.id 去重 + getOrder)──▶ 订单（**只留勾选的那些行**）──▶ PrintDrawer(preset="progress")
- *     ──▶ PrintPreviewDialog（= 上面①②③ 的新版等价物：`printPayloads` + hiprint 预览）
- *
- * **为什么不照旧版把子组件的方法也搬过来**：那 12 段的产出（标签行 / 生产单行 / 玻璃行…）
- * 新版**已经全部**在 `utils/printPayloads.ts` 里实现过了，而且是按**模板字段族**分发
- * （`templatePayload`），Home / Hui 打印走的就是它。再抄一份 = 同一套口径两份实现。
- *
- * ## ⚠️ 一处**有意的粒度差异**（不是等价物，别当成抄漏）
- *
- * 旧版打印的输入是**勾选的门行**（`te.ping_hui`/`diao_hui` 里就是门行本身），
- * 新版共用链路是**订单级**的（`PrintContext` 吃 `OrderDto`）。为了不把「没勾的樘数」也打出来，
- * 这里把勾选行折算成订单时**只保留勾选的那些行**（`printOrdersOf`）——
- * 于是「打出来的门」与旧版一致，差异只在「订单头字段来自整单」（旧版也是整单的：
- * `enrichDoorRow` 的客户/单号/日期本来就取自订单头）。
- */
-
-const printShow = ref(false)
-/** 打印用的订单（勾选行折算出来的一份**新对象**，不写回 `rows`）。 */
-const printOrders = ref<OrderDto[]>([])
-const previewShow = ref(false)
-const previewMode = ref('')
-const previewTitle = ref('')
-
-/** 已拉过的整单（一次抽屉会话里同一张单只拉一次；抽屉关掉就清，免得看到旧数据）。 */
-let printOrderCache = new Map<number, OrderDto>()
-
-/**
- * 勾选行 → 订单：按 `order.id` 归并，**每单只保留被勾选的那些行**。
- *
- * 单个订单拉失败**不拦整体**（旧版也没有「有一行取不到就整批失败」这种逻辑）——
- * 拉不到的订单直接不进打印批次，用户看到的就是少一单。
- *
- * ⚠️ **单据里各单/各行出现的顺序**：这里是**表里的顺序**（`selectedRows` 逐行过滤出来的顺序）。
- *    旧版是**点击顺序**（`Jl` 往数组里 `push`）。旧版那个顺序纯属操作痕迹（同一批勾选、
- *    换个勾选次序就换个出单次序），照抄它反而不可复现 ⇒ 取表序。**有意偏离**。
- */
-async function printOrdersOf(selected: ProgressRow[]): Promise<OrderDto[]> {
-  const byOrder = new Map<number, Set<number>>()
-  for (const r of selected) {
-    const oid = r.order?.id
-    if (!oid) continue
-    if (!byOrder.has(oid)) byOrder.set(oid, new Set())
-    byOrder.get(oid)!.add(r.id)
-  }
-  const out: OrderDto[] = []
-  for (const [oid, lineIds] of byOrder) {
-    try {
-      let full = printOrderCache.get(oid)
-      if (!full) {
-        full = await api.getOrder(oid)
-        printOrderCache.set(oid, full)
-      }
-      // ⚠️ **必须留非空的行数组**：`PrintPreviewDialog` 的明细兜底是
-      //    `o.lines?.length ? o : await api.getOrder(o.id)` —— 空数组会被它当成「没展开过」
-      //    再拉一整单回来，勾选过滤就白做了。（本函数只在选了该单的行时才建条目，故必然非空。）
-      out.push({ ...full, lines: (full.lines ?? []).filter((l) => lineIds.has(l.id)) })
-    } catch {
-      // 静默跳过（见上）
-    }
-  }
-  return out
-}
-
-/** 派生 `printOrders`（带一个 token：慢的响应不许盖掉新的）。 */
-let printToken = 0
-async function syncPrintOrders() {
-  const token = ++printToken
-  const selected = selectedRows.value
-  // 没勾选就别去拉订单了：抽屉照开，里面 12 颗按钮会因为 `orders` 为空而全灰（= 旧版的表现）。
-  const list = selected.length ? await printOrdersOf(selected) : []
-  if (token === printToken) printOrders.value = list
-}
-
-/**
- * 工具条「打印选项」（旧版 `zl=true`）—— 旧版**没有**「没勾选就不给开」的守卫，这里同样不守卫。
- * 抽屉会照常打开，只是没勾选时里面 12 颗全灰（每颗的 `disabled` 就是「已选条数 = 0」）。
- */
-async function openPrint() {
-  printOrderCache = new Map()
-  await syncPrintOrders()
-  printShow.value = true
-}
-
-/*
- * 抽屉**开着的时候**勾选变了要跟着变。
- *
- * 旧版那 12 颗按钮是**在点击时**现读 `te.ping_hui`/`diao_hui` 的（勾选框在左侧固定列，
- * 抽屉只占右边 350px，两者同屏可点）⇒ 开着抽屉改勾选，旧版立刻按新勾选出单。
- * 新版这份 `printOrders` 是快照，不跟就会打错单据 —— 所以补这个 watch
- * （`printOrdersOf` 有整单缓存，重复触发不会重复请求；token 保证慢响应不覆盖新结果）。
- */
-watch(
-  () => (printShow.value ? selectedRows.value.map((r) => r.id).join(',') : ''),
-  () => {
-    if (printShow.value) void syncPrintOrders()
-  },
-)
-
-/**
- * 抽屉里点了某类单据 → 开预览弹窗（与 `Home.vue` 的 `onOpenMode` 同一个口径：先关抽屉）。
- *
- * ⚠️ 多一道**「收据单不能跨客户」**的闸 —— 这是旧版 `So` 里的原话：
- *    `if (new Set(客户编号).size > 1) return ElMessage.error("所选数据包含不同客户，不能构建收据单")`
- *    （旧版一张收据单只服务一个客户；新版回执族载荷是**每单一份**，不加这道闸会把
- *     「两个客户的收据」一次全打出来 —— 那是旧版明确拒绝的事。）
- */
-function onOpenPrintMode(mode: string, title: string) {
-  if (mode === 'FinalReceipt') {
-    const codes = new Set(selectedRows.value.map((r) => String(r['客户编号'] ?? '')))
-    if (codes.size > 1) {
-      message.error('所选数据包含不同客户，不能构建收据单')
-      return
-    }
-  }
-  printShow.value = false
-  previewMode.value = mode
-  previewTitle.value = title
-  previewShow.value = true
-}
-
-/**
- * 搜索词一变就回第 1 页。
- *
- * ⚠️ **有意偏离**：旧版动搜索框**不重置页码**（`zo` 只被 v-model 写、`ao` 只清 `Bo`），
- *    在旧版上「停在第 2 页搜一个只剩 3 条的词」就会看到空表 —— 那是毛病。
- *    本页本就把筛选放在分页**之前**（见 `filteredRows` 的注释），不重置页码只会更容易撞上它。
- *    另：旧版 `onClear`（`lo`）只清 `zo` 和 `Bo`，在「还没有查询更多」的本版里是纯空操作
- *    ⇒ 这里不复刻那个 handler，靠 `clearable` + 这个 watch 覆盖。
- */
-watch(searchText, () => {
-  page.value = 1
+// ---------------------------------------------------------------------------
+// C3. 「打印」链路（`printShow`/`printOrders`/`previewShow`/`previewMode`/`previewTitle`/
+//      `printOrderCache`/`printOrdersOf`/`printToken`/`syncPrintOrders`/`openPrint`/
+//      `onOpenPrintMode`，连段首横幅、那 29 行旧版原文块注释，**以及段尾那两条顶层
+//      `watch`**）已归位到 `composables/progress/useProgressPrint.ts`
+//      （Progress 拆分 **P9**，REF `f097a9b1`:1653–1799）。
+// ⚠️ **调用点为什么还在原位**：本块 4 个注入项 —— `message`（REF 369）· `page`（REF 388）·
+//   `searchText`/`selectedRows`（REF 676，P7 工厂的回传）—— **全部**在 REF 里就排在本块
+//   之前 ⇒ **没有 TDZ 约束**；而本块段外的**脚本**引用为 **0**（真 TS 解析器数标识符节点，
+//   不是 grep 裸名）⇒ 7 个回传**只被模板读**，模板与位置无关。两条合起来：调用点原地不动，
+//   `useProgressHeader(...)`（P5，上面 775 行）那处也一个字不用改（它不吃本块任何名字）。
+// ⚠️ **7 个回传全部解构**（都有段外活读者，一个不多一个不少 —— 多一个是死局部 `TS6133`，
+//   少一个是 `TS2304`），而且**七个都只被模板用**（段外脚本引用 0）：
+//   模板 `printShow` 294 · `printOrders` 296/307 · `previewShow` 306 · `previewMode` 308 ·
+//   `previewTitle` 309 · `openPrint` 107 · `onOpenPrintMode` 297。
+//   〔一律写 REF 行号/模板行号：本文件行号会随后面每块搬走而漂。〕
+// ⚠️ **另 4 个（`printOrderCache`/`printOrdersOf`/`printToken`/`syncPrintOrders`）段外零引用**
+//   ⇒ **不解构**；它们仍在本块内部被用，跟着本块搬走了 —— **不是删掉**。
+//   ⚠️ 其中 `printOrderCache`/`printToken` 是**裸 `let`**（会被重新赋值）⇒ 必须**整体**搬进
+//   工厂、靠闭包存活，别留半个在壳里（留半个 = `TS2304`）。
+// ⚠️ **两条顶层 `watch` 也一起搬走了**（REF 1758 那条「抽屉开着时勾选变了重算」、
+//   REF 1796 那条「搜索词一变回第 1 页」）。它们是**顶层非声明语句**，
+//   `docs/progress-extract-movecheck.mjs` 的切片器**切不到**（memory `split-guard-blind-spots`
+//   第 4 类）⇒ 守卫对它们**恒绿**。它们的逐字保真由**另一条独立脚本**核
+//   （归一化工厂那层 +2 缩进、反向套完注入改写后与 REF 同区间逐字节比，残差 0）。
+// ---------------------------------------------------------------------------
+const {
+  printShow, printOrders, previewShow, previewMode, previewTitle,
+  openPrint, onOpenPrintMode,
+} = useProgressPrint({
+  page,
+  selectedRows,
+  searchText,
+  message,
 })
 
 // ── C1. 统计数字（旧版 `yo` / `vo` / `mo` / `go` / `fo` / `po`，全部作用在 `no` = 筛选后）──

@@ -593,6 +593,59 @@ const BLOCKS = [
       onSearchClear: [{ from: 'searchText.value', to: 'deps.searchText.value' }],
     },
   },
+
+  {
+    /**
+     * **P9「打印」**（→ `app/src/composables/progress/useProgressPrint.ts`）。
+     * REF `f097a9b1`:1653–1799（11 个声明 + **段尾两条顶层 `watch`**）。
+     *
+     * ⚠️ **工厂式**（`useProgressPrint(deps)`）⇒ **一条 `export` 改写都没有**
+     *   （与 P2/P3/P5/P7/P8 同形；`export` 写在工厂体内是 `TS1184`）。
+     *
+     * ⚠️ **注入改写 2 条规则、命中 3 处**（整段搬进工厂时会出现的 `deps.` 化）：
+     *   `syncPrintOrders` 的 `selectedRows.value`×1；`onOpenPrintMode` 的
+     *   `selectedRows.value`×1 + `message.error(`×1。
+     *   ⚠️ **整段里其实有 4 处 `deps.` 化，这里只登记 3 处** —— 剩下那处
+     *   （`deps.selectedRows.value`，REF 1758 那条 `watch` 的回调里）落在**顶层非声明语句**上，
+     *   本文件的切片器**切不到**（见下面「切不到的两条顶层 watch」）⇒ 登记了也不会被用到。
+     *
+     * ⚠️ **切不到的两条顶层 `watch`**（memory `split-guard-blind-spots` 第 4 类）：
+     *   REF **1758–1763**（抽屉开着时勾选变了重算 ⇒ 调 `syncPrintOrders`）与
+     *   REF **1796–1798**（搜索词一变回第 1 页）。切片器只切**声明**，这两条是**语句**
+     *   ⇒ **它们从本清单里整个消失、本守卫对它们恒绿**。
+     *   它们的逐字保真靠**另一条独立脚本**单独核（归一化工厂那层 +2 缩进、反向套完注入改写后
+     *   与 REF 同区间逐字节比，残差 0）—— **别以为「守卫绿了」就等于这两条也核过了**。
+     *
+     * ⚠️ **回传 7 项**（11 个里真被段外消费的 7 个），而且**七个都只被模板读**
+     *   （段外**脚本**引用 0 —— 参 `names` 里那 4 个的说明）：
+     *   `printShow`(模板 294) `printOrders`(296/307) `previewShow`(306) `previewMode`(308)
+     *   `previewTitle`(309) `openPrint`(107) `onOpenPrintMode`(297)。
+     *   ⚠️ 「模板用点」这七个**逐个核过是活绑定**，不是注释里的词
+     *     （memory `split-brief-interface-traps` 第 1 类：P1 `va` / P2 `orderedProcedureNames`
+     *     都栽在「grep 命中其实是注释」上）。
+     *   ⚠️ **这一条本守卫管不着** —— 它只比「声明搬得像不像」，「壳有没有漏接」由 `vue-tsc`
+     *     （`TS2304`/`TS6133`）管（memory `split-guard-blind-spots` 第 3 类）。
+     *   ⚠️ **不回传、也不许解构的 4 个**：`printOrderCache` `printOrdersOf` `printToken`
+     *     `syncPrintOrders`（段外脚本 0、模板 0）。**但别把它们从本清单里去掉** ——
+     *     它们是本块的内部件（`printOrdersOf` 读 `printOrderCache`、`syncPrintOrders` 读
+     *     `printToken` 与 `printOrdersOf`、`openPrint` 读 `syncPrintOrders`），去掉就等于
+     *     这几段没人验。⚠️ 其中 `printOrderCache`/`printToken` 是**裸 `let`**（会被重新赋值）
+     *     ⇒ 必须**整体**搬进工厂靠闭包存活，别留半个在壳里。
+     */
+    target: 'app/src/composables/progress/useProgressPrint.ts',
+    names: ['printOrdersOf', 'syncPrintOrders', 'openPrint', 'onOpenPrintMode'],
+    consts: [
+      'printShow', 'printOrders', 'previewShow', 'previewMode', 'previewTitle',
+      'printOrderCache', 'printToken',
+    ],
+    rewrites: {
+      syncPrintOrders: [{ from: 'selectedRows.value', to: 'deps.selectedRows.value' }],
+      onOpenPrintMode: [
+        { from: 'selectedRows.value', to: 'deps.selectedRows.value' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+    },
+  },
 ]
 
 /**

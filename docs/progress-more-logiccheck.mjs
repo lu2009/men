@@ -1,7 +1,8 @@
 /*
  * Progress「查询更多」的差分台：同一批夹具，左边跑**旧版真代码**（`Io` 里「取回来的行怎么落地」
  * 那一段，从 `Progress-f4bdef35.js` 解混淆后切出来真跑），右边跑**新版真代码**
- * （`app/src/views/Progress.vue` 的 `submitMore` 里对应的那一段）。
+ * （新版那一侧在 `app/src/composables/progress/useProgressQueryMore.ts` 的 `submitMore` 里
+ * —— 2026-09-20 Progress 拆分 **P8** 把这段搬出了 `Progress.vue`，本台随之换源）。
  *
  * 这一段值得单独钉 —— 它有三处**抄错不报错、肉眼也看不出来**的地方：
  *   ① **排序**：`parseInt(回执单号)` **倒序**。回执单号解不出来时是 `NaN`，比较函数返回 `NaN`，
@@ -20,6 +21,16 @@
  *   2. **取数本身**（URL 的四个参数怎么拼）。那是 `api.listProgressMore` 的事，这里只喂现成的响应。
  *   3. **弹窗 UI**（客户自动完成、日期快捷项、默认区间）。
  *   4. `NaN` 那几行的**相对次序**只保证「两边一致」，不保证任何"正确"次序（旧版就没有）。
+ *   5. ⚠️ **查回来的行上那两个字段，30 项比对一个都不看**（2026-09-20 实测，Task 5 记下）：
+ *      `isSelected`（旧版 `isSelected:!1` = **勾选态随新对象归零**）与
+ *      `生产进度`（旧版 `e["生产进度"]||""` = **兜底成空串**）。
+ *      `shape()` 只取 `id:tag`，五条 `cmp` 也都不碰这两列 ⇒ 新版把 `isSelected: false`
+ *      写成 `true`（或干脆照抄 `r.isSelected`）、把 `|| ''` 兜底删掉，**这台台子照样全绿**。
+ *      实测：`isSelected: false → true`、`|| '' → || 'XX'` 两个突变，台子都 exit 0。
+ *      要真盖住它**得同时**加断言**和**改夹具 —— `row()` 现在是
+ *      `isSelected: tag === 'old'`，而每个夹具的 `q` 行都是 `'fresh'` ⇒ 全 `false`，
+ *      **光加断言也看不见**（得给 `q` 塞一条 `isSelected: true` 的行）。
+ *      本任务（纯搬迁）**不动它**，只如实记下 —— 别把「台子绿」当成这两列也核过了。
  *
  * ⚠️ 夹具只有能说清「夹具本身与旧版口径不符」时才能改，且要写明理由 —— 不许为了让测试变绿改夹具。
  *
@@ -36,7 +47,9 @@ const ROOT = resolve(HERE, '..')
 const BUNDLE = resolve(ROOT, 'legacy/js/Progress-f4bdef35.js')
 const MAP = '/tmp/progress-map.json'
 const DECODED = '/tmp/progress.decoded.js'
-const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
+// ⚠️ 换源（Task 5 / R42）：这段 2026-09-20 随 **P8** 搬进了这个 composable
+// （`Progress.vue` 里只剩一行指路注释）⇒ 从 `.vue` 改切这个 `.ts`。
+const MORE_TS = resolve(ROOT, 'app/src/composables/progress/useProgressQueryMore.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
 if (!existsSync(DECODED) || !existsSync(MAP)) {
@@ -113,20 +126,24 @@ function runLegacy(c, K, xo, Bo, zo, Do) {
 }
 
 // ---------------------------------------------------------------- 新版侧 //
-const vue = readFileSync(VUE, 'utf8')
+const moreSrc = readFileSync(MORE_TS, 'utf8')
 
-function cutVue(startAnchor, endAnchor, what) {
-  const a = vue.indexOf(startAnchor)
+function cutNew(startAnchor, endAnchor, what) {
+  const a = moreSrc.indexOf(startAnchor)
   if (a < 0) throw new Error(`新版锚点没命中（${what} 的起点）：${startAnchor}`)
-  if (vue.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
-  const b = vue.indexOf(endAnchor, a)
+  if (moreSrc.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
+  const b = moreSrc.indexOf(endAnchor, a)
   if (b < 0) throw new Error(`新版锚点没命中（${what} 的终点）：${endAnchor}`)
-  return vue.slice(a, b + endAnchor.length)
+  return moreSrc.slice(a, b + endAnchor.length)
 }
 
-const NEW_TS = cutVue(
+const NEW_TS = cutNew(
   'const list: ProgressRow[] = (d?.progressData ?? [])',
-  'searchText.value = `${moreForm.client} ${moreForm.address}`.trim()',
+  // ⚠️ 终点锚点**必须跟着 P8 的注入改写走**：这段读的搜索框现在是注进来的
+  //   `deps.searchText`（工厂回传），不再是壳里的裸 `searchText`。
+  //   起点锚点一个字未动（`const list: ProgressRow[] = …` 搬迁时逐字保留、只多了 2 缩进，
+  //   而 `indexOf` 不吃前导空白）。
+  'deps.searchText.value = `${moreForm.client} ${moreForm.address}`.trim()',
   '查询更多·落地',
 )
 if (NEW_TS.length < 400 || !NEW_TS.includes('moreActive.value = true')) {
@@ -137,8 +154,18 @@ const require = createRequire(resolve(ROOT, 'app/package.json'))
 const esbuild = require('esbuild')
 const NEW_JS = esbuild.transformSync(NEW_TS, { loader: 'ts', format: 'cjs', charset: 'utf8' }).code
 
-/** 跑新版那一段（`d` = 接口响应，其余是 ref 桩）。 */
+/**
+ * 跑新版那一段（`d` = 接口响应，其余是 ref 桩）。
+ *
+ * ⚠️ 换源之后这段读的是**注入对象**（P8 工厂的 `deps`），所以要多搭一个 `deps` 壳：
+ *   `deps.rows` / `deps.searchText` **就是**传进来的那两个 ref 桩本身（同一对象，
+ *   不是复制）⇒ 工厂里 `deps.rows.value = [...]` 的写入照旧落在 `rows` 上，
+ *   调用点、夹具、断言**一个字都不用动**。
+ *   实测这段里出现的 `deps.` 只有 `deps.rows`(×3) 与 `deps.searchText`(×1) 两个键，
+ *   没有 `message`/`dashboardShow`（那两个在本段的区间**外**）⇒ 不必多搭别的桩。
+ */
 function runNew(d, rows, moreRows, moreActive, moreForm, searchText) {
+  const deps = { rows, searchText }
   const fn = new Function(
     'd',
     'rows',
@@ -146,9 +173,10 @@ function runNew(d, rows, moreRows, moreActive, moreForm, searchText) {
     'moreActive',
     'moreForm',
     'searchText',
+    'deps',
     `${NEW_JS}\n return { list, rows, moreRows, moreActive, searchText }`,
   )
-  return fn(d, rows, moreRows, moreActive, moreForm, searchText)
+  return fn(d, rows, moreRows, moreActive, moreForm, searchText, deps)
 }
 
 // ------------------------------------------------------------------ 夹具 //
