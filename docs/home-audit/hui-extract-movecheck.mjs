@@ -335,6 +335,22 @@ const SPLIT_BLOCKS = [
       rowHasContent: [{ from: 'function rowHasContent(', to: 'export function rowHasContent(' }],
     },
   },
+  {
+    // C12「勾选 / 批量删除」（明细表跨两表共用一个勾选计数）。快照 `Hui.vue:1587-1620`，3 个声明。
+    // 注入 4 项：脊梁 `lines`/`orderId` + 页面 `message`/`dialog`；`api` 是模块级导出 ⇒ 直接 import。
+    target: 'app/src/composables/hui/useHuiLineSelection.ts',
+    names: ['checkboxTick', 'selectedLines', 'batchDeleteRows'],
+    rewrites: {
+      checkboxTick: [],
+      selectedLines: [{ from: 'lines.value', to: 'deps.lines.value' }],
+      batchDeleteRows: [
+        { from: 'orderId.value', to: 'deps.orderId.value' },
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.', to: 'deps.dialog.' },
+      ],
+    },
+  },
 ]
 
 /**

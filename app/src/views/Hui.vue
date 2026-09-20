@@ -661,6 +661,7 @@ import { useHuiClients } from '../composables/hui/useHuiClients'
 import { useHuiPreview } from '../composables/hui/useHuiPreview'
 import { useTerminalLink } from '../composables/hui/useTerminalLink'
 import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
+import { useHuiLineSelection } from '../composables/hui/useHuiLineSelection'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1223,40 +1224,16 @@ function clearOrder() {
 
 // 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
 
-const checkboxTick = ref(0)
-
-// 选中行（跨两表）
-const selectedLines = computed(() => {
-  void checkboxTick.value
-  return lines.value.filter((l) => l.isSelected)
-})
-
-function batchDeleteRows() {
-  const sel = selectedLines.value
-  if (!sel.length) {
-    message.warning('请先勾选要删除的行')
-    return
-  }
-  dialog.warning({
-    title: '批量删除',
-    content: `确定删除选中的 ${sel.length} 行吗？`,
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      for (const l of sel) {
-        if (orderId.value != null && l.id != null) {
-          try {
-            await api.deleteOrderLine(orderId.value, l.id)
-          } catch {
-            // 单行删除失败继续
-          }
-        }
-        lines.value = lines.value.filter((x) => x !== l)
-      }
-      message.success('已删除选中行')
-    },
-  })
-}
+// 2026-09-20 本段 3 个声明搬到 `composables/hui/useHuiLineSelection.ts`（逐字搬迁，零行为变化），只留调用点。
+// 🔴 **3 个名字一个都不能少**，`checkboxTick` 尤其要紧 —— 它是**组件通过页面级回调写**的：
+//    `DetailLinesTable.vue` 勾一下 ⇒ `props.hooks.onSelectChange()` ⇒ 下面 `detailHooks` 里那句
+//    `checkboxTick.value++`。**必须写解构出来的这个 ref**。
+// ⚠️ **失效长什么样**（不报错、界面上就是不对）：页面若另留一份 `const checkboxTick = ref(0)`，
+//    计数就涨在**另一份** ref 上 ⇒ `selectedLines`（里面那句 `void checkboxTick.value` 是**建依赖**用的）
+//    永不重算 ⇒ 勾选后「已选 N 行」与批量删除按钮态**永远是初始值**，且**不报错**。
+//    这一类**守卫验不了**（守卫只做逐字文本比对）—— 所以页面与新家文件头**两处都写死**了这段。
+// `selectedLines`：模板 `:141`/`:158` 的 `:selected-count`；`batchDeleteRows`：模板 `:145`/`:162` 的 `@batch-delete`。
+const { checkboxTick, selectedLines, batchDeleteRows } = useHuiLineSelection({ lines, orderId, message, dialog })
 
 /**
  * 交给明细表组件的**页面级回调**（2026-09-19 组件化时新增）。
