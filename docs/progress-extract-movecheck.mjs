@@ -318,6 +318,81 @@ const BLOCKS = [
       ],
     },
   },
+  {
+    /*
+     * **P7「工具条 + 行勾选」**（→ `app/src/composables/progress/useProgressToolbar.ts`）。
+     *
+     * ⚠️ **本块是两段，不是一个连续区间**（全计划里只有它是这样）：
+     *   · `Progress.vue:1374-1417`（44 行）—— `ExcelJSInterop`(1383) / `exporting`(1389) /
+     *     `searchText`(1396) / `selectedRows`(1408) / `refresh`(1414) —— **5 个**。
+     *   · `Progress.vue:1599-1652`（54 行）—— `allSelected`(1621) / `toggleSelectAll`(1626) /
+     *     `openBatchUpdate`(1644) —— **3 个**。
+     *   合计 98 行、**8 个声明**，全在一个目标文件里（`ExcelJSInterop` 是 `type`，见下）。
+     *   中间 `1418-1598` 是 **P8「查询更多」**（Task 5 才搬）⇒ **删段时是两条具名区间**，
+     *   绝不是一整段 `1374,1652d`。
+     *
+     * ⚠️ **为什么两段必须同住一个文件**：`message`(1646) / `openUpdateDialog`(1650) 只在第二段
+     *   出现，`filteredRows`(1622/1630) / `rows`(1408/1632) / `load`(1415) 两段都有
+     *   ⇒ 拆成两个文件就得互相注入，两边各自 `TS2448`。**一条 `export` 改写以外的改动全在壳侧**。
+     *
+     * ⚠️ **两条横幅与段内注释没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *   它们只有「整段与 REF 同区间逐字节比」一条来源（Global Constraints R32 的动手后验收）。
+     *   本块那条逐字节核已做（独立脚本，不是本守卫）：两段拼起来 **88 行**（1374-1377 +
+     *   1388-1417 + 1599-1652，中间那 10 行是 `ExcelJSInterop`，被提到工厂外）、
+     *   反向套完 6 条注入改写后**残差 0 处**；拼缝处的那个空行也在比对范围内。
+     *   复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '1372,1378p'`（横幅）·
+     *        `… | sed -n '1415,1419p'`（止点 = 1417，1418 已是 **P8** 的横幅）·
+     *        `… | sed -n '1597,1601p'` · `… | sed -n '1650,1654p'`（1653 已是 P9 的横幅）。
+     *
+     * ⚠️ **`ExcelJSInterop` 是「最容易被名单漏掉」的那一类**（`type` 不是函数）：
+     *   漏登记 ⇒ 本守卫不切它 ⇒ 它留在壳里、**本守卫照样全绿**
+     *   （memory `split-guard-blind-spots` 第 1 类「登记写错两侧同错」）。
+     *   归口由 R2 更正 + 裁决定死（「归谁消费 ≠ 归谁搬」）：**随 P7a 一起搬，由本文件 `export`**，
+     *   Task 7 的 `useProgressExport.ts` 去 import 它。
+     *   ⇒ 它的改写是这里**唯一**一条 `export` 改写（其余 7 个都在工厂体内，写 `export` 是 `TS1184`）。
+     *   ⚠️ 它还被**重排**过：REF 里在横幅之后、`exporting` 之前，新文件里提到 deps 接口上方
+     *   （它必须出工厂）—— 但**工厂体内的相对顺序与 REF 一字不差**。
+     *
+     * ⚠️ **注入改写 = 6 条规则、命中 8 处**（`rows.value`×2 · `filteredRows.value`×3 ·
+     *   `load()`×1 · `message.`×1 · `openUpdateDialog(null)`×1 · `type` 加 `export`×1）：
+     *   · 规则一律**带边界**（核心文件头：朴素 `split/join`，裸名会顺手打到别的标识符上）——
+     *     `load` 写成 `load()`、`openUpdateDialog` 写成带实参的 `openUpdateDialog(null)`。
+     *   · `rows.value` 与 `filteredRows.value` **不构成子串关系**（差在 `Rows` 的**大写 R**，
+     *     且 `split/join` 大小写敏感）⇒ 两条规则互不误伤（已核）。
+     *   · 段内**注释里一处命中都没有**（逐条量过）：`toggleSelectAll` 里那两行注释写的是
+     *     `te 数组` 与 `!r.isSelected`；`openBatchUpdate` 里那句旧版原文写的是
+     *     `te.ping_hui` / `ElMessage.error`，**没有** `message.` 这个子串
+     *     ⇒ 不存在 P4 那种「规则改到注释里、注释内容就漂了」的风险。
+     *   · `openBatchUpdate` 的 `selectedRows.value` **不在改写表里**：那把 `selectedRows` 是本
+     *     文件的工厂局部（既不是 `deps.selectedRows` 也不是页面的），REF 与新文件逐字相同。
+     *
+     * 登记后按文件头「能力边界 3」做了那条**必做验法**（三组变异，都报红并定位到行，**不是假绿**）：
+     *   ① `allSelected` 第二行 `> 0` → `>= 0` ⇒ 报 `allSelected` `L2`
+     *      （**这一条同时证明它没走「单行声明」快车道** —— 3 行的声明比到了第 2 行）；
+     *   ② `openBatchUpdate` 里 `deps.message.` 还原成 `message.`（＝少套一条注入改写）
+     *      ⇒ 报 `openBatchUpdate` `L3`（规则确实是承重的，不是装饰）；
+     *   ③ `export type ExcelJSInterop = {` 去掉 `export`（＝漏登记那条唯一改写）
+     *      ⇒ 报 `ExcelJSInterop` `L1`。
+     *   三组都已还原，还原后本块 8 条全绿。
+     */
+    target: 'app/src/composables/progress/useProgressToolbar.ts',
+    names: ['refresh', 'toggleSelectAll', 'openBatchUpdate'],
+    consts: ['ExcelJSInterop', 'exporting', 'searchText', 'selectedRows', 'allSelected'],
+    rewrites: {
+      ExcelJSInterop: [{ from: 'type ExcelJSInterop = {', to: 'export type ExcelJSInterop = {' }],
+      selectedRows: [{ from: 'rows.value', to: 'deps.rows.value' }],
+      refresh: [{ from: 'load()', to: 'deps.load()' }],
+      allSelected: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
+      toggleSelectAll: [
+        { from: 'filteredRows.value', to: 'deps.filteredRows.value' },
+        { from: 'rows.value', to: 'deps.rows.value' },
+      ],
+      openBatchUpdate: [
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'openUpdateDialog(null)', to: 'deps.openUpdateDialog(null)' },
+      ],
+    },
+  },
 ]
 
 /**

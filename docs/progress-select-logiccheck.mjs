@@ -1,7 +1,8 @@
 /*
  * Progress「日期」列**行勾选**的差分台：同一批夹具、同一串操作，
  * 左边跑**旧版真代码**（`Jl` / `Rl` / `$l`，从 `Progress-f4bdef35.js` 解混淆后切出来真跑），
- * 右边跑**新版真代码**（`app/src/views/Progress.vue` 的 `allSelected` / `toggleSelectAll`）。
+ * 右边跑**新版真代码**（`app/src/composables/progress/useProgressToolbar.ts` 的
+ * `allSelected` / `toggleSelectAll` —— 2026-09-20 起这两句不在 `Progress.vue` 了，见下）。
  *
  * 为什么值得单独盯 —— 这套语义里有**两条反直觉**、抄错不报错的地方：
  *   ① 表头「全选」盖的是**当前筛选结果** `no`（不是当前页，也不是全量 `K`）；
@@ -37,7 +38,7 @@ const ROOT = resolve(HERE, '..')
 const BUNDLE = resolve(ROOT, 'legacy/js/Progress-f4bdef35.js')
 const MAP = '/tmp/progress-map.json'
 const DECODED = '/tmp/progress.decoded.js'
-const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
+const TOOLBAR = resolve(ROOT, 'app/src/composables/progress/useProgressToolbar.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
 if (!existsSync(DECODED) || !existsSync(MAP)) {
@@ -91,15 +92,27 @@ function makeLegacy(rowsRef, filteredRef, te) {
 }
 
 // ---------------------------------------------------------------- 新版侧 //
-const vue = readFileSync(VUE, 'utf8')
+/*
+ * ⚠️ **2026-09-20（Progress 拆分 P7）：这一段不在 `Progress.vue` 了** ——
+ *    `allSelected` / `toggleSelectAll` / `openBatchUpdate` 连同整段 C2 横幅与旧版原文注释
+ *    搬去了 `app/src/composables/progress/useProgressToolbar.ts`（**纯搬迁、逐字未改**）。
+ *    本台子那两个锚点原来落的就是这一段 ⇒ 那两条既有的「命中 + 唯一」断言
+ *    （下面 `cutVue` 里那两行）会在 `.vue` 上直接抛 ⇒ 按本项目既定处置（R12 档位 1，
+ *    先例 `761c65a2` 的 `progress-cell-logiccheck.mjs`）**只换源文件 + 一处接线**：
+ *    搬走的代码现在读 `deps.X`，所以运行环境那个形参从 `rows`/`filteredRows` 合成一个 `deps`。
+ *    **断言、夹具、容差、期望值一个字未动。**
+ *    回退法：`git checkout <本笔之前的 sha> -- docs/progress-select-logiccheck.mjs`
+ *    （换源前必须连同 `Progress.vue` 一起回退，否则锚点在两边都不在）。
+ */
+const toolbar = readFileSync(TOOLBAR, 'utf8')
 
 function cutVue(startAnchor, endAnchor, what) {
-  const a = vue.indexOf(startAnchor)
+  const a = toolbar.indexOf(startAnchor)
   if (a < 0) throw new Error(`新版锚点没命中（${what} 的起点）：${startAnchor}`)
-  if (vue.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
-  const b = vue.indexOf(endAnchor, a)
+  if (toolbar.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
+  const b = toolbar.indexOf(endAnchor, a)
   if (b < 0) throw new Error(`新版锚点没命中（${what} 的终点）：${endAnchor}`)
-  return vue.slice(a, b)
+  return toolbar.slice(a, b)
 }
 
 // 从 `allSelected` 到 `openBatchUpdate`（不含）—— 正好是「表头全选 + 两个 handler」这一段。
@@ -115,9 +128,14 @@ const toCjs = (ts) => esbuild.transformSync(ts, { loader: 'ts', format: 'cjs', c
 const NEW_SRC = `${toCjs(NEW_TS)}\n return { allSelected, toggleSelectAll }`
 const { computed } = require(resolve(ROOT, 'app/node_modules/vue/dist/vue.cjs.js'))
 
-/** 跑新版那一段：`rows` / `filteredRows` 由外部注入（与旧版的 `K` / `no` 对应）。 */
+/**
+ * 跑新版那一段：`rows` / `filteredRows` 由外部注入（与旧版的 `K` / `no` 对应）。
+ * ⚠️ 搬进工厂后那两句读的是 `deps.rows` / `deps.filteredRows` ⇒ 形参合成一个 `deps`
+ *    （与 `761c65a2` 给 `progress-cell-logiccheck.mjs` 的改法同形）。
+ */
 function makeNew(rowsRef, filteredRef) {
-  return new Function('rows', 'filteredRows', 'computed', NEW_SRC)(rowsRef, filteredRef, computed)
+  const deps = { rows: rowsRef, filteredRows: filteredRef }
+  return new Function('deps', 'computed', NEW_SRC)(deps, computed)
 }
 
 // ------------------------------------------------------------------ 夹具 //

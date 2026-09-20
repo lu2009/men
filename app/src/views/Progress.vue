@@ -324,7 +324,6 @@
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { VNodeChild } from 'vue'
-import type { Workbook as ExcelJSWorkbook } from 'exceljs'
 import {
   NAutoComplete,
   NButton,
@@ -347,6 +346,7 @@ import type { ClientDto, OrderDto, ProcedureSlotDto, ProgressRowDto } from '../a
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
+import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
 import {
   amountCell,
@@ -854,67 +854,70 @@ const columns = computed<DataTableColumn<ProgressRow>[]>(() => [
   { title: '业务员', key: '业务员', width: 90, cellProps: cellPad, render: (r) => line(r['业务员']) },
 ])
 
-// ═══════════════════════════════════════════════════════════════════════════
-// C. 工具条 + 统计行（旧版 §2.2 / §5.4）
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * `await import('exceljs')` 的结果形状。
- * exceljs 的 `browser` 字段指向 UMD 包，**没有 ESM 默认导出**，Rollup 的 CJS interop
- * 有可能只给到 `default` ⇒ 运行期两个位置都取一下（见 `exportTable`）。
- */
-type ExcelJSInterop = {
-  Workbook?: typeof ExcelJSWorkbook
-  default?: { Workbook: typeof ExcelJSWorkbook }
-}
-
-/** 导出中（按钮 loading，防止连点两次生成两个文件）。旧版没有这个 flag，是本页加的。 */
-const exporting = ref(false)
-
-/**
- * 搜索词（旧版 `zo`）。
- * ⚠️ 它**同时**是「导出表格」按钮的显隐开关 —— 旧版那颗按钮的条件就是 `zo` 非空
- * （见 §2.2 与 §4.6），不是「有没有数据」也不是「有没有筛选」。
- */
-const searchText = ref('')
-
-/**
- * 行勾选（旧版 `te = {ping_hui:[], diao_hui:[], customerInfo:{}, hui_picture:[]}`）——
- * 「批量更新」的显隐与计数只用到前两个数组的长度和（`ea`），而每一行**必然**只落进其中一个
- * （旧版 `Jl` 按 `吊脚` 是否为空二分），所以 `ea` ≡ 勾选行数。
- *
- * ⚠️ 新版**不留那两个数组**：它们存在的唯一理由是旧版打印要拿它们去拼标签/生产单的行
- *    （`Ca` / `So` 那些 `push({qty…})`）。新版打印走的是「订单 + 行」那套共用链路
- *    （见 `printOrdersOf`）⇒ 留一份只有长度有用的副本反而容易和 `rows` 上的标志不同步。
- *    于是**唯一事实来源是行上的 `isSelected`**，这里只做一次派生。
- */
-const selectedRows = computed(() => rows.value.filter((r) => r.isSelected))
+// ---------------------------------------------------------------------------
+// C. 工具条 + 行勾选（`exporting`/`searchText`/`selectedRows`/`refresh`/`allSelected`/
+//    `toggleSelectAll`/`openBatchUpdate`，外加模块级 `type ExcelJSInterop`）已归位到
+//    `composables/progress/useProgressToolbar.ts`（Progress 拆分 **P7**，
+//    REF `f097a9b1`:1374–1417 ∪ 1599–1652 —— 两段同住一个文件）。
+//
+// ⚠️ **为什么这一块的位置比 P3 还靠前**：本块与 P3 是一对**环** —— 本块的 `selectedRows`
+//   要喂给下面那处 `useProgressUpdateDialog(...)`，P3 的 `openUpdateDialog` 又要喂回本块。
+//   ⇒ 环只能从一侧打破：本块先建，`openUpdateDialog` 传**一层 thunk**
+//   （`(r) => progressUpdateDialog.openUpdateDialog(r)`），真调用发生在用户点「批量更新」时，
+//   那时两者都已就绪。**不是凑数**：这里直接写 `openUpdateDialog` 会早读 TDZ（`TS2448`）。
+//   ⇒ 连带把 P3 那处拆成「先接住工厂结果、再解构」，只为给这层 thunk 一个可引用的名字。
+// ⚠️ 本块 **5 个注入项**：4 个**值**在这个位置都已声明（`rows` 379 / `load` 389 /
+//   `message` 367 / `filteredRows` 733 —— 最晚的就是它），第 5 个 `openUpdateDialog` 来自
+//   **下面**的 P3 ⇒ 正是靠上面那层 thunk 才敢这么排。复量：
+//   `git show f097a9b1:app/src/views/Progress.vue | grep -nE '^const filteredRows|^async function load'`。
+//   ⚠️ Task 7 把 P6 搬走之后，`filteredRows` 要改接 `useProgressColumns` 的回传
+//   （与 `procedures` 改接 `useProgressColors` 的回传同形）。
+// ⚠️ **7 个回传全部解构**（都有段外活读者 —— 少一个就是 `TS2304`，多一个就是死局部 `TS6133`）：
+//   模板 `113`(`openBatchUpdate`) `114`(`selectedRows`) `126`(`refresh`)
+//     `129`(`exporting` `searchText`) `138`/`166`/`167`(`searchText`)
+//   + 脚本 `dateHeader`(`allSelected`/`toggleSelectAll`，REF **1295/1296**)
+//   + 脚本 C3 打印段(`selectedRows`，REF **1734/1759/1775**)。
+//   〔一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。〕
+// ⚠️ `ExcelJSInterop` **走 `export` 不走 `return`**（它是模块级 `type`，工厂体内不能
+//   `export`，R44）⇒ 这里 `import type` 进来只为 P11 `exportTable`（REF **2005**）那一处；
+//   Task 7 把 P11 搬进 `useProgressExport.ts` 后，这个 import 要跟着摘掉。
+// ---------------------------------------------------------------------------
+const { exporting, searchText, selectedRows, refresh, allSelected, toggleSelectAll, openBatchUpdate } =
+  useProgressToolbar({
+    rows,
+    filteredRows,
+    load,
+    message,
+    // 打破 P7 ↔ P3 的环：thunk 的真调用发生在用户点「批量更新」时（见上面的 ⚠️）。
+    openUpdateDialog: (r) => progressUpdateDialog.openUpdateDialog(r),
+  })
 
 // ---------------------------------------------------------------------------
 // 「更新进度」弹窗的声明已归位到 `composables/progress/useProgressUpdateDialog.ts`（Progress 拆分 P3）。
-// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `selectedRows` 就是上面这一行才声明的，
-//   把 `useProgressUpdateDialog(...)` 放回 P3 的原位置会**早读一个 TDZ 变量**（`TS2448`）。
-// ⚠️ 只解构段外真有活读者的 11 个：模板 264/268/272/276/278/282/283（模板一行不动 ⇒ 行号恒定）
-//   + `columns` 里的 `openUpdate(`（REF `f097a9b1`:**1326**）
-//   + `openBatchUpdate` 里的 `openUpdateDialog(null)`（REF **1650**）。
+// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `selectedRows` 是**上面那块（P7 工厂）
+//   刚解构出来的**，把 `useProgressUpdateDialog(...)` 放回 P3 的原位置会**早读一个 TDZ 变量**
+//   （`TS2448`）。
+// ⚠️ **这里为什么要先接住工厂结果再解构**（多出来的 `progressUpdateDialog` 那个名字）：
+//   P7 工厂的 `openUpdateDialog` 注入靠一层 thunk 打破了 P7 ↔ P3 的环
+//   （见上面 C 段那段 ⚠️），thunk 需要**一个能提前写下的名字**指到本工厂的结果。
+//   语义与「直接解构」逐字等价 —— 只是把返回值先落到一个 `const` 上。
+// ⚠️ 只解构段外真有活读者的 10 个：模板 264/268/272/276/278/282/283（模板一行不动 ⇒ 行号恒定）
+//   + `columns` 里的 `openUpdate(`（REF `f097a9b1`:**1326**）。
 //   〔脚本侧一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。复量：
 //     `git show f097a9b1:app/src/views/Progress.vue | grep -nE 'openUpdate\(r\)|openUpdateDialog\(null\)'`。〕
+// ⚠️ **`openUpdateDialog` 从 11 降到 10**：Task 3 落地时它的第 11 个段外读者是
+//   `openBatchUpdate` 里的 `openUpdateDialog(null)`（REF **1650**），而 P7 那次搬迁把这句
+//   搬进了 `useProgressToolbar.ts` ⇒ 壳里再解构它就是死局部（`TS6133`，已实测抓到）。
+//   它现在只经 `progressUpdateDialog.openUpdateDialog` 走 thunk 喂给 P7（见上面 C 段那段 ⚠️）。
 //   另 3 个（`updTarget`/`updBatch`/`today`）段外零引用，
 //   解构出来就是死局部（`TS6133`）。模板里 `updOpen`/`updSlot`/`updOperator`/`updDate` 是 `v-model`
 //   的**写** ⇒ 必须解构，写成 `upd.updOpen` 会把 ref 整个换成字符串（**静默**）。
+const progressUpdateDialog = useProgressUpdateDialog({ procedures, selectedRows, message, load })
 const {
   updOpen, updSaving, updSlot, updOperator, updDate, slotOptions, updValue, updTitle,
-  openUpdateDialog, openUpdate, submitUpdate,
-} = useProgressUpdateDialog({ procedures, selectedRows, message, load })
+  openUpdate, submitUpdate,
+} = progressUpdateDialog
 // ---------------------------------------------------------------------------
-
-/**
- * 旧版 `pa()`：重拉数据 + **清空勾选**（`Ta()` + 逐个 `isSelected=false` + 重置 `te`）。
- * 新版不用手动清 —— `load()` 会把 `rows` 整份换成新对象（见那里的注释）。
- */
-async function refresh() {
-  await load()
-}
 
 // ── C1b. 查询更多（旧版 `Lo` 开窗 + `Io` 确认）—— 也就是 `no` 链路里的 `Bo`/`xo` 那一层 ──
 /*
@@ -1097,59 +1100,13 @@ function onSearchClear() {
   moreActive.value = false
 }
 
-// ── C2. 行勾选（旧版「日期」列里的 checkbox，表头那颗是全选）────────────────
-/*
- * 旧版原文（反混淆后，逐字）：
- *
- *   // 表头（「日期」列 title）：ElCheckbox `model-value: Rl` + `onChange: $l`
- *   //   标题 = "全选/取消全选（当前筛选结果）"
- *   Rl = computed(() => { const t = no.value; return !(!t || 0 === t.length) && t.every(r => r.isSelected) })
- *   $l = e => { if (e) { no.value.forEach(l => { l.isSelected !== e && (l.isSelected = e, Jl(l, e)) }) }
- *               else { te.ping_hui = []; te.diao_hui = []; K.value.forEach(r => r.isSelected = false); ae() } }
- *
- *   // 行内：ElCheckbox `modelValue: row.isSelected` + `onUpdate:modelValue` + `onChange: t => Jl(row, t)`
- *   Jl = (row, checked) => { checked ? (吊脚 非空 ? push ping_hui : push diao_hui) : (从对应数组里 splice) }
- *
- * 三处**必须照抄**的语义，别顺手"改好"：
- *
- *  ① **表头全选的范围是「当前筛选结果」`no`，不是当前页** —— 旧版自己在 title 里都写明了。
- *     本页 `filteredRows` 就是 `no`（筛完但**没分页**，见那里的注释）⇒ 用它对。
- *  ② **取消全选清的是「全部行」`K`**（不是 `no`）—— 旧版那个分支直接 `K.value.forEach`。
- *     看着别扭，但结果就是「一取消全选，翻到哪页都没有勾」；用 `filteredRows` 会漏掉
- *     被筛掉的页上的勾。**照抄**。
- *  ③ 勾选**不影响**搜索/筛选/分页的任何一步（旧版 `isSelected` 从不参与 `no` 的计算）。
- */
-const allSelected = computed(
-  () => filteredRows.value.length > 0 && filteredRows.value.every((r) => r.isSelected),
-)
-
-/** 表头「全选/取消全选」（旧版 `$l`）。 */
-function toggleSelectAll(v: boolean) {
-  if (v) {
-    // 旧版只对 `isSelected` **有变化**的行调 `Jl`（勾选态得靠它同步进 te 数组）；
-    // 新版没有那个数组，这里只需设置标志，仍保留 `!r.isSelected` 的写法以对应原文。
-    for (const r of filteredRows.value) if (!r.isSelected) r.isSelected = true
-  } else {
-    for (const r of rows.value) r.isSelected = false
-  }
-}
-
-/**
- * 「批量更新」的入口（旧版 `ta`）—— 先过「有没有缺单号的行」那道闸，再开同一个弹窗。
- *
- * 旧版原文（逐字，提醒语的标点别改）：
- *   if ([...te.ping_hui, ...te.diao_hui].some(e => !e["单号"]))
- *     ElMessage.error("存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单")
- *   else { O = true（批量模式）; Y = null; S = true（loading）; …拉 GetProcedures…; W 复位; I = true }
- */
-function openBatchUpdate() {
-  if (selectedRows.value.some((r) => !r['单号'])) {
-    message.error('存在未生产的订单（缺少单号），不允许批量更新，请取消勾选未生产的订单')
-    return
-  }
-  // 批量模式：`updTarget` 留空（单行那套「未开始生产的单无法更新进度」的守卫也随之不生效 —— 旧版同理）
-  openUpdateDialog(null)
-}
+// ---------------------------------------------------------------------------
+// C2. 行勾选（`allSelected`/`toggleSelectAll`/`openBatchUpdate`，连段首横幅与那段
+//     旧版原文块注释）已归位到 `composables/progress/useProgressToolbar.ts`
+//     （Progress 拆分 **P7** 的第二段，REF `f097a9b1`:1599–1652）。
+//     ⚠️ 与上面 C 段**同住一个文件**是硬要求：`message`/`openUpdateDialog` 只在 C2 出现、
+//        `selectedRows`/`filteredRows` 只在 C 段出现 ⇒ 拆开两边各自 `TS2448`。
+// ---------------------------------------------------------------------------
 
 // ── C3. 打印（旧版 §4.5：工具条「打印选项」→ 抽屉里 12 类单据 → 预览弹窗）────
 /*
