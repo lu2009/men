@@ -353,7 +353,7 @@ const BLOCKS = [
      *   ⚠️ 它还被**重排**过：REF 里在横幅之后、`exporting` 之前，新文件里提到 deps 接口上方
      *   （它必须出工厂）—— 但**工厂体内的相对顺序与 REF 一字不差**。
      *
-     * ⚠️ **注入改写 = 6 条规则、命中 8 处**（`rows.value`×2 · `filteredRows.value`×3 ·
+     * ⚠️ **本块改写 = 6 条规则、命中 9 处**（`rows.value`×2 · `filteredRows.value`×3 ·
      *   `load()`×1 · `message.`×1 · `openUpdateDialog(null)`×1 · `type` 加 `export`×1）：
      *   · 规则一律**带边界**（核心文件头：朴素 `split/join`，裸名会顺手打到别的标识符上）——
      *     `load` 写成 `load()`、`openUpdateDialog` 写成带实参的 `openUpdateDialog(null)`。
