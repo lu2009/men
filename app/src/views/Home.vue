@@ -1406,7 +1406,8 @@ const tableHeight = 'calc(100vh - 300px)'
  *   `.input-style`（textarea 两列）= 额外 `font-size:16px` + `word-break:break-all; white-space:pre-wrap`
  *
  * ⚠️ 旧版那两条 `[data-v-…] .el-input__inner{…}` 是**全局**的（Home 里所有输入框都吃），
- *    这里只上到这两个类上 —— 见 `renderEditable`。差别只在别处的输入框（工具栏搜索框等）
+ *    这里只上到这两个类上 —— 见 `renderEditable`（声明已归位到 `composables/home/useHomeCellRender.ts`，
+ *    2026-09-20 随 B12 纯搬迁；本文件只留解构出来的同名绑定）。差别只在别处的输入框（工具栏搜索框等）
  *    有没有同样的无边框观感，属另一条线，不在本次审计条目里。
  */
 .input-style :deep(.n-input__textarea-el) {
@@ -1482,7 +1483,8 @@ const tableHeight = 'calc(100vh - 300px)'
  *   · 列名与按钮**竖排居中**（旧版列头容器 `Su`/`Wu` 是 `display:flex;flex-direction:column;align-items:center`）；
  *   · 选项是**整行可点**的（旧版 `width:100%;justifyContent:flex-start` 写在按钮 style 上）；
  *   · hover 底色（el-button 默认的 hover 背景）。
- * 选中态的 `color`/`fontWeight` 写在 `headerFilter` 的 style 里（逐项不同，不适合进 CSS）。
+ * 选中态的 `color`/`fontWeight` 写在 `headerFilter` 的 style 里（逐项不同，不适合进 CSS）
+ * —— `headerFilter` 的声明已归位到 `composables/home/useHomeCellRender.ts`（2026-09-20 随 B12 纯搬迁）。
  */
 .header-filter {
   display: flex;
