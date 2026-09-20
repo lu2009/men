@@ -496,7 +496,7 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
 // ---------------------------------------------------------------------------
 /*
  * B3/B4 —— 筛选链 + 分页（旧版 `no`/`io`）与列定义（`pe` + 列数组），**连段首两行横幅、
- * 那段 25 行的旧版 §4.1 链路注释、以及 `// ── B4. 列定义…`**，2026-09-20 起整段搬进
+ * 那段 23 行的旧版 §4.1 链路注释、以及 `// ── B4. 列定义…`**，2026-09-20 起整段搬进
  * `composables/progress/useProgressColumns.ts`（Progress 拆分 **P6**，纯搬迁、逐字未改）。
  *
  * ⚠️ **调用点没有留在这里**：它是下面 `useProgressColumns({…})` 那处（在 **P5 之后**）——

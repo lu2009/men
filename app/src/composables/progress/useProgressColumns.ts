@@ -13,7 +13,7 @@
  *
  * ⚠️ **本段里没有顶层非声明语句**（没有 `watch(` / `if(` 那一类）—— 实测 REF 1226–1373
  *   的顶层语句**全是那 4 个声明**（`filteredRows` 1250 · `pageRows` 1280 · `dateHeader` 1291 ·
- *   `columns` 1303）⇒ 不存在 P9 那种「切片器切不到、对它们恒恒绿」的盲区
+ *   `columns` 1303）⇒ 不存在 P9 那种「切片器切不到、对它们恒绿」的盲区
  *   （memory `split-guard-blind-spots` 第 4 类不适用）。量法：真 TS 解析器遍历
  *   `<script setup>` 的 `sf.statements`，逐条打 `SyntaxKind`。
  *
