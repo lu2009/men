@@ -1,0 +1,12 @@
+# 根 workspace：把后端与 Tauri 桌面壳收进一个 workspace，
+# 这样 `cargo fmt --all` / `cargo clippy --workspace` / `cargo test --workspace`
+# 在仓库根目录一条命令就能全量覆盖两个包，不用分别 cd。
+#
+# ⚠️ 两条要知道的后果：
+#   1. 锁文件只认**根目录**这一个 Cargo.lock；成员各自的 Cargo.lock 已随本次改动删除
+#      （原来 backend/Cargo.lock 与 app/src-tauri/Cargo.lock 是分开的两份）。
+#   2. `cd backend && cargo run` / `cargo test` 这类写法**仍然有效** ——
+#      cargo 按当前目录所在的成员包来定位（README 与 docs/ 里的命令不用改）。
+[workspace]
+resolver = "2"
+members = ["backend", "app/src-tauri"]

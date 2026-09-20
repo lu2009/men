@@ -14,8 +14,13 @@
  *      用 `resolveDecoders()` 按「必须恰好命中一张表」反推。
  */
 import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-export const ROOT = '/Users/aaa/Desktop/door-main'
+// 仓库根从**本文件位置**推出（本文件在 `docs/*/lib/` ⇒ 往上**三级**才是仓库根）。
+// 原来是写死的 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI 就直接崩。
+const HERE = dirname(fileURLToPath(import.meta.url))
+export const ROOT = resolve(HERE, '..', '..', '..')
 export const HUI = readFileSync(`${ROOT}/legacy/js/Hui.formatted.js`, 'utf8')
 
 /** 从 `open` 起做括号配平（认得字符串/模板串/注释/正则），返回**配对括号的下标**。 */

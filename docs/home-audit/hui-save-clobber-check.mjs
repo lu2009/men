@@ -14,8 +14,14 @@
  */
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/aaa/Desktop/door-main'
+// 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
+// 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
+// （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
 /**
  * Hui 界面上没有、但 Home 在写，因而**必须原样回传**的头字段。
  *
@@ -26,7 +32,11 @@ const ROOT = '/Users/aaa/Desktop/door-main'
 const KEYS = ['install_address', 'production_status', 'lock_direction']
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
-const DB = 'docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc'
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 const SQL = (q) => execSync(`${DB} ${JSON.stringify(q.replace(/\s+/g, ' '))}`).toString().trim().split('\n')[0].trim()
 
 const CODE = '__TMP_HUIWIPE__'

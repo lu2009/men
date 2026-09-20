@@ -51,6 +51,14 @@ const ROOT = resolve(HERE, '..')
 const ESBUILD = resolve(ROOT, 'app/node_modules/.bin/esbuild')
 const OUT = '/tmp/qrscanner-scan-new.mjs'
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+// （这几行必须在 `preflight()` 之前 —— 它在 197 行就被 await 了。）
+const DB_CONTAINER = process.env.DB_CONTAINER || 'smartdoor-db'
+const DB_USER = process.env.DB_USER || 'smartdoor'
+const DB_NAME = process.env.DB_NAME || 'smartdoor'
 
 let fails = 0
 const ok = (msg) => console.log(`  ✓ ${msg}`)
@@ -154,15 +162,15 @@ async function preflight() {
     process.exit(1)
   }
   try {
-    execFileSync('docker', ['exec', 'smartdoor-db', 'psql', '-U', 'smartdoor', '-d', 'smartdoor', '-tAc', 'select 1'], { encoding: 'utf8' })
+    execFileSync('docker', ['exec', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', DB_NAME, '-tAc', 'select 1'], { encoding: 'utf8' })
   } catch (e) {
-    console.error(`\n✗ 连不上 docker 里的 smartdoor-db（清理一次性数据要用）：${e.message}`)
+    console.error(`\n✗ 连不上 docker 里的 ${DB_CONTAINER}（清理一次性数据要用）：${e.message}`)
     process.exit(1)
   }
 }
 
 const psql = (sql) => {
-  const out = execFileSync('docker', ['exec', 'smartdoor-db', 'psql', '-U', 'smartdoor', '-d', 'smartdoor', '-tAc', sql], { encoding: 'utf8' })
+  const out = execFileSync('docker', ['exec', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', DB_NAME, '-tAc', sql], { encoding: 'utf8' })
   return out.trim()
 }
 

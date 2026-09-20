@@ -16,6 +16,11 @@
 import { execSync } from 'node:child_process'
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 const RUN = String(Date.now()).slice(-9)
 
 let pass = 0
@@ -117,7 +122,7 @@ try {
   if (createdIds.length) {
     const list = createdIds.join(',')
     execSync(
-      `docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc ${JSON.stringify(
+      `${DB} ${JSON.stringify(
         `DELETE FROM order_lines WHERE order_id IN (${list}); DELETE FROM orders WHERE id IN (${list});`,
       )}`,
     )

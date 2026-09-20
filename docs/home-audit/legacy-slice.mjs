@@ -13,8 +13,14 @@
  * 前置：`/tmp/home-map.json`（由 `legacy/decode-home-map.mjs` 生成）。
  */
 import { readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/aaa/Desktop/door-main'
+// 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
+// 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
+// （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
 export const MAP = JSON.parse(readFileSync('/tmp/home-map.json', 'utf8'))
 export const SRC = readFileSync(`${ROOT}/legacy/js/Home.formatted.js`, 'utf8')
 

@@ -17,11 +17,22 @@
  */
 import { createRequire } from 'node:module'
 import { readFileSync, writeFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/aaa/Desktop/door-main'
+// 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
+// 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
+// （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
 const req = createRequire(`${ROOT}/app/`)
 const { build } = req(`${ROOT}/app/node_modules/esbuild`)
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 
 /**
  * `buildOrderPrintContext` 在 `composables/useOrderPrint`、`createPrintPayloads` 在 `utils/printPayloads`，
@@ -283,7 +294,7 @@ try {
   if (createdIds.length) {
     const { execSync } = await import('node:child_process')
     const list = createdIds.join(',')
-    execSync(`docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc ${JSON.stringify(`DELETE FROM order_lines WHERE order_id IN (${list}); DELETE FROM orders WHERE id IN (${list});`)}`)
+    execSync(`${DB} ${JSON.stringify(`DELETE FROM order_lines WHERE order_id IN (${list}); DELETE FROM orders WHERE id IN (${list});`)}`)
     console.log('\n（一次性数据已清理）')
   }
 }

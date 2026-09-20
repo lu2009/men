@@ -15,14 +15,23 @@
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = '/Users/aaa/Desktop/door-main'
-const LEGACY_SVC = '/Users/aaa/Downloads/server/src/modules/finance/finance.service.ts'
+// 仓库根从**本文件位置**推出（本文件在 `docs/*/lib/` ⇒ 往上**三级**才是仓库根）。
+// 原来是写死的 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI 就直接崩。
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..', '..')
+// 旧版**服务端**源码在仓库外（用户本机 `/Users/aaa/Downloads/server`）—— 这是本仓库唯一
+// 一处「跑台子需要仓库外文件」的依赖，CI 上不存在。路径可用 `LEGACY_SERVER_SRC` 覆盖，
+// 将来若把那几个 `.ts` 收进仓库（或 CI 里挂上去），把变量指过来即可，这边不用再改。
+// 注意：本模块**顶层就读** `finance.service.ts` ⇒ 文件不在时 import 就抛 ENOENT。
+const LEGACY_SERVER = process.env.LEGACY_SERVER_SRC || '/Users/aaa/Downloads/server/src'
+const LEGACY_SVC = `${LEGACY_SERVER}/modules/finance/finance.service.ts`
 export const SVC_SRC = readFileSync(LEGACY_SVC, 'utf8')
 
 /** 别的旧服务端源文件（要切别的模块时用它，见 `sliceFnFrom`）。 */
-export const legacySrc = (rel) =>
-  readFileSync(`/Users/aaa/Downloads/server/src/${rel}`, 'utf8')
+export const legacySrc = (rel) => readFileSync(`${LEGACY_SERVER}/${rel}`, 'utf8')
 
 /**
  * 花括号配平切出**任意源文件**里 `name` 的完整定义。

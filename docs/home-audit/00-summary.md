@@ -310,7 +310,9 @@ CSS 差分台）；验收脚本 `docs/home-audit/hui-extract-movecheck.mjs`（�
 - **主会话逐条自验**：抽读了约 20 条的代码路径（含最反直觉的那几条），
   另对所有 67 条改动做了**引用冒烟检查**（`文件:行号` 是否真实存在、行号是否越界）+ 对
   ❌→✅ 那批抽查了被引符号是否真的在代码里。
-- **验收跑全套**：`node docs/home-audit/run-all.mjs` —— 29 个台子一次跑完（27 通过、2 个需独立后端）。
+- **验收跑全套**：仓库根 `npm run verify` —— 它把 fmt / 前端构建 / clippy / cargo test /
+  建库起后端 / 29 个差分台串成一条命令（单独跑台子仍是 `node docs/home-audit/run-all.mjs`：
+  29 个台子一次跑完，27 通过、2 个需独立后端）。
   加这个入口是因为**当天真的栽了一次**：提交「总余额显示」时只跑了 build + Hui 那几个台子，
   同一笔给 `loadPrintPrereqs` 返回值加的 `totalBalances` 把 `print-lineno-check.mjs` 的**手写桩**打崩，
   一天后才发现。`npm run build` / `vue-tsc` 都抓不到「台子夹具过时」。

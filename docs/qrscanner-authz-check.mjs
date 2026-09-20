@@ -20,6 +20,13 @@ const ADMIN = { username: process.env.ADMIN_USER || 'admin', password: process.e
 const SUFFIX = process.env.SUFFIX || '验收工';
 const PW = 'Scanner@12345';
 const NEW_PW = 'Scanner@54321';
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB_CONTAINER = process.env.DB_CONTAINER || 'smartdoor-db';
+const DB_USER = process.env.DB_USER || 'smartdoor';
+const DB_NAME = process.env.DB_NAME || 'smartdoor';
 
 let pass = 0;
 const failures = [];
@@ -225,7 +232,7 @@ async function makeSecondTenant() {
 function psql(sql) {
   const out = execFileSync(
     'docker',
-    ['exec', 'smartdoor-db', 'psql', '-U', 'smartdoor', '-d', 'smartdoor', '-t', '-A', '-c', sql],
+    ['exec', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', DB_NAME, '-t', '-A', '-c', sql],
     { encoding: 'utf8' },
   );
   // psql 会把命令标签（`INSERT 0 1`）也打到 stdout，滤掉，只留真正的返回值

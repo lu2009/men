@@ -22,7 +22,11 @@ import { execSync } from 'node:child_process'
 import { legacySrc, runLegacyFns } from '../legacy-finance/lib/run-legacy-fn.mjs'
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
-const DB = 'docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc'
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 const SQL = (q) => execSync(`${DB} ${JSON.stringify(q.replace(/\s+/g, ' '))}`).toString().trim()
 
 const LINE_SRC = legacySrc('modules/order/line-number.service.ts')

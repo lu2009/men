@@ -17,7 +17,10 @@
 
 ```
 door-main/
-├── backend/          # Rust axum API 服务
+├── Cargo.toml        # cargo workspace 根（成员见下）—— 全仓库只有根目录这一个 Cargo.lock
+├── package.json      # 只有一条跨栈命令：npm run verify
+├── scripts/verify.mjs# 统一验证入口（见「验证」一节）
+├── backend/          # Rust axum API 服务（workspace 成员）
 │   ├── src/main.rs   # 入口
 │   ├── src/app.rs    # 路由组装
 │   ├── src/core/     # 横切：config/db/error/response/auth/guard（角色授权）
@@ -25,11 +28,15 @@ door-main/
 │   └── migrations/   # sqlx 迁移（启动时自动执行）
 ├── app/              # Vue 3 + TS 前端
 │   ├── src/          # 前端源码
-│   └── src-tauri/    # Tauri 2 桌面壳
+│   └── src-tauri/    # Tauri 2 桌面壳（workspace 成员）
 ├── legacy/           # 旧版编译产物（业务参考）
 ├── compose.yaml      # PostgreSQL 容器
-└── docs/             # 设计文档
+└── docs/             # 设计文档（验证相关见 docs/verification.md）
 ```
+
+> `backend` 与 `app/src-tauri` 在同一个 cargo workspace 里：`cargo fmt --all` /
+> `cargo clippy --workspace` / `cargo test --workspace` 在**仓库根**一条命令覆盖两个包。
+> 下面那些 `cd backend && cargo …` 的写法**照样有效** —— cargo 按当前目录所在的成员包定位。
 
 ## 快速开始
 
@@ -74,6 +81,24 @@ npm run tauri dev
 | 用户名 | `admin` |
 | 密码 | `Admin@12345`（请登录后修改） |
 | 租户 | `默认门窗厂` |
+
+## 验证
+
+```bash
+npm run verify          # 全套：fmt → 前端类型检查+生产构建 → clippy → cargo test → 29 个差分台
+```
+
+一条命令跑完**所有**检查，CI（`.github/workflows/ci.yml`）跑的就是它。
+以前这些散在五六个地方、各跑各的，于是「验收只跑了记得的那几个」，`print-lineno-check.mjs`
+的手写桩坏了一天才被发现 ⇒ 现在验收 = **跑全套**，不是「跑我记得的那几个」。
+
+它**不碰**你正在跑的那套：自带一次性数据库 `smartdoor_verify` 与端口 `3100`，
+只 `kill` 自己起的进程、只 `docker compose up -d db`（**从不 `compose down`**，那会连
+`pgdata` 卷一起删）。跑完把那个库删掉。
+
+⚠️ `verify` **不等于全绿**：有几个台子要有仓库外的旧版服务端源码、或要有业务配置才能跑，
+它们会被显式列成「**未运行**」（未运行 ≠ 通过）。**完整说明、环境变量、已知未覆盖与
+已知红清单：`docs/verification.md`。**
 
 ## 环境变量
 

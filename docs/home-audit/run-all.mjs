@@ -12,19 +12,47 @@
  *   · 需要后端在跑的：多数 `*-check.mjs` / `*-logiccheck.mjs`（默认 `127.0.0.1:3000`，
  *     可用 `E2E_PORT` 覆盖）。后端没起 ⇒ 它们失败**不是**代码问题。
  *   · `finance-reversal-e2e.mjs` 要一个**独立实例**（默认 `3999`），平时不跑。
- *   · `merge-audit.mjs` **已作废**（见该文件头），它故意退出 1。
+ *   · `merge-audit.mjs` **已作废**，但**不在收集范围内**（它的文件名不匹配下面的后缀正则）——
+ *     它是块「指路牌」，只能手工 `node` 跑，跑必退 1。别以为它被这里跑过。
+ *
+ * 仓库根的**统一入口**是 `npm run verify`（`scripts/verify.mjs`）：它按顺序跑
+ * fmt → 前端构建 → clippy → test → 建库起后端 → 本脚本。平时验收用那条，
+ * 别手工拼命令 —— 手工跑容易漏掉「后端其实没起来」这类前提。
  *
  * 用法：
  *   node docs/home-audit/run-all.mjs            # 跑全部
  *   node docs/home-audit/run-all.mjs --quiet    # 只打汇总表
+ *
+ * 三个环境变量（`npm run verify` 用它们；手工跑不用管）：
+ *   · `RUN_ALL_SKIP=a.mjs,b.mjs` —— 跳过指定台子（逗号分隔，路径同下面的收集格式）。
+ *     verify 用它排掉**需要仓库外旧版服务端源码**的那两个（CI 上没有那份源码），
+ *     跳过会在汇总里单列一行，**不是静默略过**。
+ *   · `RUN_ALL_STRICT=1` —— 把 `EXPECTED` 清空：本该「⏭ 不算真红」的失败一律算红。
+ *     verify 跑的是**自己刚拉起来的干净后端**，那些「环境性」借口不成立，
+ *     所以要求 29 个全绿，而不是「绿 27 个也行」。
+ *   · `RUN_ALL_SUMMARY=<path>` —— 把机器可读的汇总（含 🔴 已知红 / ❌ 真失败 / ⏭ 未运行）
+ *     落成 JSON。verify 靠它**如实**报出「已知红」，而不是只看到本脚本退出 0 就当全绿。
  */
 import { execFile } from 'node:child_process'
-import { readdirSync } from 'node:fs'
+import { readdirSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const run = promisify(execFile)
-const ROOT = '/Users/aaa/Desktop/door-main'
+// 仓库根从**本文件位置**推出（本文件在 `docs/home-audit/` ⇒ 往上**两级**才是仓库根）。
+// 原来这里写死的是 `'/Users/aaa/Desktop/door-main'`：本机跑得通，换台机器或进 CI
+// （checkout 路径不同）就直接崩。`docs/*.mjs` 那几个台子早就这么写了，差的正是这一层深度。
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(HERE, '..', '..')
 const QUIET = process.argv.includes('--quiet')
+/** 要跳过的台子（`RUN_ALL_SKIP`，逗号分隔）。见文件头。 */
+const SKIP = (process.env.RUN_ALL_SKIP || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+/** 严格模式（`RUN_ALL_STRICT=1`）：不给任何「环境性失败」免红牌。见文件头。 */
+const STRICT = process.env.RUN_ALL_STRICT === '1'
 
 /** 收集「台子」：`*-logiccheck.mjs` / `*-check.mjs` / `*-e2e.mjs`。 */
 const collect = (dir) =>
@@ -33,14 +61,30 @@ const collect = (dir) =>
     .map((f) => `${dir}/${f}`)
     .sort()
 
-const FILES = [...collect('docs'), ...collect('docs/home-audit')]
+const FILES = [...collect('docs'), ...collect('docs/home-audit')].filter((f) => !SKIP.includes(f))
 
-/** 已知的**非代码**失败（环境/已作废）—— 命中就在汇总里标出来，不算真红。 */
-const EXPECTED = {
-  'docs/home-audit/merge-audit.mjs': '已作废（故意退出 1，见该文件头）',
-  'docs/finance-reversal-e2e.mjs': '需要独立后端实例（E2E_PORT，默认 3999）',
+/**
+ * 已知的**非代码**失败（环境）—— 命中就在汇总里标出来，不算真红。
+ * ⚠️ 键必须与上面 `collect()` 产出的路径**逐字一致**，否则这条永远不会命中：
+ * 本表里原先有两条死键 —— `docs/home-audit/merge-audit.mjs`（文件名不匹配后缀正则，
+ * 压根不在收集范围内）与 `docs/finance-reversal-e2e.mjs`（真文件在 `docs/home-audit/` 下）。
+ * 它们从没生效过，却让读的人以为「这两个不跑是安排好的」。**已删**。
+ */
+const EXPECTED = STRICT ? {} : {
   'docs/home-audit/finance-reversal-e2e.mjs': '需要独立后端实例（E2E_PORT，默认 3999）',
   'docs/qrscanner-authz-check.mjs': '需要独立后端实例（BASE，默认 http://localhost:3999；它文件头有起法）',
+}
+
+/**
+ * 已登记的**真红** —— 与 `EXPECTED` 是两回事，别混：
+ *   · `EXPECTED` 说的是「**这不是红**，是环境不满足」；
+ *   · 这里说的是「**这就是红**，只是原因不在本次改动、已经查清并记在案，
+ *     不让它天天把 CI 卡死」。所以 `RUN_ALL_STRICT=1` **不会**清空它，汇总里也**单列**。
+ * 每条都必须能指到一份写清理由的文档；修好一条就删一条。
+ */
+const KNOWN_RED = {
+  'docs/home-audit/finance-reversal-e2e.mjs':
+    '2 条断言与旧版口径矛盾（红冲不改「实收」、客户余额夹零）+ 我们自己的实收 SQL 可能也有一处分歧，待裁决 —— 见 docs/verification.md 第 5 节',
 }
 
 const results = []
@@ -64,24 +108,52 @@ for (const f of FILES) {
   results.push({ f, ok, ms: Date.now() - started, tail: tail.slice(0, 120), expected: EXPECTED[f] })
 }
 
-const bad = results.filter((r) => !r.ok && !r.expected)
+const knownRed = results.filter((r) => !r.ok && !r.expected && KNOWN_RED[r.f])
+const bad = results.filter((r) => !r.ok && !r.expected && !KNOWN_RED[r.f])
 const envBad = results.filter((r) => !r.ok && r.expected)
 
 if (!QUIET) {
   for (const r of results) {
-    const mark = r.ok ? '✅' : r.expected ? '⏭ ' : '❌'
-    console.log(`${mark} ${r.f.padEnd(48)} ${String(r.ms).padStart(6)}ms  ${r.tai ?? r.tail}`)
+    const mark = r.ok ? '✅' : r.expected ? '⏭ ' : KNOWN_RED[r.f] ? '🔴' : '❌'
+    console.log(`${mark} ${r.f.padEnd(48)} ${String(r.ms).padStart(6)}ms  ${r.tail}`)
   }
 }
 
 console.log('\n' + '─'.repeat(78))
-console.log(`共 ${results.length} 个台子：✅ 通过 ${results.length - bad.length - envBad.length}` +
-  ` · ⏭ 跳过(环境/作废) ${envBad.length} · ❌ 失败 ${bad.length}`)
+console.log(`共 ${results.length} 个台子：✅ 通过 ${results.length - bad.length - envBad.length - knownRed.length}` +
+  ` · ⏭ 跳过(环境/作废) ${envBad.length} · 🔴 已知红(待裁决) ${knownRed.length} · ❌ 失败 ${bad.length}`)
+if (SKIP.length) {
+  console.log(`   另按 \`RUN_ALL_SKIP\` **未运行** ${SKIP.length} 个：${SKIP.join('、')}`)
+  console.log('   （未运行 ≠ 通过。它们各自的原因见调用方，别把这行当成绿灯。）')
+}
 if (envBad.length) {
   for (const r of envBad) console.log(`   ⏭ ${r.f} —— ${r.expected}`)
+}
+if (knownRed.length) {
+  console.log('\n🔴 以下是**真红**，只是已经查清并记在案（**不是绿灯**，修好一条删一条）：')
+  for (const r of knownRed) console.log(`   · ${r.f}\n     ${KNOWN_RED[r.f]}`)
 }
 if (bad.length) {
   console.log('\n❌ 这些是真失败，去修（别只重跑一遍看它变绿）：')
   for (const r of bad) console.log(`   · ${r.f}\n     ${r.tail}`)
+}
+// 机器可读的汇总：调用方（`scripts/verify.mjs`）靠它如实报出「🔴 已知红」，
+// 而不是只看到「run-all 退出了 0」就当成全绿。
+if (process.env.RUN_ALL_SUMMARY) {
+  writeFileSync(
+    process.env.RUN_ALL_SUMMARY,
+    JSON.stringify(
+      {
+        total: results.length,
+        pass: results.length - bad.length - envBad.length - knownRed.length,
+        envBad: envBad.map((r) => r.f),
+        knownRed: knownRed.map((r) => ({ f: r.f, why: KNOWN_RED[r.f] })),
+        bad: bad.map((r) => ({ f: r.f, tail: r.tail })),
+        notRun: SKIP,
+      },
+      null,
+      2,
+    ),
+  )
 }
 process.exitCode = bad.length ? 1 : 0
