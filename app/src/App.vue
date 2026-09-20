@@ -8,7 +8,7 @@
     中文包才是「请输入」。财务面板里一堆金额框都吃这个。
   -->
   <n-config-provider
-    :theme-overrides="themeOverrides"
+    :theme-overrides="appThemeOverrides"
     :locale="zhCN"
     :date-locale="dateZhCN"
   >
@@ -26,8 +26,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { dateZhCN, zhCN, type GlobalThemeOverrides } from 'naive-ui'
+import { dateZhCN, zhCN } from 'naive-ui'
 import AppHeader from './components/AppHeader.vue'
+import { appThemeOverrides } from './styles/naive-theme'
 
 const route = useRoute()
 /**
@@ -39,21 +40,12 @@ const route = useRoute()
 const HEADER_ROUTES = new Set(['home', 'hui', 'progress', 'qrscanner', 'formulas', 'clients'])
 const showHeader = computed(() => HEADER_ROUTES.has(String(route.name ?? '')))
 
-// 主色沿用**旧版**的 #409eff（新版不用旧版那个名字）。
-const themeOverrides: GlobalThemeOverrides = {
-  common: {
-    primaryColor: '#409eff',
-    primaryColorHover: '#66b1ff',
-    primaryColorPressed: '#337ecc',
-    primaryColorSuppl: '#66b1ff',
-  },
-}
 </script>
 
 <style>
 /* 全局标题栏高度 —— 页面里的 `calc(100vh - var(--app-header-h))` 靠它。
    ⚠️ scoped 样式设不了 :root，所以放在这里（无 scoped）。 */
 :root {
-  --app-header-h: 60px;
+  --app-header-h: var(--sd-shell-header-height);
 }
 </style>
