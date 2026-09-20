@@ -1,6 +1,7 @@
 /*
  * 「生产进度」格 `va()` 的**逐字差分台**：同一批夹具，左边跑**旧版真代码**，右边跑**新版真代码**
- * （直接从 `app/src/views/Progress.vue` 里切出来 + esbuild 剥类型），逐字节比输出。
+ * （从 `utils/progressCells.ts` + `composables/progress/useProgressColors.ts` 两处切出来 +
+ * esbuild 剥类型），逐字节比输出。
  *
  * 为什么值得单独盯：`va()` 的输出是**含内联样式的 HTML 串**，错了既不报错也不崩 ——
  * 只是「当前工序」标红的位置不对（标到上一道工序 / 标了半截 / 全红），
@@ -10,10 +11,10 @@
  *   先按文档给的命令解混淆（`legacy/decode-progress-scoped.mjs`），缓存到 `/tmp`。
  * 右边（新版）：`const RED_STYLE` 到 `// ── A2.` 之间的整段。
  *   ⚠️ **2026-09-20 起这一段不在 `Progress.vue` 了** —— P1（单元格保真）已搬到
- *   `app/src/utils/progressCells.ts`（Progress 拆分第一块，纯搬迁、逐字未改）。
- *   ⇒ 本台子的「新版侧」改从这个新文件切；**断言与夹具一个字没动**（只换了源路径）。
- *   颜色那一半（`// ── B1.` 之前）**仍留在** `Progress.vue` ⇒ 第二段切片**跨两个文件**，
- *   见下面 `NEW_ALL_TS` 的拼法。
+ *   `app/src/utils/progressCells.ts`，P2（颜色口径）已搬到
+ *   `app/src/composables/progress/useProgressColors.ts`（Progress 拆分前两块，纯搬迁）。
+ *   ⇒ 本台子的「新版侧」改从这两个新文件切；**断言与夹具一个字没动**（只换了源路径 +
+ *   下面 `deps` 那个形参，理由见 `NEW_ALL_TS` 上方）。
  *
  * ⚠️ **已知且有意的一处不同**：新版把非红色部分做了 **HTML 转义**（旧版裸 `innerHTML`）。
  *    所以夹具里一律不放 `<`/`>`/`&`，两边应当**逐字节相等**；
@@ -32,7 +33,6 @@ const ROOT = resolve(HERE, '..')
 const BUNDLE = resolve(ROOT, 'legacy/js/Progress-f4bdef35.js')
 const MAP = '/tmp/progress.map.json'
 const DECODED = '/tmp/progress.decoded.js'
-const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
 
 // ---------------------------------------------------------------- 旧版侧 //
 if (!existsSync(DECODED) || !existsSync(MAP)) {
@@ -62,11 +62,12 @@ const legacyVa = new Function('f', `const ${LEGACY_SRC}; return va`)(() => {
 })
 
 // ---------------------------------------------------------------- 新版侧 //
-const vue = readFileSync(VUE, 'utf8')
 /*
  * ⚠️ **2026-09-20：`va` 那一整段搬去了 `app/src/utils/progressCells.ts`**（Progress 拆分 P1）。
  *    这里**只换源路径，不动任何断言/夹具** —— 本项目对「台子被搬迁绊红」的既定处置就是
  *    「**加源，不改夹具**」（先例：B1 搬迁绊红 `docs/roles-admin-logiccheck.mjs`）。
+ *    同一笔处置在下面 `NEW_ALL_TS` 处对 P2（颜色口径）再来一次。
+ *    ⚠️ 因此本文件**不再读 `Progress.vue`** —— 它原来只被「颜色段终点」那一个锚点用到。
  */
 const CELLS = resolve(ROOT, 'app/src/utils/progressCells.ts')
 const cells = readFileSync(CELLS, 'utf8')
@@ -237,18 +238,28 @@ function makeLegacyColor(colorMap, orderList) {
 }
 
 /*
- * 新版侧：从 `RED_STYLE` 一直切到「B1」之前（含 A1 `va` + A2 格件 + 颜色整段）。
+ * 新版侧：从 `RED_STYLE` 一直切到颜色段结束（含 A1 `va` + A2 格件 + 颜色整段）。
  *
- * ⚠️ **这一段现在跨两个文件**（2026-09-20 P1 搬迁）：格件那半在 `progressCells.ts`，
- *    颜色口径那半仍在 `Progress.vue`。**两段的代码一个字没动**，只是把两次 `slice` 拼起来 ——
- *    拼缝落在 `amountCell` 与颜色段之间，那里的空白/注释对 `esbuild` 的输出零影响。
+ * ⚠️ **这一段现在跨两个文件**（2026-09-20 P1 搬格件、P2 搬颜色）：格件那半在
+ *    `progressCells.ts`，颜色口径那半在 `useProgressColors.ts`。**两段的代码一个字没动**，
+ *    只是把两次 `slice` 拼起来 —— 拼缝落在 `amountCell` 与颜色段之间，
+ *    那里的空白/注释对 `esbuild` 的输出零影响。
  *    ⚠️ 别把这两半的顺序颠倒：`NEW_ALL_JS` 里先格件后颜色，与搬迁前的顺序一致。
+ *
+ * ⚠️ **两个拼缝锚点都在 P2 搬走时换过一次源**（原来都切在 `Progress.vue` 的颜色段上：
+ *    起点 = `UNPRODUCED_KEY`，终点 = 下一段的 `// ── B1.`）。现在两个都落在
+ *    `useProgressColors.ts` 里，**终点换成工厂的 `return {`** —— 颜色段的下一个东西就是它
+ *    （`// ── B1.` 那一行留在 `Progress.vue`，已经和新版侧无关了）。
+ *    **只换源路径，断言与夹具一个字没动。**
  */
-const NEW_END2 = vue.indexOf('// ── B1.')
-if (NEW_END2 < 0) throw new Error('新版 Progress.vue 的 `── B1.` 锚点变了')
-const COLOR_START = vue.indexOf("const UNPRODUCED_KEY = '__unproduced__'")
-if (COLOR_START < 0) throw new Error('新版 Progress.vue 的颜色段起点锚点变了（`UNPRODUCED_KEY`）')
-const NEW_ALL_TS = `${cells.slice(NEW_START)}\n${vue.slice(COLOR_START, NEW_END2)}`
+const COLORS = resolve(ROOT, 'app/src/composables/progress/useProgressColors.ts')
+const colors = readFileSync(COLORS, 'utf8')
+const COLOR_START = colors.indexOf("const UNPRODUCED_KEY = '__unproduced__'")
+if (COLOR_START < 0) throw new Error('useProgressColors.ts 的颜色段起点锚点变了（`UNPRODUCED_KEY`）')
+// ⚠️ 这个 `  return {` 全文件**唯一**（`if (!s) return {…}` 那种前面只有一格空格，命中不了）。
+const COLOR_END = colors.indexOf('  return {')
+if (COLOR_END < COLOR_START) throw new Error('useProgressColors.ts 的颜色段终点锚点变了（工厂的 `return {`）')
+const NEW_ALL_TS = `${cells.slice(NEW_START)}\n${colors.slice(COLOR_START, COLOR_END)}`
 const NEW_ALL_JS = esbuild.transformSync(NEW_ALL_TS, { loader: 'ts', format: 'cjs' }).code
 
 const { computed, h, ref } = require('vue')
@@ -263,16 +274,25 @@ const makeNewColor = (slots) => {
    *    搬走之前那段在 `Progress.vue` 里、**没有 export** ⇒ 不需要这两个形参。
    *    与上面 `newVa` 那处（`new Function('module','exports', …)`）同一处置，**不是新写法**。
    *    ⚠️ 形参加在**最前面**，实参顺序跟着对齐；`return { … }` 拿的仍是那几个页面级名字。
+   *
+   * ⚠️ **`procedures` → `deps` 是 P2 搬迁（2026-09-20）带来的，同理不是凑数**：
+   *    颜色段现在缩在 `useProgressColors(deps)` 工厂里，段内那 3 处注入改写把
+   *    `procedures.value` 换成了 `deps.procedures.value` ⇒ 新侧必须给一个 `deps`。
+   *    **夹具与断言一个字没动**（`SLOTS`/`NAME`/`COLOR` 那几张表、以及每条比对都原样）：
+   *    换的只是「把 `procedures` 塞进运行环境」这一层接线。
+   *    这一段照旧**不加任何文本改写**（不像 `progress-extract-movecheck.mjs` 那样把
+   *    `deps.` 抹回去）—— 跑的就是仓库里逐字的那份代码，省得台子里藏一层变换。
    */
+  const deps = { procedures }
   return new Function(
     'module',
     'exports',
     'h',
     'computed',
     'ref',
-    'procedures',
+    'deps',
     `${NEW_ALL_JS}; return { colorKeyOf, progressCellStyle, resolveConfiguredColor, orderedProcedureNames, colorFilterOptions }`,
-  )({ exports: {} }, {}, h, computed, ref, procedures)
+  )({ exports: {} }, {}, h, computed, ref, deps)
 }
 
 // ---- 夹具：15 个槽，一部分配了名字 + 颜色 ----

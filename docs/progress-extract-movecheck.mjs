@@ -165,6 +165,56 @@ const BLOCKS = [
       amountCell: [{ from: 'const amountCell = ', to: 'export const amountCell = ' }],
     },
   },
+  {
+    /*
+     * **P2「颜色口径」**（→ `app/src/composables/progress/useProgressColors.ts`）。
+     *
+     * 快照 `Progress.vue:828-997`（连续一段，170 行），**14 个声明**：
+     *   5 个 `function`（`latestSegment` `resolveConfiguredColor` `colorKeyOf` `rawColorOf`
+     *   `progressCellStyle`）+ 9 个 `const`（`UNPRODUCED_KEY` `normColor` `EMPTY_COLOR`
+     *   `BUILTIN_COLORS` `nameColorMap` `slotNo` `orderedProcedureNames` `cellPad`
+     *   `colorFilterOptions`）。
+     *
+     * ⚠️ **区间两端各易错一行**（方案原本写的是 `829-998`）：
+     *    828-830 是**本段自己的**段首横幅（`// B. 颜色口径…`）⇒ **跟块走**；
+     *    998-1000 是**下一段**（`// B. 列头交互`）的横幅 ⇒ **留在原地**。
+     *    复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '826,830p'`（末三行 = 本段横幅）、
+     *          `… | sed -n '996,1000p'`（末三行 = 下一段横幅）。
+     *    ⚠️ 这条**没有任何闸能抓** —— `sliceFn` 从**声明**起切，横幅/注释根本不进切片
+     *      （文件头「能力边界 1」）。所以它只有 `git diff` 逐字节核一条来源。
+     *
+     * ⚠️ **本块是本守卫第一条 `composables/` 块**：与 P1（纯模块）不同，这段要读**页面状态**
+     *    ⇒ 拆成工厂 `useProgressColors(deps)`，声明**缩在工厂里**（与 Home/Hui 已经这么搬过的
+     *    那批工厂块同一形状 —— 那批的名单由 `docs/home-audit/home-extract-movecheck.mjs` 与
+     *    `hui-extract-movecheck.mjs` 的 `BLOCKS` 定义，这里不逐一点名：点名和 glob 一样会漂）。
+     *    ⚠️ 因此**本块一条 `export` 改写都没有**（函数体内写 `export` 是 `TS1184`），
+     *      14 个声明全部由工厂 `return` 借出 —— 「加 `export`」是 P1 独有的那类改写。
+     *      `sliceFn` 的起点正则本来就允许行首缩进，所以缩进不影响逐字比对。
+     *
+     * ⚠️ **注入改写只有一条**：`procedures.value` → `deps.procedures.value`，而且**只发给真的
+     *    含它的那 3 个**（`nameColorMap` / `orderedProcedureNames` / `colorFilterOptions`，
+     *    段内共 3 处）。其余 11 个**不能**挂这条规则 —— `applyRewrites` 的 `from` 找不到会**抛**
+     *    （白送的检查，但代价是那条名字直接判红）。
+     *    ⚠️ 边界已核对：段内不存在别的 `…procedures.value` 形状会被朴素 `split/join` 误伤
+     *      （`orderedProcedureNames.value` / `nameColorMap.value` 里都**不含** `procedures.value`
+     *      这个子串 —— 差在 `Names` / `Map` 那段）。
+     *
+     * 登记前按文件头「能力边界 3」做过那条**必做验法**：把本块某个多行声明的**第二行**改一下
+     * → 本脚本报红并定位到第 2 行 → 还原。实得：多行的 `nameColorMap` 报 `L2`、单行的
+     * `EMPTY_COLOR` 报 `L1`、漏做注入改写时 `colorFilterOptions` 报 `L13`（三组都不是假绿）。
+     */
+    target: 'app/src/composables/progress/useProgressColors.ts',
+    names: ['latestSegment', 'resolveConfiguredColor', 'colorKeyOf', 'rawColorOf', 'progressCellStyle'],
+    consts: [
+      'UNPRODUCED_KEY', 'normColor', 'EMPTY_COLOR', 'BUILTIN_COLORS', 'nameColorMap', 'slotNo',
+      'orderedProcedureNames', 'cellPad', 'colorFilterOptions',
+    ],
+    rewrites: {
+      nameColorMap: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
+      orderedProcedureNames: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
+      colorFilterOptions: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
+    },
+  },
 ]
 
 /**
