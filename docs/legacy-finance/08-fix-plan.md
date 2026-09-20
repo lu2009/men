@@ -196,6 +196,15 @@ return { paymentId, allocatedTotal, prepaidDelta: 0 };                // svc:359
 
 ## 验收（硬门槛）
 
+> **2026-09-20 起，05/06/07/09 四台已经收进统一入口** —— 在仓库根跑一条
+> `npm run verify` 就会连库带端口一起指过来跑（33 个台子全跑全绿）。
+> 用那个，别再手工拼下面这几条命令：手工拼容易漏掉「后端到底起没起」，
+> 而且它们默认连的是**开发库**（会往真库里写 `__TMP%` 一次性数据再清掉）。
+> `08-verify-live.mjs` **仍在统一入口之外**（只读、要真实数据 + 人工传客户编号，
+> 空库上会假绿），只能手工跑 —— 理由见 `docs/verification.md` 第 4 节。
+
+<details><summary>手工跑的老办法（留着备用）</summary>
+
 ```bash
 cd backend && cargo build
 DATABASE_URL=postgres://smartdoor:smartdoor@localhost:5432/smartdoor PORT=3999 \
@@ -207,5 +216,7 @@ node docs/legacy-finance/09-diff-orderpay.mjs   # 本单收款+预付优惠：�
 node docs/legacy-finance/08-verify-live.mjs     # 真实数据（只读）：应全绿
 cd app && npm run build && npx vue-tsc --noEmit
 ```
+
+</details>
 
 ⚠️ 差分台的**夹具**若与改动后的口径不符，改夹具要**说明理由**，不许为了让测试变绿而改。

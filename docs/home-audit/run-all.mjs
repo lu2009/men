@@ -12,8 +12,13 @@
  *   · 需要后端在跑的：多数 `*-check.mjs` / `*-logiccheck.mjs`（默认 `127.0.0.1:3000`，
  *     可用 `E2E_PORT` 覆盖）。后端没起 ⇒ 它们失败**不是**代码问题。
  *   · `finance-reversal-e2e.mjs` 要一个**独立实例**（默认 `3999`），平时不跑。
+ *   · `docs/legacy-finance/0{5,6,7,9}-*.mjs`（四台财务差分台）同上，默认也是 `3999`，
+ *     并且**还要仓库外**的旧版服务端源码（`lib/run-legacy-fn.mjs` 顶层就读那个 `.ts`）。
+ *     2026-09-20 起它们收进了收集范围；在此之前它们散在统一入口之外，长期没人跑。
  *   · `merge-audit.mjs` **已作废**，但**不在收集范围内**（它的文件名不匹配下面的后缀正则）——
  *     它是块「指路牌」，只能手工 `node` 跑，跑必退 1。别以为它被这里跑过。
+ *   · `docs/legacy-finance/08-verify-live.mjs` **故意不收**（它要真实数据、还要人工传客户
+ *     编号；空库上两边都算 0 ⇒ 必然「绿」= **假绿**）。见下面 `MANUAL`。
  *
  * 仓库根的**统一入口**是 `npm run verify`（`scripts/verify.mjs`）：它按顺序跑
  * fmt → 前端构建 → clippy → test → 建库起后端 → 本脚本。平时验收用那条，
@@ -29,7 +34,7 @@
  *     跳过会在汇总里单列一行，**不是静默略过**。
  *   · `RUN_ALL_STRICT=1` —— 把 `EXPECTED` 清空：本该「⏭ 不算真红」的失败一律算红。
  *     verify 跑的是**自己刚拉起来的干净后端**，那些「环境性」借口不成立，
- *     所以要求 29 个全绿，而不是「绿 27 个也行」。
+ *     所以要求 33 个全绿，而不是「绿 27 个也行」。
  *   · `RUN_ALL_SUMMARY=<path>` —— 把机器可读的汇总（含 🔴 已知红 / ❌ 真失败 / ⏭ 未运行）
  *     落成 JSON。verify 靠它**如实**报出「已知红」，而不是只看到本脚本退出 0 就当全绿。
  */
@@ -54,14 +59,32 @@ const SKIP = (process.env.RUN_ALL_SKIP || '')
 /** 严格模式（`RUN_ALL_STRICT=1`）：不给任何「环境性失败」免红牌。见文件头。 */
 const STRICT = process.env.RUN_ALL_STRICT === '1'
 
-/** 收集「台子」：`*-logiccheck.mjs` / `*-check.mjs` / `*-e2e.mjs`。 */
-const collect = (dir) =>
+/**
+ * 收集「台子」。**只扫目录第一层，不递归**（`lib/` 里的共用件不是台子）。
+ * 两套命名各有各的正则：
+ *   · `docs/` 与 `docs/home-audit/`：`*-logiccheck.mjs` / `*-check.mjs` / `*-e2e.mjs`
+ *   · `docs/legacy-finance/`：`05-diff-alloc.mjs` 这种 `0N-*.mjs`（2026-09-20 收进来的）
+ */
+const collect = (dir, re = /(-logiccheck|-check|-e2e)\.mjs$/) =>
   readdirSync(`${ROOT}/${dir}`)
-    .filter((f) => /(-logiccheck|-check|-e2e)\.mjs$/.test(f))
+    .filter((f) => re.test(f))
     .map((f) => `${dir}/${f}`)
     .sort()
 
-const FILES = [...collect('docs'), ...collect('docs/home-audit')].filter((f) => !SKIP.includes(f))
+/**
+ * **故意不收集**的 —— 收进来只会制造假绿/假红，所以只能手工跑。
+ *   · `08-verify-live.mjs`：**只读**的「真实数据体检」，要人工传客户编号（`argv[2]`）。
+ *     它比的是「库里的真账」，而这里跑的是**空库/一次性库** ⇒ 两边都算 0 ⇒ 必然「绿」。
+ *     假绿比红更坏：它会让「全套绿了」这句话变成假的。要跑它：
+ *     `node docs/legacy-finance/08-verify-live.mjs <客户编号>`（对着你真正想看的那套库）。
+ */
+const MANUAL = ['docs/legacy-finance/08-verify-live.mjs']
+
+const FILES = [
+  ...collect('docs'),
+  ...collect('docs/home-audit'),
+  ...collect('docs/legacy-finance', /^0\d-.*\.mjs$/),
+].filter((f) => !SKIP.includes(f) && !MANUAL.includes(f))
 
 /**
  * 已知的**非代码**失败（环境）—— 命中就在汇总里标出来，不算真红。
@@ -70,9 +93,17 @@ const FILES = [...collect('docs'), ...collect('docs/home-audit')].filter((f) => 
  * 压根不在收集范围内）与 `docs/finance-reversal-e2e.mjs`（真文件在 `docs/home-audit/` 下）。
  * 它们从没生效过，却让读的人以为「这两个不跑是安排好的」。**已删**。
  */
+const INDEPENDENT = '需要独立后端实例（E2E_PORT，默认 3999；它文件头有起法）'
 const EXPECTED = STRICT ? {} : {
-  'docs/home-audit/finance-reversal-e2e.mjs':
-    '需要独立后端实例（E2E_PORT，默认 3999；它文件头有起法）',
+  'docs/home-audit/finance-reversal-e2e.mjs': INDEPENDENT,
+  // 这四台 2026-09-20 收进来，缺省端口同上一行。⚠️ 它们**额外**还要仓库外旧版源码：
+  // CI 上连收集都进不去（verify 用 `RUN_ALL_SKIP` 排掉），手工跑时若没有那份源码，
+  // 它们是**在 import 阶段就 ENOENT**，下面这条免红牌只是不让「没起 3999」把它记成真红 ——
+  // 想确认它们到底绿不绿，看 `npm run verify` 那一组（见 `docs/verification.md` 第 3 节）。
+  'docs/legacy-finance/05-diff-alloc.mjs': INDEPENDENT,
+  'docs/legacy-finance/06-diff-balance.mjs': INDEPENDENT,
+  'docs/legacy-finance/07-diff-execute.mjs': INDEPENDENT,
+  'docs/legacy-finance/09-diff-orderpay.mjs': INDEPENDENT,
   'docs/qrscanner-authz-check.mjs': '需要独立后端实例（BASE，默认 http://localhost:3999；它文件头有起法）',
 }
 

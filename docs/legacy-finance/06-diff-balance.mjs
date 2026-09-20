@@ -5,17 +5,23 @@
  *       Prisma 查询换成桩（返回夹具）—— **连一行公式都不用转写**。
  * 右边：打我们后端的真接口。
  *
- * 用法：
- *   ① 起独立端口后端（别动正在跑的那个）：见 `05-diff-alloc.mjs` 头部
- *   ② node docs/legacy-finance/06-diff-balance.mjs
+ * 用法（两条都行）：
+ *   · **统一入口**：`npm run verify`（库 / 端口由它指过来，见 `05-diff-alloc.mjs` 头部）。
+ *   · 手工跑：① 起独立端口后端（别动正在跑的那个）：见 `05-diff-alloc.mjs` 头部
+ *            ② node docs/legacy-finance/06-diff-balance.mjs
  *
  * ⚠️ 写 `__TMP%` 一次性数据，finally 里清。
+ * ⚠️ 要**仓库外**的旧版服务端源码 ⇒ CI 上跑不了（见 05 头部）。
  */
 import { execSync } from 'node:child_process'
 import { runLegacyFns } from './lib/run-legacy-fn.mjs'
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3999'}/api`
-const DB = 'docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc'
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 const SQL = (q) => execSync(`${DB} ${JSON.stringify(q.replace(/\s+/g, ' '))}`).toString().trim().split('\n')[0].trim()
 
 const clean = () =>

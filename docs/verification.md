@@ -21,7 +21,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 | 2 | 前端：缺 `app/node_modules` 才 `npm ci`，然后 `npm run build` | = `vue-tsc --noEmit && vite build` |
 | 3 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | **两个包一起看**（`backend` + `app/src-tauri`） |
 | 4 | `cargo test --workspace` | 当前 24 通过 / 1 忽略 |
-| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（29 个差分台）→ 收尾 | 详见下面第 3 节 |
+| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（33 个差分台）→ 收尾 | 详见下面第 3 节 |
 
 **⚠️ 第 2 步必须早于第 3 步。** `app/src-tauri/tauri.conf.json` 的 `frontendDist` 指向 `../dist`，
 而 `app/dist/` 是 gitignore 的 —— CI 上刚 checkout 出来没有这个目录，先跑 clippy 的话
@@ -29,7 +29,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 > 用户原话把顺序列成「1 前端构建 / 2 cargo test / 3 台子 / 4 fmt / 5 clippy / 6 PG 集成」。
 > 这里把 fmt 提到最前、前端构建提到 clippy 前，其余等价。第 6 项「PostgreSQL 集成测试」
-> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 29 个台子打的全是真后端 + 真 PG）。
+> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 33 个台子打的全是真后端 + 真 PG）。
 
 ---
 
@@ -65,24 +65,35 @@ npm run verify -- --quiet   # 差分台只打汇总表
 ## 3. 覆盖情况（含**已知未覆盖**）
 
 ```
-共 29 个台子：✅ 通过 29 · ⏭ 跳过(环境/作废) 0 · 🔴 已知红(待裁决) 0 · ❌ 失败 0
+共 33 个台子：✅ 通过 33 · ⏭ 跳过(环境/作废) 0 · 🔴 已知红(待裁决) 0 · ❌ 失败 0
 ```
 
 ### 本地（有开发库、有仓库外旧版源码）
 
-`npm run verify`：29 个全跑 —— **29 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
+`npm run verify`：33 个全跑 —— **33 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
 
 > 单独手工跑 `node docs/home-audit/run-all.mjs`（不带 `RUN_ALL_STRICT`）会看到另一组数：
-> **27 绿 + 2 个 ⏭ + 0 已知红**。那两个 ⏭ 是：
+> **27 绿 + 6 个 ⏭ + 0 已知红**（2026-09-20 实测，不是算出来的）。那 6 个 ⏭ 都是
+> 「默认打 `http://127.0.0.1:3999` 的**独立实例**，手工跑时没起」：
 >
 > | 台子 | 手工跑为什么 ⏭ |
 > |---|---|
-> | `docs/qrscanner-authz-check.mjs` | 默认打 `http://localhost:3999` 的**独立实例**，手工跑时没起。`verify` 把 `BASE` 指向自己起的后端，所以它在 verify 里是 ✅ |
-> | `docs/home-audit/finance-reversal-e2e.mjs` | 同上（`E2E_PORT` 默认 3999），且它还要写库（靠 `DB_NAME` 指向的那个）。`verify` 把 `E2E_PORT` / `DB_*` 都指到自己起的后端与一次性库，所以它在 verify 里也是 ✅ |
+> | `docs/qrscanner-authz-check.mjs` | 它的独立实例用 `BASE`（默认 `http://localhost:3999`）。`verify` 把 `BASE` 指向自己起的后端，所以它在 verify 里是 ✅ |
+> | `docs/home-audit/finance-reversal-e2e.mjs` | 用 `E2E_PORT`（默认 3999），且它还要写库（靠 `DB_NAME` 指向的那个） |
+> | `docs/legacy-finance/0{5,6,7,9}-*.mjs`（四台） | 同上，`E2E_PORT` 默认 3999 |
 >
-> ⚠️ 这两条曾经遮住了一条真红（`finance-reversal-e2e` 拿到实例后也不绿）。现在已经真绿，
+> `verify` 把 `BASE` / `E2E_PORT` / `DB_*` 一起指到自己起的后端与一次性库，所以这 6 个在 verify 里都是 ✅。
+>
+> ⚠️ 那 27 绿**另有一个前提**：**开发后端在 `127.0.0.1:3000` 上起着**。多数台子默认打
+> `:3000`（可用 `E2E_PORT` 覆盖），而它们**不在** `EXPECTED` 里 —— 忘了起后端会被如实记成
+> ❌，不是 ⏭。这是有意的：`:3000` 是「你本该在用的那套」（未运行 ≠ 通过的反面 ——
+> **跑不动也不该假装是环境问题**），`:3999` 才是「要单独起的那个」。
+>
+> ⚠️ 这几条曾经遮住了一条真红（`finance-reversal-e2e` 拿到实例后也不绿）。现在已经真绿，
 > 但**做法本身仍要警惕**：`EXPECTED` 是「环境不满足」的免红牌，手工跑时它会一视同仁地盖上，
 > 分不清底下是真红还是真环境问题。要判断它到底绿不绿，看 verify 那一组数。
+> ⚠️ 后四台**还额外**要仓库外旧版源码 —— 没有那份源码时它们**在 import 阶段就 ENOENT**，
+> 也一样被这张免红牌盖住。所以「手工跑是 ⏭」既不是绿也不是红，只是没信息。
 
 ### CI（`.github/workflows/ci.yml`）
 
@@ -90,23 +101,27 @@ npm run verify -- --quiet   # 差分台只打汇总表
 |---|---|---|
 | ✅ 跑并且过 | 26 | —— |
 | 🔴 跑了但红（已登记） | 0 | `KNOWN_RED` 已排空（第 5 节） |
-| ⏭ **未运行** | 3 | 见下 |
+| ⏭ **未运行** | 7 | 见下 |
 
-26 + 0 + 3 = 29。
+26 + 0 + 7 = 33。
 
-那 3 个**未运行**的：
+那 7 个**未运行**的：
 
 | 台子 | 为什么 |
 |---|---|
 | `docs/home-audit/lineno-logiccheck.mjs` | 缺**仓库外**旧版服务端源码 |
 | `docs/qrscanner-scan-logiccheck.mjs` | 同上 |
+| `docs/legacy-finance/05-diff-alloc.mjs` | 同上（2026-09-20 收进收集范围后才显出来） |
+| `docs/legacy-finance/06-diff-balance.mjs` | 同上 |
+| `docs/legacy-finance/07-diff-execute.mjs` | 同上 |
+| `docs/legacy-finance/09-diff-orderpay.mjs` | 同上 |
 | `docs/home-audit/print-lineno-check.mjs` | 空库 —— 它要有业务配置（公式 / 打印模板）才成立 |
 
 **「未运行」不是「通过」。** verify 与 run-all 都会把这几行单独打出来，
-最后一行也不会写「全绿」，而是写「没有失败项，但不等于全绿：3 个台子本次未运行」。
+最后一行也不会写「全绿」，而是写「没有失败项，但不等于全绿：7 个台子本次未运行」。
 （`KNOWN_RED` 排空之前，那句话后面还会跟一句「M 个已知红未修」。）
 
-### 那 2 个缺仓库外源码的台子
+### 那 6 个缺仓库外源码的台子
 
 它们靠 `docs/legacy-finance/lib/run-legacy-fn.mjs` 切**旧版服务端**的 TS 函数来跑差分，
 那份源码在 `~/Downloads/server`（**仓库外**，3.9M / 50 个 `.ts`），CI 上不存在。
@@ -117,7 +132,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 1. 把那几个被切到的 `.ts` 收进仓库（例如 `legacy/server-src/`），CI 里指 `LEGACY_SERVER_SRC` 过去。
    ⚠️ 动之前**必须先扫一遍凭据** —— 「旧版生产环境凭据绝不写进任何文件、提交或日志」是硬规矩。
-2. 认下这 2 个台子只在本地跑。
+2. 认下这 6 个台子只在本地跑。
 
 ### 那 1 个要有业务配置的台子（也是「种子」那条的收口办法）
 
@@ -138,13 +153,52 @@ npm run verify -- --quiet   # 差分台只打汇总表
 | 类别 | 文件数 | 改了什么 | 为什么必须改 |
 |---|---|---|---|
 | 写死的仓库根路径 | 12 + 2 | `const ROOT = '/Users/aaa/Desktop/door-main'` → `resolve(HERE, '..')` / `('..','..')` | CI 的 checkout 路径不是这个，写死就崩。`docs/*.mjs` 那 11 个台子**早就是这个写法**，改的是对齐既有惯例。`docs/home-audit/` 在仓库根下**两级**，所以是 `resolve(HERE, '..', '..')` |
-| 写死的库 / 容器 / 用户 | 7 | 新增 `DB_CONTAINER` / `DB_USER` / `DB_NAME` 环境变量，**缺省值不变** | **这条是安全问题，不只是便利**：这些台子用它做**清理**（`DELETE FROM order_lines WHERE order_id IN (…)`）。verify 的 id 来自 `smartdoor_verify`，语句却打到 `smartdoor` —— 两个库的序列都从 1 开始、**id 必然撞上**，等于删你开发库里的真数据 |
+| 写死的库 / 容器 / 用户 | 7 + 4 + 1 | 新增 `DB_CONTAINER` / `DB_USER` / `DB_NAME` 环境变量，**缺省值不变** | **这条是安全问题，不只是便利**：这些台子用它做**清理**（`DELETE FROM order_lines WHERE order_id IN (…)`）。verify 的 id 来自 `smartdoor_verify`，语句却打到 `smartdoor` —— 两个库的序列都从 1 开始、**id 必然撞上**，等于删你开发库里的真数据 |
 
 被改的 7 个：`lineno-logiccheck`、`hui-save-clobber-check`、`finance-reversal-e2e`、
 `hui-row-save-check`、`print-lineno-check`、`qrscanner-scan-logiccheck`、`qrscanner-authz-check`。
 
+**2026-09-20 追加的 4 + 1 个**：`docs/legacy-finance/0{5,6,7,9}-*.mjs`（收进收集范围，必须能改指向）
+与 `08-verify-live.mjs`（**没**收进收集范围，但它读的**本来就是你想指的那个库** ⇒ 跟着改成同一套
+环境变量，省得「只想看看正式库」时还得去改源码）。见下一节。
+
 两个共用库（`docs/home-audit/lib/hui-decode.mjs`、`docs/legacy-finance/lib/run-legacy-fn.mjs`）
-也一并修了 —— 它们是 29 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
+也一并修了 —— 它们是 33 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
+
+### 2026-09-20：`docs/legacy-finance/0{5,6,7,9}` 收进统一入口
+
+这四台**一直在仓库里，却从来没进过任何统一入口** —— 收集正则
+（`/(-logiccheck|-check|-e2e)\.mjs$/`）匹配不到 `05-diff-alloc.mjs` 这种命名。
+它们比的是**财务口径**（分配/优惠、余额与实收、落库效果、本单收款+预付优惠），
+正是「改了 `paid_amount` 的 SQL」这种改动最该被它们抓住的地方 —— 结果它们全程没参与。
+这次一并收进来：`run-all.mjs` 的 `collect()` 增加了第二个目录与第二个正则，**33 个**。
+
+| 项 | 变化 |
+|---|---|
+| 收集范围 | `docs/`、`docs/home-audit/`，**新增** `docs/legacy-finance/`（正则 `^0\d-.*\.mjs$`，只扫第一层，`lib/` 不算） |
+| 库绑定 | 四台的 `const DB = 'docker exec … -d smartdoor -tAc'` 改成与既有一致的环境变量写法。**默认值逐字不变** |
+| CI | 这四台要**仓库外**旧版源码 ⇒ 进 `verify.mjs` 的 `NEEDS_LEGACY_SRC` ⇒ CI 上「未运行」由 3 个变 **7 个**（26 通过那部分不变） |
+| 手工跑 | 补进 `run-all.mjs` 的 `EXPECTED`（默认 3999 没起 ⇒ ⏭，不是红），与 `finance-reversal-e2e` 同一条理由 |
+
+#### 为什么 `08-verify-live.mjs` **不**收（这一条是判断，不是遗漏）
+
+它长得像同一批，其实不是一类东西：
+
+| | 05/06/07/09 | 08 |
+|---|---|---|
+| 性质 | 差分台（夹具喂两边比） | **真实数据体检**（拿库里的真账，左边在 SQL 里独立算一遍，右边打接口） |
+| 写库 | 写 `__TMP%` 再清 | **只读**，一个字节都不写 |
+| 入参 | 无需 | **要人工传客户编号**（`argv[2]`） |
+| verify 的库里有真账吗 | 不需要 | **没有** —— 那是一次性空库 |
+
+最后一行是决定性的：在空库上，左边（旧版公式，`client_code='1'` 查不到单）与右边（接口）
+**都算 0**，它会「✓ 真实数据全部核对通过」—— 一句**假绿**。而「假绿」比红更坏：
+它会让「全套 33 绿」这句话变成假的。所以它进 `run-all.mjs` 的 `MANUAL` 名单，
+只能手工跑：`node docs/legacy-finance/08-verify-live.mjs <客户编号>`。
+
+（`merge-audit.mjs` 是同类 —— 靠命名天然排在收集范围外。区别是它是块「指路牌」，
+而 08 是真能干活的工具，所以这次给它显式的 `MANUAL` 名单 + 文件头写明理由，
+而不是继续指望「别人碰巧不会加进正则」。）
 
 ### `run-all.mjs` 新增的三个环境变量
 

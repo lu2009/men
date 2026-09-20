@@ -265,6 +265,14 @@ customerFundFlow.create({ amount: prepaidDelta, flowType: prepaidDelta >= 0 ? '�
 07-diff-execute ✓ 三个场景的落库效果全部一致
 ```
 
+> **2026-09-20 补记**：这四台（含 09）**此前一直没进任何统一入口** —— 收集正则匹配不到
+> `05-diff-alloc.mjs` 这种命名，于是「改财务口径」这类改动最该被它们抓的场景，它们全程没参与。
+> 这次一并收进 `docs/home-audit/run-all.mjs`（库绑定同时改成 `DB_NAME` 那套环境变量），
+> 在 `npm run verify` 里重跑：**33/33 全绿**，其中 `06-diff-balance` 的 `实收金额` 在
+> 场景 ②③④⑥ 仍是**两侧同为 1000**（不是 0 比 0 的空转）—— 即 2026-09-20 那笔
+> `paid_amount` 对齐**没有**破坏它。见 `docs/verification.md` 第 4 节。
+> `08-verify-live.mjs` 仍不收（只读、要真实数据 + 人工传客户编号），理由同上。
+
 | 差异 | 处置 |
 |---|---|
 | ⑥ 池子不封顶 + 未收不夹零 | ✅ 改动 1（`unpaid` 夹零 + `amount = min(请求额, max(0,池子))`） |

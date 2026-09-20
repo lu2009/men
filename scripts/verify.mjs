@@ -14,7 +14,7 @@
  *   2. 前端装依赖（缺 `app/node_modules` 时才装）+ `npm run build`（= vue-tsc + vite build）
  *   3. `cargo clippy --workspace --all-targets --all-features -- -D warnings`
  *   4. `cargo test --workspace`
- *   5. 建库 → 起后端 → 等 health → `run-all.mjs`（29 个差分台）→ 收尾
+ *   5. 建库 → 起后端 → 等 health → `run-all.mjs`（33 个差分台）→ 收尾
  *
  *   ⚠️ **第 2 步必须早于第 3 步**：`app/src-tauri/tauri.conf.json` 的
  *   `frontendDist` 指向 `../dist`，而 `app/dist/` 是 gitignore 的 —— CI 上刚 checkout
@@ -38,11 +38,15 @@
  *   （写操作仍然只落在一次性库上）。克隆不到就**如实列出受影响的台子**，不假装绿。
  *
  * ── 已知未覆盖 / 已知红（会打在最显眼的位置，都不当它是绿灯）────────────────
- *   · **未运行**：2 个台子要在**仓库外**的旧版服务端源码（`/Users/aaa/Downloads/server`）
+ *   · **未运行**：6 个台子要在**仓库外**的旧版服务端源码（`/Users/aaa/Downloads/server`）
  *     上切函数跑，CI 上没有那份源码；另有 1 个要有业务配置，CI 的空库满足不了。
  *   · **已知红**：`run-all.mjs` 的 `KNOWN_RED` 里登记着「真红了，但原因已查清并记在案」的台子。
  *     2026-09-20 起那张表是**空的** —— 最后一条 `finance-reversal-e2e.mjs` 已修好。
  *   两者都不是绿。详见 `docs/verification.md`。
+ *
+ *   ⚠️ 有**一个**台子是有意不进这里的：`docs/legacy-finance/08-verify-live.mjs`（只读、
+ *     要真实数据 + 人工传客户编号）。收进来它会在空库上「绿」—— 那是假绿。见
+ *     `run-all.mjs` 的 `MANUAL`。
  */
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync } from 'node:fs'
@@ -69,8 +73,20 @@ const ADMIN_PW = 'Admin@12345'
 const ADMIN_TENANT = '默认门窗厂'
 const BASE = `http://127.0.0.1:${PORT}`
 
-/** 需要**仓库外**旧版服务端源码的台子（模块顶层就读那个文件，缺了直接 ENOENT）。 */
-const NEEDS_LEGACY_SRC = ['docs/home-audit/lineno-logiccheck.mjs', 'docs/qrscanner-scan-logiccheck.mjs']
+/**
+ * 需要**仓库外**旧版服务端源码的台子（模块顶层就读那个文件，缺了直接 ENOENT）。
+ * `docs/legacy-finance/0{5,6,7,9}-*.mjs` 是 2026-09-20 收进统一入口时加进来的 ——
+ * 它们一直是这样，只是从前根本没被收集，所以「CI 上跑不了」这件事没人看见。
+ * 所以 CI 上「未运行」是 6 个（本行 2 个 + 那 4 个），不是 2 个。
+ */
+const NEEDS_LEGACY_SRC = [
+  'docs/home-audit/lineno-logiccheck.mjs',
+  'docs/qrscanner-scan-logiccheck.mjs',
+  'docs/legacy-finance/05-diff-alloc.mjs',
+  'docs/legacy-finance/06-diff-balance.mjs',
+  'docs/legacy-finance/07-diff-execute.mjs',
+  'docs/legacy-finance/09-diff-orderpay.mjs',
+]
 const LEGACY_SERVER = process.env.LEGACY_SERVER_SRC || '/Users/aaa/Downloads/server/src'
 const LEGACY_PRESENT = existsSync(`${LEGACY_SERVER}/modules/finance/finance.service.ts`)
 
@@ -83,7 +99,7 @@ const NEEDS_SEED = ['docs/home-audit/print-lineno-check.mjs']
 /** `VERIFY_SEED=0` 关掉播种（想验「空库能不能起来」时用）。 */
 const SEED = process.env.VERIFY_SEED !== '0'
 
-/** `--quiet` 透传给 `run-all.mjs`：29 个台子逐条那几十行不打了，只留汇总表。 */
+/** `--quiet` 透传给 `run-all.mjs`：33 个台子逐条那几十行不打了，只留汇总表。 */
 const QUIET = process.argv.includes('--quiet')
 const yellow = (s) => `\x1b[33m${s}\x1b[0m`
 const red = (s) => `\x1b[31m${s}\x1b[0m`
@@ -208,8 +224,8 @@ try {
   banner('cargo test --workspace')
   record('cargo test', run('cargo', ['test', '--workspace']))
 
-  // 5 ── 后端 + 29 个差分台
-  banner('差分台（29 个）—— 起 postgres + 后端')
+  // 5 ── 后端 + 33 个差分台
+  banner('差分台（33 个）—— 起 postgres + 后端')
 
   if (!(await portFree(PORT))) {
     throw new Error(

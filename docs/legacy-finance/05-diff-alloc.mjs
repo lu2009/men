@@ -4,20 +4,28 @@
  *   右边打**我们后端的真接口**（HTTP）。
  * 逐字段比，把「同一笔业务、两个系统给出不同的数」摆出来。
  *
- * 用法：
- *   ① 起一个**独立端口**的后端（别动正在跑的那个）：
+ * 用法（两条都行）：
+ *   · **统一入口**：`npm run verify` —— 它会连库带端口一起指过来，本台子在其中之一。
+ *     本文件（连同 06/07/09）2026-09-20 起收进了 `docs/home-audit/run-all.mjs` 的收集范围。
+ *   · 手工跑：① 起一个**独立端口**的后端（别动正在跑的那个）：
  *        cd backend && cargo build
  *        DATABASE_URL=postgres://smartdoor:smartdoor@localhost:5432/smartdoor PORT=3999 \
  *          ./target/debug/smartdoor-backend &
- *   ② node docs/legacy-finance/05-diff-alloc.mjs
+ *     ② node docs/legacy-finance/05-diff-alloc.mjs
  *
  * ⚠️ 会往库里写 `__TMP%` 前缀的一次性数据，无论成败都在 finally 里清掉。
+ * ⚠️ 它要**仓库外**的旧版服务端源码（见 `lib/run-legacy-fn.mjs`，顶层就读那个 `.ts`，
+ *    缺了 import 直接 ENOENT）⇒ **CI 上跑不了**，`verify` 会把它列进「未运行」。
  */
 import { execSync } from 'node:child_process'
 import { runLegacyFns } from './lib/run-legacy-fn.mjs'
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3999'}/api`
-const DB = 'docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc'
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 为什么必须能覆盖：`npm run verify` 跑在自己的 `smartdoor_verify` 库上，而这些台子原来
+// 把库名写死成开发库 —— 清理用的 DELETE 拿的是**新库里的 id**，两个库的序列都从 1 开始、
+// id 必然撞上 ⇒ 会删掉开发库里的真数据。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 const SQL = (q) =>
   execSync(`${DB} ${JSON.stringify(q.replace(/\s+/g, ' '))}`).toString().trim().split('\n')[0].trim()
 

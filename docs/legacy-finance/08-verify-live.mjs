@@ -6,19 +6,24 @@
  *
  * ⚠️ **只读**：不写任何表，不改任何数据。
  *
+ * ⚠️ **本台子不在统一入口（`npm run verify`）的收集范围内**，只能手工跑 —— 与
+ *    `merge-audit.mjs` 同理，`run-all.mjs` 的 `MANUAL` 里写着理由，别「顺手」把它收进去：
+ *    它要的是**真实数据**（还得人工传客户编号），verify 那个库里没有真账 ⇒ 两边都算 0 ⇒
+ *    必然「绿」。那是**假绿**，比红更坏。（05/06/07/09 则已收进统一入口。）
+ *
  * 用法：node docs/legacy-finance/08-verify-live.mjs [客户编号]
  */
 import { execSync } from 'node:child_process'
 
 const API = `http://127.0.0.1:${process.env.E2E_PORT || '3000'}/api`
 const CODE = process.argv[2] || '1'
+// 库/容器/用户可用环境变量覆盖。缺省值 = 开发库，行为与改动前**逐字相同**。
+// 这台子**只读**，所以「清理打到别的库」那个险（见 05 头部）在这儿不存在；跟着改成同一个
+// 环境变量是为了**让你能明确指到别的库**去体检（配合 `E2E_PORT` 指向那个库对应的后端），
+// 不是为了统一入口 —— 它不进统一入口，理由见文件头。
+const DB = `docker exec -i ${process.env.DB_CONTAINER || 'smartdoor-db'} psql -U ${process.env.DB_USER || 'smartdoor'} -d ${process.env.DB_NAME || 'smartdoor'} -tAc`
 
-const SQL = (q) =>
-  execSync(
-    `docker exec -i smartdoor-db psql -U smartdoor -d smartdoor -tAc ${JSON.stringify(q.replace(/\s+/g, ' '))}`,
-  )
-    .toString()
-    .trim()
+const SQL = (q) => execSync(`${DB} ${JSON.stringify(q.replace(/\s+/g, ' '))}`).toString().trim()
 
 /** 取一个标量（psql -tAc 只回一行一列，没有命令标签）。 */
 const one = (q) => Number(SQL(`SELECT ${q}`))
