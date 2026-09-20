@@ -325,6 +325,36 @@ const BLOCKS = [
       //    `splitOrderNos` 只读自己的形参 `v`；`orderNosOf` 只调 `splitOrderNos` 与读
       //    `r.order_no_set`。两者都不读 `ref` / `localStorage` / 组件上下文 ⇒ 不需要注入。
     } },
+
+  /*
+   * Task 5 —— B1（「数据 / 加载」+「经营看板」）→ `composables/home/useHomeData.ts`。
+   * **Home 侧第一个真「页面块」**（Task 3 的 B10 是 composable 样板，本块是它的第一个同类）。
+   *
+   * ⚠️ **本块没有 `export` 改写** —— 6 个声明都由工厂 `return` 借出（同 B10），
+   *    不做模块级导出。`Home.vue` 侧是 `const { … } = useHomeData({ message, auth })` 解构。
+   *
+   * ⚠️ 两条 `deps.` 改写**都以 `.` 收尾**（`applyRewrites` 是朴素 `split/join`）：
+   *    · `load` 里写 `message.error(` 而不是裸 `message` —— 裸名会打中 `messageXxx` 这类同前缀标识符；
+   *    · `dashboardOrders` 里写 `auth.user?.` 而不是裸 `auth.user` —— 裸名会打中 `xauth.user` 这类同尾标识符。
+   *    两种误伤**守卫都抓不到**（比对发生在改写之后），所以边界只能靠这里写对。
+   *
+   * ⚠️ `dashboardOrders` 是「**跨行、且首行没有 `{`**」的 `const`（`computed(() =>` 断行）——
+   *    正是 `sliceFn` 路 1 快车道历史上会**静默切短**的那一族（§9h）。登记时按文件头的「验法」
+   *    变异过一次：改**第二行**（`.name` → `.role`）守卫**报红**，证明整段真被比中（见 `task-5-report.md` §2）。
+   *
+   * ⚠️ 与 `docs/roles-admin-logiccheck.mjs` 的联动（**别忘**）：本块搬走的 `dashboardOrders` 里
+   *    那处 `canSeeAllOrders(auth.user?.role)` 正是那台子数的**三处之一**。而上面那条
+   *    `auth.user?.` → `deps.auth.user?.` 会**改掉台子正则要的字面** ⇒ 台子那边**同一笔里**
+   *    加了第二份被数源（新家）+ 正则放宽成 `(?:deps\.)?`（断言仍是 `=== 3`，**不许降**）。
+   *    理由与边界写在那个脚本里。
+   */
+  { target: 'app/src/composables/home/useHomeData.ts',
+    names: ['load'],
+    consts: ['loading', 'rawOrders', 'financeSummary', 'dashboardShow', 'dashboardOrders'],
+    rewrites: {
+      load: [{ from: 'message.error(', to: 'deps.message.error(' }],
+      dashboardOrders: [{ from: 'auth.user?.', to: 'deps.auth.user?.' }],
+    } },
 ]
 
 /**

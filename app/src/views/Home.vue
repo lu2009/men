@@ -451,6 +451,7 @@ import {
 import { api } from '../api/client'
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
+import { useHomeData } from '../composables/home/useHomeData'
 import { useHomeSelection } from '../composables/home/useHomeSelection'
 import { AUTOCOMPLETE_ALWAYS_SHOW, EMPTY_FILTER_VALUE, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
 import { legacyToday, localToday, pad } from '../utils/homeDate'
@@ -475,7 +476,10 @@ import type { QualifiedLabelEntry } from '../components/qualifiedLabelUiProfile'
 import type {
   ClientDto,
   OrderDto,
-  OrderFinance,
+  // ⚠️ `OrderFinance` 2026-09-20 Task 5 随 B1 一起搬走了：它在本页只剩
+  //    `financeSummary = ref<Record<string, OrderFinance>>({})` 那一处用处，
+  //    而那行已搬进 `composables/home/useHomeData.ts` ⇒ 留着它 `vue-tsc` 报 TS6196
+  //    （与 Task 3 搬 B10 时删掉那个无用的 `DataTableRowData` 同类）。
   OrderHeadInput,
   OrderLineDto,
   FormulaDto,
@@ -512,28 +516,20 @@ const RECORD_DATE_KEY = 'home_manual_progress_record_date'
 const PROGRESS_FIXED_FILTERS = ['已打生产单', '未打生产单', '已订玻璃', '未订玻璃']
 
 // ---------------------------------------------------------------------------
-// 数据 / 加载
+// 数据 / 加载（`loading` / `rawOrders` / `financeSummary` / `load`）
+// 2026-09-20 整段搬到 `composables/home/useHomeData.ts`（逐字搬迁，零行为变化），
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以下面的模板一行都没改。
+//
+// ⚠️ **构造顺序**：本行必须是 setup 里**最早读这几个名字的顶层代码之前** ——
+//    `filtered` 的 computed、`columns` 的回调、`onMounted` 里的 `load()` 都在它后面读，
+//    而 `useHomeSelection` 更是把 `rawOrders` / `financeSummary` / `load` 三个都当注入项收。
+//    往前挪 = 拿到 `undefined`，且**不一定报错**。
+//
+// ⚠️ **必须解构**（不许写成 `homeData.rawOrders`）：`<script setup>` 只对**顶层绑定**
+//    自动解包 ref，模板读的是 `loading`(6) / `dashboardShow`(48) / `dashboardOrders`(407)。
 // ---------------------------------------------------------------------------
-const loading = ref(false)
-const rawOrders = ref<OrderSummaryDto[]>([])
-// 财务摘要：{order_id → 未收金额}，供主表「未收 = 未收金额 ?? 总价-定金」口径（§7.1）。
-const financeSummary = ref<Record<string, OrderFinance>>({})
-
-async function load() {
-  loading.value = true
-  try {
-    const [orders, summary] = await Promise.all([
-      api.listOrders(),
-      api.getOrderFinanceSummary().catch(() => ({})),
-    ])
-    rawOrders.value = orders
-    financeSummary.value = summary
-  } catch (e) {
-    message.error((e as Error).message || '加载订单失败')
-  } finally {
-    loading.value = false
-  }
-}
+const { loading, rawOrders, financeSummary, load, dashboardShow, dashboardOrders } =
+  useHomeData({ message, auth })
 
 onMounted(async () => {
   if (!(await auth.loadMe())) {
@@ -1367,13 +1363,9 @@ function openReceipt(row: OrderSummaryDto) {
 
 // ---------------------------------------------------------------------------
 // 经营看板（§1.2 DashboardBigScreen）：全量订单（按角色过滤），看板内自带日期/客户/业务员筛选
+// 2026-09-20 与「数据 / 加载」一起搬到 `composables/home/useHomeData.ts`
+//（逐字搬迁，零行为变化）—— `dashboardShow` / `dashboardOrders` 的调用点在 setup 顶部。
 // ---------------------------------------------------------------------------
-const dashboardShow = ref(false)
-const dashboardOrders = computed(() =>
-  canSeeAllOrders(auth.user?.role)
-    ? rawOrders.value
-    : rawOrders.value.filter((r) => r.creator_name === auth.user?.name),
-)
 
 // ---------------------------------------------------------------------------
 // 选中集 + 三个批量动作（删除选中 / 清账 / 合并订单）

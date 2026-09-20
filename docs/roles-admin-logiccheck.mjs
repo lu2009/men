@@ -139,11 +139,31 @@ check(
 
 const HOME = readFileSync(resolve(SRC, 'views/Home.vue'), 'utf8')
 const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
+/*
+ * 2026-09-20 Task 5：Home 的第一块**页面代码**搬出了页面 —— 看板那处 `dashboardOrders`
+ * 现在住在 `composables/home/useHomeData.ts`（B1）。
+ *
+ * ⚠️ 两件事必须**同时**做，**只做前一件台子照样红**（实测，见 `task-5-report.md` §3）：
+ *   ① **被数源扩到新家**（下面这份 `DATA`）；
+ *   ② **正则放宽到能吃 `deps.` 前缀** —— 搬走时那条注入改写
+ *      （`auth.user?.` → `deps.auth.user?.`，登记在 `home-extract-movecheck.mjs` 的 B1 块）
+ *      把那行的字面改成了 `canSeeAllOrders(deps.auth.user?.role)`，老正则数不到它。
+ *
+ * ⚠️ **断言仍是 `=== 3`（跨两份源数）** —— **不许**降成 2：那是把「查三处」降级成
+ *    「查剩下的」，越搬越松。
+ * ⚠️ `homeNegated`（`!canSeeAllOrders(`，下面那条）**本笔不动**：那两处（主表 `filtered` /
+ *    「查询更多」`submitQuery`）都还留在页面，而看板这处是三元、本来就没有 `!`。
+ *    等 Task 6 / Task 8 分别搬走它们时，再按同法把被数源跨到各自的新家。
+ */
+const DATA = readFileSync(resolve(SRC, 'composables/home/useHomeData.ts'), 'utf8')
 
-// Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed。
+// Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed（这一处已搬到 useHomeData.ts）。
 // 数**调用次数**而不是锚定某一行 —— 行号会漂，次数不会。
-const homeCalls = (HOME.match(/canSeeAllOrders\(auth\.user\?\.role\)/g) || []).length
-check(homeCalls === 3, `Home.vue 里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`)
+const homeCalls = (HOME + DATA).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
+check(
+  homeCalls === 3,
+  `Home.vue + useHomeData.ts 里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
+)
 check(
   /import \{[^}]*canSeeAllOrders[^}]*\} from '\.\.\/utils\/roles'/.test(HOME),
   'Home.vue 从 utils/roles 导入了 canSeeAllOrders',

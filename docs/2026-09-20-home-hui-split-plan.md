@@ -670,21 +670,28 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 
 **全仓库有 3 个台子读 `Home.vue` 真身**（`orderno-logiccheck` / `autocomplete-logiccheck` /
 **`docs/roles-admin-logiccheck.mjs`**），而 `run-all.mjs:70` 按文件名后缀收台子、`docs/` 是第一层
-⇒ 三个都在收集范围内 ⇒ **`npm run verify` 会红**。
+⇒ 三个都在收集范围内 ⇒ **谁搬走它们数的 token 就会红**（**本笔只绊到其中 2 个**）。
 （⚠️ 当初 grep 成「只有 2 个」，是因为**同一个文件有四种路径写法**：`resolve(SRC, 'views/Home.vue')` ·
 `` `${ROOT}/app/src/views/Home.vue` `` · `new URL('../../app/src/views/Home.vue', …)`，
 以及搬迁守卫本体的 `OLD_PATH = 'app/src/views/Home.vue'`（`:71`）+ `git show <REF>:…`（`:1062`）。
 **只 grep 一种写法就会静默漏数**；把守卫本体也算上是 **4 个读者**。）
 
-**`roles-admin-logiccheck.mjs` 断言什么**（`:140` `HOME = readFileSync(resolve(SRC, 'views/Home.vue'), 'utf8')`）：
-- `:145-146` —— `canSeeAllOrders(auth.user?.role)` **恰好 3 次**；
-- `:153-154` —— `!canSeeAllOrders(` **恰好 2 次**（看板那处是三元、**没有** `!`；写反了这里会红）；
-- `:147-149` —— `Home.vue` 从 `../utils/roles` 导入了 `canSeeAllOrders`。
+**`roles-admin-logiccheck.mjs` 断言什么**（`HOME = readFileSync(resolve(SRC, 'views/Home.vue'), 'utf8')`）：
+- `canSeeAllOrders(auth.user?.role)` **恰好 3 次**。⚠️ **2026-09-20 Task 5 起这一条跨两份源**：
+  `Home.vue` **+ `composables/home/useHomeData.ts`**（看板那处搬走了），且正则放宽成
+  `canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)` —— **搬迁的 `deps.` 改写会改掉原字面**，
+  只把源扩到新家、不改正则，**台子照样红**（实测仍是 2）。见 spec §8.2 #10④。
+- `!canSeeAllOrders(` **恰好 2 次**（看板那处是三元、**没有** `!`；写反了这里会红）—— 这一条**仍只数 `Home.vue`**；
+- `Home.vue` 从 `../utils/roles` 导入了 `canSeeAllOrders`。
+（⚠️ 上面三条**不再抄行号** —— 台子自己这几行 2026-09-20 被 Task 5 挪动过，Task 6 / 8 还要再动它；
+按 `grep -n` 定位比抄行号可靠。）
 
 **本笔没让它红**（本笔没动 `canSeeAllOrders` 这个 token）—— 那是**「这次侥幸」，不是「它不受影响」**。
 **会被它绊到的三个任务**（⚠️ **别照抄复审原文的「Task 7（B4）搬 `submitMore`」—— 那句两处都错**：
-T7 是 `useHomeOrderNo.ts`（单号那摊），`submitMore` **在任何简报里都不存在**，
-那是台子 `:151` 注释**自己的错名**，已挂账、本笔不改台子）：
+T7 是 `useHomeOrderNo.ts`（单号那摊），`submitMore` **在任何简报里都不存在**
+—— **它是邻页 `Progress.vue:1531` 的函数**（`:258` 那颗「确认」按钮 `@click="submitMore"`），
+只是**邻页的名字串进了 Home 的台子**；那是台子 **两处**注释**自己的错名**
+（`:20` 与 `:151`，**Task 5 改了台子之后**第二处挪到 `:171`），已挂账、本笔不改台子）：
 
 | 处 | `Home.vue` 行 | 所在函数 | 归谁搬 |
 |---|---|---|---|
