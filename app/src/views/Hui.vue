@@ -654,6 +654,7 @@ import { useHuiColumnConfig } from '../composables/hui/useHuiColumnConfig'
 import { useHuiPayQrcode } from '../composables/hui/useHuiPayQrcode'
 import { useHuiShellToggles } from '../composables/hui/useHuiShellToggles'
 import { useHuiClients } from '../composables/hui/useHuiClients'
+import { useHuiPreview } from '../composables/hui/useHuiPreview'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1663,52 +1664,14 @@ async function ensureFormulaImages() {
 // 2026-09-19 收敛：原先这里是一套**自绘**的「模板预览」弹窗（模板下拉 + v-html + 自己渲染），
 // 与 Home 的 `PrintPreviewDialog` 功能重复。用户拍板「直接用 home 那个」⇒ 给那个弹窗补上
 // 模板下拉（`:templates`），这边整套删掉，只留打开它的入口。
-const templatePreviewOpen = ref(false)
-const templatePreviewLoading = ref(false)
-const templateList = ref<{ mode: string; name: string }[]>([])
-const templatePreviewMode = ref<string | null>(null)
-const templatePreviewTitle = ref('模板预览')
-
-/**
- * 给 `PrintPreviewDialog` 的订单 = **Hui 当前编辑中的这一单**（可能还没落库）。
- *
- * ⚠️ 显式给 `lines`：弹窗里那句 `o.lines?.length ? o : await api.getOrder(o.id)` 就是靠它
- *    免掉回拉的（未落库的单根本没有 id 可拉）。
- */
-const templatePreviewOrders = computed<OrderDto[]>(() =>
-  lines.value.length
-    ? [{ ...(order as unknown as OrderDto), id: orderId.value ?? 0, lines: lines.value as unknown as OrderDto['lines'] }]
-    : [],
-)
-
-/**
- * 打开预览（`:1004` 的「模板预览」入口，以及「算料」都走它）。
- *
- * 与旧版自绘那套的差别：预览/打印的**渲染与按钮**都交给 `PrintPreviewDialog` 了，
- * 这里只负责拉模板清单、定初始 mode、给标题。
- *
- * ⚠️ `auto-line-numbers: false`（在模板上）—— Hui 这条链路**从不补行级单号**
- *    （旧版也是；Hui 有独立的「填入单号」按钮）。
- */
-async function openTemplatePreview(initialMode?: string) {
-  if (!lines.value.length) {
-    message.warning('暂无订单行')
-    return
-  }
-  templatePreviewOpen.value = true
-  templatePreviewLoading.value = true
-  try {
-    const all = await api.listPrintTemplates()
-    templateList.value = all.map((t) => ({ mode: t.mode, name: t.name }))
-    const want = initialMode ?? templatePreviewMode.value ?? all[0]?.mode
-    templatePreviewMode.value = want || all[0]?.mode || null
-    templatePreviewTitle.value = templateList.value.find((t) => t.mode === templatePreviewMode.value)?.name || '模板预览'
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '加载模板失败')
-  } finally {
-    templatePreviewLoading.value = false
-  }
-}
+// 2026-09-20 7 个声明搬到 `composables/hui/useHuiPreview.ts`（逐字搬迁，零行为变化），只留调用点。
+//
+// ⚠️ **只解构 6 个**：`templatePreviewLoading` 段外零命中（那个弹窗自己管 loading）⇒ 解构即 TS6133。
+// ⚠️ `openTemplatePreview` 有**两处调用**：`onMoreSelect` 的 `case 'templates'` 与 `calcSingleRow`（传 `'product'`）。
+const {
+  templatePreviewOpen, templatePreviewOrders, templatePreviewMode,
+  templatePreviewTitle, templateList, openTemplatePreview,
+} = useHuiPreview({ lines, order, orderId, message })
 
 async function printGlass() {
   if (!lines.value.length) {

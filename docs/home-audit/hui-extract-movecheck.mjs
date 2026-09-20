@@ -258,6 +258,33 @@ const SPLIT_BLOCKS = [
       lastAppliedClient: [],
     },
   },
+  {
+    // C6「模板预览」。快照 `Hui.vue:1988-2037`，7 个声明。
+    // ⚠️ `templatePreviewOrders` 里那处是**整体断言**（`(order as unknown as OrderDto)`），
+    //    不是 `order.` —— 所以单列一条规则；`orderId.value` 同理。
+    target: 'app/src/composables/hui/useHuiPreview.ts',
+    names: ['openTemplatePreview'],
+    consts: [
+      'templatePreviewOpen', 'templatePreviewLoading', 'templateList',
+      'templatePreviewMode', 'templatePreviewTitle', 'templatePreviewOrders',
+    ],
+    rewrites: {
+      openTemplatePreview: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      templatePreviewOrders: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: '(order as unknown as OrderDto)', to: '(deps.order as unknown as OrderDto)' },
+        { from: 'orderId.value', to: 'deps.orderId.value' },
+      ],
+      templatePreviewOpen: [],
+      templatePreviewLoading: [],
+      templateList: [],
+      templatePreviewMode: [],
+      templatePreviewTitle: [],
+    },
+  },
 ]
 
 /**
