@@ -647,14 +647,12 @@ import {
   idbPutImage,
   idbRemoveImage,
 } from '../utils/imageStore'
-import {
-  loadMarkupCatalog,
-  markupCatalog,
-  markupUnitOptions,
-  removeCatalogItem,
-  syncAddCatalogItem,
-  updateCatalogItem,
-} from '../composables/useMarkupCatalog'
+// 2026-09-20 C1：`markupCatalog`/`removeCatalogItem`/`syncAddCatalogItem`/`updateCatalogItem`
+// 的**唯一**消费者是「加价项目管理」那块，已随它搬进 `composables/hui/useHuiMarkupMgmt.ts`
+// ⇒ 本文件不再 import 它们（留着就是 TS6133 未使用变量）。
+// 仍然需要的两个：`loadMarkupCatalog`（`onMounted` 里预载目录）、`markupUnitOptions`（模板下拉）。
+import { loadMarkupCatalog, markupUnitOptions } from '../composables/useMarkupCatalog'
+import { useHuiMarkupMgmt } from '../composables/hui/useHuiMarkupMgmt'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1108,120 +1106,21 @@ async function saveVisDialog() {
 // ===== 加价项目管理（复刻旧版主页三弹窗：管理 → 新增 / 修改删除）=====
 // 旧版：`加价项目管理`(400) → 两个按钮；`新增加价项目`(500)；`修改加价项目`(500)
 //       Hui.formatted.js:13107-13226；目录增删改走 addAddPrice / editPrice / deleteAddPrice
-const markupMgmtOpen = ref(false)
-const markupAddOpen = ref(false)
-const markupEditOpen = ref(false)
-
-/** 新增弹窗的表单（旧版 `_0x4956b9`，打开时重置为 name:'', price:0, unit:'元/套'）。 */
-const mgmtAdd = reactive({ name: '', price: 0, unit: '元/套' })
-function openMarkupMgmt() {
-  markupMgmtOpen.value = true
-}
-function openMarkupAdd() {
-  mgmtAdd.name = ''
-  mgmtAdd.price = 0
-  mgmtAdd.unit = '元/套'
-  markupMgmtOpen.value = false
-  markupAddOpen.value = true
-}
-async function confirmMarkupAdd() {
-  const name = mgmtAdd.name.trim()
-  // 旧版校验：名称「请输入加价项目名称」；单价「单价必须大于0」（管理弹窗这份是 min:.01，:7986-7993）
-  if (!name) {
-    message.warning('请输入加价项目名称')
-    return
-  }
-  if (!(mgmtAdd.price > 0)) {
-    message.warning('单价必须大于0')
-    return
-  }
-  const ok = await syncAddCatalogItem({ name, price: mgmtAdd.price, unit: mgmtAdd.unit || '元/套' })
-  if (!ok) {
-    message.warning('加价项目已存在！') // 去重失败即已存在，原版提示后**不关窗**
-    return
-  }
-  message.success('加价项目添加成功')
-  markupAddOpen.value = false
-}
-
-/** 「修改/删除加价项目」：打开前重载目录（旧版 `_0x2612ea` 先 `await _0x51e171()`）。 */
-const mgmtEdit = reactive({ index: -1, name: '', price: 0, unit: '元/套' })
-const markupEditOptions = computed(() =>
-  markupCatalog.value.map((m, i) => ({ label: `${m.name} ${m.price}${m.unit}`, value: i })),
-)
-async function openMarkupEdit() {
-  if (!(await loadMarkupCatalog())) message.error('初始化失败')
-  mgmtEdit.index = -1
-  mgmtEdit.name = ''
-  mgmtEdit.price = 0
-  mgmtEdit.unit = '元/套'
-  markupMgmtOpen.value = false
-  markupEditOpen.value = true
-}
-function pickMarkupEdit(i: number) {
-  const a = markupCatalog.value[i]
-  mgmtEdit.index = i
-  if (!a) return
-  mgmtEdit.name = a.name
-  mgmtEdit.price = a.price
-  mgmtEdit.unit = a.unit
-}
-async function confirmMarkupEdit() {
-  if (mgmtEdit.index < 0) {
-    message.warning('请先选择一个项目')
-    return
-  }
-  if (!mgmtEdit.name.trim()) {
-    message.warning('请输入加价项目名称')
-    return
-  }
-  if (!(mgmtEdit.price > 0)) {
-    message.warning('单价必须大于0')
-    return
-  }
-  // 同名（除自己外）判重 —— 旧版 `_0x3cdb91` 的 `.some(...)`
-  const dup = markupCatalog.value.some(
-    (c, i) => i !== mgmtEdit.index && c.name === mgmtEdit.name.trim() && c.price === mgmtEdit.price && c.unit === mgmtEdit.unit,
-  )
-  if (dup) {
-    message.warning('加价项目已存在！')
-    return
-  }
-  const ok = await updateCatalogItem(mgmtEdit.index, {
-    name: mgmtEdit.name.trim(),
-    price: mgmtEdit.price,
-    unit: mgmtEdit.unit || '元/套',
-  })
-  if (!ok) {
-    message.error('编辑失败，请重试')
-    return
-  }
-  message.success('加价项目修改成功')
-  markupEditOpen.value = false
-}
-async function confirmMarkupDelete() {
-  if (mgmtEdit.index < 0) {
-    message.warning('请先选择一个项目')
-    return
-  }
-  const target = markupCatalog.value[mgmtEdit.index]
-  dialog.warning({
-    title: '提示',
-    content: '确定要删除此加价项目吗?',
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      const ok = await removeCatalogItem(mgmtEdit.index)
-      message[ok ? 'success' : 'error'](ok ? '加价项目删除成功' : '加价项目删除失败')
-      mgmtEdit.index = -1
-      mgmtEdit.name = ''
-      mgmtEdit.price = 0
-      mgmtEdit.unit = '元/套'
-    },
-    onNegativeClick: () => message.info('已取消删除'),
-  })
-  void target
-}
+// 2026-09-20 整块（13 个声明）搬到 `composables/hui/useHuiMarkupMgmt.ts`（逐字搬迁，零行为变化），
+// 这里只留调用点 —— 搬出的名字仍在同一作用域，所以模板一行都没改。
+//
+// ⚠️ **13 个名字全部解构**（不许写成 `markup.xxx`）：实测它们在 `<template>` 里**每一个都有**活读者
+//    （`v-model:show` ×3 · `v-model:value` 两组 · `@click` 多处）⇒ 模板只对**顶层绑定**自动解包，
+//    写成属性访问会让 `v-model:value` 绑到一个属性上而**静默失效**（不报错）。清单见新家文件头。
+//
+// ⚠️ **构造顺序**：本块只注入 `message` / `dialog`（页面顶部 `useMessage()` / `useDialog()`）
+//    ⇒ 只要在它们之后即可；`markupCatalog` 家族是新家**自己 import** 的模块单例，不占页面顺序。
+const {
+  markupMgmtOpen, markupAddOpen, markupEditOpen,
+  mgmtAdd, mgmtEdit, markupEditOptions,
+  openMarkupMgmt, openMarkupAdd, confirmMarkupAdd,
+  openMarkupEdit, pickMarkupEdit, confirmMarkupEdit, confirmMarkupDelete,
+} = useHuiMarkupMgmt({ message, dialog })
 
 // 自动加价设置（本地开关，仿旧版 smartdoor_disable_auto_markup）
 // ⚠️ 存的是**布尔值的字符串**（`"true"` / `"false"`），不是 `"1"`/`"0"` ——

@@ -128,7 +128,46 @@ const SPLIT_OLD_PATH = OLD_PATH
  * ⚠️ **它现在是空的**（2026-09-20 立骨架时）：这一半此刻**没有任何检验力**，
  *    收尾那一行会明说「C 块清单 0 条」。第一条由 C1 登记。
  */
-const SPLIT_BLOCKS = []
+const SPLIT_BLOCKS = [
+  {
+    // C1「加价项目管理」（旧版主页三弹窗：管理 → 新增 / 修改删除）。快照段 `Hui.vue:1108-1224`，13 个声明。
+    // 改写只有「页面拥有的 `message`/`dialog` → 注入」这一件事；`markupCatalog` 家族是模块单例，
+    // 新家直接 `import`（`composables/useMarkupCatalog.ts`），**不注入** ⇒ 那几处文本一字未动。
+    target: 'app/src/composables/hui/useHuiMarkupMgmt.ts',
+    names: [
+      'openMarkupMgmt', 'openMarkupAdd', 'confirmMarkupAdd',
+      'openMarkupEdit', 'pickMarkupEdit', 'confirmMarkupEdit', 'confirmMarkupDelete',
+    ],
+    consts: ['markupMgmtOpen', 'markupAddOpen', 'markupEditOpen', 'mgmtAdd', 'mgmtEdit', 'markupEditOptions'],
+    rewrites: {
+      // 只列**该声明体内真的出现**的规则（`applyRewrites` 找不到 `from` 会抛 —— 这是白送的检查）。
+      // ⚠️ `message[ok ? 'success' : 'error']` 是**属性访问**、不是 `message.`，两条规则各管各的。
+      confirmMarkupAdd: [
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      openMarkupEdit: [
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      confirmMarkupEdit: [
+        { from: 'message.', to: 'deps.message.' },
+      ],
+      confirmMarkupDelete: [
+        { from: "message[ok ? 'success' : 'error']", to: "deps.message[ok ? 'success' : 'error']" },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.', to: 'deps.dialog.' },
+      ],
+      // 其余 8 个名字体内没有 `message.`/`dialog.` ⇒ 零改写（不是漏写）。
+      openMarkupMgmt: [],
+      pickMarkupEdit: [],
+      markupMgmtOpen: [],
+      markupAddOpen: [],
+      markupEditOpen: [],
+      mgmtAdd: [],
+      mgmtEdit: [],
+      markupEditOptions: [],
+    },
+  },
+]
 
 /**
  * 摊平一个 block 的 `names` + `consts`（两者都可省 —— 缺了当空数组）。
