@@ -5,7 +5,7 @@
  * （连续一整段，148 行，**4 个声明**）—— 拆分方案里的 **P6**（全计划**最后一刀**，
  * 也是注入面最大的一块）。段首两行分区横幅（`// ── B3. 筛选链 + 分页…` 与 1226 起那段
  * 25 行的「旧版 §4.1 链路」块注释、以及 1302 的 `// ── B4. 列定义…`）**一起搬来**；
- * 工厂体内**与 REF 一字不差、相对顺序也不动**（除下表那 30 项注入改写）。
+ * 工厂体内**与 REF 一字不差、相对顺序也不动**（除下表那 32 项接线改写：20 项进 `deps` + 12 项走 `import`）。
  *
  * ⚠️ **横幅与段内注释的保真不在守卫里**（核心 `sliceFn` 从**声明**起切，它们根本不进切片）——
  *   唯一证据是「整段与 REF 同区间逐字节比」（判据 R39：归一化掉工厂那层统一缩进之后，
@@ -20,14 +20,14 @@
  * ⚠️ **工厂式**（`useProgressColumns(deps)`）⇒ **一条 `export` 改写都没有**
  *   （函数体内写 `export` 是 `TS1184`；与 P2/P3/P5/P7/P8/P9/P10 同形）。
  *
- * ── 注入面：**30 项进 `deps`** + **2 项走 `import`**（控制者与实现者各量一遍，逐名核过）──
+ * ── 注入面：**20 项进 `deps`** + **12 项走 `import`**（`SEARCH_FIELDS`/`ProgressRow` 各 1 + P1 的 10 个单元格渲染函数）（控制者与实现者各量一遍，逐名核过）──
  *
  * 量法（R43/R46 四条）：① 真 TS 解析器（`app/node_modules/typescript` 的 `ts.createSourceFile`，
  * **必须把 `<script setup>` 抠出来按 `ScriptKind.TS` 解析** —— 直接喂 `.vue` 走 `TSX` 会把
  * `<script setup>` 当 JSX 元素、整段成 `JsxText`、一个 Identifier 都数不到）数「段内标识符
  * ∩ 全文顶层声明 − 本块自己的声明」⇒ **32 个**；② 整文件纯文本搜（含 `<template>` 与字符串）；
  * ③ 排除解构自身的 `BindingElement`（否则每个名字都「自证有 1 处使用」）；④ `vue-tsc` 正反各跑一次。
- * 32 − `SEARCH_FIELDS`(import) − `ProgressRow`(import type) = **30**。
+ * 32 − `SEARCH_FIELDS`(import) − `ProgressRow`(import type) − P1 那 10 个(import) = **20 项进 `deps`**。
  *
  * | 来源 | 个数 | 名字 |
  * |---|---|---|
@@ -113,7 +113,7 @@ import {
 import type { ProgressRow } from '../../utils/progressRow'
 
 /**
- * `useProgressColumns()` 的注入面。**30 项**，按来源分 6 组（见文件头那张表）。
+ * `useProgressColumns()` 的注入面。**20 项进 `deps`**（下表 6 组，**末组那 10 项走 `import`、不进 `deps`**）。
  *
  * ⚠️ **注入的是 ref / 函数本身，不是 `.value` 副本**（与 P2/P3/P5/P7/P8/P9/P10 同一口径）——
  *   本块要**在 `computed` 体内读**它们（`filteredRows` / `pageRows` / `columns` 三个都是
@@ -127,7 +127,7 @@ export interface ProgressColumnsDeps {
   /** 每页条数（页面 `ref(100)`）—— `pageRows` 的切片终点。 */
   pageSize: Ref<number>
 
-  /** 行内「更新进度」（P3 `useProgressUpdateDialog` 回传，REF 141）。 */
+  /** 行内「更新进度」（P3 `useProgressUpdateDialog` 回传，REF 479）。 */
   openUpdate: (r: ProgressRowDto) => void
   /** 行内「删除」（P4 `useProgressDeleteRow` 回传，REF 564）。 */
   confirmDeleteRow: (r: ProgressRowDto) => void
@@ -174,7 +174,7 @@ export interface ProgressColumnsDeps {
 /**
  * 筛选链 + 分页 + 列定义（旧版 `no` / `io` / `pe` / 列数组）。
  *
- * ⚠️ **本块是全计划注入面最大的一块**（30 项），也是**唯一一块与另一个块互为输入**的
+ * ⚠️ **本块是全计划注入面最大的一块**（20 项进 `deps` + 12 项 `import`），也是**唯一一块与另一个块互为输入**的
  *   （P6 ↔ P7 的环，见文件头「调用点为什么在 P5 之后」）。
  */
 export function useProgressColumns(deps: ProgressColumnsDeps) {

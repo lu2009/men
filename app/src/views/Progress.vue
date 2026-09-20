@@ -500,7 +500,7 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
  * `composables/progress/useProgressColumns.ts`（Progress 拆分 **P6**，纯搬迁、逐字未改）。
  *
  * ⚠️ **调用点没有留在这里**：它是下面 `useProgressColumns({…})` 那处（在 **P5 之后**）——
- *   本块注入面 30 项，其中 P8 / P5 / P7 / P3 的产出在 REF 里都排在本块之后 ⇒ 放回原位会
+ *   本块注入面 20 项（另 12 项走 `import`），其中 P8 / P5 / P7 / P3 的产出在 REF 里都排在本块之后 ⇒ 放回原位会
  *   早读一串 TDZ 变量（`TS2448`）。**P6 ↔ P7 还是一对环**（本块要 P7 的 `searchText` /
  *   `allSelected` / `toggleSelectAll`，P7 又要本块的 `filteredRows`）⇒ 环只能从 P7 那一侧
  *   用一层前向 `computed` 打破，理由写在那个调用点上（照破 P7↔P3 那个环的 thunk 同一手法）。
@@ -667,9 +667,10 @@ const {
 // ---------------------------------------------------------------------------
 // C. B3/B4 的调用点（**P6**，2026-09-20 搬进 `composables/progress/useProgressColumns.ts`）。
 //
-// ⚠️ **为什么在这里**：本块注入面 **30 项**，其中最晚的几个 —— P8 的 `moreActive`/`moreRows`、
-//   P5 的 6 个（就在上面）、P7 的 `searchText`/`allSelected`/`toggleSelectAll`（本文件 532）、
-//   P3 的 `openUpdate`（本文件 586）—— 在 REF 里都排在本块（1226）之后，或由后面的工厂产出
+// ⚠️ **为什么在这里**：本块注入面 **20 项**（另 12 项走 `import`），其中最晚的几个 —— P8 的 `moreActive`/`moreRows`、
+//   P5 的 6 个（就在上面）、P7 的 `searchText`/`allSelected`/`toggleSelectAll`（REF 1396/1621/1626）、
+//   其余（`rows`/`page`/`pageSize`/`openUpdate`/`confirmDeleteRow`）**在 REF 里就排在本块之前**
+//   （声明点 REF 364/368/369/479/564），工厂调用点也在 `useProgressColumns`(688) 之前 ⇒ 不构成 TDZ。
 //   ⇒ 放回 B3 的原位置会**早读一串 TDZ 变量**（`TS2448`）。
 //   **本块 3 个产出全部只在 `computed` 体内或模板里被读** ⇒ 后移对求值时机零影响
 //   （与 P5 后移是同一条理由）。
@@ -722,8 +723,8 @@ const { filteredRows, pageRows, columns } = useProgressColumns({
 //      `onOpenPrintMode`，连段首横幅、那 29 行旧版原文块注释，**以及段尾那两条顶层
 //      `watch`**）已归位到 `composables/progress/useProgressPrint.ts`
 //      （Progress 拆分 **P9**，REF `f097a9b1`:1653–1799）。
-// ⚠️ **调用点为什么还在原位**：本块 4 个注入项 —— `message`（REF 369）· `page`（REF 388）·
-//   `searchText`/`selectedRows`（REF 676，P7 工厂的回传）—— **全部**在 REF 里就排在本块
+// ⚠️ **调用点为什么还在原位**：本块 4 个注入项 —— `message`（REF 352）· `page`（REF 368）·
+//   `searchText`/`selectedRows`（REF 1396 / 1408，P7 工厂的回传）—— **全部**在 REF 里就排在本块
 //   之前 ⇒ **没有 TDZ 约束**；而本块段外的**脚本**引用为 **0**（真 TS 解析器数标识符节点，
 //   不是 grep 裸名）⇒ 7 个回传**只被模板读**，模板与位置无关。两条合起来：调用点原地不动，
 //   `useProgressHeader(...)`（P5，上面 775 行）那处也一个字不用改（它不吃本块任何名字）。

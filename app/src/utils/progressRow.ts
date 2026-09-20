@@ -7,7 +7,7 @@
  * 而它**有四个消费方、分属四处**：
  *   · **壳** —— `const rows = ref<ProgressRow[]>([])`（REF 364）。**仍留在页面里**，
  *     只是改成 `import type { ProgressRow } from '../utils/progressRow'`。
- *   · **P6** —— `filteredRows` 的 `computed`（REF **1303**）。**Task 7 才搬**。
+ *   · **P6** —— `filteredRows` 的 `computed`（REF **1250**）。**Task 7 才搬**。
  *   · **P8** —— `moreRows` 的声明（REF **1456**）与 `submitMore` 里的 `list`
  *     （REF **1541**）。**本任务搬**（`composables/progress/useProgressQueryMore.ts`）。
  *   · **P9** —— `printOrdersOf` 的形参（REF **1703**）。**本任务搬**

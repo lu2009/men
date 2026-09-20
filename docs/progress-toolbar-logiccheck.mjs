@@ -800,7 +800,7 @@ const runLegacySearch = (rows, term) =>
  *    落在 **P6** 里 ⇒ 段随 P6 搬到了 `composables/progress/useProgressColumns.ts`。
  *    ⇒ 源换成新文件；**两个锚点都必须跟着改**（它们都是**块内**的源码文本，不像「统计」/「导出」
  *    那两段的终点是**块外**的横幅/标签）：
- *      · 起点多一个 `deps.`（`searchText.value` → `deps.searchText.value`，注入面 30 项之一）；
+ *      · 起点多一个 `deps.`（`searchText.value` → `deps.searchText.value`，注入面 20 项之一）；
  *      · 终点 `'\n    return list\n  })'` —— 同一段文本，只是整段落进工厂里**多了 2 格缩进**。
  *    ⚠️ **断言、夹具、容差一个字没动**（R12 档位 1）：变的只有「从哪个文件的哪一段取料」+
  *      下面 `makeNewSearch` 多搭的那个 `deps` 壳（同一对象，不是复制）。
