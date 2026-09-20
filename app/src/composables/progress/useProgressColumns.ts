@@ -114,7 +114,7 @@ import {
 import type { ProgressRow } from '../../utils/progressRow'
 
 /**
- * `useProgressColumns()` 的注入面。**20 项进 `deps`** + **12 项走 `import`**（下表 7 组：前 5 组那 20 项进 `deps`，**末两组那 12 项走 `import`、不进 `deps`**）。
+ * `useProgressColumns()` 的注入面。**20 项进 `deps`** + **12 项走 `import`**（上表 7 组：前 5 组那 20 项进 `deps`，**末两组那 12 项走 `import`、不进 `deps`**）。
  *
  * ⚠️ **注入的是 ref / 函数本身，不是 `.value` 副本**（与 P2/P3/P5/P7/P8/P9/P10 同一口径）——
  *   本块要**在 `computed` 体内读**它们（`filteredRows` / `pageRows` / `columns` 三个都是
