@@ -646,6 +646,8 @@ import {
 // 那块，已随它搬进 `composables/hui/useHuiPayQrcode.ts` ⇒ 本文件不再 import（TS6133）。
 // 仍需要的 `idbGetImage`：下面门花图列按 `image_id` 取图（`:1428`）。
 import { idbGetImage } from '../utils/imageStore'
+// 2026-09-20 C11：明细行两件**纯校验**（保存整单的必填清单 / 剔除全空行）搬到 `utils/huiLineChecks.ts`。
+import { missingFieldsOf, rowHasContent } from '../utils/huiLineChecks'
 // 2026-09-20 C1：`markupCatalog`/`removeCatalogItem`/`syncAddCatalogItem`/`updateCatalogItem`
 // 的**唯一**消费者是「加价项目管理」那块，已随它搬进 `composables/hui/useHuiMarkupMgmt.ts`
 // ⇒ 本文件不再 import 它们（留着就是 TS6133 未使用变量）。
@@ -1213,53 +1215,11 @@ function clearOrder() {
 // 必填只在「保存整单」拦截，允许先添加半空行；保存前自动剔除全空行。
 // ping：型材/数量/颜色/底玻/面玻/玻璃厚/开向/计价方式；diao：型材/颜色/底玻/面玻/玻璃厚/开向/扇数/轨道种类。
 // （旧码门洞宽/高检查是死代码、平开轨道检查是告警不拦截——本版统一补强门洞宽/高，吊趟轨道保留必填。）
-function missingFieldsOf(l: Line): string[] {
-  const m: string[] = []
-  const add = (ok: boolean, name: string) => {
-    if (!ok) m.push(name)
-  }
-  // 必填清单**逐字照抄旧版**（平开 @349085 / 吊趟 @353602）：
-  //   平开 `["型材","数量","颜色","底玻","面玻", 玻璃厚,"开向", 计价方式]`
-  //   吊趟 `["型材","颜色","底玻","面玻", 玻璃厚,"开向","扇数", 轨道种类]`
-  // ⚠️ **底玻/面玻是必填**（原版两格都没有 `clearable`，配合新建行默认值 ⇒ 空串在旧版产生不出来）。
-  // ⚠️ **原版清单里没有 门洞宽/门洞高**（用户确认「按照原版改」）。
-  //    @349301 校验循环里那两条 `"门洞高"===e && _[e]<=0` / `"门洞宽"===e && _[e]<=0`
-  //    是**死代码** —— `e` 只遍历清单 `x`，而这两项不在 `x` 中，永不命中
-  //    （形态像当初漏加了清单项）。故原版**实际不校验尺寸**：`errorFields["门洞高"]` 也没有
-  //    任何地方会写 `true`（单元格上挂着 `error-cell` 绑定但永远是 false）。
-  //    ⇒ 我们同步去掉这两项必填（**这是一处放宽**；要恢复只需把两行 `add` 加回来）。
-  add(!!l.profile.trim(), '型材')
-  add(!!l.color.trim(), '颜色')
-  add(!!l.bottom_glass.trim(), '底玻')
-  add(!!l.face_glass.trim(), '面玻')
-  add(!!l.glass_thickness.trim(), '玻璃厚')
-  add(!!l.direction.trim(), '开向')
-  if (l.line_type === 'ping') {
-    add(l.quantity >= 1, '数量')
-    add(!!l.price_type.trim(), '计价方式')
-  } else {
-    add(!!l.fans.trim(), '扇数')
-    add(!!l.track.trim(), '轨道种类')
-  }
-  return m
-}
-
-// 整行无任何内容 → 保存前自动剔除（旧版 splice 语义）
-function rowHasContent(l: Line): boolean {
-  return !!(
-    l.profile.trim() ||
-    l.door_width > 0 ||
-    l.door_height > 0 ||
-    l.color.trim() ||
-    l.bottom_glass.trim() ||
-    l.face_glass.trim() ||
-    l.glass_thickness.trim() ||
-    l.direction.trim() ||
-    l.fans.trim() ||
-    l.track.trim() ||
-    l.price_type.trim()
-  )
-}
+// 2026-09-20 本段 2 个声明搬到 `utils/huiLineChecks.ts`（逐字搬迁，零行为变化），只留调用点。
+// ⚠️ 它们都是**纯函数**（`l: Line` 进、值出、不碰页面状态）⇒ 按 spec §3.5 进 `utils/`，**不是** composable。
+//    ⇒ 页面侧用**普通 import** 接（不是解构），也没有「回传同一个 ref」那类引用同一性问题。
+// ⚠️ `rowHasContent` 在下面 `saveOrder` 里是**当谓词直接传**的（`filter(rowHasContent)`）——
+//    它仍是同一个函数引用，别改成 `(l) => rowHasContent(l)`。
 
 // 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
 

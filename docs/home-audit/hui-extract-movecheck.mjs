@@ -321,6 +321,20 @@ const SPLIT_BLOCKS = [
       sortMethodDraft: [],
     },
   },
+  {
+    // C11「明细行纯校验」（保存整单的必填清单 / 剔空行）。快照 `Hui.vue:1537-1584`，2 个声明。
+    // ⚠️ 这一块与其余 12 块**不同类**：它进的是 `utils/`（不是 `composables/hui/`）—— 两个函数
+    //    都以 `l: Line` 为参、不读页面状态 ⇒ 纯函数，按 spec §3.5 归 utils。
+    //    ⇒ 新家里它们是**顶层 `export function`**（其余块是工厂函数内部的嵌套声明）⇒ 改写里
+    //    每条都得有 `export ` 那一笔；漏了会报「归一化后仍不一致」。
+    // 注入面 0 项、回传面 0 项（页面用普通 import 接；没有 ref、没有引用同一性问题）。
+    target: 'app/src/utils/huiLineChecks.ts',
+    names: ['missingFieldsOf', 'rowHasContent'],
+    rewrites: {
+      missingFieldsOf: [{ from: 'function missingFieldsOf(', to: 'export function missingFieldsOf(' }],
+      rowHasContent: [{ from: 'function rowHasContent(', to: 'export function rowHasContent(' }],
+    },
+  },
 ]
 
 /**
