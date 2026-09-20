@@ -1005,7 +1005,7 @@ const { openAutoMarkup, autoMarkupOpen, onAutoMarkupDraft, saveAutoMarkup } =
 //    （段外零命中，解构出来就是 TS6133）。
 // ⚠️ **`loadColumnConfig` 不在这 4 个里，别把它当死代码删掉** —— 它**有**回传
 //    （`useHuiColumnConfig.ts:222`）、**有**解构（本文件 `:965`）、且被 `onMounted` 调用
-//    （本文件 `:1524` 的 `void loadColumnConfig()`）。
+//    （本文件 `:1530` 的 `void loadColumnConfig()`）。
 //    删掉任一处 ⇒ **租户列配置静默不再加载**，表格退回种子默认：零类型错、守卫不红、
 //    而且「列显隐」**没有差分台**兜底（这是本页唯一一处删了不报错的地方）。
 
