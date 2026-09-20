@@ -305,6 +305,15 @@ const require = createRequire(`${ROOT}/app/package.json`)
 const { parse } = require('@vue/compiler-sfc')
 
 const HUI_VUE_SRC = readFileSync(`${ROOT}/app/src/views/Hui.vue`, 'utf8')
+/**
+ * ⚠️ **2026-09-20 C13**：`saveSortMethod` 的**声明**已随 C13 搬到
+ * `app/src/composables/hui/useHuiSortMethod.ts`（逐字搬迁，零行为变化）⇒ 下面那条
+ * **源码断言**得改读新家。改的理由不是「让闸变绿」：那段断言的判据（落盘键名 / 成功提示 /
+ * 保存后关窗 / **不派事件**）**一条都没动**，只是被检文本搬了家 ——
+ * 它此前抛 `Hui.vue 里找不到 saveSortMethod`，是**照实报**（函数确实不在那儿了），
+ * 不是判据失效。`HUI_VUE_SRC` **保留**：`saveAutoMarkup` 与两个 `n-modal` 的解析还在读它。
+ */
+const HUI_SORTMETHOD_SRC = readFileSync(`${ROOT}/app/src/composables/hui/useHuiSortMethod.ts`, 'utf8')
 
 /**
  * 取出两个 `n-modal` 的 AST。
@@ -510,13 +519,18 @@ cmp('保存后弹窗要关（排序方式）', { 弹窗开着: false }, saveSort
 // ⚠️ SFC 的 setup 函数差分台 import 不到，所以这一段是**源码断言**，不是「跑起来比」——
 //    如实写明，别当成等价物。
 {
-  const src = (fn) => {
-    const at = HUI_VUE_SRC.indexOf(`function ${fn}(`)
-    if (at < 0) throw new Error(`Hui.vue 里找不到 ${fn}`)
-    return HUI_VUE_SRC.slice(at, HUI_VUE_SRC.indexOf('\n}\n', at))
+  /**
+   * ⚠️ `srcFile` **默认仍是 `Hui.vue`** —— 只有**搬走了**的那个函数才显式传新家
+   * （C13 之后只有 `saveSortMethod`；`saveAutoMarkup` 仍在页面里）。
+   */
+  const src = (fn, srcFile = HUI_VUE_SRC, where = 'Hui.vue') => {
+    const at = srcFile.indexOf(`function ${fn}(`)
+    if (at < 0) throw new Error(`${where} 里找不到 ${fn}`)
+    return srcFile.slice(at, srcFile.indexOf('\n}\n', at))
   }
   const auto = src('saveAutoMarkup')
-  const sort = src('saveSortMethod')
+  // 2026-09-20 C13：声明已搬到 `composables/hui/useHuiSortMethod.ts`（判据一字未动，只换了被检文本）。
+  const sort = src('saveSortMethod', HUI_SORTMETHOD_SRC, 'composables/hui/useHuiSortMethod.ts')
   for (const [needle, why] of [
     ["LS.set('smartdoor_disable_auto_markup', String(autoMarkupDraft.value))", '键名/写入形态'],
     ["new CustomEvent('auto-markup-setting-changed'", '给手机端外壳的事件'],
