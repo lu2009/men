@@ -5,7 +5,7 @@
  * （连续一整段，148 行，**4 个声明**）—— 拆分方案里的 **P6**（全计划**最后一刀**，
  * 也是注入面最大的一块）。段首两行分区横幅（`// ── B3. 筛选链 + 分页…` 与 1226 起那段
  * 25 行的「旧版 §4.1 链路」块注释、以及 1302 的 `// ── B4. 列定义…`）**一起搬来**；
- * 工厂体内**与 REF 一字不差、相对顺序也不动**（除下表那 32 项接线改写：20 项进 `deps` + 12 项走 `import`）。
+ * 工厂体内**与 REF 一字不差、相对顺序也不动**（除下表那 32 项注入的接线处理：20 项进 `deps` 改写 + 12 项走 `import` 原样）。
  *
  * ⚠️ **横幅与段内注释的保真不在守卫里**（核心 `sliceFn` 从**声明**起切，它们根本不进切片）——
  *   唯一证据是「整段与 REF 同区间逐字节比」（判据 R39：归一化掉工厂那层统一缩进之后，
@@ -37,6 +37,7 @@
  * | **P2** `useProgressColors` 回传（壳解构出来的） | 4 | `UNPRODUCED_KEY` · `colorKeyOf` · `cellPad` · `progressCellStyle` |
  * | **壳区** ref / 函数 | 5 | `rows` · `page` · `pageSize` · `openUpdate`(P3) · `confirmDeleteRow`(P4) |
  * | **P1** `utils/progressCells` 模块（**自己 import，不进 `deps`**） | 10 | `progressCell` `remarkCell` `profileColorCell` `glassCell` `fansDirectionCell` `trackCasingCell` `doorSizeCell` `lightWindowCell` `amountCell` `line` |
+ * | **模块 `import`**（`useProgressHeader` 的 `SEARCH_FIELDS` · `utils/progressRow` 的 `ProgressRow`） | 2 | `SEARCH_FIELDS` · `ProgressRow`(type) |
  *
  * ⚠️ **后 2 项（`moreActive` / `moreRows`）是本块最容易漏的一处，也是本任务最险的一处。**
  *   它们的声明在 **P8（Task 5）**，而 **P8 的 `useProgressQueryMore` 是喂给 P5 的** ——
@@ -113,7 +114,7 @@ import {
 import type { ProgressRow } from '../../utils/progressRow'
 
 /**
- * `useProgressColumns()` 的注入面。**20 项进 `deps`**（下表 6 组，**末组那 10 项走 `import`、不进 `deps`**）。
+ * `useProgressColumns()` 的注入面。**20 项进 `deps`** + **12 项走 `import`**（下表 7 组：前 5 组那 20 项进 `deps`，**末两组那 12 项走 `import`、不进 `deps`**）。
  *
  * ⚠️ **注入的是 ref / 函数本身，不是 `.value` 副本**（与 P2/P3/P5/P7/P8/P9/P10 同一口径）——
  *   本块要**在 `computed` 体内读**它们（`filteredRows` / `pageRows` / `columns` 三个都是
