@@ -53,6 +53,9 @@ const HEADER = resolve(ROOT, 'app/src/composables/progress/useProgressHeader.ts'
 // P10（统计行）2026-09-20 搬到这儿了 —— 本台子的「统计」段（`NEW_STATS_TS`）
 // 与「两份移门扇数字面量」自检那对锚点（`moveFans`/`pingFans`）都落在它里面。
 const STATS = resolve(ROOT, 'app/src/composables/progress/useProgressStats.ts')
+// P6（筛选链 + 分页 + 列定义）2026-09-20 搬到这儿了 —— 本台子「搜索」段（`NEW_SEARCH_TS`）
+// 的起点锚点（`const words = …`，REF 1269）落在它里面。
+const COLUMNS = resolve(ROOT, 'app/src/composables/progress/useProgressColumns.ts')
 const USE_OPEN_DIR = resolve(ROOT, 'app/src/composables/useOpenDirection.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
@@ -126,6 +129,7 @@ const legacyNaming = namingModule.exports
 const vue = readFileSync(VUE, 'utf8')
 const header = readFileSync(HEADER, 'utf8')
 const stats = readFileSync(STATS, 'utf8')
+const columns = readFileSync(COLUMNS, 'utf8')
 
 /**
  * 从 `src` 里按「命中 + 唯一 + 终点在后」切一段。
@@ -732,9 +736,20 @@ const runLegacySearch = (rows, term) =>
     throw new Error('旧版搜索段不应调用局部解码器 de')
   })
 
-const NEW_SEARCH_TS = cutVue(
-  'const words = searchText.value.toLowerCase()',
-  '\n  return list\n})',
+/*
+ * ⚠️ **换源（2026-09-20，Progress 拆分 P6）**：起点锚点（`const words = …`，REF **1269**）
+ *    落在 **P6** 里 ⇒ 段随 P6 搬到了 `composables/progress/useProgressColumns.ts`。
+ *    ⇒ 源换成新文件；**两个锚点都必须跟着改**（它们都是**块内**的源码文本，不像「统计」/「导出」
+ *    那两段的终点是**块外**的横幅/标签）：
+ *      · 起点多一个 `deps.`（`searchText.value` → `deps.searchText.value`，注入面 30 项之一）；
+ *      · 终点 `'\n    return list\n  })'` —— 同一段文本，只是整段落进工厂里**多了 2 格缩进**。
+ *    ⚠️ **断言、夹具、容差一个字没动**（R12 档位 1）：变的只有「从哪个文件的哪一段取料」+
+ *      下面 `makeNewSearch` 多搭的那个 `deps` 壳（同一对象，不是复制）。
+ */
+const NEW_SEARCH_TS = cutIn(
+  columns,
+  'const words = deps.searchText.value.toLowerCase()',
+  '\n    return list\n  })',
   '搜索',
 )
 if (!NEW_SEARCH_TS.includes('SEARCH_FIELDS') || NEW_SEARCH_TS.length < 200) {
@@ -745,10 +760,11 @@ if (!NEW_SEARCH_TS.includes('SEARCH_FIELDS') || NEW_SEARCH_TS.length < 200) {
  *    它随「列头交互」整段搬进了 `app/src/composables/progress/useProgressHeader.ts`
  *    （纯搬迁、逐字未改，只是按「模块级常量必须出工厂」的口径多了一个 `export`）。
  *    ⇒ 这一对锚点改从这个新文件切；**断言与夹具一个字没动**（R12 档位 1）。
- *    ⚠️ 上面 `NEW_SEARCH_TS` 那一段（`filteredRows`）**仍然在 `.vue` 里**（它是 P6，Task 7 才搬）
- *      ⇒ 本台子现在是**跨两个文件**取料，`cutIn` 的 `src` 参数就是为这个加的。
+ *    ⚠️ 上面 `NEW_SEARCH_TS` 那一段（`filteredRows` 的搜索框段）**Task 7 起也搬走了**
+ *      （P6 → `useProgressColumns.ts`）⇒ 本台子现在是**跨四个文件**取料，
+ *      `cutIn` 的 `src` 参数就是为这个加的（见上面那段换源的 ⚠️）。
  *    回退法：`git checkout <本笔之前的 sha> -- docs/progress-toolbar-logiccheck.mjs`
- *    （换源前必须连同 `Progress.vue` 一起回退，否则那对锚点在两边都不在）。
+ *    （换源前必须连同它引用的那些 composable 一起回退，否则锚点在两边都不在）。
  *    ⚠️ 锚点本身**一个字没改**：新文件里那两行与 REF 逐字相同（只缩进为 0，原本也是 0）。
  */
 const SEARCH_FIELDS_TS = cutIn(header, 'const SEARCH_FIELDS = [', '] as const satisfies', 'SEARCH_FIELDS') + ']'
@@ -759,14 +775,21 @@ const SEARCH_FIELDS_TS = cutIn(header, 'const SEARCH_FIELDS = [', '] as const sa
  */
 const extractedFields = new Function(`${toCjs(SEARCH_FIELDS_TS)}\nreturn SEARCH_FIELDS`)()
 const newSearchBody = toCjs(NEW_SEARCH_TS)
+/*
+ * ⚠️ **P6 换源之后这段读的是注入对象**（`useProgressColumns` 工厂的 `deps`）⇒ 多搭一个 `deps` 壳，
+ *   与「统计」段（P10）同一个改法：`deps.searchText` **就是**原来那个 ref 桩本身。
+ *   ⚠️ 实测这段里出现的 `deps.` **只有** `deps.searchText`（1 处）—— 段内其余名字
+ *   （`SEARCH_FIELDS` / `list` / `words`）都不是注入项（前者是 import、后两个是局部/参数）。
+ */
 const makeNewSearch = new Function(
-  'searchText',
+  'deps',
   'SEARCH_FIELDS',
   `return function newSearch(list) {\n${newSearchBody}\nreturn list\n}`,
 )
 // ⚠️ `searchText` 是**每次调用现取**的（旧版也是 `zo.value` 现读）——
 //    第一版把它在构造期固定成空串，结果「搜索永远不筛」，差点被当成新版实现错。
-const runNewSearch = (rows, term) => makeNewSearch({ value: term }, extractedFields)(rows)
+//    换源后这个性质靠「每次调用现造一个 `deps` 对象」保住（`deps.searchText.value` 在读的那一刻取）。
+const runNewSearch = (rows, term) => makeNewSearch({ searchText: { value: term } }, extractedFields)(rows)
 
 /** 搜索夹具：一行里十种字段各放一个可搜到的词，外加干扰项。 */
 const SEARCH_ROWS = [

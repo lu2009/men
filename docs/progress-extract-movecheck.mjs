@@ -723,6 +723,90 @@ const BLOCKS = [
       dateRange: [{ from: 'filteredRows.value', to: 'deps.filteredRows.value' }],
     },
   },
+
+  {
+    /*
+     * **P6「筛选链 + 分页 + 列定义」**（→ `app/src/composables/progress/useProgressColumns.ts`）。
+     * REF `f097a9b1`:1226–1373（连续一整段，148 行，**4 个声明**）。
+     *
+     * ⚠️ **区间两端**（R33：终点从 1374 更正为 1373）：1226 = 本段自己的横幅
+     *   （`// ── B3. 筛选链 + 分页…`）⇒ **横幅跟块走**；1226–1249 **全是注释、0 个声明**
+     *   （横幅 + 25 行的「旧版 §4.1 链路」块注释），所以「区间含注释」不影响声明清单。
+     *   **1374 起是 P7 的段首 banner**（`// C. 工具条 + 统计行`）⇒ **必须留在原地**，
+     *   原写 1374 会让两个任务抢同一行（先做的赢、后做的静默少一行）。
+     *   1372 是 `columns` 的收尾 `])`、1373 是空行 ⇒ **止点 = 1373**。
+     *   复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '1224,1227p'` ·
+     *          `… | sed -n '1371,1376p'`。
+     *   ⚠️ 这条**没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *     它只有「整段与 REF 同区间逐字节比」一条来源（本任务做过，判据 R39，见下）。
+     *
+     * ⚠️ **本段里没有顶层非声明语句**（memory `split-guard-blind-spots` 第 4 类不适用）——
+     *   实测 REF 1226–1373 的顶层语句**全是这 4 个声明**（真 TS 解析器遍历 `sf.statements`
+     *   逐条打 `SyntaxKind`；切片器切不到这一类，故必须单独量一遍）。
+     *
+     * ⚠️ **工厂式**（`useProgressColumns(deps)`）⇒ **一条 `export` 改写都没有**
+     *   （函数体内写 `export` 是 `TS1184`；与 P2/P3/P5/P7/P8/P9/P10 同形）。
+     *
+     * ⚠️ **注入改写 = 20 条规则、命中 39 处**（`deps.` 化），分挂在吃它的声明下。
+     *   规则一律**带边界**（核心文件头：朴素 `split/join`）。两处已单独核过：
+     *   · `rows.value` **不会**误伤 `moreRows.value`（差在 `Rows` 的**大写 R**，`split/join` 大小写敏感）；
+     *   · `page.value` **不会**误伤 `pageSize.value`（前者要求字面 `page.value`）。
+     *   ⚠️ `cellPad` 是**裸名**规则（13 处），段内没有第二个以它开头的标识符 ⇒ 安全。
+     *   ⚠️ 39 处命中**全部落在活代码里**（与文件头那张「注入面 30 项」表逐名核过）——
+     *     段内注释里出现的旧版标识符是 `K2`/`oo`/`no`/`Bo`/`xo`/`zo`，与本表的英文名不相交。
+     *
+     * ⚠️ **回传 3 项**（4 个里真被段外消费的 3 个）—— **本守卫管不着这一条**，
+     *   它只比「声明搬得像不像」，「壳有没有漏接」由 `vue-tsc` 管（盲区第 3 类）：
+     *   · `filteredRows` —— 段外 **脚本 12 处 + 模板 3 处**（真 TS 解析器 + 剥注释纯文本搜各量一遍）：
+     *     `383`(壳 `load()`) · `1622`(×2) `1630`(P7b) · `1876`/`1899`/`1913`/`1924`/`1942`/`1961`(P10) ·
+     *     `2054`/`2075`(P11)；模板 167/170/316 ⇒ **4 个外部接点 = 壳 / P7 / P10 / P11 + 模板**；
+     *   · `pageRows` —— **只被模板用**（模板 176 `:data="pageRows"`），段外脚本 0；
+     *   · `columns` —— **只被模板用**（模板 175 `:columns="columns"`）。
+     *     ⚠️ **这个数极易数错**：裸名正则在 `      :columns="columns"` 上把**属性名**也算一次
+     *     ⇒ 计数器报 2，**真实消费者只有 1**（`="columns"` 那个值位）。
+     *     全文另有 2 处**纯文本假阳性**：上面那个属性名，以及 REF **2037** 的 `ws.columns = cols`
+     *     （P11 里 `ws` 的属性名，与这个 `columns` 同名不同物）—— 只有真 TS 解析器分得开。
+     *   ⚠️ **不回传、也不许解构的 1 个**：`dateHeader`（段外脚本 0、模板 0）——
+     *     它是 `columns` 第一列的列头辅助（REF 1307 被 `columns` 自己用）。
+     *     **别把它从本清单里去掉**：去掉就等于那 10 行没人验。
+     */
+    target: 'app/src/composables/progress/useProgressColumns.ts',
+    names: [],
+    consts: ['filteredRows', 'pageRows', 'dateHeader', 'columns'],
+    rewrites: {
+      filteredRows: [
+        { from: 'moreActive.value', to: 'deps.moreActive.value' },
+        { from: 'moreRows.value', to: 'deps.moreRows.value' },
+        { from: 'rows.value', to: 'deps.rows.value' },
+        { from: 'orderNoFilterValues()', to: 'deps.orderNoFilterValues()' },
+        { from: 'matchesOrderNoOption(', to: 'deps.matchesOrderNoOption(' },
+        { from: 'colorFilter.value', to: 'deps.colorFilter.value' },
+        { from: 'UNPRODUCED_KEY', to: 'deps.UNPRODUCED_KEY' },
+        { from: 'colorKeyOf(', to: 'deps.colorKeyOf(' },
+        { from: 'orderNoQuery.value', to: 'deps.orderNoQuery.value' },
+        { from: 'searchText.value', to: 'deps.searchText.value' },
+      ],
+      pageRows: [
+        { from: 'pageSize.value', to: 'deps.pageSize.value' },
+        { from: 'page.value', to: 'deps.page.value' },
+      ],
+      dateHeader: [
+        { from: 'allSelected.value', to: 'deps.allSelected.value' },
+        { from: 'toggleSelectAll(', to: 'deps.toggleSelectAll(' },
+      ],
+      columns: [
+        { from: 'cellPad', to: 'deps.cellPad' },
+        { from: 'orderNoHeader', to: 'deps.orderNoHeader' },
+        { from: 'orderNoFilterValues()', to: 'deps.orderNoFilterValues()' },
+        { from: 'matchesOrderNoOption(', to: 'deps.matchesOrderNoOption(' },
+        { from: 'progressHeader', to: 'deps.progressHeader' },
+        { from: 'progressCellStyle(', to: 'deps.progressCellStyle(' },
+        { from: 'openUpdate(', to: 'deps.openUpdate(' },
+        { from: 'confirmDeleteRow(', to: 'deps.confirmDeleteRow(' },
+      ],
+    },
+  },
+
 ]
 
 /**

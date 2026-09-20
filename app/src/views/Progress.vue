@@ -27,7 +27,8 @@
        逐条理由写在 `PrintDrawer.vue` 的 `PROGRESS_ITEMS` 注释里。
     3. ~~**更多查询对话框**~~ ✅ **已做（本笔）**（旧版 `Lo` + `Io`）：「查询更多」→
        「查询订单」对话框 → `GET /v1/progress/more` → 换底表（`Bo`/`xo`）+ 并入全量 + 搜索框回显。
-       见 `openMore` / `submitMore` / `filteredRows` 上方那三段注释。
+       见 `useProgressQueryMore.ts` 里 `openMore`/`submitMore` 上方那两段、以及
+       `useProgressColumns.ts` 里 `filteredRows` 上方那段（Task 7 起都在各自的新家）。
     4. ~~**行内动作**~~ ✅ **全做完**：「更新进度」/「删除」已做（§4.2 / §4.3）；
        **「日期」列的行勾选 checkbox** ✅ 本笔补上（表头 = 全选/取消全选，范围是**当前筛选结果**）。
        ⇒ 工具条「批量更新 (n)」按旧版条件（已选 > 1）**自动出现**，点开是同一个更新进度弹窗的批量版
@@ -322,12 +323,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
-import type { VNodeChild } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   NAutoComplete,
-  NButton,
-  NCheckbox,
   NDataTable,
   NDatePicker,
   NForm,
@@ -339,30 +337,21 @@ import {
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumn } from 'naive-ui'
 import { api } from '../api/client'
+// ⚠️ `ProgressRowDto` **只在模板里用**（模板 178 的 `:row-key="(r: ProgressRowDto) => r.id"`）——
+//   脚本侧 Task 7 之后一处都没有了，但**不能从这行删掉**（删了就是模板绑定静默变空 /
+//   `TS2552`）。脚本侧只数标识符节点的量法会把它记成「0 处使用」⇒ 必须配整文件纯文本搜（R46 ②）。
 import type { ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
+import { useProgressColumns } from '../composables/progress/useProgressColumns'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
-import { SEARCH_FIELDS, useProgressHeader } from '../composables/progress/useProgressHeader'
+import { useProgressHeader } from '../composables/progress/useProgressHeader'
 import { useProgressPrint } from '../composables/progress/useProgressPrint'
 import { useProgressQueryMore } from '../composables/progress/useProgressQueryMore'
 import { useProgressStats } from '../composables/progress/useProgressStats'
 import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
-import {
-  amountCell,
-  doorSizeCell,
-  fansDirectionCell,
-  glassCell,
-  lightWindowCell,
-  line,
-  profileColorCell,
-  progressCell,
-  remarkCell,
-  trackCasingCell,
-} from '../utils/progressCells'
 import type { ProgressRow } from '../utils/progressRow'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
@@ -428,7 +417,8 @@ onMounted(async () => {
  *     ⚠️ 别以后有人「照旧版改回去」。
  *
  *  ⚠️ **但页面这一层现在还是空的**：旧版的「数据范围」是 `oo` 那一步
- *     （`b ? K : K.filter(打单人 === 自己)`），本页**尚未实现**（理由见 `filteredRows` 上方那段：
+ *     （`b ? K : K.filter(打单人 === 自己)`），本页**尚未实现**（理由见 `useProgressColumns.ts`
+ *     里 `filteredRows` 上方那段（Task 7 起搬到了新家）：
  *     它依赖 `userinfo.registrant/name` 那套账号字段；且后端 `progress/service.rs` 的
  *     `build_row` 目前把 `打单人` **恒置 null**，前端拿不到行的打单人）。
  *     ⇒ 「与页面一致」今天 = 与页面同源（`rows`）。
@@ -473,11 +463,13 @@ const { confirmDeleteRow } = useProgressDeleteRow({ rows, dialog, message })
 /*
  * 颜色口径（旧版 §5.3 的 `J` / `R` / `re` / `$`）—— 2026-09-20 起整段搬进
  * `composables/progress/useProgressColors.ts`（Progress 拆分 **P2**，纯搬迁、逐字未改）。
- * 这里只接回**段外真的用到**的那几个：
- *   · `colorKeyOf` —— `confirmOrderNoQuery`（查单号）与 `filteredRows`（颜色筛）
- *   · `UNPRODUCED_KEY` —— `filteredRows`
- *   · `colorFilterOptions` —— `progressHeader` 的「颜色筛选」下拉
- *   · `cellPad` / `progressCellStyle` —— `columns` 的 `cellProps`
+ * 这里只接回**段外真的用到**的那几个（⚠️ **Task 7 起下面这四处读者里，`filteredRows` / `columns`
+ * 已经在 `useProgressColumns.ts` 里了** —— 本块那 4 个名字现在是**喂给 P6 工厂**的，
+ * 不再是「喂给壳里那两个 `computed`」；名字不变、调用点也不变，只是消费方换了文件）：
+ *   · `colorKeyOf` —— `confirmOrderNoQuery`（查单号，P5 体内）与 `filteredRows`（颜色筛，P6）
+ *   · `UNPRODUCED_KEY` —— `filteredRows`（P6）
+ *   · `colorFilterOptions` —— `progressHeader` 的「颜色筛选」下拉（P5 体内）
+ *   · `cellPad` / `progressCellStyle` —— `columns` 的 `cellProps`（P6）
  * ⚠️ 其余 9 个**不要**解构回来：段外零引用，解构了就是死局部（`noUnusedLocals` 会红）。
  * ⚠️ `orderedProcedureNames` 也在「不要解构」那一列 —— 方案点名的「模板 66 行」实际是
  *    模板顶部那段注释里的一个词，**没有任何真实调用**（本笔用真 TS 解析器数的引用点）。
@@ -491,7 +483,9 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
 //    `confirmOrderNoQuery` `clearOrderNoQuery` `orderNoHeader` `colorFilter` `progressHeader`
 //    `SEARCH_FIELDS` —— 连段首三行横幅与 B1/B2 两段旧版原文注释）已归位到
 //    `composables/progress/useProgressHeader.ts`（Progress 拆分 **P5**，REF `f097a9b1`:998-1225）。
-//    `SEARCH_FIELDS` 是模块级常量，由那边 `export`、本文件 import 进来给 `filteredRows` 用。
+//    `SEARCH_FIELDS` 是模块级常量，由那边 `export`。⚠️ **Task 7 起本文件不再 import 它** ——
+//    唯一的消费者是 `filteredRows`（REF 1273），已随 **P6** 搬进 `useProgressColumns.ts`，
+//    由那个新文件自己 import（理由与那 10 个单元格渲染函数同一条：谁用谁 import）。
 //
 // ⚠️ **调用点为什么在下面（`moreActive` 之后）而不在这个位置**：本块注入的 `moreRows`(REF 1456)
 //   / `moreActive`(REF 1465) 属 **P8**、在 REF 里**排在本块之后** ⇒ 放在这里会**早读两个 TDZ
@@ -499,153 +493,25 @@ const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellSty
 //   其余 5 个注入项（`rows` `page` `message` / P2 的 `colorKeyOf` `colorFilterOptions`）
 //   都在调用点之前早就声明好了。
 // ---------------------------------------------------------------------------
-// ── B3. 筛选链 + 分页 ─────────────────────────────────────────────────────
 /*
- * 旧版 §4.1 的链路：`K2`（原始）→ `oo` → `no`（最终）→ `io`（当页切片）。
- * 本页目前做了链里的四步（剩下没做的只有 `oo` 那一步，理由见下）：
+ * B3/B4 —— 筛选链 + 分页（旧版 `no`/`io`）与列定义（`pe` + 列数组），**连段首两行横幅、
+ * 那段 25 行的旧版 §4.1 链路注释、以及 `// ── B4. 列定义…`**，2026-09-20 起整段搬进
+ * `composables/progress/useProgressColumns.ts`（Progress 拆分 **P6**，纯搬迁、逐字未改）。
  *
- *   `oo`（只看自己打单的行）—— 旧版 `b2 ? K2 : K2.filter(打单人 === 自己)`。
- *     ⚠️ 新版**还没做**：它依赖 `userinfo.registrant/name` 这套账号字段，
- *        旧版 §10 明确「`defaulted` 我们不复制，账号类型映射等做权限那一步再定」。
- *        这里先跳过，等权限那一步补 —— **不要**用「当前登录名」凑一个近似值。
- *   `ia` 单号列筛 → `Z2` 颜色筛 → `Va` 查单号前缀 → `zo` 搜索框（**顺序照旧版**）
+ * ⚠️ **调用点没有留在这里**：它是下面 `useProgressColumns({…})` 那处（在 **P5 之后**）——
+ *   本块注入面 30 项，其中 P8 / P5 / P7 / P3 的产出在 REF 里都排在本块之后 ⇒ 放回原位会
+ *   早读一串 TDZ 变量（`TS2448`）。**P6 ↔ P7 还是一对环**（本块要 P7 的 `searchText` /
+ *   `allSelected` / `toggleSelectAll`，P7 又要本块的 `filteredRows`）⇒ 环只能从 P7 那一侧
+ *   用一层前向 `computed` 打破，理由写在那个调用点上（照破 P7↔P3 那个环的 thunk 同一手法）。
  *
- * ⚠️ 与 Home 同款的**有意偏离**：旧版的列头筛发生在分页切片**之后**（只筛当前页、总数不含它），
- *    新版把这几步都并进 `filteredRows` ⇒ **全量筛选、总数跟随**。
- *
- * ⚠️ 旧版 `no` 的第一句是 `let t = Bo.value ? xo.value : oo.value` —— `Bo`/`xo` 是
- *    **「查询更多」的结果集与其生效标志**（点确认后 `xo=d, Bo=true`；**动搜索框或清空**就把
- *    `Bo` 置回 `false`，退回全量）。新版这一层 = `moreActive ? moreRows : rows`，
- *    退出条件照旧版放在搜索框的 `@input` / `@clear` 上（见 `onSearchInput` / `onSearchClear`）。
- *
- * ⚠️ 与 `oo`（只看自己打单的行）**不是一回事**，别合并：`oo` 是**数据范围**（本版仍未做，
- *    理由见上），`Bo`/`xo` 是**用户主动查出来的结果集**。旧版是 `no = (Bo ? xo : oo)`，
- *    即结果集**优先于**数据范围 —— 但结果集本身在 `Io` 里已经被数据范围滤过一遍
- *    （`!b2 && (d = d.filter(打单人 === 自己))`），两处都做才对。
+ * ⚠️ 段外消费点（**一律写 REF 行号**：本文件行号会随后面每块搬走而漂）：
+ *   · `filteredRows` —— **4 个接点**：壳 `load()`(383) · P7(1622×2/1630) · P10(1876/1899/1913/
+ *     1924/1942/1961) · P11(2054/2075)，外加**模板 3 处**（167 / 170 / 316）；
+ *   · `pageRows` —— **只被模板用**（模板 176 `:data="pageRows"`）；
+ *   · `columns` —— **只被模板用**（模板 175 `:columns="columns"`；⚠️ 数这一处时别把
+ *     属性名 `:columns` 也算成消费者 —— 裸名正则会虚增 1）；
+ *   · `dateHeader` —— 段外 0、模板 0，**跟着块走**（它是 `columns` 第一列的列头辅助）。
  */
-const filteredRows = computed(() => {
-  let list = moreActive.value ? moreRows.value : rows.value
-  const sel = orderNoFilterValues()
-  if (sel.length) list = list.filter((r) => sel.some((v) => matchesOrderNoOption(v, r)))
-  if (colorFilter.value) {
-    list =
-      colorFilter.value === UNPRODUCED_KEY
-        ? list.filter((r) => !String(r['单号'] ?? '').trim())
-        : list.filter((r) => colorKeyOf(r['生产进度']) === colorFilter.value)
-  }
-  if (orderNoQuery.value) {
-    const q = orderNoQuery.value.toLowerCase()
-    list = list.filter((r) => String(r['单号'] ?? '').toLowerCase().startsWith(q))
-  }
-  // 搜索框：空格分词，**每个词都要命中**十个字段里的任意一个（全部 `toLowerCase()` 后 `includes`）。
-  // 逐字对着旧版 `no` 的最后一段抄：字段顺序、`String(x ?? '')` 的空值处理都一样。
-  // ⚠️ 旧版用 `?.toString().toLowerCase().includes(w)`，null/undefined 会短路成 falsy；
-  //    这里等价写成 `String(x ?? '')`（`null` → `''`，`''.includes(w)` 只有 `w` 为空才真，
-  //    而 `w` 已经 `filter(Boolean)` 过了 ⇒ 同样恒 false）。
-  const words = searchText.value.toLowerCase().split(/\s+/).filter((w) => w)
-  if (words.length) {
-    list = list.filter((r) =>
-      words.every((w) =>
-        SEARCH_FIELDS.some((k) => String(r[k] ?? '').toLowerCase().includes(w)),
-      ),
-    )
-  }
-  return list
-})
-
-const pageRows = computed(() =>
-  filteredRows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value),
-)
-
-/**
- * 「日期」列表头（旧版 `pe` 那个 div）：**全选 checkbox + 「日期」**竖排。
- *
- * ⚠️ 旧版这个 checkbox 的 `title` 就是下面这句 —— 它同时也是**唯一的范围说明**
- *    （全选盖的是「当前筛选结果」而不是当前页，见 `toggleSelectAll` 的注释）。
- *    naive 的 `n-checkbox` 没有 `title` prop，用原生 `title` 属性（浏览器悬停提示）。
- */
-const dateHeader = (): VNodeChild =>
-  h('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' } }, [
-    h('span', { title: '全选/取消全选（当前筛选结果）' }, [
-      h(NCheckbox, {
-        checked: allSelected.value,
-        'onUpdate:checked': (v: boolean) => toggleSelectAll(v),
-      }),
-    ]),
-    h('span', null, '日期'),
-  ])
-
-// ── B4. 列定义 ────────────────────────────────────────────────────────────
-const columns = computed<DataTableColumn<ProgressRow>[]>(() => [
-  // 1 日期（表头带全选 checkbox，行内带勾选框 —— 见 §2.3 第 1 行；两者都是素 `D2`=PC 才有，
-  //   本版不做终端分支 ⇒ 恒显示）
-  {
-    title: dateHeader,
-    key: '日期',
-    width: 150,
-    fixed: 'left',
-    cellProps: cellPad,
-    render: (r) =>
-      h('div', { class: 'cell-col' }, [
-        // 行勾选框（旧版 `m` = ElCheckbox，`modelValue: row.isSelected` + `onChange: Jl(row, t)`）。
-        // ⚠️ 直接改行对象上的标志（`rows` 是深响应式），`selectedRows` 是它的派生 computed。
-        h(NCheckbox, {
-          checked: r.isSelected,
-          'onUpdate:checked': (v: boolean) => {
-            r.isSelected = v
-          },
-        }),
-        line(r['日期']),
-        // 两个链接都是 `v-if="D2"`（PC 模式）—— 本版不做终端模式，故恒显示。
-        // 旧版这一格是 `{display:flex;flex-direction:column;align-items:center;gap:4px}` 的**竖排**
-        // （`he`，见 §2.3 第 1 行「右侧两个链接」）⇒ 「更新进度」「删除」是**上下两行**，不是并排。
-        h(NButton, { size: 'tiny', text: true, type: 'primary', onClick: () => openUpdate(r) }, { default: () => '更新进度' }),
-        // 「删除」旧版是**红字**（`<span class="update-progress-link" style="color:#f56c6c">`）。
-        // ⚠️ 这里用 naive 的 `type="error"` 表达「危险」，**不是**旧版那个 `#f56c6c` ——
-        //    与紧邻的「更新进度」（旧版 `#409eff`，这里用 `type="primary"`）是同一套取舍：
-        //    这一列的两颗都按 naive 语义色走。要改成旧版原色，**两颗一起改**，
-        //    别只把「删除」单独拧回 `#f56c6c`（那会让这一格看起来像两种风格拼的）。
-        h(NButton, { size: 'tiny', text: true, type: 'error', onClick: () => confirmDeleteRow(r) }, { default: () => '删除' }),
-      ]),
-  },
-  { title: '客户', key: '客户', width: 110, cellProps: cellPad, render: (r) => line(r['客户']) },
-  // 3 单号：表头筛（有单号/空单号）+「查单号」popover
-  {
-    title: orderNoHeader,
-    key: '单号',
-    width: 110,
-    cellProps: cellPad,
-    filterOptions: [
-      { label: '有单号', value: '有单号' },
-      { label: '空单号', value: '空单号' },
-    ],
-    filter: (v, r) => matchesOrderNoOption(v as string | number, r),
-    // 受控：`computed` 里读 `columnFilterState`，变更时整列重算
-    filterOptionValues: orderNoFilterValues(),
-    render: (r) => line(r['单号']),
-  },
-  // 4 生产进度：`va()` 渲染 + 含「回款」标红 + 整格底色（`cellProps`）+ 表头颜色筛选
-  {
-    title: progressHeader,
-    key: '生产进度',
-    width: 220,
-    cellProps: (r: ProgressRowDto) => ({
-      style: { padding: '1px', ...progressCellStyle(r['生产进度']) },
-    }),
-    render: progressCell,
-  },
-  { title: '型材/颜色', key: 'profile_color', width: 130, cellProps: cellPad, render: profileColorCell },
-  { title: '玻璃', key: 'glass', width: 120, cellProps: cellPad, render: glassCell },
-  { title: '扇数/开向', key: 'fans_dir', width: 110, cellProps: cellPad, render: fansDirectionCell },
-  { title: '下轨道/套线', key: 'track_casing', width: 120, cellProps: cellPad, render: trackCasingCell },
-  { title: '门洞尺寸', key: 'door_size', width: 130, cellProps: cellPad, render: doorSizeCell },
-  { title: '亮窗信息', key: 'lightwin', width: 120, cellProps: cellPad, render: lightWindowCell },
-  // 11 备注（PC 模式下在这一位；终端模式会前移到第 5 位 —— 本版不做终端）
-  { title: '备注', key: 'remark', width: 140, cellProps: cellPad, render: remarkCell },
-  { title: '金额', key: 'amount', width: 130, cellProps: cellPad, render: amountCell },
-  { title: '打单人', key: '打单人', width: 90, cellProps: cellPad, render: (r) => line(r['打单人']) },
-  { title: '业务员', key: '业务员', width: 90, cellProps: cellPad, render: (r) => line(r['业务员']) },
-])
 
 // ---------------------------------------------------------------------------
 // C. 工具条 + 行勾选（`exporting`/`searchText`/`selectedRows`/`refresh`/`allSelected`/
@@ -659,16 +525,27 @@ const columns = computed<DataTableColumn<ProgressRow>[]>(() => [
 //   （`(r) => progressUpdateDialog.openUpdateDialog(r)`），真调用发生在用户点「批量更新」时，
 //   那时两者都已就绪。**不是凑数**：这里直接写 `openUpdateDialog` 会早读 TDZ（`TS2448`）。
 //   ⇒ 连带把 P3 那处拆成「先接住工厂结果、再解构」，只为给这层 thunk 一个可引用的名字。
-// ⚠️ 本块 **5 个注入项**：4 个**值**在这个位置都已声明（`rows` 379 / `load` 389 /
-//   `message` 367 / `filteredRows` 733 —— 最晚的就是它），第 5 个 `openUpdateDialog` 来自
-//   **下面**的 P3 ⇒ 正是靠上面那层 thunk 才敢这么排。复量：
-//   `git show f097a9b1:app/src/views/Progress.vue | grep -nE '^const filteredRows|^async function load'`。
-//   ⚠️ Task 7 把 P6 搬走之后，`filteredRows` 要改接 `useProgressColumns` 的回传
-//   （与 `procedures` 改接 `useProgressColors` 的回传同形）。
+// ⚠️ 本块 **5 个注入项**：3 个**值**在这个位置早已声明（`rows` REF 364 / `load` REF 374 /
+//   `message` REF 352）；第 4 个 `filteredRows`（REF 1250）与第 5 个 `openUpdateDialog`
+//   （P3，REF 1640）都来自**下面** ⇒ 各靠一层迟求值的写法才敢这么排（前者见下面的 ⚠️、
+//   后者是上面那层 thunk）。复量：
+//   `git show f097a9b1:app/src/views/Progress.vue | grep -nE '^const rows|^const message|^async function load'`。
+//   〔一律写 REF 行号 —— 本文件行号会随后面每块搬走而漂。〕
+// ⚠️ **`filteredRows` 这一项从 Task 7（P6 搬走）起又是一层前向引用**：它现在由**下面**的
+//   `useProgressColumns(...)` 产出（P6），而那个调用点**不可能**排到这里之前 ——
+//   本块要 P7 的 `searchText`/`allSelected`/`toggleSelectAll`（P7 的产出），而 P8 要本块的
+//   `searchText`、P5 要 P8 的 `moreRows`/`moreActive`、P6 又要 P5 的 6 个 ⇒
+//   **P6 必须排在 P7→P8→P5 这条链之后**，而 P7 必须排在 P6 之前才拿得到 `filteredRows`
+//   —— **P6 ↔ P7 是一对环**。打破方式与本块破 P7↔P3 同一个手法（一层迟求值的 thunk），
+//   只是这里要的是个 `ComputedRef`，所以包成 `computed(() => …)`：
+//   ⚠️ **为什么用 `computed` 包、而不是把 P7 的 `filteredRows` 形参改成 thunk**：后者要动
+//     `useProgressToolbar.ts`（P7 在守卫里是逐字比的，形参一改就红）；`computed` 转发**一个别的
+//     文件都不碰**，且与原对象给出**同一个值**、同一条依赖链（只多一个节点）⇒ 语义零变化。
 // ⚠️ **7 个回传全部解构**（都有段外活读者 —— 少一个就是 `TS2304`，多一个就是死局部 `TS6133`）：
 //   模板 `113`(`openBatchUpdate`) `114`(`selectedRows`) `126`(`refresh`)
 //     `129`(`exporting` `searchText`) `138`/`166`/`167`(`searchText`)
-//   + 脚本 `dateHeader`(`allSelected`/`toggleSelectAll`，REF **1295/1296**)
+//   + 脚本 `dateHeader`(`allSelected`/`toggleSelectAll` —— **Task 7 起这两处读者搬到了 P6**，
+//     即下面 `useProgressColumns(...)` 的注入面，REF **1295/1296**)
 //   + 脚本 C3 打印段(`selectedRows`，REF **1734/1759/1775**)。
 //   〔一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。〕
 // ⚠️ `ExcelJSInterop` **走 `export` 不走 `return`**（它是模块级 `type`，工厂体内不能
@@ -678,7 +555,8 @@ const columns = computed<DataTableColumn<ProgressRow>[]>(() => [
 const { exporting, searchText, selectedRows, refresh, allSelected, toggleSelectAll, openBatchUpdate } =
   useProgressToolbar({
     rows,
-    filteredRows,
+    // P6 ↔ P7 的环从这一侧打破（见上面的 ⚠️）：**前向** computed，箭头体迟求值。
+    filteredRows: computed(() => filteredRows.value),
     load,
     message,
     // 打破 P7 ↔ P3 的环：thunk 的真调用发生在用户点「批量更新」时（见上面的 ⚠️）。
@@ -695,7 +573,8 @@ const { exporting, searchText, selectedRows, refresh, allSelected, toggleSelectA
 //   （见上面 C 段那段 ⚠️），thunk 需要**一个能提前写下的名字**指到本工厂的结果。
 //   语义与「直接解构」逐字等价 —— 只是把返回值先落到一个 `const` 上。
 // ⚠️ 只解构段外真有活读者的 10 个：模板 264/268/272/276/278/282/283（模板一行不动 ⇒ 行号恒定）
-//   + `columns` 里的 `openUpdate(`（REF `f097a9b1`:**1326**）。
+//   + `columns` 里的 `openUpdate(`（REF `f097a9b1`:**1326** —— Task 7 起那个 `columns` 在
+//     `useProgressColumns.ts` 里，本文件把它喂给 P6 工厂，所以这个读者照旧在）。
 //   〔脚本侧一律写 REF 行号：本文件行号会随后面每块搬走而漂，写当前行号必然过期。复量：
 //     `git show f097a9b1:app/src/views/Progress.vue | grep -nE 'openUpdate\(r\)|openUpdateDialog\(null\)'`。〕
 // ⚠️ **`openUpdateDialog` 从 11 降到 10**：Task 3 落地时它的第 11 个段外读者是
@@ -760,16 +639,16 @@ const {
 //   理由与两端复量命令见上面 B 段那段指路注释。
 // ⚠️ **7 个回传全部解构**（都有段外活读者，一个不多一个不少）：
 //   模板 `182`(`onUpdateFilters`) ·
-//   `filteredRows`(`matchesOrderNoOption` `orderNoFilterValues` `orderNoQuery` `colorFilter` ——
-//     REF 1252/1253/1260/1261/1254/1256/1258) ·
-//   `columns`(`matchesOrderNoOption` `orderNoFilterValues` `orderNoHeader` `progressHeader` ——
-//     REF 1338/1346/1348/1353)。
+//   其余 6 个**全部**是 **P6** `useProgressColumns` 的注入面（Task 7 之前它们的读者是壳里那份
+//   `filteredRows` / `columns` —— 那两个 `computed` 与 P11 的 `exportTable` 都还在本文件里，
+//   所以当时也是「有活读者」）：
+//     `matchesOrderNoOption`(REF 1253/1346) `orderNoFilterValues`(1252/1348)
+//     `orderNoQuery`(1260/1261) `colorFilter`(1254/1256/1258) `orderNoHeader`(1338)
+//     `progressHeader`(1353)。
 //   另 6 个（`columnFilterState` `orderNoInput` `orderNoPopShow` `orderNoRestoring`
 //   `confirmOrderNoQuery` `clearOrderNoQuery`）**只在本块内部用 ⇒ 不解构**
 //   （解构了就是死局部 `TS6133`；R54 实测它们段外 0 引用、模板 0 引用）。**别以为它们没用**。
 //   〔脚本侧一律写 REF 行号：本文件行号会随后面每块搬走而漂。〕
-// ⚠️ Task 7 把 P6 搬走之后，这 7 个要喂给 `useProgressColumns`
-//   （与 `procedures` 改接 `useProgressColors` 的回传同形）。
 // ---------------------------------------------------------------------------
 const {
   matchesOrderNoOption, orderNoFilterValues, orderNoQuery, orderNoHeader,
@@ -782,6 +661,50 @@ const {
   moreRows,
   colorKeyOf,
   colorFilterOptions,
+})
+
+// ---------------------------------------------------------------------------
+// C. B3/B4 的调用点（**P6**，2026-09-20 搬进 `composables/progress/useProgressColumns.ts`）。
+//
+// ⚠️ **为什么在这里**：本块注入面 **30 项**，其中最晚的几个 —— P8 的 `moreActive`/`moreRows`、
+//   P5 的 6 个（就在上面）、P7 的 `searchText`/`allSelected`/`toggleSelectAll`（本文件 532）、
+//   P3 的 `openUpdate`（本文件 586）—— 在 REF 里都排在本块（1226）之后，或由后面的工厂产出
+//   ⇒ 放回 B3 的原位置会**早读一串 TDZ 变量**（`TS2448`）。
+//   **本块 3 个产出全部只在 `computed` 体内或模板里被读** ⇒ 后移对求值时机零影响
+//   （与 P5 后移是同一条理由）。
+// ⚠️ **P6 ↔ P7 是一对环**，从 P7 那一侧用一层前向 `computed` 打破 —— 见上面
+//   `useProgressToolbar({…})` 的 ⚠️（那里写着为什么不能反过来动 P7 的形参）。
+// ⚠️ **回传 3 项，一个不多一个不少**（4 个声明里真被段外消费的 3 个）：
+//   · `filteredRows` —— **4 个接点 + 模板**：本壳 `load()`(REF 383) ·
+//     上面 P7 的 `filteredRows:`(1622×2/1630) · 下面 P10 的 `useProgressStats`(1876/1899/1913/
+//     1924/1942/1961) · 下面 P11 的 `exportTable`(2054/2075) · 模板 167/170/316。
+//     ⚠️ 多一个就是死局部 `TS6133`，少一个就是 `TS2304`。
+//   · `pageRows` —— **只被模板用**（模板 176 `:data="pageRows"`）；
+//   · `columns` —— **只被模板用**（模板 175 `:columns="columns"`）。
+//   ⚠️ `dateHeader` **不解构**：段外脚本 0、模板 0（它是 `columns` 第一列的列头辅助，
+//     在 REF 1307 被 `columns` 自己用）—— 解构出来就是死局部 `TS6133`。
+// ---------------------------------------------------------------------------
+const { filteredRows, pageRows, columns } = useProgressColumns({
+  rows,
+  page,
+  pageSize,
+  openUpdate,
+  confirmDeleteRow,
+  UNPRODUCED_KEY,
+  colorKeyOf,
+  cellPad,
+  progressCellStyle,
+  searchText,
+  allSelected,
+  toggleSelectAll,
+  moreActive,
+  moreRows,
+  matchesOrderNoOption,
+  orderNoFilterValues,
+  orderNoQuery,
+  orderNoHeader,
+  colorFilter,
+  progressHeader,
 })
 
 // ---------------------------------------------------------------------------
