@@ -215,6 +215,55 @@ const BLOCKS = [
       colorFilterOptions: [{ from: 'procedures.value', to: 'deps.procedures.value' }],
     },
   },
+  {
+    /*
+     * **P4「行内删除」**（→ `app/src/composables/progress/useProgressDeleteRow.ts`）。
+     *
+     * 快照 `Progress.vue:513-601`（连续一段，89 行），段内**唯一的**声明是
+     *   `function confirmDeleteRow`（REF **564**）。
+     *   其余 50 行是段首那行分区横幅（`// ===== 行内「删除」（§4.3）=====`）与它下面那段
+     *   解释「这一格删的是**整条门行**、不是进度」的块注释。
+     *
+     * ⚠️ **区间两端**（方案 `§3.1` 写的就是 513-601，实测两端都干净、一处不用改）：
+     *    512 是空行、513 是本段自己的横幅 ⇒ **横幅跟块走**；
+     *    601 是空行、602 起已是**下一段**的横幅（`// ═══ / A. 单元格保真`）⇒ **留在原地**。
+     *    复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '511,515p'`（末行 = 本段横幅）、
+     *          `… | sed -n '599,603p'`（次行已是 `// ═══`）。
+     *    ⚠️ 这条**没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *      它只有「整段与 REF 同区间逐字节比」一条来源（Global Constraints R32 的动手后验收）。
+     *
+     * ⚠️ **本块与 P2 同形**：落点是工厂 `useProgressDeleteRow(deps)`，声明缩在工厂里
+     *    ⇒ **一条 `export` 改写都没有**（函数体内写 `export` 是 `TS1184`），
+     *    `confirmDeleteRow` 由工厂 `return { confirmDeleteRow }` 借出。
+     *
+     * ⚠️ **注入改写 = 3 类、4 条规则**（`dialog.warning` ×1 · `message.` ×3 ·
+     *    `rows.value.findIndex` ×1 · `rows.value.splice` ×1）：
+     *    ⚠️ 规则**故意不写裸 `rows.value`**：它在段内出现 **4** 次，其中 **2 次在注释里**
+     *      （REF 598 那句「用 `splice` 而不是 `rows.value = rows.value.filter(...)`」）。
+     *      写裸名会把那句注释改成 `deps.rows.value = deps.rows.value.filter(...)` ——
+     *      **注释内容就漂了**（Global Constraints 明令「不许改注释内容」），而本脚本
+     *      `//` 注释**是保留着比的**（核心 `norm()` 只丢空行、不丢注释）⇒ 那样写会**报红**。
+     *      带后界的两个名字正好只命中 23/25 两行那两处活代码。
+     *    ⚠️ `message.` 的边界已核：段内另外两处 `message` 是 `… 显示它自己的 message（兜底…）`
+     *      与 `（HTTP 错带服务端 message、断网带 fetch 的 reason）` —— **后面都不是 `.`**
+     *      ⇒ 不会被这条规则误伤。`e.message : '删除失败，请重试'` 同理（`message` 后是空格）。
+     *
+     * 登记前按文件头「能力边界 3」做过那条**必做验法**：把多行的 `confirmDeleteRow` 改掉**第二行**
+     * → 本脚本报红并定位到第 2 行 → 还原（实得见下方 `--selftest` 之外的人工记录；本块是单声明块，
+     * 漏做任一注入改写同样报红并给出触发规则名）。
+     */
+    target: 'app/src/composables/progress/useProgressDeleteRow.ts',
+    names: ['confirmDeleteRow'],
+    consts: [],
+    rewrites: {
+      confirmDeleteRow: [
+        { from: 'dialog.warning', to: 'deps.dialog.warning' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'rows.value.findIndex', to: 'deps.rows.value.findIndex' },
+        { from: 'rows.value.splice', to: 'deps.rows.value.splice' },
+      ],
+    },
+  },
 ]
 
 /**
