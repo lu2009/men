@@ -670,7 +670,8 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 
 **全仓库有 3 个台子读 `Home.vue` 真身**（`orderno-logiccheck` / `autocomplete-logiccheck` /
 **`docs/roles-admin-logiccheck.mjs`**），而 `run-all.mjs:70` 按文件名后缀收台子、`docs/` 是第一层
-⇒ 三个都在收集范围内 ⇒ **谁搬走它们数的 token 就会红**（**本笔只绊到其中 2 个**）。
+⇒ 三个都在收集范围内 ⇒ **谁搬走它们数的 token 就会红**（**Task 4 只绊到其中 2 个**；
+**Task 5 绊到第 3 个**，见下面 `roles-admin-logiccheck.mjs` 断言那三条与 spec §8.2 #10④）。
 （⚠️ 当初 grep 成「只有 2 个」，是因为**同一个文件有四种路径写法**：`resolve(SRC, 'views/Home.vue')` ·
 `` `${ROOT}/app/src/views/Home.vue` `` · `new URL('../../app/src/views/Home.vue', …)`，
 以及搬迁守卫本体的 `OLD_PATH = 'app/src/views/Home.vue'`（`:71`）+ `git show <REF>:…`（`:1062`）。
@@ -686,16 +687,19 @@ B10 是第一条真切，spec §8.2-2 明说「第一刀做完后要用实测结
 （⚠️ 上面三条**不再抄行号** —— 台子自己这几行 2026-09-20 被 Task 5 挪动过，Task 6 / 8 还要再动它；
 按 `grep -n` 定位比抄行号可靠。）
 
-**本笔没让它红**（本笔没动 `canSeeAllOrders` 这个 token）—— 那是**「这次侥幸」，不是「它不受影响」**。
+**Task 4 没让它红**（Task 4 没动 `canSeeAllOrders` 这个 token）—— 那是**「这次侥幸」，不是「它不受影响」**。
+（⚠️ **Task 5 就没那么侥幸**：它搬走了看板那处调用、当场把台子绊红，
+处置见上面 `roles-admin-logiccheck.mjs` 断言那三条与 spec §8.2 #10④。）
 **会被它绊到的三个任务**（⚠️ **别照抄复审原文的「Task 7（B4）搬 `submitMore`」—— 那句两处都错**：
 T7 是 `useHomeOrderNo.ts`（单号那摊），`submitMore` **在任何简报里都不存在**
 —— **它是邻页 `Progress.vue:1531` 的函数**（`:258` 那颗「确认」按钮 `@click="submitMore"`），
 只是**邻页的名字串进了 Home 的台子**；那是台子 **两处**注释**自己的错名**
-（`:20` 与 `:151`，**Task 5 改了台子之后**第二处挪到 `:171`），已挂账、本笔不改台子）：
+（两处都在注释区，用 `grep -n submitMore docs/roles-admin-logiccheck.mjs` 定位 ——
+**Task 5 改了台子之后**原先抄的第二个行号已不成立，故按上面那条「不再抄行号」的口径不再抄号），已挂账、本笔不改台子）：
 
 | 处 | `Home.vue` 行 | 所在函数 | 归谁搬 |
 |---|---|---|---|
-| 看板 | 1373 | `dashboardOrders = computed(...)` | **Task 5**（B1 `useHomeData`） |
+| 看板 | 1373 | `dashboardOrders = computed(...)` | ✅ **Task 5 已完成（2026-09-20）** —— 已搬进 `composables/home/useHomeData.ts`（B1） |
 | 主表 | 620 | `filtered = computed(...)` | **Task 6**（B3 `useHomeFilterView`） |
 | 查询更多 | 1155 | `submitQuery()`（`:1139` 定义、`:344` 按钮 `@click`） | **Task 8**（B5 `useHomeQueryMore`） |
 

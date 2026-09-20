@@ -473,13 +473,11 @@ import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
 import ProductionSheetDialog from '../components/ProductionSheetDialog.vue'
 import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
 import type { QualifiedLabelEntry } from '../components/qualifiedLabelUiProfile'
+// `OrderFinance` 2026-09-20 随 B1 搬进 `composables/home/useHomeData.ts`（本页只剩那一处用处）
+// ⇒ 留着 `vue-tsc` 报 TS6196；同类先例是 Task 3 搬 B10 时删掉的 `DataTableRowData`。
 import type {
   ClientDto,
   OrderDto,
-  // ⚠️ `OrderFinance` 2026-09-20 Task 5 随 B1 一起搬走了：它在本页只剩
-  //    `financeSummary = ref<Record<string, OrderFinance>>({})` 那一处用处，
-  //    而那行已搬进 `composables/home/useHomeData.ts` ⇒ 留着它 `vue-tsc` 报 TS6196
-  //    （与 Task 3 搬 B10 时删掉那个无用的 `DataTableRowData` 同类）。
   OrderHeadInput,
   OrderLineDto,
   FormulaDto,

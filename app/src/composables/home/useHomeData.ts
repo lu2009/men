@@ -5,6 +5,9 @@
  *   · `Home.vue:538-544` + `546-560` —— `loading` / `rawOrders` / `financeSummary` / `load`
  *   · `Home.vue:1540-1548` —— `dashboardShow` / `dashboardOrders`
  * `onMounted`(562-571) / `onLogout`(573-576) **故意留在页面**（`onMounted` 写 B6 的 `homeFormulas`）。
+ * 搬迁保真由 `docs/home-audit/home-extract-movecheck.mjs` 机核（**第 6 块**，B1 一条）——
+ * 6 个声明逐字比对；本块登记的注入改写（`message.error(` / `auth.user?.` 各加 `deps.` 前缀）
+ * 写在那个块的 `rewrites` 里，改本文件任何字面都会在守卫里报红。
  *
  * ⚠️ `rawOrders` / `financeSummary` 是本块**拥有并借出**的状态：B5（查询更多）会**写入**它们
  *    （`1352`/`1353`/`1374`），`columns` 与 B3/B4/B6/B11 会**读**它们。
