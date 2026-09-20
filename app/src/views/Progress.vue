@@ -756,7 +756,7 @@ const {
 // ---------------------------------------------------------------------------
 // C1. 「统计数字」（`MOVE_FAN_NAMES` / `PING_SINGLE_DIRECTIONS` / `PING_DOUBLE_DIRECTIONS` /
 //      `ALL_PING_DIRECTIONS` / `normDirection` / `moveFans` / `pingFans` / `lightWindows` /
-//      `showerFans` / `others` / `dateRange` / `statsTail`，**连段首横幅与那 11 行块注释**）
+//      `showerFans` / `others` / `dateRange` / `statsTail`，**连段首横幅与那 10 行块注释**）
 //      已归位到 `composables/progress/useProgressStats.ts`
 //      （Progress 拆分 **P10**，REF `f097a9b1`:1800–1983）。
 // ⚠️ **调用点的位置**：本块**只注入 1 项** —— `filteredRows`（REF 1250 的 `computed`）。
