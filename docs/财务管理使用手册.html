@@ -660,7 +660,7 @@
             </tr>
             <tr>
               <td><strong>实收金额</strong></td>
-              <td>客户打进池子的钱里<strong>所有正数</strong>相加<br><span style="color:var(--muted)">红冲<strong>不减</strong>它 —— 它是「累计充值」不是「净收款」</span></td>
+              <td>客户打进池子的钱，<strong>每一笔各减掉当场分给订单的那部分</strong>（减成负数按 0 算），再相加<br><span style="color:var(--muted)">红冲<strong>不减</strong>它 —— 它是「累计充值」不是「净收款」</span></td>
             </tr>
             <tr>
               <td><strong>订单总额</strong></td>
@@ -691,6 +691,11 @@
           一位客户打进来 1000，后来红冲掉 1000 —— <strong>实收金额还是 1000，未分配余额变成 0</strong>。
           这不是错。实收金额记的是「这位客户总共往我们这儿打过多少钱」，
           减钱这件事体现在「未分配余额」上。
+        </p>
+        <p>
+          另一种更容易看岔的：客户打 3000 进池子、<strong>当场就全分给了某一张单</strong> ——
+          这笔钱没在池子里停过，所以 <strong>实收金额是 0</strong>，一分钱都不算「充值」。
+          它体现在那张单的<strong>已分配金额</strong>上。
         </p>
       </div>
     </section>

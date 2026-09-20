@@ -13,8 +13,8 @@
 # ⚠️ 有 3 个台子在 CI 上**跑不了**（verify 会显式列出来，不是静默跳过）：
 #      · 2 个要在**仓库外**的旧版服务端源码上切函数跑，CI 上没有那份源码；
 #      · 1 个要有**业务配置**（公式 / 打印模板），CI 的空库满足不了。
-#    另有 1 个是**已登记的真红**（`finance-reversal-e2e.mjs`，待裁决）。
-#    详见 `docs/verification.md`。
+#    其余 26 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
+#    2026-09-20 起是空的，所以没有免红牌可打。详见 `docs/verification.md`。
 
 name: CI
 
@@ -85,6 +85,6 @@ jobs:
           exit 1
 
       # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 29 个差分台。
-      # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」与「哪个是已登记的真红」。
+      # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」（未运行 ≠ 通过）。
       - name: npm run verify
         run: npm run verify

@@ -1749,9 +1749,10 @@ function deleteSelected() {
             //     和「红冲金额绝对值不能超过本单已分配金额」那条校验就是为这个留的）；
             //           资金池分配   → 负的分配行（`reverseOrderAllocation`）。
             //     两条腿各自让「净收款」与「已分配总额」同额下降、或只降后者，未分配余额才算得对。
-            //     ⚠️ 别拿接口上的 `实收金额` 来推这套账：它 2026-09-18 起是**累计充值**
-            //     （只算客户级 `order_id IS NULL` 且只累加正数，红冲不减，对齐旧版 totalTopup），
-            //     与「未分配余额」用的净收款不是同一个数，见 finance/service.rs 文件头的口径块。
+            //     ⚠️ 别拿接口上的 `实收金额` 来推这套账：它是**累计充值**，不是净收款 ——
+            //     只算客户级（`order_id IS NULL`），且**逐笔减掉这一笔自己的分配**、逐笔夹零后求和，
+            //     红冲不减（2026-09-20 对齐旧版 totalTopup 的完整口径）。
+            //     与「未分配余额」用的净收款不是同一个数，见 finance/service.rs 的 `customer_balance`。
             const payDate = new Date().toISOString().slice(0, 10)
             for (const g of groups) {
               for (const o of g.orders) {

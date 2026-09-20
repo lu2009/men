@@ -114,6 +114,12 @@ let paid_amount: f64 = "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments
 而 `svc:256` 所在的 `addToCustomerBalance`（svc:248-259）**全文件零调用 —— 是死函数**。
 ⇒ 唯一活的写入口就是 `addPayment` 的 `prepaidDelta` 分支，即**客户级**那部分。本改动成立。
 
+> ⚠️ **2026-09-20 补**：上面这条「只统计客户级 + 只累加正数」的 SQL **漏了 `prepaidDelta` 的
+> 定义里那一步相减**（`amount − allocatedTotal`）—— 那正是本改动第 103 行自己写对的东西。
+> 后果：一笔「收款 + 分配列表」的收款在我们这儿被按**全额**计入实收，旧版只计入没分掉的部分。
+> 已修（迁移 `0025_allocation_payment_link.sql` 加 `payment_id` + `customer_balance` 逐笔相减夹零），
+> 详见 `04-diff-ours.md` §9.8 与 `docs/verification.md` 第 5 节。
+
 ---
 
 ## 改动 6 ⚠️ `资金池剩余` 语义对齐

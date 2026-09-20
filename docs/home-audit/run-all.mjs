@@ -71,11 +71,8 @@ const FILES = [...collect('docs'), ...collect('docs/home-audit')].filter((f) => 
  * 它们从没生效过，却让读的人以为「这两个不跑是安排好的」。**已删**。
  */
 const EXPECTED = STRICT ? {} : {
-  // ⚠️ 这一条在**手工跑**时遮住了一个真红：给它挂上 3999 的独立实例后，它并不会变绿
-  //    —— 它是 `KNOWN_RED` 里那条，失败原因是断言本身与旧版口径矛盾。
-  //    所以「手工跑 0 已知红」不等于「没有已知红」。见 docs/verification.md 第 3 / 5 节。
   'docs/home-audit/finance-reversal-e2e.mjs':
-    '需要独立后端实例（E2E_PORT，默认 3999）—— 但它拿到实例后也不绿，见 KNOWN_RED',
+    '需要独立后端实例（E2E_PORT，默认 3999；它文件头有起法）',
   'docs/qrscanner-authz-check.mjs': '需要独立后端实例（BASE，默认 http://localhost:3999；它文件头有起法）',
 }
 
@@ -85,11 +82,13 @@ const EXPECTED = STRICT ? {} : {
  *   · 这里说的是「**这就是红**，只是原因不在本次改动、已经查清并记在案，
  *     不让它天天把 CI 卡死」。所以 `RUN_ALL_STRICT=1` **不会**清空它，汇总里也**单列**。
  * 每条都必须能指到一份写清理由的文档；修好一条就删一条。
+ *
+ * **当前为空**（2026-09-20）。原来那条是 `finance-reversal-e2e.mjs`：它有 3 条断言
+ * 与旧版口径矛盾（红冲不改「实收」、`客户余额` 夹零），同一次改动把 `实收金额` 的 SQL
+ * 也对齐了旧版（迁移 0025）并改了那几条断言 ⇒ 它现在真绿，按「修好一条删一条」删掉。
+ * 排空不等于可以删掉这套机制 —— 留着下次用。见 `docs/verification.md`。
  */
-const KNOWN_RED = {
-  'docs/home-audit/finance-reversal-e2e.mjs':
-    '2 条断言与旧版口径矛盾（红冲不改「实收」、客户余额夹零）+ 我们自己的实收 SQL 可能也有一处分歧，待裁决 —— 见 docs/verification.md 第 5 节',
-}
+const KNOWN_RED = {}
 
 const results = []
 for (const f of FILES) {

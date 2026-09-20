@@ -196,13 +196,28 @@ pub struct OrderFinanceDetail {
 }
 
 /// 客户余额（finance_getCustomerBalance）。
+///
+/// ⚠️ 下面前三个金额字段**不是一回事**，改任何一个之前先把口径读一遍
+/// （`service.rs` 文件头的「口径」块 + `customer_balance` 的注释）：
+///
+/// | 字段 | 是什么 | 会不会为负 |
+/// |---|---|---|
+/// | `paid_amount` | **实收金额** = 「累计充值」：客户级收款逐笔减掉本笔分配、逐笔夹零后求和 | 否 |
+/// | `customer_balance` | **客户余额** = 客户**还欠多少**（`max(0, Σ逐单未收 − 客户调整)`） | 否（夹零） |
+/// | `unallocated_balance` | **未分配余额** = **净收款**（含红冲负数） − 已分配总额 = 池子里还剩的钱 | 是 |
+///
+/// 最容易错的一处：`paid_amount` 与 `unallocated_balance` 里都出现「收款」，
+/// 但前者是**只加不减的累计充值**、后者是**含负数的净额**，分母不同，不能互相替代。
 #[derive(Debug, Serialize)]
 pub struct CustomerBalance {
     pub customer_code: String,
     pub customer_name: String,
     pub order_total: f64,
+    /// 实收金额（累计充值）。旧版 = `customer_balances.total_topup`（`svc:762`）。
     pub paid_amount: f64,
+    /// 客户余额（还欠多少，夹零）。旧版 = `max(0, Σ unpaidAmount − Σ 客户调整)`（`svc:763`）。
     pub customer_balance: f64,
+    /// 未分配余额（池子里的钱，可负）。旧版 = `customer_balances.prepaid_balance`（`svc:766`）。
     pub unallocated_balance: f64,
     pub order_adjust_total: f64,
     pub customer_adjust_total: f64,

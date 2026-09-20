@@ -42,11 +42,12 @@ async fn fetch_order(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<
 //   订单调整金额 = Σ finance_order_adjustments.amount（正=减免，负=冲销）
 //   未收金额   = max(0, 总价 − 已分配金额 − 订单调整金额)      ← 夹零，见改动 1（svc:827/829）
 //   订单总额   = Σ orders.total_price（按客户）
-//   实收金额   = Σ **客户级**(order_id IS NULL)且为**正**的收款 = 「累计充值」，红冲不减（svc:257/398/409）
+//   实收金额   = Σ **客户级**(order_id IS NULL) 收款，**逐笔减掉本笔自己的分配**、逐笔夹零后求和
+//                = 「累计充值」，红冲不减（svc:384 的 prepaidDelta、svc:398/409；分配归属见迁移 0025）
 //   订单调整合计 = Σ finance_order_adjustments.amount（按客户）
 //   客户调整合计 = Σ finance_customer_adjustments.amount（按客户）
 //   客户余额   = max(0, Σ 逐单未收 − 客户调整合计) = **客户还欠多少**（svc:763）
-//   未分配余额 = 实收净额 − 已分配总额（= 资金池里还能分配的钱；含红冲负数，**可负**）
+//   未分配余额 = **净收款**（Σ 全部收款，含红冲负数） − 已分配总额（资金池里还能分配的钱；**可负**）
 //
 // ⚠️ 「客户余额」与「未分配余额」是两个方向的钱，旧版就这么定义的，别互相替代：
 //    客户余额 = 客户还欠我们多少（≥0）；未分配余额 = 客户放在我们这儿的钱（可负）。
@@ -227,14 +228,35 @@ pub async fn customer_balance(
     .await?;
 
     // 改动 5：对外 `实收金额` = **累计充值**，不是净收款。
-    // 旧版 `totalTopup += (prepaidDelta > 0 ? prepaidDelta : 0)`（svc:257/398/409）——
-    // 只累加**正数**，红冲不减它；且只统计**客户级**那部分（`prepaidDelta` = 本次收款里没分到
-    // 具体订单的钱，svc:384-386），本单收款（order_id 非空）从来不计入 totalTopup。
+    // 旧版 `totalTopup += (prepaidDelta > 0 ? prepaidDelta : 0)`（svc:257/398/409），
+    // 而 `prepaidDelta = amount - allocatedTotal`（svc:384）—— `allocatedTotal` 是**这一笔收款**
+    // 分给订单的合计（svc:359-383 那个 for 循环里累加的）。
+    //
+    // ⚠️ 这里最容易看错的一步：旧版是**写入时就相减**的 —— 它那条「客户级收款行」的 `amount`
+    // 本身就是 `prepaidDelta`，所以「Σ 客户级正数行」在旧版数据上**恰好**等于 `totalTopup`。
+    // 而我们的写入路径把**全额**记进客户级行、分配另记在 `finance_allocations`
+    // （见 `add_customer_payment`）⇒ 必须在这里**补上那步相减**。
+    // 不补的实测后果（`finance-reversal-e2e.mjs` 的夹具）：旧版 0、我们 300。
+    //
+    // 三条不能省的细节：
+    //   1. **逐笔相减、逐笔夹零** —— 旧版对每一笔收款各夹各的。聚合相减会算错：
+    //      收 300 却分配 400、另收 200 未分配 ⇒ 旧版 `max(0,300-400)+max(0,200-0)=200`，
+    //      聚合相减是 `max(0,500-400)=100`。
+    //   2. 只减**收款时那种分配**（`finance_allocations.payment_id` 指向本笔的那些，见迁移 0025）。
+    //      旧版「预付款分配」(`executePrepaymentAllocation` svc:805) **不动 totalTopup** ——
+    //      它只改 prepaidBalance/totalSpent；那种分配的 payment_id 是 NULL，天然不参与。
+    //   3. 红冲写的负分配也是 NULL，**必须**是：若挂上 payment_id，
+    //      `max(0, 300-(300-300)) = 300` 会把实收**加回去**，而旧版 totalTopup 永不因红冲增长。
+    //
     // 我们先前是「Σ 全部收款（净额）」，池子被红冲后会把实收打成负数（实测 1000 → −200）。
     // ⚠️ 与下面的 `paid`（净额）**分母不同，别合并**：`未分配余额` 必须用净额。
     let paid_amount: f64 = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(amount), 0.0) FROM finance_payments \
-         WHERE tenant_id = $1 AND customer_code = $2 AND order_id IS NULL AND amount > 0",
+        "SELECT COALESCE(SUM(GREATEST(0.0::float8, p.amount - COALESCE(a.alloc, 0.0))), 0.0) \
+         FROM finance_payments p \
+         LEFT JOIN (SELECT payment_id, SUM(amount) AS alloc FROM finance_allocations \
+                    WHERE tenant_id = $1 AND payment_id IS NOT NULL \
+                    GROUP BY payment_id) a ON a.payment_id = p.id \
+         WHERE p.tenant_id = $1 AND p.customer_code = $2 AND p.order_id IS NULL",
     )
     .bind(tenant_id)
     .bind(customer_code)
@@ -460,6 +482,11 @@ pub async fn add_order_adjustment(
 }
 
 /// 客户收款（finance_addPayment）：收款入资金池 + 按分配列表落到各订单。
+///
+/// ⚠️ 这里**把全额记进客户级收款行**，分配另记在 `finance_allocations` —— 与旧版不同
+/// （旧版那条客户级行的 `amount` 本身就是 `amount - allocatedTotal`）。因此
+/// `customer_balance` 算 `实收金额` 时要补上那步相减，靠的就是这里的 `payment_id`。
+/// 对应旧版 `addPayment` 的 rows 分支（svc:359-383），**只有这一处**该写 `payment_id`。
 pub async fn add_customer_payment(
     pool: &PgPool,
     tenant_id: i64,
@@ -490,19 +517,19 @@ pub async fn add_customer_payment(
     for a in &req.allocations {
         sqlx::query(
             "INSERT INTO finance_allocations \
-             (tenant_id, customer_code, order_id, receipt_no, amount, discount) \
-             VALUES ($1, $2, $3, $4, $5, 0)",
+             (tenant_id, customer_code, order_id, receipt_no, amount, discount, payment_id) \
+             VALUES ($1, $2, $3, $4, $5, 0, $6)",
         )
         .bind(tenant_id)
         .bind(&req.customer_code)
         .bind(a.order_id)
         .bind(&a.receipt_no)
         .bind(round2(a.amount))
+        .bind(payment_id)
         .execute(&mut *tx)
         .await?;
     }
 
-    let _ = payment_id;
     tx.commit().await?;
     Ok(())
 }

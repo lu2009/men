@@ -40,8 +40,8 @@
  * ── 已知未覆盖 / 已知红（会打在最显眼的位置，都不当它是绿灯）────────────────
  *   · **未运行**：2 个台子要在**仓库外**的旧版服务端源码（`/Users/aaa/Downloads/server`）
  *     上切函数跑，CI 上没有那份源码；另有 1 个要有业务配置，CI 的空库满足不了。
- *   · **已知红**：`finance-reversal-e2e.mjs` 是真失败（已查清原因、记在案，待裁决），
- *     记在 `run-all.mjs` 的 `KNOWN_RED` 里。
+ *   · **已知红**：`run-all.mjs` 的 `KNOWN_RED` 里登记着「真红了，但原因已查清并记在案」的台子。
+ *     2026-09-20 起那张表是**空的** —— 最后一条 `finance-reversal-e2e.mjs` 已修好。
  *   两者都不是绿。详见 `docs/verification.md`。
  */
 import { spawn, spawnSync } from 'node:child_process'

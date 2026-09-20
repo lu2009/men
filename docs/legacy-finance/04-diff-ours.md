@@ -39,7 +39,7 @@ customerAdjustTotal = Σ customerAdjustments.adjustAmount                       
 
 | 响应字段 | 旧服务端 | 新后端现在 | 判断 |
 |---|---|---|---|
-| `实收金额` | `CustomerBalance.totalTopup`（**存量列**，svc:762） | `Σ finance_payments.amount` | 口径待定 |
+| `实收金额` | `CustomerBalance.totalTopup`（**存量列**，svc:762） | 「累计充值」：客户级收款**逐笔减掉本笔的分配**、逐笔夹零后求和 | ✅ 已对齐（改动 5 + 2026-09-20 的第二处修正，见 §9.8） |
 | `未分配余额` | `CustomerBalance.prepaidBalance`（**存量列**，svc:766） | `实收 − (订单级收款 + Σallocations)` | 口径待定 |
 | **`客户余额`** | **`max(0, unpaidTotal − customerAdjustTotal)`（svc:763）** | `订单总额 − 实收 − 订单调整 − 客户调整`（**可负**） | ⛔ **语义相反** |
 | `订单总额` | `Σ(allocated + unpaid + orderAdjustTotal)`（svc:748） | `Σ orders.total_price` | 口径待定 |
@@ -171,9 +171,13 @@ customerFundFlow.create({ amount: prepaidDelta, flowType: prepaidDelta >= 0 ? '�
    ⇒ **我们的「纯追加流水 + 实时聚合」架构不用改**，改公式即可。
 2. ⭐ **`实收金额` 是「累计充值」，不是「净收款」** —— 红冲**不减它**
    （`totalTopup += max(0, delta)`，svc:257/398/409）。
-   我们的 `Σ finance_payments.amount` **是净额、红冲会减** ⇒ **口径不同，要改**。
+   我们的 `Σ finance_payments.amount` **是净额、红冲会减** ⇒ **口径不同**。
+   已改（改动 5 去掉净额里的负数，2026-09-20 再补上「减掉本笔分配」那一步，见 §9.8）。
 3. `prepaidDelta` 的定义：**本次收款里没有分配到具体订单的那部分**（svc:386）——
-   这正是我们 `finance_allocations` 之外那笔「客户级收款」的对应物。
+   即「这一笔收款减掉它自己的分配额」。
+   ⚠️ **不要**把它当成我们那张「客户级收款行」的对应物：我们记的是**全额** `amount`，
+   分配另存在 `finance_allocations` 里；旧版则是**写入时就减好**、客户级行的 `amount`
+   本身就是余额。两者的差值恰恰要靠 `finance_allocations.payment_id` 才能补回来（§9.8）。
 
 ## 9. 事务边界（补全，svc 实读）
 
@@ -284,7 +288,51 @@ customerFundFlow.create({ amount: prepaidDelta, flowType: prepaidDelta >= 0 ? '�
 
 `finance_allocations` 的**历史行**里，`amount` 是旧口径的 `alloc + discount`。
 改动 2 之后新行是 `amount = alloc`。**不能拿 `discount` 反推历史行的 `amount`**。
-（当前库里财务表为空，没有实际的历史数据要迁。）
+（写这段时库里财务表是空的。**2026-09-20 复核：已经不空了** ——
+`finance_allocations` 6 行、`finance_payments` 9 行，都是开发库里的测试数据，
+用户明确说过不需要清。它们对 §9.8 的影响见那一节。）
+
+## 9.8 ⭐ `实收金额` 的**第二处**口径分歧（2026-09-20 已对齐）
+
+§9.5 那张表里有一行「池子红冲后为负 | `实收金额` | 旧版 1000 | 新版 −200 ⛔」——
+那是**改动 5 之前**的快照，改动 5 把它改成「只算客户级 + 只累加正数」之后就绿了。
+但**同一个字段还有第二处分歧**，改动 5 没碰到，2026-09-20 才查出来：
+
+| | 旧版 | 改动 5 之后的我们 |
+|---|---|---|
+| 一笔「收款 + 分配列表」的收款 | 客户级行的 `amount` **就是** `prepaidDelta`（写入时已相减，svc:384/398） | 客户级行的 `amount` 是**全额**，分配另存在 `finance_allocations` |
+| ⇒ 同一套业务 | `totalTopup` 只加上「没分掉的那部分」 | 我们加上了**全额** ⇒ **虚高** |
+
+夹具（`docs/home-audit/finance-reversal-e2e.mjs`）：客户往池子打 300 并全分给订单 A、
+另直接给 B 收 200 ⇒ **旧版 `实收金额` = 0，我们 = 300**。
+
+### 怎么修的
+
+1. 加 `finance_allocations.payment_id`（迁移 `0025_allocation_payment_link.sql`），
+   记下「这笔分配是从哪笔收款里出的」。表原来只有 `order_id`，表达不了这个归属。
+2. `customer_balance` 的 `paid_amount` 改成**逐笔相减、逐笔夹零**：
+   `Σ GREATEST(0, p.amount − 该 p 名下分配合计)`，只取客户级收款。
+   ⚠️ 不能聚合相减：收 300 却分配 400、另收 200 未分配时，
+   旧版 `max(0,300−400) + max(0,200−0) = 200`，聚合相减是 `max(0,500−400) = 100`。
+3. **只有 `add_customer_payment` 写 `payment_id`**。另两处写 `finance_allocations` 的
+   必须留 NULL：`execute_prepayment_allocation`（旧版那个函数**压根不动 `totalTopup`**）
+   与 `reverse_order_allocation`（红冲的负分配若参与相减，会把实收**加回去**，
+   而旧版 `totalTopup` **永不因红冲增长**）。
+4. **不回溯历史数据**（用户 2026-09-20 拍板）：已有的分配行归不到来源 ——
+   无法判断哪行是「收款时分配」（该挂 `payment_id`）、哪行是「预付款分配」（该留 NULL），
+   硬猜就是编数据。后果如实记：这批历史行 `payment_id` 为 NULL ⇒ **不减** ⇒
+   它们维持改动前的值，**同一客户、改动前后写入的数据会不一致**。这是接受的代价。
+   （上面那 6 行里，id 78 的 `discount = 1.6` —— 只有 `execute_prepayment_allocation`
+   会写非零 discount，`add_customer_payment` 硬编码 0 ⇒ 至少有一行确定属于「该留 NULL」那类，
+   正好说明「归不到来源」不是推测。）
+
+### 证据边界（别记混）
+
+- ✅ **正证据**：`docs/home-audit/finance-reversal-e2e.mjs`（它真 POST 了一笔带分配的收款）。
+- ❌ **不是证据**：`06-diff-balance.mjs` —— 它把旧版 `totalTopup` / `prepaidBalance`
+  的**存量列当输入直接喂**（`scen.cb.totalTopup` 直接插成一笔**没有分配**的客户级收款），
+  相减那一步在它这里恒等于不减。**它绿只说明没改坏。**
+  同一句也适用于 `05` / `07` / `09`。
 
 ## 10. 待办
 
