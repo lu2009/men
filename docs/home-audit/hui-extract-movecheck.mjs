@@ -373,6 +373,67 @@ const SPLIT_BLOCKS = [
       onAutoMarkupDraft: [],
     },
   },
+  {
+    // C9「订单 IO」（脏检查/离开拦截/导入上次订单/清空/落盘）。快照是**两段** `Hui.vue:1419-1531` + `2131-2146`，
+    // 合计 11 个声明（段 1 中间还夹着一句 `onBeforeRouteLeave(...)` —— 它**不是**声明，切不到，
+    // 但它一起搬了，且必须留在工厂顶层，见新家文件头「不许动的那一条」）。
+    // 注入 11 项（脊梁 3 + C2 的 2 + C5 的 3 + 页面 `today`/`message`/`dialog`）。
+    // 🔴 注入项**全是引用**（`order`/`lines`/`orderId`/`showPing`/`showDiao`/`clients`）—— 传值 ⇒ 落值落进副本。
+    // ⚠️ 本脚本**只覆盖 11 个声明**；那句 `onBeforeRouteLeave` 与「必须同步注册」这条**验不了**。
+    target: 'app/src/composables/hui/useHuiOrderIo.ts',
+    names: ['serializeOrder', 'dirtyNow', 'markSaved', 'handleBeforeUnload', 'applyLastOrder',
+      'importLastOrder', 'resetOrder', 'clearOrder', 'persistLastOrder'],
+    consts: ['savedSnap', 'lastOrderIO'],
+    rewrites: {
+      serializeOrder: [
+        { from: '{ ...order }', to: '{ ...deps.order }' },
+        { from: 'lines.value', to: 'deps.lines.value' },
+      ],
+      applyLastOrder: [
+        { from: 'Object.assign(order, data.header)', to: 'Object.assign(deps.order, data.header)' },
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'showPing.value', to: 'deps.showPing.value' },
+        { from: 'showDiao.value', to: 'deps.showDiao.value' },
+        { from: 'orderId.value', to: 'deps.orderId.value' },
+        { from: 'clients.value', to: 'deps.clients.value' },
+        { from: 'applyClient(order.client_code)', to: 'deps.applyClient(order.client_code)' },
+        // ⚠️ C5 的连带：那个裸 `let lastAppliedClient` 已搬进 `useHuiClients.ts`，页面侧三处写点当时
+        //    就改成了 `setLastAppliedClient(…)` ⇒ 本块沿用 setter。**必须排在下面那条之前**。
+        { from: "lastAppliedClient = order.client_code ?? ''", to: 'deps.setLastAppliedClient(order.client_code)' },
+        { from: 'order.client_code', to: 'deps.order.client_code' },
+      ],
+      lastOrderIO: [
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.', to: 'deps.dialog.' },
+      ],
+      resetOrder: [
+        { from: 'orderId.value', to: 'deps.orderId.value' },
+        { from: "lastAppliedClient = ''", to: "deps.setLastAppliedClient('')" },
+        { from: 'order.', to: 'deps.order.' },
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'today()', to: 'deps.today()' },
+      ],
+      clearOrder: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'orderId.value', to: 'deps.orderId.value' },
+        { from: 'message.', to: 'deps.message.' },
+        { from: 'dialog.', to: 'deps.dialog.' },
+      ],
+      persistLastOrder: [
+        { from: '{ ...order }', to: '{ ...deps.order }' },
+        { from: 'lines: lines.value', to: 'lines: deps.lines.value' },
+        { from: 'showPing: showPing.value', to: 'showPing: deps.showPing.value' },
+        { from: 'showDiao: showDiao.value', to: 'showDiao: deps.showDiao.value' },
+      ],
+      // `savedSnap` 是裸 `let`（单行）、`dirtyNow`/`markSaved` 只碰块内的 `serializeOrder`/`savedSnap`、
+      // `handleBeforeUnload` 只调 `dirtyNow()`、`importLastOrder` 只调块内的两件 ⇒ 零改写（**不是漏写**）。
+      savedSnap: [],
+      dirtyNow: [],
+      markSaved: [],
+      handleBeforeUnload: [],
+      importLastOrder: [],
+    },
+  },
 ]
 
 /**

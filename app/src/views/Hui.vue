@@ -596,7 +596,8 @@
 
 <script setup lang="ts">
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+// 2026-09-20 C9：`onBeforeRouteLeave` 的唯一调用点随「离开拦截」搬进
+// `composables/hui/useHuiOrderIo.ts` ⇒ 本文件不再 import（留着就是 TS6133）。
 import {
   NButton,
   NCheckbox,
@@ -636,12 +637,9 @@ import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
 // 回写那三个 ref，见下面 `showTotalBalance.value = readShowTotalBalance()` 那三行）。
 import { readShowTotalBalance } from '../utils/totalBalance'
 import { readAssistiveFullscreen, readAssistiveMenu } from '../utils/assistiveMenu'
-import {
-  importLastOrder as importLastOrderFlow,
-  writeLastOrder,
-  type LastOrderIO,
-  type LastOrderSnapshot,
-} from '../utils/lastOrder'
+// 2026-09-20 C9：`importLastOrderFlow` / `writeLastOrder` / `LastOrderIO` / `LastOrderSnapshot`
+// 的**唯一**消费者是「订单 IO」那块，已随它搬进 `composables/hui/useHuiOrderIo.ts`
+// ⇒ 本文件不再 import 这个模块（留着就是 TS6133）。
 // 2026-09-20 C3：`fileToDataUrl`/`idbPutImage`/`idbRemoveImage` 的**唯一**消费者是「收款码」
 // 那块，已随它搬进 `composables/hui/useHuiPayQrcode.ts` ⇒ 本文件不再 import（TS6133）。
 // 仍需要的 `idbGetImage`：下面门花图列按 `image_id` 取图（`:1428`）。
@@ -663,6 +661,7 @@ import { useTerminalLink } from '../composables/hui/useTerminalLink'
 import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
 import { useHuiLineSelection } from '../composables/hui/useHuiLineSelection'
 import { useHuiAutoMarkup } from '../composables/hui/useHuiAutoMarkup'
+import { useHuiOrderIo } from '../composables/hui/useHuiOrderIo'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1079,119 +1078,20 @@ const {
 // —— 取价 / 公式匹配（型材失焦自动回填）已改行内 resolveRow；无弹窗抽屉 ——
 
 // —— 离开拦截（仿旧版 onBeforeRouteLeave / beforeunload）——
-function serializeOrder(): string {
-  try {
-    return JSON.stringify({
-      h: { ...order },
-      l: lines.value.map((x) => ({ ...x, markup: x.markup, parts: x.parts })),
-    })
-  } catch {
-    return ''
-  }
-}
-let savedSnap = serializeOrder()
-function dirtyNow() {
-  return serializeOrder() !== savedSnap
-}
-function markSaved() {
-  savedSnap = serializeOrder()
-}
-onBeforeRouteLeave(() => {
-  if (!dirtyNow()) return true
-  return window.confirm('存在未保存的修改，离开后将丢失，是否继续离开？')
+// 2026-09-20 本段 10 个声明搬到 `composables/hui/useHuiOrderIo.ts`（逐字搬迁，零行为变化），只留调用点。
+// 段中间那句 `onBeforeRouteLeave(...)` 也一起搬了 —— 它现在在那个工厂函数的**顶层**（仍是 setup 同步期）。
+// 🔴 **注入项一律传引用本身**（`order`/`lines`/`orderId`/`showPing`/`showDiao`/`clients`）：
+//    传 `.value` ⇒ `resetOrder` 清空、`applyLastOrder` 落值全落进副本，界面「点了没反应」且**不报错**。
+// 回传 5 项：`markSaved`（保存成功 3 处）· `handleBeforeUnload`（下面 `onMounted` 装、`onBeforeUnmount` 摘）·
+// `importLastOrder`（模板 `:226`/`:269`）· `clearOrder`（模板 `:16`）· `persistLastOrder`（保存回执单成功处）。
+// ⚠️ 其余 6 个（含 `savedSnap` 那个裸 `let`）**有意不回传** —— 页面里零读者，见新家文件头。
+const {
+  markSaved, handleBeforeUnload, importLastOrder, clearOrder, persistLastOrder,
+} = useHuiOrderIo({
+  order, lines, orderId, showPing, showDiao,
+  clients, applyClient, setLastAppliedClient, today,
+  message, dialog,
 })
-function handleBeforeUnload(e: BeforeUnloadEvent) {
-  if (!dirtyNow()) return
-  e.preventDefault()
-  e.returnValue = ''
-}
-
-/**
- * 「导入上次订单」—— 流程本身在 `utils/lastOrder.ts`（**逐字照旧版 `H:8899-8925`**：
- * 没存过 → `warning`「没有找到上次保存的订单数据」；有 → 弹确认框（标题「导入上次订单」、
- * 正文「将导入 {时间} 保存的订单数据，当前数据将被覆盖，是否继续？」、按钮「确认导入」/「取消」）；
- * 确认后应用 + `success`「上次订单数据已导入」；解析失败 → `error`「导入订单数据失败」）。
- *
- * 为什么拆出去：那些**文案和分支**要和旧版逐字对齐，而 SFC 里的 setup 函数差分台 import 不到。
- * 拆成「注入 IO 的纯函数」之后，`docs/home-audit/last-order-logiccheck.mjs` 能把旧版那段
- * 切片**真的跑一遍**，跟我们的调用序列逐条比。
- *
- * ⚠️ 本地这层只管「拿快照改页面状态」，这一段旧版没有对应（它的键存的是整单载荷、
- *    直接往 12 个表单 ref 上落），所以差分台只比**流程与文案**，不比这里的字段映射。
- */
-function applyLastOrder(data: LastOrderSnapshot) {
-  if (data.header) Object.assign(order, data.header)
-  if (Array.isArray(data.lines)) lines.value = data.lines as typeof lines.value
-  // 两表显隐跟着导入的数据走（旧版 `showPingkai` / `showDiao` 直接赋给那两个 ref）
-  if (typeof data.showPing === 'boolean') showPing.value = data.showPing
-  if (typeof data.showDiao === 'boolean') showDiao.value = data.showDiao
-  // ⚠️ 导入出来的是**新的一单**：旧版不认领上一单的 id（再点保存是一次全新提交）。
-  //    不清掉的话，下一次「保存」会去 PUT 覆盖上一单 —— 那不是「导入」该干的事。
-  orderId.value = null
-  // ⚠️ **不要**无条件 `applyClient()`：它按 code 去客户目录**重取**姓名/电话/品牌，
-  //    目录里查不到这个 code 时会把刚导入的三个字段**抹成空**。
-  //    旧版是把 `customerInfo` 里存的值**直接落上去**、不查目录。所以只在查得到时才套目录值。
-  if (clients.value.some((c) => c.code === order.client_code)) {
-    applyClient(order.client_code)
-  } else {
-    setLastAppliedClient(order.client_code)
-  }
-  // 导入的行按「已保存」着色（旧版是把上次保存的整表行 splice 回来，那些行本来就带保存态）。
-  markSaved()
-}
-
-/** 把 naive 的 `message` / `dialog` / `localStorage` 接到 `utils/lastOrder.ts` 的 IO 面上。 */
-const lastOrderIO: LastOrderIO = {
-  storage: { getItem: (k) => LS.get(k), setItem: (k, v) => LS.set(k, v) },
-  warning: (m) => message.warning(m),
-  success: (m) => message.success(m),
-  error: (m) => message.error(m),
-  confirm: (o) => dialog.warning(o),
-}
-
-function importLastOrder() {
-  importLastOrderFlow(lastOrderIO, applyLastOrder)
-}
-
-function resetOrder() {
-  orderId.value = null
-  order.receipt_no = ''
-  order.client_code = ''
-  order.client_name = ''
-  order.phone = ''
-  order.brand = ''
-  order.order_date = today()
-  order.production_days = 0
-  order.deposit = 0
-  order.remark = ''
-  order.salesperson = ''
-  order.install_address = ''
-  // ⚠️ 这两个同上：忘一个，保存时那一个就被抹空（见 `order` 声明处的说明）。
-  order.production_status = ''
-  order.lock_direction = ''
-  lines.value = []
-  setLastAppliedClient('')
-  markSaved()
-  // ⚠️ **不要**在这里写 `smartdoor_last_order`：旧版那个键全文件只有两处
-  // （`H:8853` 保存成功时写、`H:8903` 导入时读），**清空订单不动它**。
-  // （我们先前那套实时草稿在这里写了个空草稿 —— 等于「清空 = 把上次订单也清了」，
-  //  旧版没这回事。见 `persistLastOrder` 的注释。）
-}
-
-// 「1.清空」：清空当前订单内容（不新建的口吻）
-function clearOrder() {
-  if (lines.value.length === 0 && orderId.value == null) {
-    message.info('当前订单已为空')
-    return
-  }
-  dialog.warning({
-    title: '清空订单',
-    content: '将清空当前订单的所有内容（未保存的更改会丢失）。是否继续？',
-    positiveText: '清空',
-    negativeText: '取消',
-    onPositiveClick: () => resetOrder(),
-  })
-}
 
 // —— 保存整单校验（旧版 makeReceipt 语义，反混淆核对）——
 // 必填只在「保存整单」拦截，允许先添加半空行；保存前自动剔除全空行。
@@ -1652,15 +1552,12 @@ const { tenantName, currentUserName, terminalLink, copyTerminalLink } =
 // `app/src/utils/lastOrder.ts` 的文件头里 —— 一句话：
 // **我们先前那个「编辑中就落盘的实时草稿 + onMounted 无条件恢复」是自造的，已整套删掉**
 // （用户 2026-09-19 报的「每次刷新页面都会自动恢复上次订单」就是它）。
-function persistLastOrder() {
-  writeLastOrder(lastOrderIO, {
-    header: { ...order },
-    lines: lines.value,
-    showPing: showPing.value,
-    showDiao: showDiao.value,
-    savedAt: Date.now(),
-  })
-}
+// 2026-09-20 `persistLastOrder` 已随上面那 10 个声明一起搬到
+// `composables/hui/useHuiOrderIo.ts`（逐字搬迁，零行为变化）—— 调用点在上面那个解构处，
+// 页面里剩下的调用只有「3.保存回执单」成功那一刻那一处（`saveOrder` 里）。
+// ⚠️ 本节注释里**一律不写「函数名 + 那对圆括号」**：`last-order-logiccheck.mjs` 用一条
+//    「函数名后紧跟一对圆括号」的正则数「全页调用次数」，并断言**恰好 1 次** ——
+//    注释里写一次，就会被它数成 2 次而**报红**（2026-09-20 实测踩过一次，就是这里）。
 
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)

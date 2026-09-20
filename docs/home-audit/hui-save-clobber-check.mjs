@@ -103,7 +103,21 @@ try {
   for (const k of KEYS) ok(`payload 带 ${k}`, new RegExp(`\\b${k}:`).test(payloadLit))
   // `loadOrder` 与 `resetOrder` 也要各自覆盖到，否则读回来是空、或新建单残留上次的值
   const loadFn = /async function loadOrder[\s\S]*?\n\}/.exec(HUI)?.[0] ?? ''
-  const resetFn = /function resetOrder\(\)[\s\S]*?\n\}/.exec(HUI)?.[0] ?? ''
+  /**
+   * ⚠️ **2026-09-20 C9**：`resetOrder` 的**声明**已随 C9 搬到
+   * `app/src/composables/hui/useHuiOrderIo.ts`（逐字搬迁，零行为变化）⇒ 静态断言得改读新家。
+   * 改的理由**不是**「让闸变绿」：三条判据（`install_address` / `production_status` / `lock_direction`
+   * 都要被 `resetOrder` 显式清掉）**一条都没动**，只是被检文本搬了家 —— 它此前打印
+   * `✗ resetOrder 抠到了`，是**照实报**（函数确实不在 `Hui.vue` 里了），不是判据失效。
+   * `HUI` **保留**：`payload` 字面量与 `loadOrder` 的断言还读它。
+   *
+   * ⚠️ 正则也跟着放宽了 `\n\s*\}`：搬进工厂函数后整段多缩进 2 格，收尾那行从 `\n}` 变成 `\n  }`。
+   *    `resetOrder` 体里**没有**嵌套的 `}`，所以非贪婪匹配停在的仍是函数自己的收尾（实测）。
+   * ⚠️ 判据里那条 `order\.${k}\s*=` 对 `deps.order.${k} =` 照样命中（前缀注入不改后缀）——
+   *    这正是我们想要的：**搬家不该让这条断言失效**。
+   */
+  const ORDER_IO = readFileSync(`${ROOT}/app/src/composables/hui/useHuiOrderIo.ts`, 'utf8')
+  const resetFn = /function resetOrder\(\)[\s\S]*?\n\s*\}/.exec(ORDER_IO)?.[0] ?? ''
   ok('loadOrder 抠到了', loadFn.length > 0)
   ok('resetOrder 抠到了', resetFn.length > 0)
   for (const k of KEYS) {
