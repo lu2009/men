@@ -119,8 +119,25 @@ const fail = []
 let missing = 0
 
 for (const name of [...MOVED, ...MOVED_CONSTS]) {
-  const o = sliceFn(oldSrc, name)
-  const n = sliceFn(newSrc, name)
+  /*
+   * ⚠️ `sliceFn` 会**抛**（结构性硬闸：切出来不配平就报错，见核心文件头）。
+   * 这里把它转成一条**计入 `fail` 的**错误 —— 让它抛出去的话，整个脚本崩掉、
+   * 后面的名字一条都不查，而这条信息本身（哪个名字、为什么不配平）是有用的。
+   *
+   * 2026-09-20 Task 3.6 补（🟡5）。此前这里**没有**这层壳，理由是「别为了变绿去动清单」——
+   * 但「不加 try/catch」与「别动清单」是两件事：`fail.push + continue` **不会让任何东西变绿**
+   * （退出码仍是 1）。实测：往 `useOrderLines.ts` 的 `computeSquare` 体里塞一个 `/)/`，
+   * **加之前**是未捕获异常、第一条循环就中止（47 个比对与组件侧 46 个全不跑），
+   * **加之后**是「computeSquare: 切片不平衡…」一条失败行 + 其余 92 条照跑 —— 两种都退 1。
+   */
+  let o, n
+  try {
+    o = sliceFn(oldSrc, name)
+    n = sliceFn(newSrc, name)
+  } catch (e) {
+    fail.push(`${name}: ${e.message}`)
+    continue
+  }
   if (!o) { fail.push(`${name}: 在 ${REF}:${OLD_PATH} 里找不到（MOVED 清单写错了？）`); continue }
   if (!n) { fail.push(`${name}: 新文件 ${NEW_PATH} 里找不到 —— 没搬过去？`); missing++; continue }
   // ⚠️ 顺序：**先归一化再套改写规则**。`norm()` 去了行首缩进，多行的 `from` 片段匹配不上。
@@ -249,10 +266,18 @@ for (const name of MOVED_TO_COMPONENT) {
   // ⚠️ **快照优先**：第 1/2/3a 步的改动都还没提交，`HEAD` 对「被那三步动过的函数」是过期的
   //    （`opsCol`/`rowClassName` 在步骤 2 改过、`pingCols` 在 3a 改过）。
   //    快照是 3b 动手**前一刻**的工作区原文，才是这批的真参照。
-  let o = snapSrc ? sliceFn(snapSrc, name) : null
+  // ⚠️ 第二轮同样要这层壳（与上面那条同源）：不补的话，组件侧发生一次不配平会
+  //    把**本轮剩下的名字**与**后面的反查**一起带走。见上一条注释的实测。
+  let o, n
   let ref = '搬迁前快照'
-  if (!o) { o = sliceFn(oldSrc, name); ref = `${REF}:${OLD_PATH}` }
-  const n = sliceFn(compSrc, name)
+  try {
+    o = snapSrc ? sliceFn(snapSrc, name) : null
+    if (!o) { o = sliceFn(oldSrc, name); ref = `${REF}:${OLD_PATH}` }
+    n = sliceFn(compSrc, name)
+  } catch (e) {
+    fail2.push(`${name}: ${e.message}`)
+    continue
+  }
   if (!o) { fail2.push(`${name}: 在 ${ref} 里找不到`); continue }
   if (!n) { fail2.push(`${name}: 组件里找不到 —— 没搬过去？`); continue }
   let a = norm(o)
