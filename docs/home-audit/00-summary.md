@@ -326,6 +326,13 @@ CSS 差分台）；验收脚本 `docs/home-audit/hui-extract-movecheck.mjs`（�
   + 6 个需独立后端；同日为 Progress 拆分再立 `docs/progress-extract-movecheck.mjs`
   （拆分第一块 P1），现在是 **37 个 / 手工 31 通过** + 6 个需独立后端
   —— `npm run verify` 实测 **37 通过 / 0 跳过 / 0 红**。）
+  〔**待跑 —— 2026-09-20 Task 8 标注，数字原样保留、不改。** 上面「手工 31 通过」是
+  **37 − 6** 推出来的算术，**不是**一次手工 `node docs/home-audit/run-all.mjs` 的实测转录
+  （F3：评审也只核了算术与「是推出来的」）；它另有一个前提 —— 开发后端在 `127.0.0.1:3000`
+  上起着。同理「`npm run verify` 实测 37 通过」也**未**被本次复核过。
+  ⇒ 真值要真跑一次手工 `run-all.mjs` 才能定。**今天没跑**：用户下令「只干活、不跑验证」，
+  且该脚本默认打用户的 `:3000` 开发后端、其中写库的台子会把改动落到 `smartdoor` 开发库
+  （不可逆）。〕
   加这个入口是因为**当天真的栽了一次**：提交「总余额显示」时只跑了 build + Hui 那几个台子，
   同一笔给 `loadPrintPrereqs` 返回值加的 `totalBalances` 把 `print-lineno-check.mjs` 的**手写桩**打崩，
   一天后才发现。`npm run build` / `vue-tsc` 都抓不到「台子夹具过时」。
