@@ -34,7 +34,7 @@
  *     跳过会在汇总里单列一行，**不是静默略过**。
  *   · `RUN_ALL_STRICT=1` —— 把 `EXPECTED` 清空：本该「⏭ 不算真红」的失败一律算红。
  *     verify 跑的是**自己刚拉起来的干净后端**，那些「环境性」借口不成立，
- *     所以要求 33 个全绿，而不是「绿 27 个也行」。
+ *     所以要求 34 个全绿，而不是「绿 28 个也行」。
  *   · `RUN_ALL_SUMMARY=<path>` —— 把机器可读的汇总（含 🔴 已知红 / ❌ 真失败 / ⏭ 未运行）
  *     落成 JSON。verify 靠它**如实**报出「已知红」，而不是只看到本脚本退出 0 就当全绿。
  */
@@ -61,11 +61,13 @@ const STRICT = process.env.RUN_ALL_STRICT === '1'
 
 /**
  * 收集「台子」。**只扫目录第一层，不递归**（`lib/` 里的共用件不是台子）。
- * 两套命名各有各的正则：
+ * 两个目录、几套命名，各有各的正则：
  *   · `docs/` 与 `docs/home-audit/`：`*-logiccheck.mjs` / `*-check.mjs` / `*-e2e.mjs`
  *   · `docs/legacy-finance/`：`05-diff-alloc.mjs` 这种 `0N-*.mjs`（2026-09-20 收进来的）
+ *   · 搬迁保真守卫：`*-movecheck.mjs`（2026-09-20 接入）—— 它们只读 git + 文件，不依赖后端，
+ *     因此**在任何环境都该跑**；但**要 `git show <旧提交>`**，浅克隆下会失败（见 ci.yml 的 fetch-depth）。
  */
-const collect = (dir, re = /(-logiccheck|-check|-e2e)\.mjs$/) =>
+const collect = (dir, re = /(-logiccheck|-movecheck|-check|-e2e)\.mjs$/) =>
   readdirSync(`${ROOT}/${dir}`)
     .filter((f) => re.test(f))
     .map((f) => `${dir}/${f}`)

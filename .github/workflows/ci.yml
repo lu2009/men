@@ -14,7 +14,7 @@
 #      · 6 个要在**仓库外**的旧版服务端源码上切函数跑，CI 上没有那份源码
 #        （2 个是老的；4 个是 `docs/legacy-finance/0{5,6,7,9}-*.mjs`，2026-09-20 收进收集范围后才显出来）；
 #      · 1 个要有**业务配置**（公式 / 打印模板），CI 的空库满足不了。
-#    其余 26 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
+#    其余 27 个都必须在 CI 上真绿 —— `run-all.mjs` 的 `KNOWN_RED`（「已登记的真红」）
 #    2026-09-20 起是空的，所以没有免红牌可打。详见 `docs/verification.md`。
 
 name: CI
@@ -34,7 +34,12 @@ jobs:
     timeout-minutes: 40
 
     steps:
+      # ⚠️ 必须取全历史：`docs/home-audit/*-movecheck.mjs` 要 `git show <旧提交>:<路径>`
+      # 拿搬迁前的原文来逐字比。默认的 fetch-depth:1 只取 1 个提交 ⇒ 那些 `git show` 会失败。
+      # 代价实测：本仓库 size-pack 651 MiB / 283 提交，比后面的 Rust 构建小一个量级。
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Tauri 2 在 Linux 上的系统依赖。少了 webkit2gtk 那套，`cargo clippy --workspace`
       # 连 `app/src-tauri` 都编不过 —— 而 workspace 是全量的，所以必须装。
@@ -85,7 +90,7 @@ jobs:
           docker logs smartdoor-db >&2
           exit 1
 
-      # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 33 个差分台。
+      # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 34 个差分台。
       # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」（未运行 ≠ 通过）。
       - name: npm run verify
         run: npm run verify

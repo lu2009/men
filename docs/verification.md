@@ -21,7 +21,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 | 2 | 前端：缺 `app/node_modules` 才 `npm ci`，然后 `npm run build` | = `vue-tsc --noEmit && vite build` |
 | 3 | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | **两个包一起看**（`backend` + `app/src-tauri`） |
 | 4 | `cargo test --workspace` | 当前 24 通过 / 1 忽略 |
-| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（33 个差分台）→ 收尾 | 详见下面第 3 节 |
+| 5 | 建库 → 起后端 → 等 health → `run-all.mjs`（34 个差分台）→ 收尾 | 详见下面第 3 节 |
 
 **⚠️ 第 2 步必须早于第 3 步。** `app/src-tauri/tauri.conf.json` 的 `frontendDist` 指向 `../dist`，
 而 `app/dist/` 是 gitignore 的 —— CI 上刚 checkout 出来没有这个目录，先跑 clippy 的话
@@ -29,7 +29,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 > 用户原话把顺序列成「1 前端构建 / 2 cargo test / 3 台子 / 4 fmt / 5 clippy / 6 PG 集成」。
 > 这里把 fmt 提到最前、前端构建提到 clippy 前，其余等价。第 6 项「PostgreSQL 集成测试」
-> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 33 个台子打的全是真后端 + 真 PG）。
+> 就是第 5 步 —— 用户已确认「3 和 6 是同一件事」（那 34 个台子打的全是真后端 + 真 PG）。
 
 ---
 
@@ -64,17 +64,21 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 ## 3. 覆盖情况（含**已知未覆盖**）
 
+> ⚠️ 下面这段是**一次真实运行的转录，逐字保留** —— 它是 **2026-09-20 把
+> `hui-extract-movecheck.mjs` 接进收集范围之前**那次跑的。接入后是 34 个台子，
+> 见本节正文（和 `run-all.mjs` 现跑的汇总）。
+
 ```
 共 33 个台子：✅ 通过 33 · ⏭ 跳过(环境/作废) 0 · 🔴 已知红(待裁决) 0 · ❌ 失败 0
 ```
 
 ### 本地（有开发库、有仓库外旧版源码）
 
-`npm run verify`：33 个全跑 —— **33 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
+`npm run verify`：34 个全跑 —— **34 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
 
 > 单独手工跑 `node docs/home-audit/run-all.mjs`（不带 `RUN_ALL_STRICT`）会看到另一组数：
-> **27 绿 + 6 个 ⏭ + 0 已知红**（2026-09-20 实测，不是算出来的）。那 6 个 ⏭ 都是
-> 「默认打 `http://127.0.0.1:3999` 的**独立实例**，手工跑时没起」：
+> **28 绿 + 6 个 ⏭ + 0 已知红**（2026-09-20 实测，不是算出来的；接入 movecheck 前是 27）。
+> 那 6 个 ⏭ 都是「默认打 `http://127.0.0.1:3999` 的**独立实例**，手工跑时没起」：
 >
 > | 台子 | 手工跑为什么 ⏭ |
 > |---|---|
@@ -84,7 +88,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 >
 > `verify` 把 `BASE` / `E2E_PORT` / `DB_*` 一起指到自己起的后端与一次性库，所以这 6 个在 verify 里都是 ✅。
 >
-> ⚠️ 那 27 绿**另有一个前提**：**开发后端在 `127.0.0.1:3000` 上起着**。多数台子默认打
+> ⚠️ 那 28 绿**另有一个前提**：**开发后端在 `127.0.0.1:3000` 上起着**。多数台子默认打
 > `:3000`（可用 `E2E_PORT` 覆盖），而它们**不在** `EXPECTED` 里 —— 忘了起后端会被如实记成
 > ❌，不是 ⏭。这是有意的：`:3000` 是「你本该在用的那套」（未运行 ≠ 通过的反面 ——
 > **跑不动也不该假装是环境问题**），`:3999` 才是「要单独起的那个」。
@@ -99,11 +103,16 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 | 状态 | 数量 | 是哪些 |
 |---|---|---|
-| ✅ 跑并且过 | 26 | —— |
+| ✅ 跑并且过 | 27 | —— |
 | 🔴 跑了但红（已登记） | 0 | `KNOWN_RED` 已排空（第 5 节） |
 | ⏭ **未运行** | 7 | 见下 |
 
-26 + 0 + 7 = 33。
+27 + 0 + 7 = 34。
+
+> 2026-09-20 接入 `docs/home-audit/hui-extract-movecheck.mjs`（收集正则加了 `-movecheck`）后，
+> ✅ 那一格从 26 变 **27**，总数从 33 变 **34**；⏭ 仍是 7。
+> 它只读 git + 文件、不依赖后端，所以**在 CI 上也跑** —— 前提是 checkout 取了全历史
+> （它要 `git show <旧提交>:<路径>`），见 `.github/workflows/ci.yml` 里那步 `fetch-depth: 0`。
 
 那 7 个**未运行**的：
 
@@ -163,15 +172,16 @@ npm run verify -- --quiet   # 差分台只打汇总表
 环境变量，省得「只想看看正式库」时还得去改源码）。见下一节。
 
 两个共用库（`docs/home-audit/lib/hui-decode.mjs`、`docs/legacy-finance/lib/run-legacy-fn.mjs`）
-也一并修了 —— 它们是 33 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
+也一并修了 —— 它们是 34 个台子的**传递依赖闭包**，不改的话 CI 上大半台子进不去。
 
 ### 2026-09-20：`docs/legacy-finance/0{5,6,7,9}` 收进统一入口
 
 这四台**一直在仓库里，却从来没进过任何统一入口** —— 收集正则
-（`/(-logiccheck|-check|-e2e)\.mjs$/`）匹配不到 `05-diff-alloc.mjs` 这种命名。
+（当时是 `/(-logiccheck|-check|-e2e)\.mjs$/`，2026-09-20 晚些时候加了 `-movecheck`）匹配不到
+`05-diff-alloc.mjs` 这种命名。
 它们比的是**财务口径**（分配/优惠、余额与实收、落库效果、本单收款+预付优惠），
 正是「改了 `paid_amount` 的 SQL」这种改动最该被它们抓住的地方 —— 结果它们全程没参与。
-这次一并收进来：`run-all.mjs` 的 `collect()` 增加了第二个目录与第二个正则，**33 个**。
+这次一并收进来：`run-all.mjs` 的 `collect()` 增加了第二个目录与第二个正则，**34 个**。
 
 | 项 | 变化 |
 |---|---|
@@ -211,7 +221,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 ### 顺带清掉的三处
 
 1. **`EXPECTED` 里原有两条死键**（键必须与 `collect()` 产出的路径逐字一致，这两条永不命中）：
-   `docs/home-audit/merge-audit.mjs`（收集正则 `(-logiccheck|-check|-e2e)\.mjs$` 匹配不到它，
+   `docs/home-audit/merge-audit.mjs`（收集正则 `(-logiccheck|-movecheck|-check|-e2e)\.mjs$` 匹配不到它，
    它压根不在收集范围内）与 `docs/finance-reversal-e2e.mjs`（真文件在 `docs/home-audit/` 下）。
    它们从没生效过，却让读代码的人以为「这两个不跑是安排好的」。**已删** ——
    `merge-audit.mjs` 是块「指路牌」（见它文件头），只能手工跑，跑必退 1。
