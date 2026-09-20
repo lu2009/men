@@ -87,10 +87,11 @@ const OLD_PATH = 'app/src/views/Home.vue'
  *
  * ⚠️⚠️ **登记新名字前先验「切片切得完整」** —— 本脚本的绿只等于「切出来的那一段逐字一致」，
  * **不等于「整个声明都对过」**。切片器是文本启发式，**不是解析器**，
- * 所以它每多认一种形状都得单独钉一例自测（`--selftest` 现在 **32** 条：其中 9 条是
+ * 所以它每多认一种形状都得单独钉一例自测（`--selftest` 现在 **36** 条：其中 9 条是
  * 2026-09-20 为「声明跨行」这一族补的，7 条是 Task 3.6 补的 —— 洞④ 5 条 + 快车道 `<= 0`
  * 1 条 + 联合类型夹注释 1 条，**3 条是 Task 3.7 补的** —— 快车道看下一行行首 2 条（`.`
- * 与 `?` 各一）+ 行尾续行记号含 `<` 1 条）。
+ * 与 `?` 各一）+ 行尾续行记号含 `<` 1 条，**4 条是 Task 3.8 补的** —— 行首续行记号
+ * 含 `>`（㉑）+ 联合类型夹 `/** *\/` 注释（㉒）+ 行首续行记号含 `&`（㉓）+ 跳过空行（㉔））。
  * ⚠️ 这个数字**此前写着 21，而实际是 22**（⑭ 那条加进来时没跟着改）—— 现已按实测改。
  * ⚠️ **数字只为「看得出它长过」**，别拿它当覆盖率：`--selftest` 只证明「定义好的输入上会红」，
  *    它**不扫真代码**。要扫真代码用 `docs/home-audit/decl-sweep.mjs`（那台才是硬闸）。
@@ -751,20 +752,32 @@ if (process.argv.includes('--selftest')) {
    * 而它中间**夹一行 `//` 注释**时，若不跳过注释行，就会在注释处停住 ⇒ 只切出前半段。
    *
    * ⚠️ **这是「现存」不是「潜在」**（2026-09-20 Task 3.7 改准；本节此前写「仓库里 0 处」，**错**）：
-   *    全 `app/src` 有 **1 个声明**是这个形状 —— `app/src/utils/docsheet/profile.ts:79-85`
-   *    的 `export type CellKind =`（**3 个成员**，7 行），成员之间夹的是 `/** … *\/` 而不是 `//`：
+   *    全 `app/src` 有 **3 个声明**是这个形状（2026-09-20 Task 3.8 实测改准 —— Task 3.7 写的是
+   *    「**1 个**」，**那个数也是错的**，这一段至今错过三次：`task-3.6-report.md` §6🟠4 的「0 处」
+   *    → Task 3.7 的「1 个」→ 本次实测「3 个」，**以本次为准**）：
+   *    | 声明 | 现核 | 去掉跳注释后 |
+   *    |---|---|---|
+   *    | `app/src/utils/docsheet/profile.ts::CellKind` | 7 行 · 与解析器逐字相同 | 3 行（**切短**）|
+   *    | `app/src/utils/printPayloads.ts::src` | 10 行 · 与解析器逐字相同 | 3 行（**切短**）|
+   *    | `app/src/utils/printPayloads.ts::suppress` | 6 行 · 与解析器逐字相同 | 3 行（**切短**）|
+   *    三个**现在都是对的**，而且**都是「跳注释行」这条判据在守着它们**
+   *    ⇒ 断言 ⑰ 不是「守一个现存声明」，是**守三个**（比文档说的更强）。
+   *    其中 `CellKind` 夹的是 `/** … *\/`：
    *    ```ts
    *    export type CellKind =
    *      /** `renderMultiline` —— 富文本按 `<br>` 切行 *\/
    *      | 'multiline'
    *      …
    *    ```
-   *    ⇒ ① 这条断言（⑰）**是在守一个现存声明**，价值比注释里原来写的高；
-   *       ② **`//` 与 `/** *\/` 两种注释都要跳**（`headContinues` 里的 `t.startsWith('/*')`
-   *          与 `t.startsWith('*')` 就是为 `/** *\/` 的起始行与续行准备的）——
-   *          只跳 `//` 的话，`CellKind` 会立刻变成一张假绿卡（今天它不在清单里，所以暂时无害）。
-   *    ⚠️ 量法：对每个可整体搬走的声明，看真 TS 解析器给的文本里有没有哪一行 trim 后以
-   *       `|` / `&` 开头、而**它前一行**是注释。实测全仓库 1 处。
+   *    ⇒ **`//` 与 `/** *\/` 两种注释都要跳**（`headContinues` 里的 `t.startsWith('/*')`
+   *      与 `t.startsWith('*')` 就是为 `/** *\/` 的起始行与续行准备的）——
+   *      只跳 `//` 的话，`CellKind` 会立刻变成一张**假绿卡**。
+   *    ⚠️⚠️ **⑰ 只钉了 `//` 那一半**：`/** *\/` 那一半此前**只在文档里守着、断言里没有**
+   *      （实测：判据改成只跳 `//` 后 `--selftest` 仍 **EXIT=0 · ✓32 ✗0**）。
+   *      Task 3.8 补了 **㉒** 专钉 `/** *\/`，两条合起来才覆盖「两种注释都要跳」。
+   *    ⚠️ 量法：对每个可整体搬走的声明，**在 `/tmp` 副本里**把 `core:333` 整行改成
+   *      `if (t === '') {`（三个注释分支全去掉），跑**全部**声明，看切片文本变了的那些。
+   *      实测恰好 3 个（分母 = 3640 个非重名可比声明），**且三个都从 `same` 变成 `short`**。
    */
   const unionCmtSrc = (last) =>
     [
@@ -840,7 +853,7 @@ if (process.argv.includes('--selftest')) {
    * > {
    * ```
    * `'<'` 缺了行尾表、下一行又以 `T`（普通标识符）开头 ⇒ `headContinues` 也拦不住
-   * ⇒ **两条修法各管一半**：实测那 6 处**顶层**受害者（真声明 22/10/24/45/5/5 行）
+   * ⇒ **两条修法各管一半**：实测那 6 处**顶层**受害者（真声明 22/10/24/46/5/5 行）
    * **全靠 `<` 这一条**，而 33 处里的嵌套那些**全靠 `headContinues`**。少任何一条都还有一半在漏。
    *
    * ⚠️ **变异 M-b**（把 `'<'` 从 `TAIL_CONTINUES` 里去掉）下这一例必须红 ——
@@ -856,6 +869,116 @@ if (process.argv.includes('--selftest')) {
     giR.why
       ? `切不出来：${giR.why}`
       : `切片 ${giGot?.split('\n').length} 行（应 5）、首个差异在第 ${giR.diff ?? -1} 行（应 2；0 = 快车道只切了首行 ⇒ 洞复发）`,
+  )
+
+  /*
+   * ㉑ 行**首**续行记号必须含 **`'>'`**（2026-09-20 Task 3.8 补）。
+   *
+   * 与 ⑲ 是**两条不同的判据**、各管一半，别互相顶替：
+   *   · ⑲ 管的是**首行以 `<` 收尾**（`export interface X<`）—— 靠 `TAIL_CONTINUES` 里的 `'<'`；
+   *   · ⑳ 管的是首行**不收尾于 `<`**、而**泛型实参表收尾的那个 `>` 独占一格**留在下一行：
+   *     ```ts
+   *     export type ProductionSheetUiProfile = DocSheetDialogProfile<
+   *       ProductionSheetRow,
+   *       ProductionSheetRenderOptions
+   *     >                            ← 这一行 trim 后就是孤零零一个 `>`，谁都不认得它
+   *     ```
+   *     中间几行收尾既不是 `<` 也不在行尾表里 ⇒ 只有**看下一行行首**才拦得住。
+   *
+   * ⚠️ **`'>'` 不在表里时这一例必须红**（切片停在第 3 行、第 4 行的改动看不见、`diff` 变 0）。
+   *    实测受害的两个真声明：`productionSheetUiProfile.ts::ProductionSheetUiProfile`
+   *    （收尾 `>` 在第 44 行）· `qualifiedLabelUiProfile.ts::QualifiedLabelUiProfile`（第 70 行）——
+   *    都在 `decl-sweep.mjs` 的「切短」名单里，加 `'>'` 后两条都变成「逐字相同」（3505 → 3507）。
+   *
+   * ⚠️ 变异写法：**改第 4 行**取 `>` → `> & Extra`（一条真实的续写形状，不是乱改）——
+   *    这样「第 4 行有没有被切进切片」才是唯一变量。
+   */
+  const genArgSrc = (tail) => ['export type X = Y<', '  A,', '  B', tail].join('\n')
+  const gaR = sliceDiff(genArgSrc('>'), genArgSrc('> & Extra'), 'X')
+  const gaGot = gaR.text ?? null
+  check(
+    "行首续行记号含 `>`：泛型实参表收尾的 `>` 独占一格 → **改第 4 行** → 报红且定位到第 4 行",
+    gaR.diff === 4 && gaGot != null && gaGot.split('\n').length === 4,
+    gaR.why
+      ? `切不出来：${gaR.why}`
+      : `切片 ${gaGot?.split('\n').length} 行（应 4）、首个差异在第 ${gaR.diff ?? -1} 行（应 4；0 = \`'>'\` 不在行首表里 ⇒ 收尾那行根本没进切片）`,
+  )
+
+  /*
+   * ㉒ `headContinues` 跳过注释行的 **`/*` `*` 那一半** 必须有断言（2026-09-20 Task 3.8 补）。
+   *
+   * ⚠️ 这一条补的是一个**真实存在的洞**：⑰（上面）只钉了 `//` 那一半，而文档
+   *    （本文件上面 ⑰ 的注释）白纸黑字写着「`//` 与 `/** *\/` 两种注释都要跳」
+   *    「只跳 `//` 的话，`CellKind` 会立刻变成一张假绿卡」—— **断言里却没有 `/** *\/` 的样本**。
+   *    实测：把判据改成 `if (t === '' || t.startsWith('//')) {`（只去 `/*` 与 `*`、保留 `//`）后
+   *    `--selftest` 仍然 **EXIT=0 · ✓32 ✗0**，而 `profile.ts::CellKind` 的切片
+   *    **从 7 行变成 3 行**（真的切短了）。**这就是「声称强度 > 断言强度」。**
+   *
+   * ⚠️ ⑫（上面那条 `headerFilter`）里**也有 `/**`**，但它夹在 `opt: { … }` **大括号里面**
+   *    ⇒ 括号栈非空 ⇒ **根本不走 `headContinues`** ⇒ **不能**算作这条判据的断言。
+   *    别拿 ⑫ 顶替 —— 「看起来有覆盖、其实没有」正是本条要治的病。
+   *
+   * 样本 = `CellKind` 的真实形状（`app/src/utils/docsheet/profile.ts:79-85`）：
+   * 联合类型成员之间夹的是 `/** … *\/` 而**不是** `//`，全仓库**共 3 个声明**是这个形状
+   * （另两个是 `printPayloads.ts::{src,suppress}`，它们夹的是 `//` ⇒ 由 ⑰ 管）。
+   */
+  const cellKindSrc = (last) =>
+    [
+      'type CellKind =',
+      '  /** `renderMultiline` —— 富文本按 `<br>` 切行 */',
+      "  | 'multiline'",
+      '  /** 二维码 SVG（`qrSize`）+ 居中单号字幕（按 `/` 折行） */',
+      "  | 'order'",
+      `  | '${last}'`,
+    ].join('\n')
+  const ckR = sliceDiff(cellKindSrc('count'), cellKindSrc('amount'), 'CellKind')
+  const ckGot = ckR.text ?? null
+  check(
+    '联合类型成员之间夹 `/** */` 注释 → 仍切出**整段**（`/*` `*` 那一半去掉即红）',
+    ckR.diff === 6 && ckGot != null && ckGot.split('\n').length === 6,
+    ckR.why
+      ? `切不出来：${ckR.why}`
+      : `切片 ${ckGot?.split('\n').length} 行（应 6）、首个差异在第 ${ckR.diff ?? -1} 行（应 6；0 = 在 \`/** */\` 处停住 ⇒ \`CellKind\` 变假绿卡）`,
+  )
+
+  /*
+   * ㉓ 行首续行记号 **`'&'`**（交叉类型断行）（2026-09-20 Task 3.8 补）。
+   *
+   * `&` 与 `|` 是 `HEAD_CONTINUES` 里两个不同的 token —— 只钉一个等于「只在单侧被钉住」。
+   * 实测：把 `'&'` 从 `HEAD_CONTINUES` 里去掉，此前 `--selftest` **仍然 EXIT=0 · ✓32 ✗0**
+   * （仓库里当前 0 处 `&` 这个形状 ⇒ 是**潜在**，但按本项目既有标准，每条判据都要「改坏即红」）。
+   */
+  const interSrc = (last) => ['type X = A', `  & ${last}`].join('\n')
+  const inR = sliceDiff(interSrc('B'), interSrc('C'), 'X')
+  const inGot = inR.text ?? null
+  check(
+    "行首续行记号含 `&`：交叉类型断行（下一行 `& B` 开头）**改第 2 行** → 报红且定位到第 2 行",
+    inR.diff === 2 && inGot != null && inGot.split('\n').length === 2,
+    inR.why
+      ? `切不出来：${inR.why}`
+      : `切片 ${inGot?.split('\n').length} 行（应 2）、首个差异在第 ${inR.diff ?? -1} 行（应 2；0 = \`'&'\` 不在行首表里）`,
+  )
+
+  /*
+   * ㉔ `headContinues` **跳过空行**（2026-09-20 Task 3.8 补）。
+   *
+   * 声明在「下一行是**空行**、再下一行才续」时，若不再跳空行，lookahead 会在空行处
+   * 判「不续」⇒ 切片停在第 1 行。实测：把 `t === ''` 那个分支去掉，此前 `--selftest`
+   * **仍然 EXIT=0 · ✓32 ✗0**（同样是**潜在**、仓库里当前 0 处）。
+   *
+   * ⚠️ 断言里的行号是 **`norm()` 之后**的行号：`norm()` 会**丢掉空行**（那是它的契约），
+   *    所以「改第 3 行」在 `firstDiffLine` 眼里是**第 2 行**。同时钉 `split('\n')` 的**原始**
+   *    行数 3 —— 两个数一起才说明「空行与续行都被切进来了」。
+   */
+  const blankSrc = (last) => ['type X = A', '', `  | ${last}`].join('\n')
+  const blR = sliceDiff(blankSrc('b'), blankSrc('c'), 'X')
+  const blGot = blR.text ?? null
+  check(
+    "下一行是**空行**、再下一行才续 → 仍切出整段（`t === ''` 那个分支去掉即红）",
+    blR.diff === 2 && blGot != null && blGot.split('\n').length === 3,
+    blR.why
+      ? `切不出来：${blR.why}`
+      : `切片 ${blGot?.split('\n').length} 行（原始，应 3）、首个差异在第 ${blR.diff ?? -1} 行（norm 后，应 2；0 = 在空行处停住 ⇒ 续行没被切进来）`,
   )
 
   process.exit(bad ? 1 : 0)

@@ -94,7 +94,7 @@
  *    （`const theadCells = cols` · `export interface Api<` 之类），一旦声明在**下一行继续**，
  *    这里就会**切 1 行并返回** —— 而且 `fast: true` 让 `sliceFn` **跳过结构性硬闸**
  *    ⇒ 「配平、不报错、只有 1 行」地被拿去比对。实测 **33 处**（含 **6 处顶层**，真声明
- *    最长 45 行），详见实现里那段注释与 `docs/2026-09-20-home-hui-split.md` §9h。
+ *    最长 46 行），详见实现里那段注释与 `docs/2026-09-20-home-hui-split.md` §9h。
  *    ⚠️ 两张记号表（行尾 / 行首）当时**都已经存在**，但只在**路 3 的 lookahead** 里被调用过
  *    —— 「表在那儿」不等于「这条路上用了它」。这类「判据写了、路径没走」正是本模块
  *    反复栽的那一族，别只看有没有那张表。
@@ -202,6 +202,17 @@
  *        （`foo() as { … } & B`、`getA() ?? { … } as const`、多行返回类型字面量 `): { … } { … }`）
  *        —— **旧核新核都切短且配平**，仓库里 0 处。
  *
+ * ⚠️ **上面那张「四族」表不是现存全貌**（2026-09-20 Task 3.8 澄清，此前读者会把它当全貌）：
+ *    它列的是「**切片器切短**」这一族的成因，而 `decl-sweep.mjs` 今天那 3 条里
+ *    **只有 2 条属这四族**（上面第 3 族 · 路 1 那一半，即泛型实参表收尾的 `>` 被单独留在下一行），
+ *    **另 1 条根本不是切片器的洞**，而是**第五种东西 —— 「口径差」**：
+ *    解析器把下一行行首那个 **ASI 守卫 `;`** 算进了声明文本，而切片是「解析器文本去掉那个 `;`」。
+ *    ⇒ 该条**不是**本表的成员，**别往这四族里塞**；它由 `decl-sweep.mjs` 单列一栏「口径差」，
+ *    **不判红**（切片含着完整声明，去掉的只是一个 ASI 守卫符 ⇒ 判别力不受影响）。
+ *    ⚠️ 修完 `'>'` 之后这一族的现状是 **「切短」= 0**（Task 3.7 时的 3 已归零），
+ *    但那 **0 是「1 个真修 + 1 个口径差归类 + `';'` 明确不加」三者合起来的结果**，
+ *    **不是**「切片器已经没洞了」—— 上表那三族里还有两族是**潜在**、与「修完了」是两件事。
+ *
  * ## 统一的跳过原语（`skipInert`）
  *
  * 字符串（`'` `"` `` ` ``）与注释（`//`、`/* *\/`）要**在每一处扫描里**都被跳过，
@@ -299,7 +310,7 @@ const isCommentAt = (src, k) => src[k] === '/' && (src[k + 1] === '/' || src[k +
  *    ⇒ 只切 1 行、配平、不报错、拿去比对。实测受害 6 处**顶层**声明（`docSheetUi.ts` 的
  *    `DocSheetRenderApi`/`DocSheetUiApi`/`DocSheetDialogProfile`/`DocSheetUiProfile`、
  *    `productionSheetUiProfile.ts::ProductionSheetUiProfile`、
- *    `qualifiedLabelUiProfile.ts::QualifiedLabelUiProfile`），真声明分别 **22/10/24/45/5/5** 行。
+ *    `qualifiedLabelUiProfile.ts::QualifiedLabelUiProfile`），真声明分别 **22/10/24/46/5/5** 行。
  *    合法声明不可能以 `<` 收尾，`const a < b` 也不是完整语句 ⇒ 这条不会误伤完整声明。
  */
 const TAIL_CONTINUES = ['=', '=>', '|', '&', '&&', '||', '??', '+', ',', '.', '?', ':', '(', '[', '{', '<']
@@ -316,8 +327,29 @@ const TAIL_CONTINUES = ['=', '=>', '|', '&', '&&', '||', '??', '+', ',', '.', '?
  * ```
  *
  * 这几个记号**都不可能是顶层声明的开头** ⇒ 不会把切片带进下一个声明里。
+ *
+ * ⚠️ `'>'` 的那条理由（2026-09-20 Task 3.8 补，实测有效）：
+ *    `interface X<` / `type X = Y<` 的**泛型实参表**在 prettier 下会把收尾的 `>` **单独留在下一行**：
+ *    ```ts
+ *    export type ProductionSheetUiProfile = DocSheetDialogProfile<
+ *      ProductionSheetRow,
+ *      ProductionSheetRenderOptions
+ *    >                                  ← 这一行 trim 后就是孤零零一个 `>`，且**独占一格**
+ *    ```
+ *    行尾表里的 `'<'` 只救得了**首行**以 `<` 收尾的那一族（见上「路 1」）；而这里首行收尾的是
+ *    `ProductionSheetRow,` 的**上一行**——中间几行收尾既不是 `<` 也不在行尾表里，只有
+ *    **看下一行行首**才知道还没写完。`'>'` 同样**不可能是顶层声明的开头**（它也做不了任何
+ *    语句的首字符）⇒ 加它是**纯收窄**，与往行尾表加 `'<'` 同性质。
+ *    实测（`decl-sweep.mjs`）：加之前「逐字相同」3505 / 「切短」3；加之后 **3507 / 1**，
+ *    且 `--against 970369c3` 的「旧对→新错」**仍是 0**。受害的两个真声明：
+ *    `productionSheetUiProfile.ts::ProductionSheetUiProfile`（收尾 `>` 在第 44 行）·
+ *    `qualifiedLabelUiProfile.ts::QualifiedLabelUiProfile`（第 70 行）。
+ *
+ * 🔴 **`';'` 不许加进这张表**（2026-09-20 Task 3.8 实测否决，详见 `decl-sweep.mjs` 文件头）：
+ *    加 `';'` 会让「逐字相同」**一条都不涨**（3505 → 3505），只是把那条「切短」**挪进
+ *    「多带」桶**（132 → 133）—— 闸变绿而**切片仍然是错的**。那是洗白，不是修法。
  */
-const HEAD_CONTINUES = ['|', '&', '.', '?', ':']
+const HEAD_CONTINUES = ['|', '&', '.', '?', ':', '>']
 
 const tailContinues = (text) => {
   const t = text.replace(/\s+$/, '')
