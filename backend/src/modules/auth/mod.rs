@@ -23,5 +23,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v1/auth/logout", post(handler::logout))
         .route("/api/v1/auth/me", get(handler::me))
-        .route("/api/v1/auth/change-password", post(handler::change_password))
+        .route(
+            "/api/v1/auth/change-password",
+            post(handler::change_password),
+        )
 }

@@ -10,10 +10,7 @@ use crate::core::AppState;
 use super::model::{OrderHeadPatch, OrderLineInput, OrderRequest, OrderSearchQuery};
 use super::service;
 
-pub async fn list(
-    State(state): State<AppState>,
-    user: CurrentUser,
-) -> ApiResult<Json<Value>> {
+pub async fn list(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<Value>> {
     let items = service::list(&state.pool, user.tenant_id).await?;
     Ok(response::ok(serde_json::to_value(items).unwrap()))
 }

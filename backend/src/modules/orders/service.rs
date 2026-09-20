@@ -206,11 +206,7 @@ async fn fetch_lines(pool: &PgPool, order_id: i64) -> ApiResult<Vec<OrderLineDto
     Ok(rows.into_iter().map(line_to_dto).collect())
 }
 
-async fn fetch_header(
-    pool: &PgPool,
-    tenant_id: i64,
-    id: i64,
-) -> ApiResult<OrderHeaderRow> {
+async fn fetch_header(pool: &PgPool, tenant_id: i64, id: i64) -> ApiResult<OrderHeaderRow> {
     let sql = format!("SELECT {HEADER_COLUMNS} FROM orders WHERE id = $1 AND tenant_id = $2");
     sqlx::query_as(&sql)
         .bind(id)
@@ -222,9 +218,7 @@ async fn fetch_header(
 
 /// 列表：订单头（不含行），按创建时间倒序。
 pub async fn list(pool: &PgPool, tenant_id: i64) -> ApiResult<Vec<OrderSummaryDto>> {
-    let sql = format!(
-        "SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 ORDER BY id DESC"
-    );
+    let sql = format!("SELECT {HEADER_COLUMNS} FROM orders WHERE tenant_id = $1 ORDER BY id DESC");
     let rows: Vec<OrderHeaderRow> = sqlx::query_as(&sql).bind(tenant_id).fetch_all(pool).await?;
     Ok(rows.into_iter().map(header_to_summary).collect())
 }
@@ -355,9 +349,8 @@ pub async fn get_by_receipt_no(
     tenant_id: i64,
     receipt_no: &str,
 ) -> ApiResult<OrderDto> {
-    let sql = format!(
-        "SELECT {HEADER_COLUMNS} FROM orders WHERE receipt_no = $1 AND tenant_id = $2"
-    );
+    let sql =
+        format!("SELECT {HEADER_COLUMNS} FROM orders WHERE receipt_no = $1 AND tenant_id = $2");
     let header: OrderHeaderRow = sqlx::query_as(&sql)
         .bind(receipt_no)
         .bind(tenant_id)
@@ -455,11 +448,15 @@ pub async fn combine(pool: &PgPool, tenant_id: i64, order_ids: &[i64]) -> ApiRes
     .await?;
 
     if heads.len() != ids.len() {
-        return Err(ApiError::not_found("有订单不存在（可能已被删除），请刷新后重试"));
+        return Err(ApiError::not_found(
+            "有订单不存在（可能已被删除），请刷新后重试",
+        ));
     }
     let first_client = &heads[0].client_code;
     if heads.iter().any(|h| &h.client_code != first_client) {
-        return Err(ApiError::bad_request("只能合并同一客户的订单（客户编号必须相同）"));
+        return Err(ApiError::bad_request(
+            "只能合并同一客户的订单（客户编号必须相同）",
+        ));
     }
 
     // 存活单：回执单号**数值**最小（= 最早）。取不到数值的排在最后（旧版 parseInt 得 NaN）。
@@ -475,7 +472,12 @@ pub async fn combine(pool: &PgPool, tenant_id: i64, order_ids: &[i64]) -> ApiRes
     let deposit: f64 = heads.iter().map(|h| h.deposit).sum();
     let door_count: i32 = heads.iter().map(|h| h.door_count).sum();
     // 日期取更早（ISO 串直接比大小即可）。
-    let earliest_date = heads.iter().map(|h| h.order_date.as_str()).min().unwrap_or("").to_string();
+    let earliest_date = heads
+        .iter()
+        .map(|h| h.order_date.as_str())
+        .min()
+        .unwrap_or("")
+        .to_string();
 
     // 那几个文本字段：去重 + `"; "` 拼接（旧版就这个口径）。
     let join_unique = |pick: fn(&Head) -> &str| -> String {
@@ -494,16 +496,19 @@ pub async fn combine(pool: &PgPool, tenant_id: i64, order_ids: &[i64]) -> ApiRes
     let salesperson = join_unique(|h| &h.salesperson);
 
     // 行搬到存活单：按「源单顺序 → 原 row_index」重排，保证顺序稳定。
-    let mut next_row: i32 = sqlx::query_scalar("SELECT COALESCE(MAX(row_index), -1) + 1 FROM order_lines WHERE order_id = $1")
-        .bind(target)
-        .fetch_one(&mut *tx)
-        .await?;
+    let mut next_row: i32 = sqlx::query_scalar(
+        "SELECT COALESCE(MAX(row_index), -1) + 1 FROM order_lines WHERE order_id = $1",
+    )
+    .bind(target)
+    .fetch_one(&mut *tx)
+    .await?;
     for src in &sources {
-        let line_ids: Vec<i64> =
-            sqlx::query_scalar("SELECT id FROM order_lines WHERE order_id = $1 ORDER BY row_index, id")
-                .bind(src)
-                .fetch_all(&mut *tx)
-                .await?;
+        let line_ids: Vec<i64> = sqlx::query_scalar(
+            "SELECT id FROM order_lines WHERE order_id = $1 ORDER BY row_index, id",
+        )
+        .bind(src)
+        .fetch_all(&mut *tx)
+        .await?;
         for lid in line_ids {
             sqlx::query("UPDATE order_lines SET order_id = $1, row_index = $2 WHERE id = $3")
                 .bind(target)
@@ -518,13 +523,19 @@ pub async fn combine(pool: &PgPool, tenant_id: i64, order_ids: &[i64]) -> ApiRes
     // 财务记录改挂到存活单（旧版同样把付款记录 reassign 给目标单）。
     // ⚠️ 不 reassign 的话，它们会指向马上要被删掉的订单 id —— 变成悬空引用。
     for src in &sources {
-        for table in ["finance_payments", "finance_order_adjustments", "finance_allocations"] {
-            sqlx::query(&format!("UPDATE {table} SET order_id = $1 WHERE order_id = $2 AND tenant_id = $3"))
-                .bind(target)
-                .bind(src)
-                .bind(tenant_id)
-                .execute(&mut *tx)
-                .await?;
+        for table in [
+            "finance_payments",
+            "finance_order_adjustments",
+            "finance_allocations",
+        ] {
+            sqlx::query(&format!(
+                "UPDATE {table} SET order_id = $1 WHERE order_id = $2 AND tenant_id = $3"
+            ))
+            .bind(target)
+            .bind(src)
+            .bind(tenant_id)
+            .execute(&mut *tx)
+            .await?;
         }
     }
 
@@ -613,10 +624,11 @@ pub async fn fill_line_numbers(pool: &PgPool, tenant_id: i64, order_id: i64) -> 
     .await?;
 
     // 本租户该年份的当前最大值。扫描所有行的 line_no，取形如 `N-YY/...` 且年份匹配的最大 N。
-    let all: Vec<String> = sqlx::query_scalar("SELECT line_no FROM order_lines WHERE tenant_id = $1")
-        .bind(tenant_id)
-        .fetch_all(&mut *tx)
-        .await?;
+    let all: Vec<String> =
+        sqlx::query_scalar("SELECT line_no FROM order_lines WHERE tenant_id = $1")
+            .bind(tenant_id)
+            .fetch_all(&mut *tx)
+            .await?;
     let mut next = all
         .iter()
         .filter_map(|v| parse_line_no(v))
@@ -668,7 +680,11 @@ fn time_parts_now() -> (String, String, String) {
     // 用 UTC 拆（与 `date_suffix_parts` 的降级路径一致即可，不追求时区精确）。
     let days = secs / 86_400;
     let (y, m, d) = civil_from_days(days as i64);
-    (format!("{:02}", y % 100), format!("{m:02}"), format!("{d:02}"))
+    (
+        format!("{:02}", y % 100),
+        format!("{m:02}"),
+        format!("{d:02}"),
+    )
 }
 
 /// 天数（1970-01-01 起）→ 公历年月日。Howard Hinnant 的 `civil_from_days`。
@@ -791,7 +807,9 @@ async fn assign_generated_receipt_no(
         }
         millis += 1;
     }
-    Err(ApiError::internal("回执单号生成失败：连续 1000 毫秒都被占用"))
+    Err(ApiError::internal(
+        "回执单号生成失败：连续 1000 毫秒都被占用",
+    ))
 }
 
 /// 新建：订单头 + 行（事务）。回执单号缺省自动生成，总价/门数由行汇总。
@@ -982,7 +1000,11 @@ pub async fn update_line(
     line: &OrderLineInput,
 ) -> ApiResult<()> {
     let quantity = line.quantity.max(1);
-    let discount = if line.discount == 0.0 { 1.0 } else { line.discount };
+    let discount = if line.discount == 0.0 {
+        1.0
+    } else {
+        line.discount
+    };
 
     let result = sqlx::query(
         "UPDATE order_lines SET \
@@ -1066,12 +1088,13 @@ pub async fn delete_line(
     order_id: i64,
     line_id: i64,
 ) -> ApiResult<()> {
-    let result = sqlx::query("DELETE FROM order_lines WHERE id = $1 AND order_id = $2 AND tenant_id = $3")
-        .bind(line_id)
-        .bind(order_id)
-        .bind(tenant_id)
-        .execute(pool)
-        .await?;
+    let result =
+        sqlx::query("DELETE FROM order_lines WHERE id = $1 AND order_id = $2 AND tenant_id = $3")
+            .bind(line_id)
+            .bind(order_id)
+            .bind(tenant_id)
+            .execute(pool)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(ApiError::not_found("订单行不存在"));
@@ -1089,12 +1112,14 @@ async fn recompute_header(pool: &PgPool, order_id: i64) -> ApiResult<()> {
     .fetch_one(pool)
     .await?;
 
-    sqlx::query("UPDATE orders SET total_price = $1, door_count = $2, updated_at = now() WHERE id = $3")
-        .bind(round2(total))
-        .bind(door_count as i32)
-        .bind(order_id)
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "UPDATE orders SET total_price = $1, door_count = $2, updated_at = now() WHERE id = $3",
+    )
+    .bind(round2(total))
+    .bind(door_count as i32)
+    .bind(order_id)
+    .execute(pool)
+    .await?;
 
     let mut conn = pool.acquire().await?;
     refresh_order_no_set(&mut conn, order_id).await?;
@@ -1123,7 +1148,11 @@ async fn insert_line(
     line: &OrderLineInput,
 ) -> ApiResult<()> {
     let quantity = line.quantity.max(1);
-    let discount = if line.discount == 0.0 { 1.0 } else { line.discount };
+    let discount = if line.discount == 0.0 {
+        1.0
+    } else {
+        line.discount
+    };
 
     sqlx::query(
         "INSERT INTO order_lines (order_id, tenant_id, line_type, row_index, \
@@ -1352,7 +1381,10 @@ pub async fn list_with_lines_filtered(
     let mut by_order: std::collections::HashMap<i64, Vec<OrderLineDto>> =
         std::collections::HashMap::new();
     for r in line_rows {
-        by_order.entry(r.order_id).or_default().push(line_to_dto(r.line));
+        by_order
+            .entry(r.order_id)
+            .or_default()
+            .push(line_to_dto(r.line));
     }
 
     Ok(headers

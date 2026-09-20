@@ -16,7 +16,12 @@ struct PriceItemRow {
 }
 
 fn row_to_item(r: PriceItemRow) -> AddPriceItemDto {
-    AddPriceItemDto { id: r.id, name: r.name, price: r.price, unit: r.unit }
+    AddPriceItemDto {
+        id: r.id,
+        name: r.name,
+        price: r.price,
+        unit: r.unit,
+    }
 }
 
 /// 列表：加价项目（租户级），按更新时间倒序。

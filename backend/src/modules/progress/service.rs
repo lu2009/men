@@ -26,11 +26,12 @@ pub fn slot_name(i: usize) -> String {
 /// 见迁移 `0021_progress.sql` 头注、`docs/2026-09-19-qrscanner-analysis.md` §8.3 第 1 条。
 pub async fn get_procedures(pool: &PgPool, tenant_id: i64) -> ApiResult<ProceduresDto> {
     // 只取有名字的，剩下的在下面补空 —— 这样「库里一行都没有」也能返回 15 个空槽。
-    let rows: Vec<(String, String, String)> =
-        sqlx::query_as("SELECT slot, name, color FROM procedures WHERE tenant_id = $1 AND name <> ''")
-            .bind(tenant_id)
-            .fetch_all(pool)
-            .await?;
+    let rows: Vec<(String, String, String)> = sqlx::query_as(
+        "SELECT slot, name, color FROM procedures WHERE tenant_id = $1 AND name <> ''",
+    )
+    .bind(tenant_id)
+    .fetch_all(pool)
+    .await?;
 
     let find = |slot: &str| rows.iter().find(|(s, _, _)| s == slot).cloned();
 
@@ -76,11 +77,7 @@ pub async fn get_procedures(pool: &PgPool, tenant_id: i64) -> ApiResult<Procedur
 /// 1. **15 槽一视同仁**：不排 `工序10`（旧版弹窗把它排掉，是给「回款」让路）。
 /// 2. **颜色进库**：旧版存 localStorage `procedure_name_color_map`（键=工序名 ⇒ 改名丢色、不分租户）。
 /// 3. **只有一把租户键 `tenant_id`**（从登录态取）——旧版这里按 `registrant`、业务接口按 `ds`。
-pub async fn set_procedures(
-    pool: &PgPool,
-    tenant_id: i64,
-    req: &ProceduresInput,
-) -> ApiResult<()> {
+pub async fn set_procedures(pool: &PgPool, tenant_id: i64, req: &ProceduresInput) -> ApiResult<()> {
     if req.slots.is_empty() {
         // 「saved: true」而实际什么都没存，是句假话 —— 空请求按 400 处理（与 `update_progress` 同口径）。
         return Err(ApiError::bad_request("没有要保存的工序槽"));
@@ -123,7 +120,6 @@ pub async fn set_procedures(
 
     Ok(())
 }
-
 
 // ===== 生产进度主体（`GET /v1/progress`）=====
 
@@ -293,8 +289,12 @@ pub async fn get_more_progress(
 /// 旧版**不校验**这个（前端传什么就写什么键），于是能往行上写出 `{"foo": "..."}` 这种野键。
 /// 新版**卡住**：槽号越界或格式不对直接 400 —— 见 `-analysis.md` §10「有意偏离」。
 fn valid_slot(slot: &str) -> bool {
-    let Some(n) = slot.strip_prefix("工序") else { return false };
-    n.parse::<usize>().map(|i| (1..=SLOT_COUNT).contains(&i)).unwrap_or(false)
+    let Some(n) = slot.strip_prefix("工序") else {
+        return false;
+    };
+    n.parse::<usize>()
+        .map(|i| (1..=SLOT_COUNT).contains(&i))
+        .unwrap_or(false)
 }
 
 /// `POST /v1/progress/update` 的结果。
@@ -376,7 +376,9 @@ pub async fn update_progress(
     };
 
     if req.line_ids.is_empty() && wanted_nos.is_empty() {
-        return Err(ApiError::bad_request("没有要更新的行（line_ids 与 line_nos 至少给一个）"));
+        return Err(ApiError::bad_request(
+            "没有要更新的行（line_ids 与 line_nos 至少给一个）",
+        ));
     }
 
     // 单号 → 行 id。**一个单号可能命中多行**（旧版同样按 ref 命中所有行，不去重取首个），
@@ -819,7 +821,11 @@ pub async fn scan_stats(
     let start = parts.next().unwrap_or("").trim().to_string();
     // 旧版 `parseDate(endText || startText)`：只给一个日期时起止同一天。
     let end = parts.next().unwrap_or("").trim();
-    let end = if end.is_empty() { start.clone() } else { end.to_string() };
+    let end = if end.is_empty() {
+        start.clone()
+    } else {
+        end.to_string()
+    };
 
     if !is_calendar_date(&start) || !is_calendar_date(&end) {
         return Err(ApiError::bad_request(&format!(
@@ -895,7 +901,10 @@ mod tests {
                 "a_2026-09-19_2026-09-20_2026-09-21",
                 Some(("2026-09-19_2026-09-20", "2026-09-21")),
             ),
-            ("下料_李四_2026-09-19_2026-09-20", Some(("李四_2026-09-19", "2026-09-20"))),
+            (
+                "下料_李四_2026-09-19_2026-09-20",
+                Some(("李四_2026-09-19", "2026-09-20")),
+            ),
             ("x_下料_李四_2026-09-19", Some(("下料_李四", "2026-09-19"))),
             // 全角空格是 `.` 能匹配的普通字符（**不是**行终止符）
             ("下料_　_2026-09-19", Some(("　", "2026-09-19"))),
@@ -975,31 +984,49 @@ mod tests {
     #[test]
     fn resolve_date_label_matches_legacy() {
         let (today, mon, first) = ("2026-09-19", "2026-09-14", "2026-09-01");
-        assert_eq!(resolve_date_label("当天", today, mon, first), "2026-09-19,2026-09-19");
-        assert_eq!(resolve_date_label("本周", today, mon, first), "2026-09-14,2026-09-19");
-        assert_eq!(resolve_date_label("本月", today, mon, first), "2026-09-01,2026-09-19");
+        assert_eq!(
+            resolve_date_label("当天", today, mon, first),
+            "2026-09-19,2026-09-19"
+        );
+        assert_eq!(
+            resolve_date_label("本周", today, mon, first),
+            "2026-09-14,2026-09-19"
+        );
+        assert_eq!(
+            resolve_date_label("本月", today, mon, first),
+            "2026-09-01,2026-09-19"
+        );
         // 其它标签原样透传（旧版 `default` 分支）—— 由下面那步再拆成「起,止」
         assert_eq!(
             resolve_date_label("2026-01-01,2026-02-02", today, mon, first),
             "2026-01-01,2026-02-02"
         );
-        assert_eq!(resolve_date_label("2026-01-01", today, mon, first), "2026-01-01");
+        assert_eq!(
+            resolve_date_label("2026-01-01", today, mon, first),
+            "2026-01-01"
+        );
     }
 
     /// `YYYY-MM-DD` 的形状 + 真日子；旧版是 `new Date(str)` + `parseDate`（非法 → 400）。
     #[test]
     fn date_validation_matches_legacy_parse_date() {
-        for ok in ["2026-09-19", "2024-02-29", "2000-02-29", "0000-01-01", "2026-12-31"] {
+        for ok in [
+            "2026-09-19",
+            "2024-02-29",
+            "2000-02-29",
+            "0000-01-01",
+            "2026-12-31",
+        ] {
             assert!(is_calendar_date(ok), "{ok} 应当合法");
         }
         for bad in [
-            "2026-02-30",   // 形状对、日子越界（JS `new Date` 给 Invalid Date）
+            "2026-02-30", // 形状对、日子越界（JS `new Date` 给 Invalid Date）
             "2026-02-31",
-            "2026-13-01",   // 月份越界
+            "2026-13-01", // 月份越界
             "2026-00-10",
             "2026-09-00",
-            "1900-02-29",   // 1900 不是闰年（百年不闰）
-            "2026-9-19",    // 非零填充（旧版会走 JS 的兜底解析并**倒退一天**，有意判非法）
+            "1900-02-29", // 1900 不是闰年（百年不闰）
+            "2026-9-19",  // 非零填充（旧版会走 JS 的兜底解析并**倒退一天**，有意判非法）
             "2026/09/19",
             "2026-09-19 ",
             "",

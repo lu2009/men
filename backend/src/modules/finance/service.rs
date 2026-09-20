@@ -85,7 +85,11 @@ pub async fn order_allocated_parts(
     Ok((round2(paid), round2(alloc)))
 }
 
-pub async fn order_finance(pool: &PgPool, tenant_id: i64, order_id: i64) -> ApiResult<OrderFinance> {
+pub async fn order_finance(
+    pool: &PgPool,
+    tenant_id: i64,
+    order_id: i64,
+) -> ApiResult<OrderFinance> {
     let head = fetch_order(pool, tenant_id, order_id).await?;
 
     let (paid, alloc) = order_allocated_parts(pool, tenant_id, order_id).await?;
@@ -138,7 +142,11 @@ pub async fn order_finance_detail(
     let mut payment_records: Vec<FinanceRecord> = pays
         .into_iter()
         .map(|(date, amount, remark)| FinanceRecord {
-            kind: if amount < 0.0 { "红冲".into() } else { "收款".into() },
+            kind: if amount < 0.0 {
+                "红冲".into()
+            } else {
+                "收款".into()
+            },
             date,
             amount: round2(amount),
             remark,
@@ -346,7 +354,9 @@ pub async fn add_order_payment(
         return Err(ApiError::bad_request("收款金额不能大于未收金额"));
     }
     if amount < 0.0 && amount.abs() > of.allocated_amount + 0.005 {
-        return Err(ApiError::bad_request("红冲金额绝对值不能超过本单已分配金额"));
+        return Err(ApiError::bad_request(
+            "红冲金额绝对值不能超过本单已分配金额",
+        ));
     }
     // 护栏：收款不能超过「客户还欠多少」。旧版 `addOrderPayment`(svc:438-457) 一条校验都没有，
     // 这是我们有意加的（08-fix-plan.md「不做的」第 3 条）；改动 4 之后 `客户余额` 的语义正是
@@ -510,7 +520,10 @@ pub async fn add_customer_adjustment(
         return Err(ApiError::bad_request("抹零金额超过客户余额"));
     }
     // 「删除订单冲销」是删除红冲专用类型，不约束于客户调整合计（§A3）。
-    if amount < 0.0 && req.adjust_type != "删除订单冲销" && amount.abs() > cb.customer_adjust_total + 0.005 {
+    if amount < 0.0
+        && req.adjust_type != "删除订单冲销"
+        && amount.abs() > cb.customer_adjust_total + 0.005
+    {
         return Err(ApiError::bad_request("冲销金额不能超过客户调整合计"));
     }
 
@@ -617,7 +630,8 @@ pub async fn check_order_payment(
     for &id in order_ids {
         let of = order_finance(pool, tenant_id, id).await?;
         // 拆开的两段：删除时红冲要**按来源分别入账**，见 `reverse_order_allocation`。
-        let (order_paid_amount, allocation_amount) = order_allocated_parts(pool, tenant_id, id).await?;
+        let (order_paid_amount, allocation_amount) =
+            order_allocated_parts(pool, tenant_id, id).await?;
         let (customer_code, customer_name): (String, String) = sqlx::query_as(
             "SELECT client_code, client_name FROM orders WHERE id = $1 AND tenant_id = $2",
         )
@@ -883,7 +897,9 @@ pub async fn preview_prepayment_allocation(
     tenant_id: i64,
     req: PreviewPrepaymentAllocation,
 ) -> ApiResult<PrepaymentAllocationPreview> {
-    Ok(plan_response(&prepayment_plan(pool, tenant_id, &req).await?))
+    Ok(plan_response(
+        &prepayment_plan(pool, tenant_id, &req).await?,
+    ))
 }
 
 /// 预付款分配执行（finance_executePrepaymentAllocation）。

@@ -15,7 +15,9 @@ pub async fn get_column_config(
     user: CurrentUser,
 ) -> ApiResult<Json<Value>> {
     let (p, d) = service::get_column_config(&state.pool, user.tenant_id).await?;
-    Ok(response::ok(json!({ "ping_columns": p, "diao_columns": d })))
+    Ok(response::ok(
+        json!({ "ping_columns": p, "diao_columns": d }),
+    ))
 }
 
 pub async fn put_column_config(
@@ -23,8 +25,13 @@ pub async fn put_column_config(
     user: CurrentUser,
     Json(req): Json<ColumnConfigDto>,
 ) -> ApiResult<Json<Value>> {
-    service::upsert_column_config(&state.pool, user.tenant_id, req.ping_columns, req.diao_columns)
-        .await?;
+    service::upsert_column_config(
+        &state.pool,
+        user.tenant_id,
+        req.ping_columns,
+        req.diao_columns,
+    )
+    .await?;
     Ok(response::ok(json!({ "saved": true })))
 }
 

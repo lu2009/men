@@ -22,7 +22,12 @@ pub async fn list(
     user: CurrentUser,
     Query(q): Query<ListQuery>,
 ) -> ApiResult<Json<Value>> {
-    let items = service::list(&state.pool, user.tenant_id, q.search.as_deref().unwrap_or("")).await?;
+    let items = service::list(
+        &state.pool,
+        user.tenant_id,
+        q.search.as_deref().unwrap_or(""),
+    )
+    .await?;
     Ok(response::ok(serde_json::to_value(items).unwrap()))
 }
 

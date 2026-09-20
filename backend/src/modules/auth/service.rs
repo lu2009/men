@@ -63,11 +63,10 @@ pub async fn logout(pool: &PgPool, token: &str) -> ApiResult<()> {
 }
 
 pub async fn load_tenant(pool: &PgPool, tenant_id: i64) -> ApiResult<TenantDto> {
-    let (id, name): (i64, String) =
-        sqlx::query_as("SELECT id, name FROM tenants WHERE id = $1")
-            .bind(tenant_id)
-            .fetch_one(pool)
-            .await?;
+    let (id, name): (i64, String) = sqlx::query_as("SELECT id, name FROM tenants WHERE id = $1")
+        .bind(tenant_id)
+        .fetch_one(pool)
+        .await?;
     Ok(TenantDto { id, name })
 }
 
@@ -80,13 +79,13 @@ pub async fn change_password(
 ) -> ApiResult<()> {
     validate_password_policy(new_password)?;
 
-    let current_hash: String =
-        sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
-            .bind(user_id)
-            .fetch_one(pool)
-            .await?;
+    let current_hash: String = sqlx::query_scalar("SELECT password_hash FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(pool)
+        .await?;
 
-    verify_password(&current_hash, old_password).map_err(|_| ApiError::unauthorized("原密码错误"))?;
+    verify_password(&current_hash, old_password)
+        .map_err(|_| ApiError::unauthorized("原密码错误"))?;
 
     let new_hash = hash_password(new_password)?;
     sqlx::query("UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2")

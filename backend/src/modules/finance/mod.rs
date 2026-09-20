@@ -9,9 +9,18 @@ use crate::core::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/api/v1/finance/orders/summary", get(handler::order_finance_summary))
-        .route("/api/v1/finance/orders/check", post(handler::check_order_payment))
-        .route("/api/v1/finance/orders/{order_id}", get(handler::order_finance))
+        .route(
+            "/api/v1/finance/orders/summary",
+            get(handler::order_finance_summary),
+        )
+        .route(
+            "/api/v1/finance/orders/check",
+            post(handler::check_order_payment),
+        )
+        .route(
+            "/api/v1/finance/orders/{order_id}",
+            get(handler::order_finance),
+        )
         .route(
             "/api/v1/finance/orders/{order_id}/payments",
             post(handler::add_order_payment),

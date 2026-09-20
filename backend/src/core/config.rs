@@ -33,9 +33,8 @@ impl Config {
             .unwrap_or_else(|_| "3000".into())
             .parse()?;
 
-        let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://smartdoor:smartdoor@localhost:5432/smartdoor".into()
-        });
+        let database_url = std::env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "postgres://smartdoor:smartdoor@localhost:5432/smartdoor".into());
 
         let cors_origins = std::env::var("CORS_ORIGINS")
             .unwrap_or_else(|_| {

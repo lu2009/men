@@ -1,8 +1,8 @@
-use axum::extract::{Query, State};
-use axum::Json;
 use super::model::{
     LabelDataInput, ProceduresInput, ProgressUpdateInput, ScanQrCodeQuery, ScanStatsQuery,
 };
+use axum::extract::{Query, State};
+use axum::Json;
 use serde_json::{json, Value};
 
 use crate::core::auth::CurrentUser;
@@ -44,7 +44,10 @@ pub async fn set_procedures(
 /// 旧版是 `param1=getProgress&param2={userinfo.ds}`；新版走 RESTful 路径、租户从登录态拿。
 /// ⚠️ 旧版还有个终端分支（`getProgressForTerminal`），**服务端是写死 400**（静态响应覆盖），
 ///    那条路本来就是坏的 ⇒ 新版**不做终端分支**（有意偏离，见 `-analysis.md` §10）。
-pub async fn get_progress(State(state): State<AppState>, user: CurrentUser) -> ApiResult<Json<Value>> {
+pub async fn get_progress(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> ApiResult<Json<Value>> {
     let v = service::get_progress(&state.pool, user.tenant_id).await?;
     Ok(response::ok(v))
 }

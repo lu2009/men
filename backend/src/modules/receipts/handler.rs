@@ -45,6 +45,7 @@ pub async fn public_get(
     State(state): State<AppState>,
     Query(q): Query<PublicQuery>,
 ) -> ApiResult<Json<Value>> {
-    let item = service::public_by_token(&state.pool, &state.config.receipt_secret, &q.no, &q.t).await?;
+    let item =
+        service::public_by_token(&state.pool, &state.config.receipt_secret, &q.no, &q.t).await?;
     Ok(response::ok(serde_json::to_value(item).unwrap()))
 }

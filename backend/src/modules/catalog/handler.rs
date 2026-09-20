@@ -8,9 +8,7 @@ use crate::core::error::ApiResult;
 use crate::core::response;
 use crate::core::AppState;
 
-use super::model::{
-    ImportFormulaMatchesRequest, ImportPrintTemplatesRequest, ImportPricesRequest,
-};
+use super::model::{ImportFormulaMatchesRequest, ImportPricesRequest, ImportPrintTemplatesRequest};
 use super::service;
 
 #[derive(Debug, Deserialize)]
@@ -50,9 +48,14 @@ pub async fn resolve_match(
     user: CurrentUser,
     Query(q): Query<ResolveMatchQuery>,
 ) -> ApiResult<Json<Value>> {
-    let r =
-        service::resolve_match(&state.pool, user.tenant_id, &q.line_type, &q.profile, &q.fans)
-            .await?;
+    let r = service::resolve_match(
+        &state.pool,
+        user.tenant_id,
+        &q.line_type,
+        &q.profile,
+        &q.fans,
+    )
+    .await?;
     Ok(response::ok(serde_json::to_value(r).unwrap()))
 }
 

@@ -243,10 +243,10 @@ mod tests {
             "/api/v1/print-templates/lable"
         ));
         for p in [
-            "/api/v1/print-templates",           // 列表：一次给全部模板
-            "/api/v1/print-templates/xiaopiao",  // 别的 mode
-            "/api/v1/print-templates/import",    // 导入（写）
-            "/api/v1/print-templates/lable/x",   // 同前缀的别的路径
+            "/api/v1/print-templates",          // 列表：一次给全部模板
+            "/api/v1/print-templates/xiaopiao", // 别的 mode
+            "/api/v1/print-templates/import",   // 导入（写）
+            "/api/v1/print-templates/lable/x",  // 同前缀的别的路径
         ] {
             assert!(!scanner_allowed(&Method::GET, p), "{p} 不该放行 scanner");
         }

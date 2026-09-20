@@ -77,7 +77,9 @@ pub async fn reverse_order_allocation(
     Path(order_id): Path<i64>,
 ) -> ApiResult<Json<Value>> {
     let reversed = service::reverse_order_allocation(&state.pool, user.tenant_id, order_id).await?;
-    Ok(response::ok(serde_json::to_value(AllocationReversal { reversed }).unwrap()))
+    Ok(response::ok(
+        serde_json::to_value(AllocationReversal { reversed }).unwrap(),
+    ))
 }
 
 /// 订单抹零/冲销（finance_addOrderAdjustment）。
@@ -166,8 +168,7 @@ pub async fn preview_prepayment_allocation(
     Json(mut req): Json<PreviewPrepaymentAllocation>,
 ) -> ApiResult<Json<Value>> {
     req.customer_code = customer_code;
-    let preview =
-        service::preview_prepayment_allocation(&state.pool, user.tenant_id, req).await?;
+    let preview = service::preview_prepayment_allocation(&state.pool, user.tenant_id, req).await?;
     Ok(response::ok(serde_json::to_value(preview).unwrap()))
 }
 

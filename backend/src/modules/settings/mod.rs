@@ -20,7 +20,6 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/api/v1/add-price-items/{id}",
-            axum::routing::put(handler::update_price_item)
-                .delete(handler::delete_price_item),
+            axum::routing::put(handler::update_price_item).delete(handler::delete_price_item),
         )
 }

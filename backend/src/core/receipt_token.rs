@@ -58,11 +58,23 @@ pub fn issue(secret: &str, tenant_id: i64, receipt_no: &str, now: i64) -> (Strin
 
 /// 校验分享令牌，返回 `(tenant_id, exp)`。签名不符/格式错/已过期一律 403。
 pub fn verify(secret: &str, token: &str, receipt_no: &str, now: i64) -> ApiResult<(i64, i64)> {
-    let invalid = || ApiError::new(axum::http::StatusCode::FORBIDDEN, "forbidden", "回执单链接无效或已过期");
+    let invalid = || {
+        ApiError::new(
+            axum::http::StatusCode::FORBIDDEN,
+            "forbidden",
+            "回执单链接无效或已过期",
+        )
+    };
 
     let mut parts = token.splitn(3, '.');
-    let tenant_id: i64 = parts.next().and_then(|s| s.parse().ok()).ok_or_else(invalid)?;
-    let exp: i64 = parts.next().and_then(|s| s.parse().ok()).ok_or_else(invalid)?;
+    let tenant_id: i64 = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(invalid)?;
+    let exp: i64 = parts
+        .next()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(invalid)?;
     let sig = parts.next().ok_or_else(invalid)?;
 
     let expected = sign(secret, tenant_id, exp, receipt_no);
@@ -106,6 +118,12 @@ mod tests {
     fn verify_rejects_other_secret_and_expired() {
         let (token, _) = issue("s3cret", 7, "HT00000042", 1_700_000_000);
         assert!(verify("other", &token, "HT00000042", 1_700_000_001).is_err());
-        assert!(verify("s3cret", &token, "HT00000042", 1_700_000_000 + SHARE_TTL_SECS).is_err());
+        assert!(verify(
+            "s3cret",
+            &token,
+            "HT00000042",
+            1_700_000_000 + SHARE_TTL_SECS
+        )
+        .is_err());
     }
 }

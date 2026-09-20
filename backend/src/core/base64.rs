@@ -1,7 +1,6 @@
 //! 极简 base64 编解码（无第三方依赖），用于图片 data URL 与 BYTEA 之间的转换。
 
-const ALPHABET: &[u8; 64] =
-    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /// 把字节编码为标准 base64（带 `=` 填充）。
 pub fn encode(data: &[u8]) -> String {

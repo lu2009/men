@@ -49,7 +49,12 @@ pub async fn build(pool: &PgPool, tenant_id: i64, receipt_no: &str) -> ApiResult
 
 /// 签发分享令牌（已认证入口调用）。
 pub fn issue_share_token(secret: &str, tenant_id: i64, receipt_no: &str) -> ShareTokenDto {
-    let (token, expires_at) = receipt_token::issue(secret, tenant_id, receipt_no, crate::core::auth::now_epoch());
+    let (token, expires_at) = receipt_token::issue(
+        secret,
+        tenant_id,
+        receipt_no,
+        crate::core::auth::now_epoch(),
+    );
     ShareTokenDto {
         receipt_no: receipt_no.to_string(),
         token,
@@ -67,7 +72,11 @@ pub async fn public_by_token(
     if receipt_no.trim().is_empty() {
         return Err(ApiError::bad_request("缺少回执单号"));
     }
-    let (tenant_id, _exp) =
-        receipt_token::verify(secret, token, receipt_no.trim(), crate::core::auth::now_epoch())?;
+    let (tenant_id, _exp) = receipt_token::verify(
+        secret,
+        token,
+        receipt_no.trim(),
+        crate::core::auth::now_epoch(),
+    )?;
     build(pool, tenant_id, receipt_no.trim()).await
 }

@@ -48,7 +48,12 @@ pub async fn change_password(
     user: CurrentUser,
     Json(req): Json<ChangePasswordRequest>,
 ) -> ApiResult<Json<Value>> {
-    service::change_password(&state.pool, user.user_id, &req.old_password, &req.new_password)
-        .await?;
+    service::change_password(
+        &state.pool,
+        user.user_id,
+        &req.old_password,
+        &req.new_password,
+    )
+    .await?;
     Ok(response::ok(json!({ "changed": true })))
 }

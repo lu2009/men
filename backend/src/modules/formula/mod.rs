@@ -9,10 +9,7 @@ use crate::core::AppState;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route(
-            "/api/v1/formulas",
-            get(handler::list).post(handler::create),
-        )
+        .route("/api/v1/formulas", get(handler::list).post(handler::create))
         .route(
             "/api/v1/formulas/{id}",
             get(handler::get)

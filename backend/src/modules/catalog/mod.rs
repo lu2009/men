@@ -14,7 +14,10 @@ pub fn router() -> Router<AppState> {
         .route("/api/v1/prices", get(handler::list_prices))
         .route("/api/v1/prices/resolve", get(handler::resolve_price))
         .route("/api/v1/prices/import", post(handler::import_prices))
-        .route("/api/v1/formula-matches", get(handler::list_formula_matches))
+        .route(
+            "/api/v1/formula-matches",
+            get(handler::list_formula_matches),
+        )
         .route(
             "/api/v1/formula-matches/resolve",
             get(handler::resolve_match),
@@ -23,7 +26,10 @@ pub fn router() -> Router<AppState> {
             "/api/v1/formula-matches/import",
             post(handler::import_formula_matches),
         )
-        .route("/api/v1/print-templates", get(handler::list_print_templates))
+        .route(
+            "/api/v1/print-templates",
+            get(handler::list_print_templates),
+        )
         .route(
             "/api/v1/print-templates/import",
             post(handler::import_print_templates),

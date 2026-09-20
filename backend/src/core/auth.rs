@@ -89,8 +89,8 @@ impl FromRequestParts<AppState> for CurrentUser {
             return Ok(user.clone());
         }
 
-        let token = bearer_token(&parts.headers)
-            .ok_or_else(|| ApiError::unauthorized("未提供认证令牌"))?;
+        let token =
+            bearer_token(&parts.headers).ok_or_else(|| ApiError::unauthorized("未提供认证令牌"))?;
         CurrentUser::resolve(&state.pool, &token)
             .await?
             .ok_or_else(|| ApiError::unauthorized("令牌无效或已过期"))
