@@ -506,6 +506,72 @@ const BLOCKS = [
       // 其余三个函数体只读写本块自己的 ref，零替换。
       onOpenMode: [], onOpenReceiptOther: [], onOpenDoc: [],
     } },
+  /*
+   * B6（「展开明细」两段）—— 第 11 块、**本阶段最大的一块**。23 个声明：11 `names` + 12 `consts`。
+   *
+   * ⚠️ **段二是 `2107–2257`，不是 `2134–2257`**（简报修正 A2）：`2107–2133` 那 27 行是
+   *    `renderExpandDetail` 头上的 `/* … *\/` 说明块。方案 §3.1 从 `function` 那行起算 ⇒ 会把它
+   *    留在旧文件里。本守卫按**声明**切，本来就不看段头注释，所以这条是**人工**核对的
+   *    （见 `task-10-report.md`），不是本脚本保证的。
+   *
+   * ⚠️⚠️ **`calcSingleRowInExpand` 那一整段替换是本清单里唯一一处「真改代码」** ——
+   *    REF 末尾那五行（`printOrders.value = [detail]` / `onOpenMode(...)` / 两行注释 /
+   *    `previewAutoLineNumbers.value = false`）在新侧收成了一行 `deps.openPrintPreview([detail], false)`。
+   *    **为什么这不是「搬迁失真」**：那五行的**新家**是 `useHomePrint.ts` 的 `openPrintPreview`，
+   *    它逐字等于 REF `2238`/`2239`/`2242`（顺序也一致）—— 收拢是为了**断 B6↔B9 的环**。
+   *    ⚠️ **`openPrintPreview` 这个函数本身**验不到（REF 里没有对应声明，正比对无从做起）⇒
+   *    它内部那三行的保真只有**人工逐行对照**一条来源，别再拿「本脚本绿」当它的证据。
+   *    ✅ 但**调用点这一句在射程内** —— 实测（2026-09-20，本笔）：把新侧那一行改成
+   *    `deps.openPrintPreview([detail], true)`，守卫**立刻报红**（`L8` 逐字贴出两侧文本）。
+   *    原因在判据本身：改写是**只加在 REF 侧**的（主循环 `const a = applyRewrites(name, norm(o), rules)`
+   *    再与 `norm(新侧)` 比）⇒ `to` 那段文本**就是被比对的期望值**，新侧写错一样会露。
+   *    ⚠️ 这条「会红」与简报（`task-10-brief.md` 修正 G 的变异 3）预测的「守卫不会红」**相反** ——
+   *    以实测为准（简报那句话多半是推的）。`from` 不匹配时 `applyRewrites` 会**抛错**（白送的检查）。
+   *
+   * ⚠️ 注入面 3 项（`message` / `dialog` / `openPrintPreview`）—— 其中只有 `message` 与 `dialog`
+   *    体现为前缀改写；`openPrintPreview` 体现为上面那条整段替换。
+   *    **每条 `from` 都以 `(` 或 `{` 收尾**（Ruling 55）：`loadDetail` 体里有 `(e as Error).message`、
+   *    `fillLineNumbersFor` 体里有 `e instanceof Error ? e.message : …` ⇒ **绝对不许**写裸 `message`。
+   *    实测：改写后全文 `deps.` 前缀的出现次数 = 8（1 warning + 3 success + 2 error + 1 dialog + 1 整段），
+   *    且**不存在** `.deps.message` / `.deps.dialog` 这种把 `e.message` 改坏的形态（已按「剥注释后
+   *    再数」的口径核过）。
+   */
+  { target: 'app/src/composables/home/useHomeExpand.ts',
+    names: ['lineRefOf', 'normalizeLines', 'shownOf', 'homeLineInputOf', 'onExpandedKeys',
+            'loadDetail', 'renderExpandDetail', 'addRowToExpand', 'batchDeleteInExpand',
+            'calcSingleRowInExpand', 'fillLineNumbersFor'],
+    consts: ['expandedRowKeys', 'details', 'loadingDetail', 'homeFormulas', 'homeDisableAutoMarkup',
+             'lineRefs', 'homeDialogs', 'homeDetailHooks', 'homeSelectTick', 'tableShown',
+             'homeCalcEngine', 'loadedIds'],
+    rewrites: {
+      loadDetail: [
+        { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 (e as Error).message
+      ],
+      batchDeleteInExpand: [
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'dialog.warning(', to: 'deps.dialog.warning(' },
+      ],
+      fillLineNumbersFor: [
+        { from: 'message.success(', to: 'deps.message.success(' },
+        { from: 'message.error(', to: 'deps.message.error(' },   // 体里有 e.message
+      ],
+      calcSingleRowInExpand: [
+        // ⚠️ `from` 按 `norm()` 之后的形态写（逐行 trim、丢空行）。
+        { from: [
+            'printOrders.value = [detail]',
+            "onOpenMode('product', '生产单')",
+            '// ⚠️ **算料不补行级单号** —— 旧版 `In`/`Un` 只算料 + 开预览，补号是打印时才做的。',
+            '//    放在 onOpenMode 之后（它会把标志置回 true）。',
+            'previewAutoLineNumbers.value = false',
+          ].join('\n'),
+          to: 'deps.openPrintPreview([detail], false)' },
+        { from: 'message.success(', to: 'deps.message.success(' },
+      ],
+      // 其余 7 个函数体零替换（只读写段内自产的名字 + 直接 import 的 api/h/NSpin/NEmpty/DetailLinesTable）。
+      lineRefOf: [], normalizeLines: [], shownOf: [], homeLineInputOf: [],
+      onExpandedKeys: [], renderExpandDetail: [], addRowToExpand: [],
+    } },
 ]
 
 /**

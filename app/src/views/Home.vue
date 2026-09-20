@@ -431,7 +431,6 @@ import {
   NDataTable,
   NDatePicker,
   NDivider,
-  NEmpty,
   NForm,
   NFormItem,
   NInput,
@@ -439,30 +438,25 @@ import {
   NModal,
   NPagination,
   NPopover,
-  NSpin,
   useDialog,
   useMessage,
   type DataTableColumns,
-  type DataTableRowKey,
 } from 'naive-ui'
 import { api } from '../api/client'
-import { LS, useOrderLines } from '../composables/useOrderLines'
-import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
 import { useHomeData } from '../composables/home/useHomeData'
 import { useHomeFilterView } from '../composables/home/useHomeFilterView'
 import { useHomeSelection } from '../composables/home/useHomeSelection'
 import { useHomeQueryMore } from '../composables/home/useHomeQueryMore'
+import { useHomeExpand } from '../composables/home/useHomeExpand'
 import { useHomePrint } from '../composables/home/useHomePrint'
 import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
 import { legacyToday, localToday, pad } from '../utils/homeDate'
 import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
-import type { Line } from '../utils/partsEngine'
 import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
 import PrintDrawer from '../components/PrintDrawer.vue'
-import DetailLinesTable from '../components/DetailLinesTable.vue'
 import DetailLineDialogs from '../components/DetailLineDialogs.vue'
 import PrintPreviewDialog from '../components/PrintPreviewDialog.vue'
 import ReceiptOtherDialog from '../components/ReceiptOtherDialog.vue'
@@ -471,18 +465,15 @@ import GlassSheet2Dialog from '../components/GlassSheet2Dialog.vue'
 import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
 import ProductionSheetDialog from '../components/ProductionSheetDialog.vue'
 import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
-// `QualifiedLabelEntry` 2026-09-20 随 B9 搬进 `composables/home/useHomePrint.ts`（本页只剩那一处用处）
-// ⇒ 留着 `vue-tsc` 报 TS6133；同类先例是 Task 3 搬 B10 时删掉的 `DataTableRowData`。
-// `OrderFinance` 2026-09-20 随 B1 搬进 `composables/home/useHomeData.ts`（本页只剩那一处用处）
-// ⇒ 留着 `vue-tsc` 报 TS6196；同类先例是 Task 3 搬 B10 时删掉的 `DataTableRowData`。
-import type {
-  OrderDto,
-  OrderHeadInput,
-  OrderLineDto,
-  FormulaDto,
-  OrderLineInput,
-  OrderSummaryDto,
-} from '../api/types'
+// 2026-09-20 随搬迁一并删掉的 import（它们在页面里**只剩那一处用处**）：
+//   · B9 → `useHomePrint.ts`：`QualifiedLabelEntry`
+//   · B6 → `useHomeExpand.ts`：`OrderDto` / `OrderLineDto` / `FormulaDto` / `OrderLineInput` /
+//     `Line` / `DetailLinesTable` / `useDetailLineDialogs` / `LS` / `useOrderLines` /
+//     `NSpin` / `NEmpty` / `DataTableRowKey`
+//   · B1 → `useHomeData.ts`：`OrderFinance`
+// 留着它们 `vue-tsc` 会报 TS6133/TS6196（而 `npm run build` 会因此红）—— 同类先例是
+// Task 3 搬 B10 时删掉的 `DataTableRowData`。
+import type { OrderHeadInput, OrderSummaryDto } from '../api/types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -828,132 +819,24 @@ const {
 })
 
 // ---------------------------------------------------------------------------
-// 展开明细（§4.1：fetch detail → 平开/移门只读子表）
+// 展开明细（§4.1：fetch detail → 平开/移门只读子表）—— 逻辑已搬出到 `composables/home/useHomeExpand.ts`
 // ---------------------------------------------------------------------------
-const expandedRowKeys = ref<DataTableRowKey[]>([])
-const details = reactive<Record<number, OrderDto>>({})
-const loadingDetail = reactive<Record<number, boolean>>({})
-
-// ── 展开行 = 与 Hui 同一张明细表（2026-09-19，方案第 5c 步）────────────────────
-// 旧版 Home 挂的就是 Hui 那两个 SFC 本体（`Home.formatted.js:9` import 自 Hui chunk）。
-// 新版挂 `components/DetailLinesTable.vue`，它按 `kind` 分派平开/移门。
-//
-// ⚠️ **引擎是「每张单一份」**：引擎依赖里 `lines` 是一个 ref，而 Home 同时可能展开多张单。
-//    组件为此提供了 `engineDeps` 自建模式（见该组件 `props.engine` 的注释）。
-const homeFormulas = ref<FormulaDto[]>([])
-/** 「自动加价设置」在 Hui 页设置、存 localStorage；Home 只读它，好让两边口径一致。 */
-const homeDisableAutoMarkup = ref(LS.get('smartdoor_disable_auto_markup') === 'true')
-
-/**
- * 每张单一个行数组 ref，**指向同一个数组本体**（`details[id].lines`），
- * 这样表格里改一行、下面别处读到的就是同一份数据。
- */
-const lineRefs = new Map<number, Ref<Line[]>>()
-function lineRefOf(id: number): Ref<Line[]> {
-  let r = lineRefs.get(id)
-  if (!r) {
-    r = ref<Line[]>([])
-    lineRefs.set(id, r)
-  }
-  return r
-}
-
-/** 明细行的归一：`OrderLineDto.parts/markup` 落库是 JSON，非数组一律当空（同 `useOrderPrint.toLines`）。 */
-function normalizeLines(lines: OrderLineDto[]): Line[] {
-  for (const l of lines) {
-    const raw = l as unknown as Line
-    if (!Array.isArray(raw.parts)) raw.parts = []
-    if (!Array.isArray(raw.markup)) raw.markup = []
-  }
-  return lines as unknown as Line[]
-}
-
-/**
- * 页面级回调 —— 与 Hui 的 `detailHooks` 同形。
- *
- * ✅ `calcSingleRow` **已经会顺手开「生产单」预览**（2026-09-19 更正这条注释，原写「尚未接」）：
- *    实现在 `calcSingleRowInExpand`（本文件 `:2220-2232`）—— 引擎算料 → 换成这一张单
- *    → `onOpenMode('product','生产单')`。旧版走的是「内嵌整个 Hui 页面组件」那条路
- *    （`Home.formatted.js:8221-8263`），我们改成「引擎算料 + 复用本页现成的打印预览弹窗」，
- *    结果一样、路更短。
- */
-const homeDialogs = useDetailLineDialogs({
-  // 行内重算只看行本身 + formulas，用哪一份引擎实例都一样；挑一个稳定的。
-  lineRefresh: (l: Line) => homeCalcEngine.lineRefresh(l),
+// ⚠️ **构造顺序**：必须在 `message` / `dialog`（页面顶部就建好）之后、`useHomePrint(...)`（下一块）**之上**。
+//    两条边的方向是相反的：B9 的 `openPrint` 要读本块的 `details`（⇒ B6 在前），
+//    而本块的「算料」要调 B9 的 `openPrintPreview`（⇒ 那条边只能靠**前向引用**的转发函数）。
+// ⚠️ 只解构页面真正用到的 8 个（每一项都有实测的外部读者，见新家文件头那张表）：
+//    其余 15 个声明**段外零命中**（实测），解构出来就是未使用变量，`vue-tsc` 的 TS6133 会报错。
+const {
+  expandedRowKeys, details, homeFormulas, homeDialogs, loadedIds,
+  onExpandedKeys, loadDetail, renderExpandDetail,
+} = useHomeExpand({
+  message,
+  dialog,
+  // ⚠️ **前向引用**：`openPrintPreview` 由下面的 `useHomePrint(...)` 借出，而它要等本块交出 `details`
+  //    才能构造 ⇒ 这里只能转一道。箭头体在**点击「算料」时**才求值，setup 期间不会被调，
+  //    所以 `const` 的 TDZ 不构成问题（REF 里那三句原本也是「运行时才写」）。
+  openPrintPreview: (orders, autoLineNumbers) => openPrintPreviewFn(orders, autoLineNumbers),
 })
-const homeDetailHooks = {
-  openSquareDialog: (l: Line) => homeDialogs.openSquareDialog(l),
-  openAddMarkup: (l: Line) => homeDialogs.openAddMarkup(l),
-  pickDoorImg: (l: Line) => homeDialogs.pickDoorImg(l),
-  removeDoorImg: (l: Line) => homeDialogs.removeDoorImg(l),
-  openTextImg: (l: Line) => homeDialogs.openTextImg(l),
-  previewImage: (url: string) => homeDialogs.previewImage(url),
-  // 占位：展开行是**每张单一份 hooks**（下面 `renderExpandDetail` 会覆盖它，好把 id 绑进去）
-  calcSingleRow: (l: Line) => void homeCalcEngine.calcRowParts(l),
-  // 勾选计数是**每张单各一份**（Home 的展开行各是独立的表）—— 用 tick 触发重算。
-  onSelectChange: () => {
-    homeSelectTick.value++
-  },
-  lineInputOf: (l: Line) => homeLineInputOf(l),
-}
-/** 勾选计数用的 tick（Home 每张单自己算，不像 Hui 那样两表共用）。 */
-const homeSelectTick = ref(0)
-/** 展开行里每张单的平开/移门显隐（旧版 `uo(row, kind)`，初值都是 true）。 */
-const tableShown = reactive<Record<number, { ping: boolean; diao: boolean }>>({})
-function shownOf(id: number) {
-  if (!tableShown[id]) tableShown[id] = { ping: true, diao: true }
-  return tableShown[id]
-}
-/** 展开行的行级保存要发完整行 —— 与 Hui 的 `lineInputOf` 同一件事。 */
-function homeLineInputOf(l: Line): OrderLineInput {
-  // ⚠️ 必须发**完整行**：后端 `service::update_line` 是 45 列 SET 全字段替换（见 client.ts 的注释）。
-  const { isSelected: _drop, ...rest } = l
-  void _drop
-  return rest as unknown as OrderLineInput
-}
-
-/**
- * 供「弹窗 / 单行算料」用的**一个**引擎实例（Home 的表格各自在组件内自建引擎，
- * 那些实例在 setup 里拿不到，而 `useDetailLineDialogs` 与 `calcSingleRow` 都需要一个）。
- */
-const homeCalcEngine = useOrderLines({
-  lines: ref<Line[]>([]),
-  formulas: homeFormulas,
-  order: reactive({ client_code: '' }),
-  orderId: ref<number | null>(null),
-  disableAutoMarkup: homeDisableAutoMarkup,
-})
-/**
- * 明细**已加载成功**的订单 id（旧版 `_o`，`:7792`）—— 用于行类 `loaded-row`。
- *
- * ⚠️ 只有 detail 接口**返回 200** 才加进去（旧版 `:7792` 在 `if(200===o.code)` 分支里 add）；
- *    失败/报错**不加**。与 `details`（有值即算）不完全等价，所以单独记一个集合。
- */
-const loadedIds = ref<Set<number>>(new Set())
-
-function onExpandedKeys(keys: DataTableRowKey[]) {
-  expandedRowKeys.value = keys
-  for (const k of keys) {
-    const id = Number(k)
-    if (!details[id]) loadDetail(id)
-  }
-}
-
-async function loadDetail(id: number) {
-  loadingDetail[id] = true
-  try {
-    details[id] = await api.getOrder(id)
-    // 展开行的表格读的是这个 ref —— **指向同一个数组本体**（`details[id].lines`），
-    // 这样表里改一行、打印链路读到的就是同一份数据。见 `lineRefOf` 的注释。
-    lineRefOf(id).value = normalizeLines(details[id].lines ?? [])
-    // 旧版 `:7792` `_o.value.add(回执单号)` —— 只在 detail 成功那支里做。
-    loadedIds.value = new Set(loadedIds.value).add(id)
-  } catch (e) {
-    message.error((e as Error).message || '加载明细失败')
-  } finally {
-    loadingDetail[id] = false
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 打印选中订单（§4.2）—— 逻辑已搬出到 `composables/home/useHomePrint.ts`
@@ -970,6 +853,9 @@ const {
   productionSheetShow, productionSheetOrders,
   qualifiedLabelShow, qualifiedLabelOrders, qualifiedLabelEntry,
   openPrint, onOpenMode, onOpenReceiptOther, onOpenDoc,
+  // ⚠️ 这一项**页面自己不用**，只被上面 useHomeExpand 那个前向引用消费 —— 改名加 `Fn`，
+  //    免得读的人以为页面上还有别处直接调它（改名不影响行为；不留原名会撞 TS2448 那种误读）。
+  openPrintPreview: openPrintPreviewFn,
 } = useHomePrint({ checkedRowKeys, details, message })
 
 // ---------------------------------------------------------------------------
@@ -1063,157 +949,6 @@ function rowClass(r: OrderSummaryDto): string {
 
 
 
-/*
- * 展开行明细（§4.1）：平开/移门只读子表，逐行 fetch detail。
- *
- * ⚠️ 更正审计 `01-table.md` F5 的一处误判（已回源码核实，2026-09-18）：
- *    审计写「旧版两张子表用 `v-show` **互斥**切换，新版『有就都渲染』」——**「互斥」不成立**。
- *    旧版 `:11306-11317` 的实况是**两个各自独立的 `v-show`**，且两者的初值都是 `true`：
- *      ```js
- *      no = reactive({})                                    // `:7650`
- *      uo = (e, t) => { if (!no[e]) no[e] = { ping: true, diao: true }; return no[e][t] }
- *      // 模板：
- *      <div v-show="uo(row.回执单号,'ping')" > <平开子表 v-model:showPingkai="uo(row.回执单号,'ping')" … /> </div>
- *      <div v-show="uo(row.回执单号,'diao')" > <移门子表 v-model:showDiao   ="uo(row.回执单号,'diao')" … /> </div>
- *      ```
- *    ⇒ 展开任何一行，**两张子表默认都渲染**（即使某一类一行明细都没有，也只是渲出一张空表）。
- *    所谓「切换」来自子组件的 `v-model:showXxx` 回写：子表只在**删掉自己最后一行**时
- *    emit `update:showPingkai/showDiao = (rows.length > 0)`（Hui 侧
- *    `Hui.formatted.js:1571-1572` 平开 / `:4358-4359` 移门，都在 `removeFirstRow` 里），
- *    从而把自己整个藏掉。两张表之间没有任何联动。
- *
- * **有意偏离（保留现状，不改成「都渲染」）**：新版 `if (ping.length)` / `if (diao.length)`
- * 只在**该类有明细时**才出一块。理由两条：
- *   ① 新版这两张是**只读**自绘表，没有「删最后一行」这条路径，旧版那个 `v-model:showXxx`
- *      回写在新型里没有对应物 ⇒ 就算照抄「无条件都渲染」，也只是多出一张空表，拿不到旧版的语义；
- *   ② 旧版那张空表来自「复用 Hui 汇算表」这一整套策略（审计 F3/A3 的架构级偏离），
- *      不是这里能补的 —— 补它要先把 `Hui.vue` 的两张表拆成可复用组件，属独立立项。
- * 若将来说要做 F3（复用 Hui 子表），这条要跟着一起回退。
- */
-function renderExpandDetail(row: OrderSummaryDto) {
-  const id = row.id
-  if (loadingDetail[id]) {
-    return h('div', { class: 'expand-detail' }, [h(NSpin, { show: true }, { default: () => '加载明细…' })])
-  }
-  const detail = details[id]
-  if (!detail) return h('span')
-
-  const rows = lineRefOf(id).value
-  const ping = rows.filter((l) => l.line_type === 'ping')
-  const diao = rows.filter((l) => l.line_type === 'diao')
-  const shown = shownOf(id)
-  // 勾选数每张单自己算（`homeSelectTick` 只是触发重算）
-  void homeSelectTick.value
-  const selectedCount = rows.filter((l) => l.isSelected).length
-
-  /** 一张表。`engineDeps` 让组件为**这张单**自建一份引擎（引擎的 `lines` 只能有一个 ref）。 */
-  const table = (kind: 'ping' | 'diao', data: Line[]) =>
-    h(DetailLinesTable, {
-      kind,
-      rows: data,
-      // 列显隐：Home 不提供逐列开关，全显（空对象 ⇒ `colVis` 恒 true）
-      colVis: {},
-      client: { name: detail.client_name || '', code: detail.client_code || '' },
-      engineDeps: {
-        lines: lineRefOf(id),
-        formulas: homeFormulas,
-        order: { client_code: detail.client_code || '' },
-        orderId: ref(id),
-        disableAutoMarkup: homeDisableAutoMarkup,
-      },
-      savedOrderId: id,
-      selectedCount,
-      filling: false,
-      // ⚠️ hooks 是**每张单一份**：`calcSingleRow` 要绑上本单 id（算完要开这一单的生产单预览）
-      hooks: { ...homeDetailHooks, calcSingleRow: (l: Line) => void calcSingleRowInExpand(id, l) },
-      'onAdd-row': () => addRowToExpand(id, kind),
-      'onBatch-delete': () => batchDeleteInExpand(id),
-      'onToggle-show': () => (shown[kind] = !shown[kind]),
-      'onFill-line-numbers': () => void fillLineNumbersFor(id),
-    })
-
-  const children: (ReturnType<typeof h> | null)[] = []
-  if (shown.ping && ping.length) children.push(table('ping', ping))
-  if (shown.diao && diao.length) children.push(table('diao', diao))
-  if (!rows.length) children.push(h(NEmpty, { description: '暂无明细', size: 'small' }))
-  return h('div', { class: 'expand-detail' }, children)
-}
-
-/**
- * 展开行「添加行」（旧版子表底部那颗）。Home 里没有引擎实例可直接用，
- * 用 `newLine` 造一行推进该单的行数组 —— 口径与 Hui 一致（默认值都走引擎）。
- */
-function addRowToExpand(id: number, kind: 'ping' | 'diao') {
-  const rows = lineRefOf(id).value
-  rows.push(homeCalcEngine.newLine(kind))
-}
-
-/** 展开行「批量删除(选中)」——只删本地行，落库要逐行走行级保存（旧版也是即时 `deleteRow`，见方案 §3.3）。 */
-function batchDeleteInExpand(id: number) {
-  const r = lineRefOf(id)
-  const sel = r.value.filter((l) => l.isSelected)
-  if (!sel.length) {
-    message.warning('请先勾选要删除的行')
-    return
-  }
-  dialog.warning({
-    title: '批量删除',
-    content: `确定删除选中的 ${sel.length} 行吗？`,
-    positiveText: '确定',
-    negativeText: '取消',
-    onPositiveClick: async () => {
-      for (const l of sel) {
-        if (l.id != null) {
-          try {
-            await api.deleteOrderLine(id, l.id)
-          } catch {
-            // 单行失败继续（与 Hui 的 batchDeleteRows 同）
-          }
-        }
-        // ⚠️ 用 splice 而不是 r.value = filter(...)：后者会把 ref 换成**新数组**，
-        // 与 `details[id].lines` 脱钩，打印链路就读不到删干净的行了。
-        const i = r.value.indexOf(l)
-        if (i >= 0) r.value.splice(i, 1)
-      }
-      message.success('已删除选中行')
-    },
-  })
-}
-
-/**
- * 展开行的「算料」：算完**顺手开「生产单」预览**。
- *
- * 旧版 Home 就是这么做的（`Home.formatted.js:8221-8263`：调内嵌 Hui 页面的 `calculateReceipt`
- * → 拿 `produces` → 用「生产单」模板构造 → 开预览弹窗）。新版不内嵌 Hui 页面，
- * 改成「引擎算料 + 复用本页现成的打印预览弹窗」—— 结果一样，路更短。
- */
-async function calcSingleRowInExpand(id: number, l: Line) {
-  const ok = await homeCalcEngine.calcRowParts(l)
-  if (!ok) return
-  message.success(`算料完成：${l.parts.length} 个部件`)
-  const detail = details[id]
-  if (!detail) return
-  // 预览读的是 `printOrders`（与「打印选项」抽屉同一条链路），这里换成这一张单。
-  printOrders.value = [detail]
-  onOpenMode('product', '生产单')
-  // ⚠️ **算料不补行级单号** —— 旧版 `In`/`Un` 只算料 + 开预览，补号是打印时才做的。
-  //    放在 onOpenMode 之后（它会把标志置回 true）。
-  previewAutoLineNumbers.value = false
-}
-
-/** 展开行「填入单号」（只有平开表有这颗按钮，见组件内 `kind === 'ping'`）。 */
-async function fillLineNumbersFor(id: number) {
-  try {
-    const map = await api.fillLineNumbers(id)
-    for (const l of lineRefOf(id).value) {
-      const v = map?.[String(l.id)]
-      if (v) l.line_no = v
-    }
-    message.success('已填入单号')
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '填入单号失败')
-  }
-}
 
 // ---------------------------------------------------------------------------
 // 「查单号」的两个动作（旧版 `Yo`/`Wo`，`:7702-7743`）
