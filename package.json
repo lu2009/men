@@ -3,6 +3,7 @@
   "private": true,
   "description": "开门红 / smartdoor —— 仓库根的**统一验证入口**。前端的依赖与脚本在 app/ 里（各自有 package-lock.json），这里只放跨栈的编排命令。",
   "scripts": {
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "e2e": "node scripts/e2e.mjs"
   }
 }

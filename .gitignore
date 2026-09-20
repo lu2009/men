@@ -44,3 +44,7 @@ legacy/vendor/
 
 # 构建产物（历史里曾误入库，已在本次重写中剔除）
 app/dist/
+
+# Playwright 的失败留痕（trace / 截图 / error-context）—— 只在失败时生成，不入库
+app/test-results/
+app/playwright-report/
