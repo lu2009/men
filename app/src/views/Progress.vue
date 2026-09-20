@@ -335,17 +335,17 @@ import {
   NInput,
   NModal,
   NPagination,
-  NPopover,
   NSelect,
   useDialog,
   useMessage,
 } from 'naive-ui'
-import type { DataTableColumn, DataTableFilterState } from 'naive-ui'
+import type { DataTableColumn } from 'naive-ui'
 import { api } from '../api/client'
 import type { ClientDto, OrderDto, ProcedureSlotDto, ProgressRowDto } from '../api/types'
 import { getOriginalOpenDirection, loadOpenDirectionSettings } from '../composables/useOpenDirection'
 import { useProgressColors } from '../composables/progress/useProgressColors'
 import { useProgressDeleteRow } from '../composables/progress/useProgressDeleteRow'
+import { SEARCH_FIELDS, useProgressHeader } from '../composables/progress/useProgressHeader'
 import { useProgressToolbar, type ExcelJSInterop } from '../composables/progress/useProgressToolbar'
 import { useProgressUpdateDialog } from '../composables/progress/useProgressUpdateDialog'
 import {
@@ -478,234 +478,20 @@ const { confirmDeleteRow } = useProgressDeleteRow({ rows, dialog, message })
 const { colorKeyOf, UNPRODUCED_KEY, colorFilterOptions, cellPad, progressCellStyle } =
   useProgressColors({ procedures })
 
-// ═══════════════════════════════════════════════════════════════════════════
-// B. 列头交互
-// ═══════════════════════════════════════════════════════════════════════════
-
-// ── B1. 「单号」列：表头筛（有单号 / 空单号）+「查单号」popover ─────────────
-/*
- * 旧版 `filter-method: ga` + `filters:[{text:"有单号",…},{text:"空单号",…}]`：
- *
- *   ga = (value, row) =>
- *     value === '有单号' ? (row.单号 && row.单号.toString().trim() !== '')
- *                       : (value !== '空单号' || (!row.单号 || row.单号.toString().trim() === ''))
- *
- * ⚠️ 第二个分支的写法（`value !== '空单号' || …`）等价于「**不是空单号这个选项** 就放行」，
- *    也就是「选了未知选项不筛」。照抄，别化简。
- */
-function matchesOrderNoOption(value: string | number, r: ProgressRowDto): boolean {
-  if (value === '有单号') return !!r['单号'] && String(r['单号']).trim() !== ''
-  return value !== '空单号' || !r['单号'] || String(r['单号']).trim() === ''
-}
-
-// 受控写法，与 `views/Home.vue:852-865` 同一套路：naive 2.45 的 n-data-table **没有表级
-// `filters` prop**，受控只能落在列的 `filterOptionValues` 上；每次变更回抛**整个**筛选状态。
-const columnFilterState = ref<DataTableFilterState>({})
-function onUpdateFilters(state: DataTableFilterState) {
-  columnFilterState.value = { ...state }
-  page.value = 1
-}
-function orderNoFilterValues(): (string | number)[] {
-  const v = columnFilterState.value['单号']
-  if (v == null) return []
-  return Array.isArray(v) ? [...v] : [v]
-}
-
-// 「查单号」（旧版 `ca` = 输入框、`Va` = 已生效的关键字、`wa` = popover 开关、`da` = 「恢复中」闪一下）
-const orderNoInput = ref('')
-const orderNoQuery = ref('')
-const orderNoPopShow = ref(false)
-const orderNoRestoring = ref(false)
-
-/**
- * 「确认」/ 输入框回车（旧版 `ya`）。
- *
- * ① **补年份后缀**：输入里若没有 `-两位数字`（`/-\d{2}\b/`）就补 `-` + 当前年份后两位。
- *    ⚠️ 与 `views/Home.vue:2262` 同一套规则（Home 的「查单号」是另一个函数，但正则/后缀一致）。
- * ② 候选集 = 已过「单号列筛 `ia`」「颜色筛 `Z`」的行（旧版 `ya` 里 `a` 就是这么构造的）
- *    —— **不含**搜索框那一步。⚠️ 这是**旧版原样**（`ya` 里那两句只筛 `ia`/`Z`），
- *    不是「搜索框还没做」：搜索框已经做了（见 `filteredRows`），但这里**照旧版**不带上它 ——
- *    带上会让「查单号」的命中判定依赖当前搜索词，行为就和旧版不一样了。
- * ③ 没命中 → `warning("查不到「{关键字}」单号！")`，且**清空** `Va`（不留下一个筛不出东西的关键字）。
- * ④ 命中 → 写 `Va`、回第 1 页、关 popover。
- */
-function confirmOrderNoQuery() {
-  const raw = orderNoInput.value.trim()
-  const q = raw ? (/-\d{2}\b/.test(raw) ? raw : `${raw}-${String(new Date().getFullYear()).slice(-2)}`) : ''
-  orderNoInput.value = q
-  if (!q) {
-    orderNoQuery.value = ''
-    page.value = 1
-    orderNoPopShow.value = false
-    return
-  }
-  // ⚠️ 候选集同样走 `Bo ? xo : oo`（旧版 `ya` 的第一句就是 `let a = (Bo.value ? xo.value : oo.value) || []`）
-  //    —— 查出来的结果集生效时，「查单号」只在这个结果集里找，不去全量里捞。
-  let pool = moreActive.value ? moreRows.value : rows.value
-  const sel = orderNoFilterValues()
-  if (sel.length) pool = pool.filter((r) => sel.some((v) => matchesOrderNoOption(v, r)))
-  if (colorFilter.value) pool = pool.filter((r) => colorKeyOf(r['生产进度']) === colorFilter.value)
-  const key = q.toLowerCase()
-  const hit = pool.some((r) => String(r['单号'] ?? '').toLowerCase().startsWith(key))
-  if (!hit) message.warning(`查不到「${q}」单号！`)
-  orderNoQuery.value = hit ? q : ''
-  page.value = 1
-  orderNoPopShow.value = false
-}
-
-/**
- * 「清除」（旧版 `ma`）：先置 `da=true`（按钮变红字「恢复中...」），**50ms 后**才真清，
- * 干完才 `da=false`。那个 `setTimeout(..., 50)` 是旧版原样（`:7741-7743` 同款），不是我们加的。
- */
-function clearOrderNoQuery() {
-  orderNoRestoring.value = true
-  setTimeout(() => {
-    orderNoInput.value = ''
-    orderNoQuery.value = ''
-    page.value = 1
-    orderNoPopShow.value = false
-    orderNoRestoring.value = false
-  }, 50)
-}
-
-/** 「单号」列表头（旧版 `Ne` + `Be` + 内联样式，逐字照搬）。 */
-const orderNoHeader = (): VNodeChild =>
-  h(
-    'div',
-    { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', textAlign: 'center' } },
-    [
-      h('span', null, '单号'),
-      h('div', { style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
-        orderNoQuery.value
-          ? h(
-              NButton,
-              { text: true, size: 'small', onClick: clearOrderNoQuery },
-              {
-                default: () =>
-                  // 旧版这里是 `<span style="color:red">恢复中...</span>`（`Me`）
-                  orderNoRestoring.value
-                    ? h('span', { style: { color: 'red' } }, '恢复中...')
-                    : h('span', null, '清除'),
-              },
-            )
-          : h(
-              NPopover,
-              {
-                show: orderNoPopShow.value,
-                'onUpdate:show': (v: boolean) => (orderNoPopShow.value = v),
-                placement: 'bottom',
-                trigger: 'click',
-                width: 240,
-              },
-              {
-                trigger: () => h(NButton, { text: true, size: 'small' }, { default: () => '查单号' }),
-                default: () =>
-                  // 旧版这两层是内联样式（`ze`/`xe`），不是类 —— 这里也写内联
-                  h('div', { style: { display: 'flex', flexDirection: 'column', gap: '8px' } }, [
-                    h(NInput, {
-                      value: orderNoInput.value,
-                      'onUpdate:value': (v: string) => (orderNoInput.value = v),
-                      size: 'small',
-                      placeholder: '可只输入单号“-”前数字即可，如199.',
-                      clearable: true,
-                      // 旧版 `onKeyup:withKeys(ya,["enter"])` —— naive 的 NInput 不接 `onKeyup`，
-                      // 走 `inputProps` 透传到原生 input（同 `views/Home.vue:3008-3014`）。
-                      inputProps: {
-                        onKeyup: (e: KeyboardEvent) => {
-                          if (e.key === 'Enter') confirmOrderNoQuery()
-                        },
-                      },
-                    }),
-                    h('div', { style: { display: 'flex', gap: '8px', justifyContent: 'flex-end' } }, [
-                      h(NButton, { size: 'small', onClick: clearOrderNoQuery }, { default: () => '清除' }),
-                      h(
-                        NButton,
-                        { type: 'primary', size: 'small', onClick: confirmOrderNoQuery },
-                        { default: () => '确认' },
-                      ),
-                    ]),
-                  ]),
-              },
-            ),
-      ]),
-    ],
-  )
-
-// ── B2. 「生产进度」列：颜色筛选 popover ───────────────────────────────────
-/*
- * 旧版 `Z`（选中的颜色键）—— **不是** el-table 的列筛，而是一个自绘 popover（带色块）。
- * 所以这里**不用** naive 的 `filterOptions`（它是纯文字复选框，画不了色块），
- * 用「自己的 ref + 自己的 title popover」实现，过滤放在 `filteredRows` 里做。
- * ⚠️ 与「单号」列不同：那一列旧版用的是 el-table 原生 `filters` ⇒ 走 naive 的 `filterOptions`。
- */
-const colorFilter = ref('')
-
-const progressHeader = (): VNodeChild =>
-  h('div', { class: 'progress-header-tools' }, [
-    h('span', null, '生产进度'),
-    h(
-      NPopover,
-      { placement: 'bottom', trigger: 'click', width: 320 },
-      {
-        trigger: () =>
-          h(NButton, { text: true, size: 'small', class: 'progress-color-filter-btn' }, { default: () => '颜色筛选' }),
-        default: () =>
-          h('div', { class: 'progress-color-filter-panel' }, [
-            h('div', { class: 'progress-color-filter-actions' }, [
-              h(
-                NButton,
-                {
-                  size: 'small',
-                  onClick: () => {
-                    colorFilter.value = ''
-                    page.value = 1
-                  },
-                },
-                { default: () => '清除筛选' },
-              ),
-            ]),
-            ...colorFilterOptions.value.map((o) =>
-              h(
-                'div',
-                {
-                  key: o.colorKey,
-                  class: ['progress-color-filter-item', { active: colorFilter.value === o.colorKey }],
-                  onClick: () => {
-                    colorFilter.value = o.colorKey
-                    page.value = 1
-                  },
-                },
-                [
-                  h('span', { class: 'progress-color-swatch', style: { backgroundColor: o.color } }),
-                  h('span', { class: 'progress-color-label' }, o.label),
-                ],
-              ),
-            ),
-          ]),
-      },
-    ),
-  ])
-
-/**
- * 搜索框命中的十个字段 —— **顺序与旧版逐字一致**
- * （旧版：`客户 日期 型材 安装地址 备注 单号 业务员 打单人 生产进度 回执单号`）。
- * ⚠️ 这里的键名按 `ProgressRowDto` 的真实字段写：后端 DTO 是英文列名（见 `api/types.ts`
- *    的 `OrderLineDto`），所以「型材」在这个 DTO 里叫 **`profile`** —— 其余九个恰好是中文键。
- *    别照抄旧版的中文 `型材`（那个键在 `ProgressRowDto` 上不存在，会静默筛不到东西）。
- */
-const SEARCH_FIELDS = [
-  '客户',
-  '日期',
-  'profile',
-  '安装地址',
-  '备注',
-  '单号',
-  '业务员',
-  '打单人',
-  '生产进度',
-  '回执单号',
-] as const satisfies readonly (keyof ProgressRowDto)[]
-
+// ---------------------------------------------------------------------------
+// B. 列头交互（`matchesOrderNoOption` `columnFilterState` `onUpdateFilters`
+//    `orderNoFilterValues` `orderNoInput` `orderNoQuery` `orderNoPopShow` `orderNoRestoring`
+//    `confirmOrderNoQuery` `clearOrderNoQuery` `orderNoHeader` `colorFilter` `progressHeader`
+//    `SEARCH_FIELDS` —— 连段首三行横幅与 B1/B2 两段旧版原文注释）已归位到
+//    `composables/progress/useProgressHeader.ts`（Progress 拆分 **P5**，REF `f097a9b1`:998-1225）。
+//    `SEARCH_FIELDS` 是模块级常量，由那边 `export`、本文件 import 进来给 `filteredRows` 用。
+//
+// ⚠️ **调用点为什么在下面（`moreActive` 之后）而不在这个位置**：本块注入的 `moreRows`(REF 1456)
+//   / `moreActive`(REF 1465) 属 **P8**、在 REF 里**排在本块之后** ⇒ 放在这里会**早读两个 TDZ
+//   变量**（`TS2448`）。本块 7 个产出全部只在 `computed` 体内或模板里被读 ⇒ 后移对求值时机零影响。
+//   其余 5 个注入项（`rows` `page` `message` / P2 的 `colorKeyOf` `colorFilterOptions`）
+//   都在调用点之前早就声明好了。
+// ---------------------------------------------------------------------------
 // ── B3. 筛选链 + 分页 ─────────────────────────────────────────────────────
 /*
  * 旧版 §4.1 的链路：`K2`（原始）→ `oo` → `no`（最终）→ `io`（当页切片）。
@@ -967,6 +753,38 @@ const moreRows = ref<ProgressRow[]>([])
  *    （要退出结果集就按旧版那两条路：动一下搜索框、或点它的清除）。
  */
 const moreActive = ref(false)
+
+
+// ---------------------------------------------------------------------------
+// B. 列头交互的声明已归位到 `composables/progress/useProgressHeader.ts`（Progress 拆分 **P5**）。
+// ⚠️ **调用点为什么在这儿而不在原位置**：本块注入的 `moreRows` / `moreActive` 就是上面那两行，
+//   而它们在 REF 里**排在本块之后**（属 P8）⇒ 放回原位会早读两个 TDZ 变量（`TS2448`）。
+//   理由与两端复量命令见上面 B 段那段指路注释。
+// ⚠️ **7 个回传全部解构**（都有段外活读者，一个不多一个不少）：
+//   模板 `182`(`onUpdateFilters`) ·
+//   `filteredRows`(`matchesOrderNoOption` `orderNoFilterValues` `orderNoQuery` `colorFilter` ——
+//     REF 1252/1253/1260/1261/1254/1256/1258) ·
+//   `columns`(`matchesOrderNoOption` `orderNoFilterValues` `orderNoHeader` `progressHeader` ——
+//     REF 1338/1346/1348/1353)。
+//   另 6 个（`columnFilterState` `orderNoInput` `orderNoPopShow` `orderNoRestoring`
+//   `confirmOrderNoQuery` `clearOrderNoQuery`）**只在本块内部用 ⇒ 不解构**
+//   （解构了就是死局部 `TS6133`；R54 实测它们段外 0 引用、模板 0 引用）。**别以为它们没用**。
+//   〔脚本侧一律写 REF 行号：本文件行号会随后面每块搬走而漂。〕
+// ⚠️ Task 7 把 P6 搬走之后，这 7 个要喂给 `useProgressColumns`
+//   （与 `procedures` 改接 `useProgressColors` 的回传同形）。
+// ---------------------------------------------------------------------------
+const {
+  matchesOrderNoOption, orderNoFilterValues, orderNoQuery, orderNoHeader,
+  colorFilter, progressHeader, onUpdateFilters,
+} = useProgressHeader({
+  page,
+  rows,
+  message,
+  moreActive,
+  moreRows,
+  colorKeyOf,
+  colorFilterOptions,
+})
 const moreForm = reactive<{
   client: string
   address: string

@@ -393,6 +393,97 @@ const BLOCKS = [
       ],
     },
   },
+  {
+    /*
+     * **P5「列头交互」**（→ `app/src/composables/progress/useProgressHeader.ts`）。
+     *
+     * 快照 `Progress.vue:998-1225`（**连续一整段**，228 行），段内**14 个声明**：
+     *   `matchesOrderNoOption`(1009) · `columnFilterState`(1016) · `onUpdateFilters`(1017) ·
+     *   `orderNoFilterValues`(1021) · `orderNoInput`(1029) · `orderNoQuery`(1030) ·
+     *   `orderNoPopShow`(1031) · `orderNoRestoring`(1032) · `confirmOrderNoQuery`(1046) ·
+     *   `clearOrderNoQuery`(1074) · `orderNoHeader`(1086) · `colorFilter`(1155) ·
+     *   `progressHeader`(1157) · `SEARCH_FIELDS`(1213)。
+     *   其余 100 来行是段首三行分区横幅（`// ═══ / // B. 列头交互 / // ═══`）、
+     *   `// ── B1.` / `// ── B2.` 两条子横幅，以及 B1 后面那段逐字抄着旧版 `ga`/`ya`/`ma` 的块注释。
+     *
+     * ⚠️ **区间两端**（方案 §3.1 写的就是 998-1225，实测两端都干净、一处不用改）：
+     *    997 是**上一段（P2 颜色口径）**的收尾、998 是本段自己的横幅 ⇒ **横幅跟块走**；
+     *    1225 是空行、1226 起已是**下一段**的横幅（`// ── B3. 筛选链 + 分页`）⇒ **留在原地**。
+     *    ⚠️ 起点**不能写 999**（R38 的同类病）：那会把横幅的上横线 `// ═══` 留在 `Progress.vue`
+     *      里当孤儿。
+     *    复量：`git show f097a9b1:app/src/views/Progress.vue | sed -n '995,1000p'`（末行 = 本段横幅）、
+     *          `… | sed -n '1223,1228p'`（次行已是 `// ── B3.`）。
+     *    ⚠️ 这条**没有任何闸能抓**（`sliceFn` 从声明起切，横幅/注释根本不进切片）——
+     *      它只有「整段与 REF 同区间逐字节比」一条来源（Global Constraints R32 的动手后验收）。
+     *      本块那条逐字节核已做（独立脚本，不是本守卫）：**228 行 = 208（工厂正文）+ 20
+     *      （模块级 `SEARCH_FIELDS`）**，反向套完 7 条注入改写后**两段残差都是 0 处**。
+     *
+     * ⚠️ **`SEARCH_FIELDS` 与其余 13 个不同**：它是**模块级常量**，必须出工厂并 `export`
+     *   （工厂体内写 `export` 是 `TS1184`）⇒ 它的改写是这里**第二条** `export` 改写。
+     *   ⚠️ 实测它**全部**引用点只有 **1213（定义）与 1273（P6 的 `filteredRows`）** ——
+     *     **P5 自己一次都没用它**；由壳 `import { SEARCH_FIELDS }` 接住给 P6 用。
+     *     漏登记它 ⇒ 本守卫不切它 ⇒ 它留在壳里、**本守卫照样全绿**
+     *     （memory `split-guard-blind-spots` 第 1 类「登记写错两侧同错」）。
+     *
+     * ⚠️ **注入改写 = 7 条规则、命中 12 处**：`page.value`(×6：`onUpdateFilters`1 +
+     *   `confirmOrderNoQuery`2 + `clearOrderNoQuery`1 + `progressHeader`2) ·
+     *   `moreActive.value`(×1) · `moreRows.value`(×1) · `rows.value`(×1)（三条都在
+     *   `confirmOrderNoQuery` 的候选集那一行）· `colorKeyOf(`(×1) · `message.warning`(×1) ·
+     *   `colorFilterOptions.value`(×1)。
+     *   · 规则一律**带边界**（核心文件头：朴素 `split/join`，裸名会顺手打到别的标识符上）：
+     *     `colorKeyOf` 写成带左括号的 `colorKeyOf(`、`message` 写成 `message.warning`。
+     *   · ⚠️ `rows.value` 与 `moreRows.value` **不构成子串关系**（差在 `Rows` 的**大写 R**，
+     *     且 `split/join` 大小写敏感）⇒ 两条规则互不误伤（已核）。`page.value` 同理不会打到
+     *     页面的 `pageSize`（本段内根本没有 `pageSize`）。
+     *   · ⚠️ 12 处命中**全部落在活代码里**（逐条核过；段内注释里一处都没有）⇒ 不存在 P4 那种
+     *     「规则改到注释里、注释内容就漂了」的风险。
+     *   · `colorFilter`（本块自己的 `ref`）在段内有 5 处，**一条规则都不许挂**
+     *     —— 它不是注入项。
+     *
+     * ⚠️ **本块的产出面 7 个**（另有 `SEARCH_FIELDS` 走 `export`）：`matchesOrderNoOption`
+     *   `orderNoFilterValues` `orderNoQuery` `orderNoHeader` `colorFilter` `progressHeader`
+     *   `onUpdateFilters`。**但这一条本守卫管不着** —— 它只比「声明搬得像不像」，
+     *   「壳有没有漏接」由 `vue-tsc`（`TS2304`/`TS6133`）管（memory
+     *   `split-guard-blind-spots` 第 3 类「模板绑定漏解构三绿仍空」）。
+     *   另 6 个（`columnFilterState` `orderNoInput` `orderNoPopShow` `orderNoRestoring`
+     *   `confirmOrderNoQuery` `clearOrderNoQuery`）**不回传**、壳里也不解构
+     *   ⚠️ 但**别把它们从本清单里去掉**：它们是本块的内部件，`orderNoHeader` 那个 popover 的
+     *   「清除」/「确认」按钮就是后两个 —— 去掉就等于这几段没人验。
+     *
+     * 登记后按文件头「能力边界 3」做了那条**必做验法**（三组变异，都报红并定位到行，**不是假绿**）：
+     *   ① `confirmOrderNoQuery` 第 2 行 `-\d{2}\b` → `-\d{3}\b` ⇒ 报 `confirmOrderNoQuery` `L2`；
+     *   ② `progressHeader` 里 `deps.page.value = 1` 还原成 `page.value = 1`（＝少套一条注入改写）
+     *      ⇒ 报 `progressHeader`（规则确实是承重的）；
+     *   ③ `SEARCH_FIELDS` 去掉 `export`（＝漏登记那条改写）⇒ 报 `SEARCH_FIELDS` `L1`。
+     *   三组都已还原，还原后本块 14 条全绿。
+     */
+    target: 'app/src/composables/progress/useProgressHeader.ts',
+    names: [
+      'matchesOrderNoOption', 'onUpdateFilters', 'orderNoFilterValues',
+      'confirmOrderNoQuery', 'clearOrderNoQuery',
+    ],
+    consts: [
+      'columnFilterState', 'orderNoInput', 'orderNoQuery', 'orderNoPopShow', 'orderNoRestoring',
+      'orderNoHeader', 'colorFilter', 'progressHeader', 'SEARCH_FIELDS',
+    ],
+    rewrites: {
+      onUpdateFilters: [{ from: 'page.value', to: 'deps.page.value' }],
+      confirmOrderNoQuery: [
+        { from: 'page.value', to: 'deps.page.value' },
+        { from: 'moreActive.value', to: 'deps.moreActive.value' },
+        { from: 'moreRows.value', to: 'deps.moreRows.value' },
+        { from: 'rows.value', to: 'deps.rows.value' },
+        { from: 'colorKeyOf(', to: 'deps.colorKeyOf(' },
+        { from: 'message.warning', to: 'deps.message.warning' },
+      ],
+      clearOrderNoQuery: [{ from: 'page.value', to: 'deps.page.value' }],
+      progressHeader: [
+        { from: 'page.value', to: 'deps.page.value' },
+        { from: 'colorFilterOptions.value', to: 'deps.colorFilterOptions.value' },
+      ],
+      SEARCH_FIELDS: [{ from: 'const SEARCH_FIELDS = [', to: 'export const SEARCH_FIELDS = [' }],
+    },
+  },
 ]
 
 /**

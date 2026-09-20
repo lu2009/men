@@ -16,6 +16,10 @@
  * 左边（旧版）：`legacy/js/Progress-f4bdef35.js` 解混淆后的
  *   `z=async()=>{…}`（导出）与 `yo=…`→`po=…`（统计）两段。
  * 右边（新版）：`app/src/views/Progress.vue` 里对应的两段（锚点见下）。
+ *   ⚠️ **`SEARCH_FIELDS` 那一段 2026-09-20 起不在 `Progress.vue` 了** —— Progress 拆分 P5
+ *     把它连整个「列头交互」搬去了 `app/src/composables/progress/useProgressHeader.ts`
+ *     （纯搬迁、逐字未改）⇒ 那一对锚点改从新文件切，**断言与夹具一个字没动**。
+ *     见下面 `SEARCH_FIELDS_TS` 上方的 ⚠️。
  *
  * ⚠️ **这台差分台不覆盖的东西**（别以为它绿了就全都对）：
  *   1. **开向归一化本身**。两边都注入**同一份**夹具映射（旧版走 `openDirectionNaming` 的真代码，
@@ -44,6 +48,8 @@ const NAMING = resolve(ROOT, 'legacy/js/openDirectionNaming-92dbc91d.js')
 const MAP = '/tmp/progress.map.json'
 const DECODED = '/tmp/progress.decoded.js'
 const VUE = resolve(ROOT, 'app/src/views/Progress.vue')
+// P5（列头交互）2026-09-20 搬到这儿了 —— 本台子只有 `SEARCH_FIELDS` 那一对锚点落在它里面。
+const HEADER = resolve(ROOT, 'app/src/composables/progress/useProgressHeader.ts')
 const USE_OPEN_DIR = resolve(ROOT, 'app/src/composables/useOpenDirection.ts')
 
 // ---------------------------------------------------------------- 旧版侧 //
@@ -115,15 +121,22 @@ const legacyNaming = namingModule.exports
 
 // ---------------------------------------------------------------- 新版侧 //
 const vue = readFileSync(VUE, 'utf8')
+const header = readFileSync(HEADER, 'utf8')
 
-function cutVue(startAnchor, endAnchor, what) {
-  const a = vue.indexOf(startAnchor)
+/**
+ * 从 `src` 里按「命中 + 唯一 + 终点在后」切一段。
+ * ⚠️ 2026-09-20（Progress 拆分 P5）起「新版侧」**不再只有一个源文件** ⇒ 把源提成参数，
+ *    原来的 `cutVue` 保留成薄壳（十余处调用点一行都不用改）。
+ */
+function cutIn(src, startAnchor, endAnchor, what) {
+  const a = src.indexOf(startAnchor)
   if (a < 0) throw new Error(`新版锚点没命中（${what} 的起点）：${startAnchor}`)
-  if (vue.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
-  const b = vue.indexOf(endAnchor, a)
+  if (src.indexOf(startAnchor, a + 1) >= 0) throw new Error(`新版锚点不唯一（${what} 的起点）`)
+  const b = src.indexOf(endAnchor, a)
   if (b < 0) throw new Error(`新版锚点没命中（${what} 的终点）：${endAnchor}`)
-  return vue.slice(a, b)
+  return src.slice(a, b)
 }
+const cutVue = (startAnchor, endAnchor, what) => cutIn(vue, startAnchor, endAnchor, what)
 
 const NEW_STATS_TS = cutVue('const MOVE_FAN_NAMES = [', '// ── C2.', '统计')
 const NEW_EXPORT_TS = cutVue('async function exportTable() {', '</script>', '导出')
@@ -693,7 +706,18 @@ const NEW_SEARCH_TS = cutVue(
 if (!NEW_SEARCH_TS.includes('SEARCH_FIELDS') || NEW_SEARCH_TS.length < 200) {
   throw new Error(`新版搜索段形状不对（len=${NEW_SEARCH_TS.length}）`)
 }
-const SEARCH_FIELDS_TS = cutVue('const SEARCH_FIELDS = [', '] as const satisfies', 'SEARCH_FIELDS') + ']'
+/*
+ * ⚠️ **2026-09-20（Progress 拆分 P5）：`SEARCH_FIELDS` 不在 `Progress.vue` 里了** ——
+ *    它随「列头交互」整段搬进了 `app/src/composables/progress/useProgressHeader.ts`
+ *    （纯搬迁、逐字未改，只是按「模块级常量必须出工厂」的口径多了一个 `export`）。
+ *    ⇒ 这一对锚点改从这个新文件切；**断言与夹具一个字没动**（R12 档位 1）。
+ *    ⚠️ 上面 `NEW_SEARCH_TS` 那一段（`filteredRows`）**仍然在 `.vue` 里**（它是 P6，Task 7 才搬）
+ *      ⇒ 本台子现在是**跨两个文件**取料，`cutIn` 的 `src` 参数就是为这个加的。
+ *    回退法：`git checkout <本笔之前的 sha> -- docs/progress-toolbar-logiccheck.mjs`
+ *    （换源前必须连同 `Progress.vue` 一起回退，否则那对锚点在两边都不在）。
+ *    ⚠️ 锚点本身**一个字没改**：新文件里那两行与 REF 逐字相同（只缩进为 0，原本也是 0）。
+ */
+const SEARCH_FIELDS_TS = cutIn(header, 'const SEARCH_FIELDS = [', '] as const satisfies', 'SEARCH_FIELDS') + ']'
 /*
  * `SEARCH_FIELDS` 在 `filteredRows` **外面**（是模块级常量）⇒ 单独切出来求值，
  * 再当参数喂进那段过滤代码。这样「十个字段 + 它们的顺序」也被这份夹具钉住。
