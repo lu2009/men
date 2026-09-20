@@ -97,5 +97,53 @@ jobs:
 
       # 一条命令跑全套：fmt / 前端类型检查+生产构建 / clippy / test / 36 个差分台。
       # `verify` 会在 CI 上如实打印「哪几个台子本次没跑」（未运行 ≠ 通过）。
+      # 输出同时落一份到 `/tmp/verify.log` 给下一步的失败报告用（`run()` 是 stdio:'inherit'，
+      # 所以这里 tee 得到全部输出；`set -o pipefail` 是必须的 —— 少了它管道会把
+      # verify 的退出码吃掉，CI 就永远绿了）。
       - name: npm run verify
-        run: npm run verify
+        run: |
+          set -o pipefail
+          npm run verify 2>&1 | tee /tmp/verify.log
+
+      # 为什么要有这一步：**job 日志要仓库 admin 权限**（实测非管理员调
+      # `GET /actions/jobs/<id>/logs` 一律 403，公开仓库也一样），
+      # 而 check-run 的 summary 是**不登录也读得到**的。红了的时候把「挂在谁身上」
+      # 写进 summary，就不用等仓库 owner 去网页上翻，也不用靠猜。
+      - name: 失败时把红了的台子写进 step summary
+        if: failure()
+        run: |
+          if [ ! -f /tmp/verify.log ]; then
+            echo '⚠️ 没跑到 `npm run verify`（前面某一步就挂了）⇒ 看那一步的日志。' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # verify.mjs 的汇总行无条件包 ANSI ⇒ 先剥掉，否则 summary 里是一堆 `[31m`。
+          # （run-all.mjs 那边本来就不打颜色码。）
+          clean=/tmp/verify.clean.log
+          sed -E 's/\x1b\[[0-9;]*[A-Za-z]//g' /tmp/verify.log > "$clean"
+
+          # 只挑「有信息量」的行，别把 36 个台子全贴上来：
+          #   `  ✅/❌ <阶段>`  = verify 的 6 阶段汇总
+          #   `❌ <文件> …ms …` = run-all 的每个真红台子（🔴 是已登记的真红，也留着）
+          #   `   · <文件>`     = run-all 末尾「这些是真失败」的展开（注意是 3 个空格；
+          #                      verify 自己的 ⚠️/🔴 展开是 7 个空格 ⇒ 不会被这条带上）
+          hits=$(grep -aE '^(❌|🔴|⏭ )|^   · |^共 .* 个台子|^  (✅|❌) ' "$clean" | head -60 || true)
+
+          {
+            echo '## ❌ CI 挂了 —— 阶段与红了的台子'
+            echo
+            echo '```text'
+            if [ -n "$hits" ]; then
+              echo "$hits"
+            else
+              echo '（一条 ❌/🔴 都没有 —— 红的多半不是差分台，看下面的尾巴）'
+            fi
+            echo '```'
+            echo
+            echo '<details><summary>verify 输出最后 80 行</summary>'
+            echo
+            echo '```text'
+            tail -80 "$clean"
+            echo '```'
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
