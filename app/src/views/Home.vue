@@ -420,7 +420,6 @@ import {
   onMounted,
   reactive,
   ref,
-  watch,
   type InputHTMLAttributes,
   type Ref,
 } from 'vue'
@@ -444,22 +443,20 @@ import {
   useDialog,
   useMessage,
   type DataTableColumns,
-  type DataTableFilterState,
-  type DataTableInst,
   type DataTableRowKey,
 } from 'naive-ui'
 import { api } from '../api/client'
 import { LS, useOrderLines } from '../composables/useOrderLines'
 import { useDetailLineDialogs } from '../composables/useDetailLineDialogs'
 import { useHomeData } from '../composables/home/useHomeData'
+import { useHomeFilterView } from '../composables/home/useHomeFilterView'
 import { useHomeSelection } from '../composables/home/useHomeSelection'
 import { useHomeQueryMore } from '../composables/home/useHomeQueryMore'
-import { AUTOCOMPLETE_ALWAYS_SHOW, EMPTY_FILTER_VALUE, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
+import { AUTOCOMPLETE_ALWAYS_SHOW, PROGRESS_OPTIONS, progressSegments } from '../utils/homeConstants'
 import { legacyToday, localToday, pad } from '../utils/homeDate'
-import { dateCellClass, fmt, isUnaudited, paidOf, paymentStatus, progressMatch, unpaidOf } from '../utils/homeMetrics'
+import { dateCellClass, fmt, isUnaudited, unpaidOf } from '../utils/homeMetrics'
 import { orderNosOf } from '../utils/homeOrderNo'
 import type { Line } from '../utils/partsEngine'
-import { canSeeAllOrders } from '../utils/roles'
 import { useAuthStore } from '../stores/auth'
 import FinanceDrawer from '../components/FinanceDrawer.vue'
 import DashboardBigScreen from '../components/DashboardBigScreen.vue'
@@ -529,6 +526,25 @@ const PROGRESS_FIXED_FILTERS = ['已打生产单', '未打生产单', '已订玻
 const { loading, rawOrders, financeSummary, load, dashboardShow, dashboardOrders } =
   useHomeData({ message, auth })
 
+// ---------------------------------------------------------------------------
+// 筛选 / 列头筛选 / 分页（B3）—— 逻辑已搬出到 `composables/home/useHomeFilterView.ts`
+// ---------------------------------------------------------------------------
+// ⚠️ **构造顺序（Ruling 54）**：`B1 → B3 → B6 → B7 → B4 → B5` —— 本块**紧跟 B1**，
+//    必须在 `useHomeSelection`（Task 3，注入 `filtered`/`rawOrders`/`financeSummary`）**之前**。
+// ⚠️ 只解构**被段外真正引用**的名字（模板 / `columns` / 别的块）。纯内部件
+//    （`matchSearch`/`distinctOptions`/`matchesColumnFilters`/`EMPTY_FILTER_LABEL`/`TEXT_FILTER_KEYS`/
+//    `columnFilterState`/`pageSizeJustChanged` 及两个 `type`）解构出来就是未使用变量，`vue-tsc` 会报 TS6133。
+const {
+  searchText, onlyUnproduced, filtered, summary, paged, page, pageSize, tableRef,
+  onPageChange, onPageSizeChange,
+  paymentFilter, progressFilter, orderNoQuery, columnFilterValues, textColumnFilter,
+  paidColumnFilter, unpaidColumnFilter, onUpdateFilters,
+  clientFilterOptions, dateFilterOptions, addressFilterOptions, doorCountFilterOptions,
+  totalPriceFilterOptions, remarkFilterOptions, salespersonFilterOptions, creatorFilterOptions,
+  productionStatusFilterOptions, paidFilterOptions, unpaidFilterOptions,
+  queryRows, queryMode, querySearchPreset,
+} = useHomeFilterView({ rawOrders, financeSummary, auth })
+
 onMounted(async () => {
   if (!(await auth.loadMe())) {
     router.push({ name: 'login' })
@@ -546,18 +562,8 @@ async function onLogout() {
 }
 
 // ---------------------------------------------------------------------------
-// 筛选（§3.1：未生产 → 付款状态 → 进度 → 搜索文本）
-// ---------------------------------------------------------------------------
-const searchText = ref('')
-const onlyUnproduced = ref(false)
-const paymentFilter = ref('全部显示')
-const progressFilter = ref('显示全部')
-
-// ---------------------------------------------------------------------------
 // 「查单号」（§3.2，旧版 `po`/`fo`/`ho`/`Co` @ `:7671`）
 // ---------------------------------------------------------------------------
-/** 生效中的查单号关键字（旧版 `po`）—— 参与筛选，也决定单元格显示哪一段。 */
-const orderNoQuery = ref('')
 /** 弹窗里输入框的内容（旧版 `fo`）。确认时会被补齐年份后缀后写回。 */
 const orderNoInput = ref('')
 /** 「恢复中…」标志（旧版 `ho`）—— 清除按钮在做收起动画期间显示这个字。 */
@@ -585,289 +591,9 @@ function orderNoCell(r: OrderSummaryDto): string {
   return parts.find((p) => p.toLowerCase().startsWith(q)) || parts[0] || ''
 }
 
-function matchSearch(r: OrderSummaryDto): boolean {
-  const q = searchText.value.trim().toLowerCase()
-  if (!q) return true
-  const fields = [
-    r.client_name,
-    String(r.deposit),
-    String(r.total_price),
-    r.install_address,
-    r.remark,
-    r.production_status,
-    r.salesperson,
-    r.order_date,
-    r.receipt_no,
-  ]
-  return fields.some((f) => (f ?? '').toLowerCase().includes(q))
-}
-
 // 「查询更多」的结果集与其生效标志 —— 完整口径见下方「查询更多（审计 C21）」一节。
 // 旧版 `ps` 的头一句就是 `gs.value ? ws.value : fs.value`（`:11153`/`:11172`，`fs` 读全量 `_l`）：
 // **查询态下主表显示的是查询结果集，不是全量列表**。
-const queryRows = ref<OrderSummaryDto[]>([])
-const queryMode = ref(false)
-
-const filtered = computed(() => {
-  // 非管理员只看自己打的单（§3.1 `fs`）—— 口径在 `utils/roles.ts` 的 `canSeeAllOrders`。
-  let list = queryMode.value ? queryRows.value : rawOrders.value
-  if (!canSeeAllOrders(auth.user?.role)) {
-    list = list.filter((r) => r.creator_name === auth.user?.name)
-  }
-  if (onlyUnproduced.value) {
-    list = list.filter((r) => !r.production_status || r.production_status.trim() === '')
-  }
-  // 查单号（旧版 `ps` 里紧跟「未生产」那一步，`:11160-11163` / `:11176-11179`）：
-  // **单号集里任一段以关键字开头**即命中（`startsWith`，不是 `includes`）。
-  if (orderNoQuery.value) {
-    const q = orderNoQuery.value.toLowerCase()
-    list = list.filter((r) => orderNosOf(r).some((s) => s.toLowerCase().startsWith(q)))
-  }
-  if (paymentFilter.value !== '全部显示') {
-    list = list.filter((r) => paymentStatus(r, financeSummary.value) === paymentFilter.value)
-  }
-  if (progressFilter.value !== '显示全部') {
-    list = list.filter((r) => progressMatch(r, progressFilter.value))
-  }
-  list = list.filter(matchSearch)
-  // 列头筛选（C16–C18）。**有意偏离旧版**：旧版这一步发生在分页切片之后（只筛当前页、
-  // 总数也不含它），新版放在这里 ⇒ **全量筛选、总数跟随**。见下方 `columnFilterState` 的说明。
-  return list.filter(matchesColumnFilters)
-})
-
-// ---------------------------------------------------------------------------
-// 列头原生筛选（C16–C18，旧版 `Home.formatted.js:7933-8003`）
-// ---------------------------------------------------------------------------
-/*
- * ⚠️ 顺序：旧版这套筛选**不在 `ps` 链里**，而是交给 el-table 自己在 `:data="Cs"` 上做 ——
- *    `:11296` `data:Cs.value`，而 `Cs` = `ps.slice(...)`（`:11180-11183`）。
- *    所以旧版是：筛选链（未生产→付款状态→进度→搜索）→ **分页切片** → 列头筛选，
- *    即**只筛当前页**；分页总数 `zs`（= `ps.length`）也不含它。
- *
- *    ★ **新版有意不照抄这一条**（用户 2026-09-18 拍板）：列头筛选并进 `filtered` 链 ⇒ 全量筛选、
- *      总数跟随。理由见 `matchesColumnFilters` 的注释 —— 旧版那个行为大概率是 bug。
- *
- * 选项取值来源：旧版 `ta`/`ma`/`wa` 全部读 `_l`（**全量**原始列表，`:7934`/`:7987`/`:7992`），
- * 不是当前筛选结果 —— 新版对应 `rawOrders`（连非管理员的「只看自己」过滤都不算在内，与旧版一致）。
- */
-const columnFilterState = ref<DataTableFilterState>({})
-
-// 旧版 `ta` 里 `unshift` 的哨兵（`:7937-7939`）：value = 字符串表 dr(1196) = "__EMPTY__"，
-// text = dr(1470) = "未生产"。只挂在「打单操作」这一列上。
-//（`__EMPTY__` 那个常量已归位到 `app/src/utils/homeConstants.ts`，2026-09-20 纯搬迁；
-//  下面 `EMPTY_FILTER_LABEL` 仍在本文件 —— 它不在本任务的搬迁清单里。）
-const EMPTY_FILTER_LABEL = '未生产'
-
-// Naive 的 `FilterOption` / `FilterOptionValue` 没有从包入口导出，这里按结构声明。
-type ColumnFilterOption = { label: string; value: string | number }
-
-// 旧版 `ta(prop)`（`:7933-7939`）= `new Set(_l.map(t => t[prop]))` → `Array.from` → `{text:v, value:v}`。
-//   · 只做 distinct，**不排序**（保持首次出现顺序，`Set` 的插入序）；
-//   · **不剔除空值**（空串同样会成为一个选项）；
-//   · `text` 取原值，Element 用插值渲染 → 新版 `label` 取 `String(v)`，数值列显示一致。
-function distinctOptions(pick: (r: OrderSummaryDto) => string | number): ColumnFilterOption[] {
-  const seen = new Set<string | number>()
-  const out: ColumnFilterOption[] = []
-  for (const r of rawOrders.value) {
-    const v = pick(r)
-    if (seen.has(v)) continue
-    seen.add(v)
-    out.push({ label: String(v), value: v })
-  }
-  return out
-}
-
-// 旧版 `ga(value,row,column)`（`:7996-8002`）：
-//   ① 打单操作列 + 哨兵值 → 该列值为空/纯空白即命中（`!v || (typeof v==='string' && v.trim()==='')`）；
-//   ② 其余一律 `row[prop] === value` **严格相等**（不是模糊匹配，也不做类型转换）。
-type TextFilterKey =
-  | 'client_name'
-  | 'order_date'
-  | 'install_address'
-  | 'production_status'
-  | 'door_count'
-  | 'total_price'
-  | 'remark'
-  | 'salesperson'
-  | 'creator_name'
-
-function textColumnFilter(key: TextFilterKey, value: string | number, row: OrderSummaryDto): boolean {
-  if (key === 'production_status' && value === EMPTY_FILTER_VALUE) {
-    const v = row.production_status
-    return !v || (typeof v === 'string' && v.trim() === '')
-  }
-  return row[key] === value
-}
-
-// 旧版 `ya`（`:8003`）= `co(row)===e`；`fa`（`:8003`）= `so(row)===e`。
-const paidColumnFilter = (value: string | number, row: OrderSummaryDto) => paidOf(row, financeSummary.value) === value
-const unpaidColumnFilter = (value: string | number, row: OrderSummaryDto) => unpaidOf(row, financeSummary.value) === value
-
-/**
- * 所有列头筛选的**合并判定**（多值 OR、列间 AND —— 与 naive / Element 的 `filter-multiple` 语义一致）。
- *
- * ★ **有意偏离旧版**：旧版把这一步交给 el-table 自己做，而它的 `:data` 是**分页切片**
- *   （`Home.formatted.js:11180-11183` 的 `Cs = ps.slice(...)`），所以旧版**只筛当前页**、
- *   分页总数（`zs = ps.length`）也不含列头筛选。
- *   新版放进 `filtered` 链 ⇒ 全量筛选、`item-count` 跟着变。
- *
- *   取舍理由：旧版那个行为大概率是 bug —— 勾「客户=张三」只筛出当前页里的张三、翻页结果又变，
- *   没人会那样预期。这正是 `docs/home-audit/00-summary.md` 里请用户拍板的那条，用户选了「做对」。
- *
- * 列定义的 `filter` 仍保留：naive 用它渲染勾选态，且它作用在**已筛过的**行上，等于空操作。
- */
-function matchesColumnFilters(r: OrderSummaryDto): boolean {
-  for (const key of TEXT_FILTER_KEYS) {
-    const sel = columnFilterValues(key)
-    if (sel.length && !sel.some((v) => textColumnFilter(key, v, r))) return false
-  }
-  const paid = columnFilterValues('deposit')
-  if (paid.length && !paid.some((v) => paidColumnFilter(v, r))) return false
-  const unpaid = columnFilterValues('unpaid')
-  if (unpaid.length && !unpaid.some((v) => unpaidColumnFilter(v, r))) return false
-  return true
-}
-
-/** 9 个文本列的 key（与列定义里的 `filterOptionValues` 一一对应）。 */
-const TEXT_FILTER_KEYS: TextFilterKey[] = [
-  'client_name',
-  'order_date',
-  'install_address',
-  'production_status',
-  'door_count',
-  'total_price',
-  'remark',
-  'salesperson',
-  'creator_name',
-]
-
-// 选项（受控列定义用量，`rawOrders`/`financeSummary` 变化时自动重算）。
-const clientFilterOptions = computed(() => distinctOptions((r) => r.client_name))
-const dateFilterOptions = computed(() => distinctOptions((r) => r.order_date))
-const addressFilterOptions = computed(() => distinctOptions((r) => r.install_address))
-const doorCountFilterOptions = computed(() => distinctOptions((r) => r.door_count))
-const totalPriceFilterOptions = computed(() => distinctOptions((r) => r.total_price))
-const remarkFilterOptions = computed(() => distinctOptions((r) => r.remark))
-const salespersonFilterOptions = computed(() => distinctOptions((r) => r.salesperson))
-const creatorFilterOptions = computed(() => distinctOptions((r) => r.creator_name))
-// 打单操作：distinct 之后把哨兵 **unshift 到最前**（旧版 `:7937-7939`）。
-const productionStatusFilterOptions = computed(() => {
-  const opts = distinctOptions((r) => r.production_status)
-  opts.unshift({ label: EMPTY_FILTER_LABEL, value: EMPTY_FILTER_VALUE })
-  return opts
-})
-// 已付 / 未付（旧版 `ma` `:7986-7991` / `wa` `:7991-7995`）：选项同样是 distinct 的金额数字。
-const paidFilterOptions = computed(() => distinctOptions((r) => paidOf(r, financeSummary.value)))
-const unpaidFilterOptions = computed(() => distinctOptions((r) => unpaidOf(r, financeSummary.value)))
-
-// 受控写法：Naive 2.45 的 n-data-table **没有表级 `filters` prop**，受控只能落在列的
-// `filterOptionValues` 上（`use-table-data.mjs:58-68` 的 `mergedFilterStateRef`）。
-// 不能用 `defaultFilterOptionValues` —— 那是非受控初值，之后组件内部状态说了算，会与
-// `searchText`/`onlyUnproduced` 的「筛选即重算」预期打架。
-function columnFilterValues(key: string): (string | number)[] {
-  const v = columnFilterState.value[key]
-  if (v == null) return []
-  return Array.isArray(v) ? [...v] : [v]
-}
-
-// Naive 每次变更都会把**整个**筛选状态回抛（`FilterButton.mjs:68-69` `doUpdateFilters`）。
-function onUpdateFilters(state: DataTableFilterState) {
-  columnFilterState.value = { ...state }
-}
-
-const summary = computed(() => {
-  const list = filtered.value
-  let earliest = ''
-  let latest = ''
-  for (const r of list) {
-    if (!earliest || r.order_date < earliest) earliest = r.order_date
-    if (!latest || r.order_date > latest) latest = r.order_date
-  }
-  const doors = list.reduce((s, r) => s + r.door_count, 0)
-  const total = list.reduce((s, r) => s + r.total_price, 0)
-  // 已付（旧版 `as` `:10994-10996`）：`Σ (已分配金额 ?? 定金||0)` —— 与列头筛选用的
-  // `paidOf`（旧版 `co`，`:7660-7662`）**同一个口径**，直接复用。
-  const paid = list.reduce((s, r) => s + paidOf(r, financeSummary.value), 0)
-  const unpaid = list.reduce((s, r) => s + unpaidOf(r, financeSummary.value), 0)
-  const unpaidCount = list.filter((r) => unpaidOf(r, financeSummary.value) > 0).length
-  const unaudited = list.filter(
-    (r) => !r.production_status?.trim() && !r.order_no_set?.trim(),
-  ).length
-  return { earliest, latest, doors, total, paid, unpaid, unpaidCount, unaudited }
-})
-
-// ---------------------------------------------------------------------------
-// 分页（§3.1 客户端分页，默认 50）
-// ---------------------------------------------------------------------------
-const page = ref(1)
-const pageSize = ref(50)
-// n-data-table 实例（只用来在翻页后复位滚动条，见 `onPageChange`）。
-const tableRef = ref<DataTableInst | null>(null)
-const paged = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filtered.value.slice(start, start + pageSize.value)
-})
-
-// 翻页复位滚动条（旧版 `xs` `:11184-11195` 的收尾两句）：
-//   `const l = document.querySelector(".table-container"); l && (l.scrollTop = 0)`
-// ⚠️ 旧版只在**翻页**（`xs`）复位，**改页大小**（`Bs` `:11196-11206`）**不复位** —— 这里照抄，
-//    所以挂在 `@update:page` 上而不是 `watch(page)`（改 page-size 时 Naive 会顺带改页，若用 watch 就会误复位）。
-// ⚠️ 新版 `.table-container` 是 `flex:1; min-height:0`（**不是**滚动容器），真正滚动的是
-//    n-data-table 因 `:max-height` 生成的内层 scrollbar（`.n-data-table-base-table-body`）。
-//    旧版写 `.table-container` 能生效是因为它那条 CSS 是 `height:calc(100vh - 10px);overflow:hidden`
-//    ——`overflow:hidden` 仍是滚动容器，能被子元素聚焦等程序化滚动。新版没有那层，
-//    所以这里改用 n-data-table 暴露的 `scrollTo({ top: 0 })`（`DataTableInst`），
-//    等价且不依赖内层 class 名。放在 `nextTick` 里：旧版是同步置 0，但它那层不参与重渲染；
-//    Naive 换页要重渲染 body，渲染后置 0 才不会被 scrollbar 的 sync 覆盖。
-function onPageChange() {
-  // 页大小刚变过 ⇒ 这次 `update:page` 是 naive 的**夹页**，不是用户翻页 —— 不复位滚动条。
-  if (pageSizeJustChanged) return
-  void nextTick(() => {
-    tableRef.value?.scrollTo({ top: 0 })
-  })
-}
-
-/**
- * 页大小刚变过的一次性标志（同 tick 内有效）。见 `onPageSizeChange`。
- * 用普通变量而不是 ref：它不参与渲染，只做「同一次同步流程里传个话」。
- */
-let pageSizeJustChanged = false
-
-/**
- * 改页大小（旧版 `Bs`，`:11196-11206`）。
- *
- * ⚠️ 旧版末尾是 **`Kl.value = 1`（无条件回第 1 页）**。naive 不是：
- *    `pagination/src/Pagination.mjs` 的 `doUpdatePageSize` 只在
- *    `mergedPageCountRef.value < mergedPageRef.value`（当前页超出新页数）时才动 page，
- *    而且动的是 **`doUpdatePage(mergedPageCount)`——夹到最后一页，不是回第 1 页**。
- *    ⇒ 「第 3 页 → 换成 200/页」会停在原页码，必须显式置 1。
- *    （第二轮审计把 E6 记成「✅ 已做」是**错的**：那条 watch 里只有四个筛选条件，没有 `pageSize`。）
- *
- * ⚠️ `pageSizeJustChanged`：naive 那次夹页会**发 `update:page`**，而 `onPageChange` 里有滚动复位；
- *    旧版 `Bs` **不复位滚动条**（只有翻页 `xs` 复位）⇒ 得把它挡掉。
- *    naive 是先发 size 事件、再做夹页（同一个同步流程），所以在这里置真就能挡住那一次。
- */
-function onPageSizeChange(size: number) {
-  pageSize.value = size
-  pageSizeJustChanged = true
-  page.value = 1
-  void nextTick(() => {
-    pageSizeJustChanged = false
-  })
-}
-
-watch([searchText, onlyUnproduced, paymentFilter, progressFilter], () => {
-  page.value = 1
-})
-
-// 退出查询态：旧版 `Es`（搜索框 `onInput`，`:11099` 附近）与 `Ms`（`onClear`，`:11096-11100`）
-// 都会把 `gs` 置回 `false` —— 即「用户一动搜索框就回到全量列表」。
-// 新版 `n-input` 没有可用的输入事件钩子（`v-model:value` 下 `@update:value` 只在用户交互时发，
-// 拿不到「是否用户触发」这层区别），改用 watch：只要框里的值不再是进查询态时写进去的那串就退出。
-// 进查询态时 `submitQuery` 是先写 `querySearchPreset` 再写 `searchText`，所以那一次不会误退出。
-watch(searchText, (v) => {
-  if (v !== querySearchPreset.value) queryMode.value = false
-})
 
 // ---------------------------------------------------------------------------
 // 行状态色（§3）
@@ -1009,7 +735,6 @@ async function confirmAudit(row: OrderSummaryDto) {
   }
 }
 
-
 async function submitDate() {
   if (!dateTarget.value || dateValue.value == null) return
   const d = new Date(dateValue.value)
@@ -1023,9 +748,6 @@ async function submitDate() {
     message.error((e as Error).message || '修改失败')
   }
 }
-
-/** 进查询态时写进搜索框的那串（旧版 `Rc`，`:11083`）。搜索框一旦被改动即退出查询态。 */
-const querySearchPreset = ref('')
 
 // ---------------------------------------------------------------------------
 // 财务抽屉（§5 FinanceDrawer）

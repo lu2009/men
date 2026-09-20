@@ -399,6 +399,73 @@ const BLOCKS = [
         { from: 'message.error(', to: 'deps.message.error(' },               // REF:1378（页面上下文）
       ],
     } },
+  /*
+   * B3（筛选 / 列头筛选 / 分页）—— 第 9 块。**十块里最大的一块**：41 个登记名（8 `function` + 33 `const`/`type`）。
+   *
+   * ⚠️ **本块有 2 处守卫登记不了的东西**：`watch([searchText, …])`(REF:945-947) 与
+   *    `watch(searchText, …)`(REF:954-956) 是**顶层匿名调用**，没有名字 ⇒ `sliceFn` 匹配不到
+   *    （它只按名字切）⇒ 既进不了 `names` 也进不了 `consts`。
+   *    **这 2 处的保真由手工 `git diff` 提供，不由本守卫提供** —— 见 `task-6-report.md`。
+   *    这是本守卫的一条**能力边界**，Task 15 要记账。
+   *
+   * ⚠️ 本块的 `rewrites` **分两类，顺序有意义**（`split/join` 逐条串行）：
+   *    ① **Task 2 的调用形**（`REF → 当前工作区`）：`paidOf`/`unpaidOf`/`paymentStatus` 在那一笔
+   *       从「自己读 `financeSummary`」改成了**显式传参**（`.value`）⇒ 规则的 `from` 得写**抽取前**的样子；
+   *    ② **本笔的注入前缀**（`当前工作区 → deps.`）。
+   *    ⇒ **①必须排在②前面**：② 的 `from`（`financeSummary.value`）在 ① 跑完之前根本不存在。
+   *    每条都切成**最小字面**（Ruling 55），不写「一条大规则覆盖多行」、不写恒等规则。
+   *
+   * ⚠️ 注入面**只有 3 项**（`rawOrders`/`financeSummary`/`auth`）—— 实测重核过（与简报修正 C 一致）。
+   *    本块的 `orderNoQuery`/`queryRows`/`queryMode`/`querySearchPreset` 是**本块拥有并借出**的，
+   *    **不加 `deps.` 前缀**（它们是声明方，不是注入方）。
+   */
+  { target: 'app/src/composables/home/useHomeFilterView.ts',
+    names: ['matchSearch', 'distinctOptions', 'textColumnFilter', 'matchesColumnFilters',
+            'columnFilterValues', 'onUpdateFilters', 'onPageChange', 'onPageSizeChange'],
+    consts: ['searchText', 'onlyUnproduced', 'paymentFilter', 'progressFilter', 'orderNoQuery',
+             'queryRows', 'queryMode', 'filtered', 'columnFilterState', 'EMPTY_FILTER_LABEL',
+             'ColumnFilterOption', 'TextFilterKey', 'paidColumnFilter', 'unpaidColumnFilter',
+             'querySearchPreset', 'tableRef', 'pageSizeJustChanged', 'TEXT_FILTER_KEYS',
+             'clientFilterOptions', 'dateFilterOptions', 'addressFilterOptions',
+             'doorCountFilterOptions', 'totalPriceFilterOptions', 'remarkFilterOptions',
+             'salespersonFilterOptions', 'creatorFilterOptions', 'productionStatusFilterOptions',
+             'paidFilterOptions', 'unpaidFilterOptions', 'summary', 'page', 'pageSize', 'paged'],
+    rewrites: {
+      // `filtered`：REF:705 的 `paymentStatus(r)`（Task 2 加实参）+ 691/692/693 三处注入写读。
+      filtered: [
+        { from: 'paymentStatus(r)', to: 'paymentStatus(r, financeSummary.value)' },
+        { from: 'rawOrders.value', to: 'deps.rawOrders.value' },
+        { from: 'auth.user?.', to: 'deps.auth.user?.' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+      // `distinctOptions`：REF:750 的 `for (const r of rawOrders.value)`（选项取自全量原始列表）。
+      distinctOptions: [{ from: 'rawOrders.value', to: 'deps.rawOrders.value' }],
+      // `paidColumnFilter`(REF:789) / `unpaidColumnFilter`(REF:790)：Task 2 加了 `, financeSummary.value`。
+      paidColumnFilter: [
+        { from: 'paidOf(row)', to: 'paidOf(row, financeSummary.value)' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+      unpaidColumnFilter: [
+        { from: 'unpaidOf(row)', to: 'unpaidOf(row, financeSummary.value)' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+      // `paidFilterOptions`(REF:846) / `unpaidFilterOptions`(REF:847)：Task 2 把裸函数名包成箭头函数。
+      paidFilterOptions: [
+        { from: 'distinctOptions(paidOf)', to: 'distinctOptions((r) => paidOf(r, financeSummary.value))' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+      unpaidFilterOptions: [
+        { from: 'distinctOptions(unpaidOf)', to: 'distinctOptions((r) => unpaidOf(r, financeSummary.value))' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+      // `summary`：REF:876/877/878 三处（`s + paidOf(r)` · `s + unpaidOf(r)` · `unpaidOf(r) > 0`）。
+      summary: [
+        { from: 's + paidOf(r)', to: 's + paidOf(r, financeSummary.value)' },
+        { from: 's + unpaidOf(r)', to: 's + unpaidOf(r, financeSummary.value)' },
+        { from: 'unpaidOf(r) > 0', to: 'unpaidOf(r, financeSummary.value) > 0' },
+        { from: 'financeSummary.value', to: 'deps.financeSummary.value' },
+      ],
+    } },
 ]
 
 /**

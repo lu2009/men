@@ -29,14 +29,14 @@
  * （`api` / `pad` / `progressMatch` / `canSeeAllOrders` / naive-ui 与 `api/types` 的类型）
  * 本文件直接 `import`，不走注入 —— 与 `useHomeData.ts` / `useHomeSelection.ts` 同一口径。
  */
-import { computed, reactive, ref, type Ref } from "vue"
-import type { MessageApi } from "naive-ui"
-import { api } from "../../api/client"
-import type { ClientDto, OrderFinance, OrderSummaryDto } from "../../api/types"
-import { pad } from "../../utils/homeDate"
-import { progressMatch } from "../../utils/homeMetrics"
-import { canSeeAllOrders } from "../../utils/roles"
-import type { useAuthStore } from "../../stores/auth"
+import { computed, reactive, ref, type Ref } from 'vue'
+import type { MessageApi } from 'naive-ui'
+import { api } from '../../api/client'
+import type { ClientDto, OrderFinance, OrderSummaryDto } from '../../api/types'
+import { pad } from '../../utils/homeDate'
+import { progressMatch } from '../../utils/homeMetrics'
+import { canSeeAllOrders } from '../../utils/roles'
+import type { useAuthStore } from '../../stores/auth'
 
 /** `useHomeQueryMore()` 的注入面。**只放页面拥有的东西**（见文件头末段）。 */
 export interface HomeQueryMoreDeps {

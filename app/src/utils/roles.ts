@@ -109,7 +109,7 @@ export function canEditProcedures(role?: string | null): boolean {
  *
  *   | 调用点 | 旧版对应 |
  *   |---|---|
- *   | `Home.vue` 主表 `filtered` | `fs`（`:11153` / `:11172`） |
+ *   | 主表 `filtered`（声明已随 B3 归位到 `app/src/composables/home/useHomeFilterView.ts`，2026-09-20 纯搬迁） | `fs`（`:11153` / `:11172`） |
  *   | `Home.vue` 「查询更多」落地 | `:11076` `!qt.value && (s = s.filter(t => t["打单人"] === _t.value))` |
  *   | `Home.vue` 经营看板 | 旧版看板**不吃**这个范围（吃原始全量 `K`）—— **有意偏离**，见 `docs/2026-09-19-progress-dashboard.md` §2.2 / §193 |
  *

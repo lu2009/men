@@ -171,27 +171,58 @@ const FORMULAS = readFileSync(resolve(SRC, 'views/Formulas.vue'), 'utf8')
 const DATA = readFileSync(resolve(SRC, 'composables/home/useHomeData.ts'), 'utf8')
 /** 2026-09-20 Task 8 起：`submitQuery` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
 const MORE = readFileSync(resolve(SRC, 'composables/home/useHomeQueryMore.ts'), 'utf8')
+/** 2026-09-20 Task 6 起：主表 `filtered` 那处 `canSeeAllOrders` 的**新家**（同样要数）。 */
+const FILTER = readFileSync(resolve(SRC, 'composables/home/useHomeFilterView.ts'), 'utf8')
 
 // Home 三处：主表 filtered / 「查询更多」落地 / 看板 computed。
 // 三处**已经各自归位**：看板 → useHomeData.ts（Task 5）、查询更多 → useHomeQueryMore.ts（Task 8）、
-// 主表 filtered 仍在页面（Task 6 会把它移到 useHomeFilterView.ts，届时再加第四份源，数字仍是 3）。
+// 主表 filtered → useHomeFilterView.ts（Task 6）。
+// ⚠️ **Task 6 之后 `Home.vue` 自己贡献 0 处命中** —— 但**仍要把它留在被数源里**：
+//    它还有别的角色相关代码，而且「三处必须都在」这件事要靠这个和数看着。
 // 数**调用次数**而不是锚定某一行 —— 行号会漂，次数不会。
-const homeCalls = (HOME + DATA + MORE).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
+const homeCalls = (HOME + DATA + MORE + FILTER).match(/canSeeAllOrders\(\s*(?:deps\.)?auth\.user\?\.role\s*\)/g)?.length || 0
 check(
   homeCalls === 3,
-  `Home.vue + useHomeData.ts + useHomeQueryMore.ts 里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
+  `Home.vue + 三个 home 子模块（useHomeData/useHomeQueryMore/useHomeFilterView）里 canSeeAllOrders(auth.user?.role) 出现 3 次（实际 ${homeCalls}）`,
 )
+/*
+ * ⚠️ **这条在 Task 6 之前是「`Home.vue` 导入了 `canSeeAllOrders`」**（只查页面那一个文件），
+ *    Task 6 之后**它在 `Home.vue` 里再也用不到**了 —— 主表 `filtered` 搬走后，页面里
+ *    `canSeeAllOrders` 的**代码命中归零**，只剩 `import` 一行。
+ *    而 `vue-tsc` 的 **TS6133** 会把「导入了却没用」直接判红 ⇒ `npm run build` 红 ⇒ `npm run verify` 红。
+ *    **两条要求（「必须导入」与「不许导入未使用」）在同一个文件上不可同时满足** ⇒
+ *    只能把这条断言**从「页面导入」泛化成「凡用到它的那一块都导入」**（语义更强，不是放水）：
+ *    任何一份被数源里出现 `canSeeAllOrders(` 的，就必须有对应的 `utils/roles` 导入。
+ *    这**不是**「为了让闸变绿而改夹具」—— 原断言已不可满足，且新断言覆盖的事比原来多。
+ *    ⚠️ 路径前缀写成 `(?:\.\.\/)+`：`Home.vue` 用 `../utils/roles`，三个子模块用 `../../utils/roles`。
+ *    ⚠️ 引号两种都收（`['"]`）：这条问的是「**导没导入**」，不是「引号风格」——
+ *       写成只收单引号的话，一个用双引号的合法文件会被报成「缺导入」，那是一句**误导人的**报错。
+ *       （2026-09-20 实测踩到过：Task 8 的新文件当时 8 条 import 全是双引号，
+ *        这条断言报「缺：useHomeQueryMore.ts」，查下去才发现是引号问题不是导入问题。
+ *        同笔把那 8 条改成单引号对齐仓库风格，但**正则仍然两种都收** —— 判据不该依赖风格。）
+ */
+const IMPORT_RE = /import(?:\s+type)?\s*\{[^}]*\bcanSeeAllOrders\b[^}]*\}\s*from\s*['"](?:\.\.\/)+utils\/roles['"]/
+const ROLE_SOURCES = [
+  ['Home.vue', HOME],
+  ['useHomeData.ts', DATA],
+  ['useHomeQueryMore.ts', MORE],
+  ['useHomeFilterView.ts', FILTER],
+]
+const missingImport = ROLE_SOURCES.filter(([, src]) => src.includes('canSeeAllOrders(') && !IMPORT_RE.test(src))
 check(
-  /import \{[^}]*canSeeAllOrders[^}]*\} from '\.\.\/utils\/roles'/.test(HOME),
-  'Home.vue 从 utils/roles 导入了 canSeeAllOrders',
+  missingImport.length === 0,
+  `凡用到 canSeeAllOrders 的 Home 子模块都从 utils/roles 导入它${
+    missingImport.length ? ` —— 缺：${missingImport.map(([n]) => n).join(', ')}` : ''
+  }`,
 )
 // 两支各自的形状：`!canSeeAllOrders(...)` 两次（filtered + submitQuery），
 // 看板是三元 `canSeeAllOrders(...) ? 全量 : filter`（**没有** `!`）。写反了这里会红。
-// ⚠️ 这条的源也要含 `MORE` —— `submitQuery` 那处带 `!` 的在 Task 8 搬走了（正则不含 `auth`，所以只是加源）。
-const homeNegated = ((HOME + MORE).match(/!\s*canSeeAllOrders\(/g) || []).length
+// ⚠️ 这条的源也要含 `MORE`（Task 8）与 `FILTER`（Task 6）—— 两处带 `!` 的都搬走了
+//    （正则不含 `auth`，所以只是加源，数字不动）。
+const homeNegated = ((HOME + MORE + FILTER).match(/!\s*canSeeAllOrders\(/g) || []).length
 check(
   homeNegated === 2,
-  `Home.vue + useHomeQueryMore.ts 里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`,
+  `Home.vue + useHomeQueryMore.ts + useHomeFilterView.ts 里 !canSeeAllOrders( 出现 2 次（实际 ${homeNegated}）`,
 )
 
 check(
