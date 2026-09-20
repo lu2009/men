@@ -43,7 +43,7 @@ import type { ProgressRowDto } from '../api/types'
 // A. 单元格保真
 // ═══════════════════════════════════════════════════════════════════════════
 /*
- * 下面这堆 helper 全部对应旧版 `Progress-fb4def35.js` 里的**静态 VNode props 对象**，
+ * 下面这堆 helper 全部对应旧版 `Progress-f4bdef35.js` 里的**静态 VNode props 对象**，
  * 类名逐字照抄（旧版 CSS `Progress-4dee25cf.css` 的 `[data-v-95ebc180]` 段）：
  *
  *   `.glass-inputs-container`  `display:flex;flex-direction:column;gap:5px;width:100%`

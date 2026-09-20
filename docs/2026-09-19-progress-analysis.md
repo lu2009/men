@@ -6,7 +6,7 @@
 > 旧版**服务端源码**：`/Users/aaa/Downloads/server`（本次已用来把「推断」升级为「证实」）
 >
 > 本文所有结论都带证据。证据形式：
-> `@NNNNN` = 在 `Progress-fb4def35.js` 里的**字节偏移**（单行文件）；`E(n)` / `de(n)` 等 = 解码表下标（解码表由
+> `@NNNNN` = 在 `Progress-f4bdef35.js` 里的**字节偏移**（单行文件）；`E(n)` / `de(n)` 等 = 解码表下标（解码表由
 > `legacy/decode-progress-map.mjs` 跑出来）；服务端结论给文件+行号。
 
 ---
@@ -194,7 +194,7 @@ me={key:4,class:"search-info"},ge={class:"total-info"},ve={key:5,class:"search-i
 
 ### 3.1 只读接口
 
-前端调用点（`Progress-fb4def35.js`）：
+前端调用点（`Progress-f4bdef35.js`）：
 
 ```js
 // @108455

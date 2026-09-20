@@ -108,11 +108,11 @@ export async function setProcedures(ds: string, proceduresData: unknown) {
 
 ### 1.3 前端侧证据（读侧和写侧都传 registrant）
 
-三个读点（`Progress-fb4def35.js`，解码表 `de(360)` / `E(738)` =
+三个读点（`Progress-f4bdef35.js`，解码表 `de(360)` / `E(738)` =
 `https://www.samrtdoor.com.cn/1?param1=GetProcedures&param2=`）：
 
 ```js
-// Progress-fb4def35.js 解码后（三处同构：看板 onWatch、批量更新 ta、单行「更新进度」）
+// Progress-f4bdef35.js 解码后（三处同构：看板 onWatch、批量更新 ta、单行「更新进度」）
 const l = t["userinfo"]["registrant"],                       // ← userinfo.registrant
       a = await fetch("https://www.samrtdoor.com.cn/1?param1=GetProcedures&param2=" + l),
       n = await a["json"]();
@@ -622,7 +622,7 @@ export async function getMoreProgress(ds, customer?, address?, startDate?, endDa
 }
 ```
 
-前端（`Progress-fb4def35.js` 解码后，`Io` = 执行「查询更多」）：
+前端（`Progress-f4bdef35.js` 解码后，`Io` = 执行「查询更多」）：
 
 ```js
 fetch("https://www.samrtdoor.com.cn/1?param1=getMoreProgress&param2=" + a
@@ -668,7 +668,7 @@ fetch("https://www.samrtdoor.com.cn/1?param1=getMoreProgress&param2=" + a
 前端把「回款」这个名字绑到 `工序10`：
 
 ```js
-// Progress-fb4def35.js 解码后（三处同构）
+// Progress-f4bdef35.js 解码后（三处同构）
 for (const l of t) U["value"]["push"](l["value"]), T["value"][l["value"]] = l["key"];
 !T["value"]["回款"] && (U["value"].push("回款"), T["value"]["回款"] = "工序10"),
 ```

@@ -244,7 +244,7 @@ const HOME_SECTIONS: DocSection[] = [
 /**
  * **生产进度页（`/Progress`）的抽屉清单** —— 旧版那 12 类，**顺序、文案、按钮色**逐字照抄。
  *
- * 证据：`legacy/js/Progress-fb4def35.js` 反混淆后，抽屉 `zl`（`el-drawer` `title:"打印选项"`
+ * 证据：`legacy/js/Progress-f4bdef35.js` 反混淆后，抽屉 `zl`（`el-drawer` `title:"打印选项"`
  * `size:350`）的那一排 `el-button`，逐颗解出来的文案与 `onClick`：
  *
  * ```

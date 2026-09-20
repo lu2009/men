@@ -525,7 +525,7 @@ async function submitUpdate() {
 
 // ===== 行内「删除」（§4.3）=====
 /*
- * 旧版原文（`Progress-fb4def35.js` 反混淆后，日期列的第二个 `<span class="update-progress-link">`）：
+ * 旧版原文（`Progress-f4bdef35.js` 反混淆后，日期列的第二个 `<span class="update-progress-link">`）：
  *
  *   onClick: async row => {
  *     await E("删除") && ElMessageBox.confirm("确定要删除这一行吗？", "提示", {
