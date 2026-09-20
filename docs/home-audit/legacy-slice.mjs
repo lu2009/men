@@ -30,7 +30,7 @@ const ROOT = resolve(HERE, '..', '..')
  * ⚠️ 它落在 `/tmp`，**不在仓库里**；`verify.mjs` / `run-all.mjs` 都没有准备夹具的环节
  *    ⇒ 换台机器（CI）直接 ENOENT，**8 个台子一起红**（2026-09-20 CI run #1 就是栽在这里：
  *    7 个 import 本文件的 + `total-balance-logiccheck.mjs`）。
- *    所以这里**不在就现生成** —— 与 `docs/progress-*.mjs` 那 5 个台子早就这么做过的口径一致。
+ *    所以这里**不在就现生成** —— 与 `docs/progress-{cell,dashboard,more,select,toolbar}-logiccheck.mjs` 那 5 个台子早就这么做过的口径一致。
  *    生成是确定性的：2026-09-20 实测「现场生成」与本机那份**字节完全相同**。
  */
 const MAP_PATH = '/tmp/home-map.json'

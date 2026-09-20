@@ -75,7 +75,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 ### 本地（有开发库、有仓库外旧版源码）
 
-`npm run verify`：36 个全跑 —— **36 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
+`npm run verify`：37 个全跑 —— **37 绿**（`KNOWN_RED` 已于 2026-09-20 排空，见第 5 节）。
 
 > 单独手工跑 `node docs/home-audit/run-all.mjs`（不带 `RUN_ALL_STRICT`）会看到另一组数：
 > **29 绿 + 6 个 ⏭ + 0 已知红**（2026-09-20 实测，不是算出来的；接入 movecheck 前是 27）。
