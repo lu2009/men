@@ -89,9 +89,9 @@ Home 的 script 有 23 处 `// -----` 分区注释，缝是现成的：
 | 状态 | 定义 | 读写点数 |
 |---|---|---|
 | `load()` | 546 | **11 个调用点 / 9 个分区** |
-| `unpaidOf` | 583 | 9 个分区 |
+| `unpaidOf` | `utils/homeMetrics.ts:16`（`28e36d21` 时在 `Home.vue:583`；2026-09-20 随 B2 搬走） | 9 个分区 |
 | `rawOrders` | 542 | 8 个分区（`submitQuery` 读写、`deleteSelected`、`clearAccounts`、`dashboardOrders`…） |
-| `fmt` | 581 | 7 个分区 |
+| `fmt` | `utils/homeMetrics.ts:14`（`28e36d21` 时在 `Home.vue:581`；2026-09-20 随 B2 搬走） | 7 个分区 |
 | `filtered` | 689 | 6 个分区 |
 | `checkedRowKeys` | 1558 | 6 个分区 + 模板 5 处 |
 | `financeSummary` | 544 | 5 个分区 |
@@ -183,7 +183,7 @@ Home.vue 里下列规则**是裸类名、没有 `:deep()` 版本，且目标元�
 
 | 块 | 落点 | 覆盖行段 | 注入 | 自洽性说明 |
 |---|---|---|---|---|
-| **B2** | `utils/homeMetrics.ts` | **实测**：578–604 + 757–764 + 974–1016<br>（方案原写 578–604 + 761–764 + 1001–1016 —— 差在「紧贴函数上方的文档注释」，见 §8.2 #7） | `financeSummary` | 纯函数集（`fmt`/`unpaidOf`/`paidOf`/`paymentStatus`/`progressMatch`/`isUnaudited`/`dateCellClass`）。**最安全的一刀**。<br>✅ **2026-09-20 实做完毕**：7 个导出逐字搬迁（守卫 `home-extract-movecheck.mjs` 的第一条），`npm run verify` 35/35。**搬走 78 行**（不含 3 行空行） |
+| **B2** | `utils/homeMetrics.ts` | **实测**：578–604 + 757–764 + 974–1016<br>（方案原写 578–604 + 761–764 + 1001–1016 —— 差在「紧贴函数上方的文档注释」，见 §8.2 #7） | `financeSummary` | 纯函数集（`fmt`/`unpaidOf`/`paidOf`/`paymentStatus`/`progressMatch`/`isUnaudited`/`dateCellClass`）。**最安全的一刀**。<br>✅ **2026-09-20 实做完毕**：7 个导出逐字搬迁（守卫 `home-extract-movecheck.mjs` 的第一条），`npm run verify` 35/35。**搬走 78 行**（含 3 行空行 `587`/`594`/`1010`，非空 **75** 行）；`Home.vue` 实际删 **81** 行（78 + 三段**尾部**的 3 行空行 `605`/`765`/`1017`），另 16 行原地改（15 个调用点 + 1 句注释）、+1 行 import |
 | **B10** | `composables/home/useHomeSelection.ts` | 1550–1886 + 1167–1189 | 8 项 | 删除选中 + 清账。**唯一没有第三方写入者的一块**（`checkedRowKeys` 是它「拥有并借出」的状态）⇒ **建议第一刀** |
 | **B3** | `composables/home/useHomeFilterView.ts` | 606–613 + 689–714 + 716–883 + 885–956 | 7 项 | **必须四段合一**：`watch`(945) 监听 4 个筛选 ref、`watch`(954) 读 `querySearchPreset`。分开就互相注入。全文件最大的 hub：7 项注入换 25+ 项输出 |
 | **B4** | `composables/home/useHomeOrderNo.ts` | 617–664 + 2259–2338 | 8 项 | 注入偏多但都是薄胶水。**不得吞 `filtered`**（那是 B3 的） |
@@ -427,6 +427,11 @@ app/src/components/hui/      ← 同上
    ⚠️ 这一条**必须在实施计划里显式排期**，否则会变成「等用户问起才想起来」——
    那正是本仓库 `CLAUDE.md` 里记的三次事故的共同点。
 3. 每笔提交信息里写明「本笔改动了哪些行段 ⇒ 哪些文档的行号引用暂时失效」，便于最后那一笔核算。
+4. ⚠️ **引用口径要放宽（2026-09-20 补，B2 一笔实测出来的）**：上面那张表统计的 238 条**只认 `Home.vue:<行号>` 这一种字面形式**，而同样会失效、却**一条都没被统计进去**的还有一整类 ——
+   **「符号名 + 文件名」**：`docs/home-audit/rowstate-logiccheck.mjs:72` 写着「与 `app/src/views/Home.vue` 的 `dupKey()` / … / `unpaidOf()` 同逻辑」、`:101` 写着「新版 `Home.vue` 的 `unpaidOf` 回退分支」，以及本文 §1.3 那种 **`| unpaidOf | 583 |` 裸行号**。
+   B2 一笔就踩出 **3 处**（两行 `.mjs` + §1.3 的两行），**已在本笔按第 1 条策略改掉**。
+   ⇒ **Task 29 复核引用时必须用放宽后的口径**（`Home.vue` 与任一「本方案搬走的符号名」同现；以及**任何指向 `Home.vue` 的裸行号**），否则那个「238 条」会漏掉整整一类。
+   ⚠️ 这类的危险**比带行号的那种更大**：带行号的会**指错位置**（读者一对就发现），不带行号的**不会报任何错**，只是静默指到已经不存在的符号 —— 正是本仓库最忌讳的「文档与代码不一致」。
 
 ---
 

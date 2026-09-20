@@ -56,7 +56,7 @@ export function paidOf(r: OrderSummaryDto, fin: Record<string, OrderFinance>): n
  * ```
  *
  * ⚠️ **`ceil` 不是 `floor`**（`dr(1091)` 解出来就是 `ceil`）—— 这条注释 2026-09-19 更正过，
- *    原写 `floor`。**而且我们的实现目前用的正是 `floor` + 本地午夜**（见下面 `dateCellClass`），
+ *    原写 `floor`。**而且我们的实现目前用的正是 `floor` + 本地午夜**（见本函数），
  *    与旧版的 `ceil` + UTC 午夜**不等价**：到期差 4 天那一档旧版不标、我们标，
  *    跨 UTC/本地 8 小时也会差 ⇒ **我们会把「临近截止」标早一天**。
  *    已记为待拍板的行为偏离（`docs/home-audit/00-summary.md` §五），**不是**本注释改了就算对齐。

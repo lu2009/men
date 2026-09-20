@@ -69,7 +69,8 @@ const legacy = runLegacy(
 )
 
 // ------------------------------------------------------------------ 新版实现 //
-// ⚠️ 与 `app/src/views/Home.vue` 的 `dupKey()` / `duplicateKeys` / `rowClass()` / `unpaidOf()` 同逻辑。
+// ⚠️ 与 `app/src/views/Home.vue` 的 `dupKey()` / `duplicateKeys` / `rowClass()` 同逻辑
+// （`unpaidOf()` 2026-09-20 随 B2 搬去 `app/src/utils/homeMetrics.ts`）。
 function dupKey(r) {
   const k = (v) => (v == null ? '' : String(v).trim())
   const client = k(r.client_name)
@@ -98,7 +99,7 @@ function rowClass(r, expanded, loaded, dups) {
   if (k && dups.has(k)) classes.push('duplicate-order-row')
   return classes.join(' ')
 }
-/** 新版 `Home.vue` 的 `unpaidOf` 回退分支（摘要缺失时）。 */
+/** 新版 `unpaidOf`（`app/src/utils/homeMetrics.ts`，2026-09-20 前在 `Home.vue`）的回退分支（摘要缺失时）。 */
 const unpaidOf = (r) => r.total_price - r.deposit
 
 // -------------------------------------------------------------------- 夹具 //
