@@ -110,8 +110,8 @@ export function canEditProcedures(role?: string | null): boolean {
  *   | 调用点 | 旧版对应 |
  *   |---|---|
  *   | 主表 `filtered`（声明已随 B3 归位到 `app/src/composables/home/useHomeFilterView.ts`，2026-09-20 纯搬迁） | `fs`（`:11153` / `:11172`） |
- *   | `Home.vue` 「查询更多」落地 | `:11076` `!qt.value && (s = s.filter(t => t["打单人"] === _t.value))` |
- *   | `Home.vue` 经营看板 | 旧版看板**不吃**这个范围（吃原始全量 `K`）—— **有意偏离**，见 `docs/2026-09-19-progress-dashboard.md` §2.2 / §193 |
+ *   | 「查询更多」落地（声明已随 B5 归位到 `app/src/composables/home/useHomeQueryMore.ts`，2026-09-20 纯搬迁） | `:11076` `!qt.value && (s = s.filter(t => t["打单人"] === _t.value))` |
+ *   | 经营看板（声明已随 B1 归位到 `app/src/composables/home/useHomeData.ts`，2026-09-20 纯搬迁） | 旧版看板**不吃**这个范围（吃原始全量 `K`）—— **有意偏离**，见 `docs/2026-09-19-progress-dashboard.md` §2.2 / §193 |
  *
  * ⚠️ **与 [`canEditProcedures`] 是两条口径，别合并**：那个来自 `defaulted === 1`（车间账号），
  *    这个来自 `qt`。今天都落到「是不是 `admin`」，但**依据不同**。
