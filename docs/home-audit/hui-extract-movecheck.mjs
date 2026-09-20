@@ -434,6 +434,65 @@ const SPLIT_BLOCKS = [
       importLastOrder: [],
     },
   },
+  {
+    // C10「打印出口 + 打印载荷」（**C 批最后一块**）。快照是**三段** `Hui.vue:1941-1980` + `2039-2079`
+    // + `2152-2175`，合计 9 个声明。注入 **14 项**（plan `:829` 写「12 项」—— 实测 14，差在 `today`/`markupError`）。
+    // 🔴🔴 **注入项一律传引用本身**：`printCtx` 是 `computed`，传值 ⇒ **打印内容冻结在注入那一刻**（不报错）。
+    //    ⚠️ 这一条**本脚本验不了**（它只比「搬的时候有没有偷改」）—— 靠新家文件头 + 页面注释钉住。
+    // ⚠️ `message.` 那条规则**不能用**：四个打印函数体里都有 `e instanceof Error ? e.message : …`
+    //    ⇒ 裸 `message.` 会把它改成 `e.deps.message`。这里用的是**带调用形状**的两条
+    //    （`message.warning(` / `message.error(`），`e.message` 后面跟的是空格与冒号，两条都不碰。
+    target: 'app/src/composables/hui/useHuiPrint.ts',
+    names: ['printLabels', 'loadFormulaImages', 'ensureFormulaImages', 'printGlass', 'printGlassHole',
+      'printProductionCustom'],
+    consts: ['formulaImages', 'printCtx', 'printApi'],
+    rewrites: {
+      printLabels: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+      printGlass: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+      printGlassHole: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+      printProductionCustom: [
+        { from: 'lines.value', to: 'deps.lines.value' },
+        { from: 'message.warning(', to: 'deps.message.warning(' },
+        { from: 'message.error(', to: 'deps.message.error(' },
+      ],
+      ensureFormulaImages: [{ from: 'lines.value', to: 'deps.lines.value' }],
+      printCtx: [
+        // ⚠️ `order,` 是**简写属性**：直接加前缀会得到 `{ deps.order }` —— **语法错**（vue-tsc TS1005 实测抓到），
+        //    而**守卫当时是绿的**（两侧套的是同一条错规则 ⇒ 同错 ⇒ 逐字一致）。这正是文件头「能力边界 2」的活例。
+        //    ⇒ 必须展开成 `order: deps.order,`。
+        { from: 'order,', to: 'order: deps.order,' },
+        { from: 'lines: lines.value', to: 'lines: deps.lines.value' },
+        { from: 'formulas: formulas.value', to: 'formulas: deps.formulas.value' },
+        { from: 'clients: clients.value', to: 'clients: deps.clients.value' },
+        { from: 'tenantName: tenantName.value', to: 'tenantName: deps.tenantName.value' },
+        { from: 'maker: currentUserName.value', to: 'maker: deps.currentUserName.value' },
+        { from: 'payQrcode: payQrcodeUrl.value', to: 'payQrcode: deps.payQrcodeUrl.value' },
+        { from: 'terminalLink: terminalLink.value', to: 'terminalLink: deps.terminalLink.value' },
+        { from: 'showPing: showPing.value', to: 'showPing: deps.showPing.value' },
+        { from: 'showDiao: showDiao.value', to: 'showDiao: deps.showDiao.value' },
+        { from: 'sortMethod: sortMethod.value', to: 'sortMethod: deps.sortMethod.value' },
+        { from: 'today: today()', to: 'today: deps.today()' },
+        { from: 'onMarkupError: markupError,', to: 'onMarkupError: deps.markupError,' },
+      ],
+      // `formulaImages` 是单行 `ref(...)`、`loadFormulaImages` 只碰块内的 `formulaImages`/`api`、
+      // `printApi` 只碰块内的 `printCtx` ⇒ 零改写（**不是漏写**）。
+      formulaImages: [],
+      loadFormulaImages: [],
+      printApi: [],
+    },
+  },
 ]
 
 /**

@@ -618,20 +618,23 @@ import type { DataTableColumns } from 'naive-ui'
 import { api } from '../api/client'
 // 2026-09-20 C5：`ClientDto` 的唯一消费者是「客户」那块，已随它搬进
 // `composables/hui/useHuiClients.ts` ⇒ 本文件不再 import 它（留着就是 TS6196）。
+// 2026-09-20 C10：`FormulaImageDto` 的唯一消费者是「打印出口/挖孔图缓存」那块，
+// 已随它搬进 `composables/hui/useHuiPrint.ts` ⇒ 本文件不再 import 它（留着就是 TS6196）。
 import type {
   FormulaDto,
-  FormulaImageDto,
   OrderDto,
   OrderInput,
   OrderLineInput,
   OrderSummaryDto,
 } from '../api/types'
-import { printByMode } from '../utils/printService'
+// 2026-09-20 C10：`printByMode` 的唯一消费者是那四个打印出口，已随它们搬进
+// `composables/hui/useHuiPrint.ts` ⇒ 本文件不再 import（留着就是 TS6133）。
 import type { MarkupItem } from '../utils/markupLines'
 import { round2, type Line, type PartPreview } from '../utils/partsEngine'
 // 2026-09-20 C7：`TENANT_DS` 的唯一消费者是「终端链接」那块（拼 token 的 `a`），已随它搬进
 // `composables/hui/useTerminalLink.ts` ⇒ 本文件不再 import 它（留着就是 TS6133）。
-import { createPrintPayloads, type PrintContext } from '../utils/printPayloads'
+// 2026-09-20 C10：`createPrintPayloads` / `PrintContext` 的唯一消费者是「打印载荷」那两行
+// （`printCtx` / `printApi`），已随它们搬进 `composables/hui/useHuiPrint.ts` ⇒ 本文件不再 import（TS6192）。
 // 2026-09-20 C4：`writeShowTotalBalance` / `writeAssistiveMenu` / `writeAssistiveFullscreen` 的三个
 // **写**入口随外壳开关搬进 `composables/hui/useHuiShellToggles.ts`；本文件只留**读**（`onMounted` 里
 // 回写那三个 ref，见下面 `showTotalBalance.value = readShowTotalBalance()` 那三行）。
@@ -662,6 +665,7 @@ import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
 import { useHuiLineSelection } from '../composables/hui/useHuiLineSelection'
 import { useHuiAutoMarkup } from '../composables/hui/useHuiAutoMarkup'
 import { useHuiOrderIo } from '../composables/hui/useHuiOrderIo'
+import { useHuiPrint } from '../composables/hui/useHuiPrint'
 // 行编辑引擎（2026-09-19 从本文件整段搬出，函数体逐字未改）。
 // 搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对。
 // `LS` 是模块级导出（纯 localStorage 小工具，引擎与页面共用同一份，不各存一份）。
@@ -1428,46 +1432,9 @@ const { sortMethod, sortMethodOpen, sortMethodDraft, openSortMethod, saveSortMet
 
 
 
-async function printLabels() {
-  if (!lines.value.length) {
-    message.warning('暂无订单行')
-    return
-  }
-  const rows = printApi.value.labelRows('lable')
-  if (!rows.length) {
-    message.warning('标签数量为 0，无需打印')
-    return
-  }
-  try {
-    await printByMode('lable', rows)
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '标签打印失败')
-  }
-}
-
-// 公式挖孔图缓存（原版 glassHole doorImg = 按行开向取公式图片）
-const formulaImages = ref<Record<number, FormulaImageDto[]>>({})
-async function loadFormulaImages(fid: number | null) {
-  if (fid == null || formulaImages.value[fid]) return
-  try {
-    formulaImages.value[fid] = await api.listFormulaImages(fid)
-  } catch {
-    formulaImages.value[fid] = []
-  }
-}
-
-/**
- * 打印/预览「玻璃订单」前，确保**各行公式的挖孔图都已加载**。
- *
- * ⚠️ `loadFormulaImages` 原先**只在「算料」里调用一次**（`calcSingleRow`），而 `holeImageOf` /
- * `holeImgByDir` 是同步查缓存的 ⇒ **载入一张已保存的订单后直接打印玻璃订单，挖孔图整列为空**
- * （必须先在页面上点一次「算料」才会出现）。这里在打印/预览入口补一次兜底加载
- * （`loadFormulaImages` 自带缓存，重复调用是 no-op）。
- */
-async function ensureFormulaImages() {
-  const ids = [...new Set(lines.value.map((l) => l.formula_id).filter((v): v is number => v != null))]
-  await Promise.all(ids.map((id) => loadFormulaImages(id)))
-}
+// 2026-09-20 本段 4 个声明（`printLabels` + 挖孔图缓存三件）搬到
+// `composables/hui/useHuiPrint.ts`（逐字搬迁，零行为变化）—— 调用点见下面「打印载荷」那一节的解构。
+// ⚠️ `loadFormulaImages` 段外还有活读者：`calcSingleRow` 里的 `engine.calcRowParts(l, loadFormulaImages)`。
 
 
 
@@ -1488,47 +1455,9 @@ const {
   templatePreviewTitle, templateList, openTemplatePreview,
 } = useHuiPreview({ lines, order, orderId, message })
 
-async function printGlass() {
-  if (!lines.value.length) {
-    message.warning('暂无订单行')
-    return
-  }
-  try {
-    await printByMode('glass', { produces: printApi.value.glassProduces() })
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '玻璃单打印失败')
-  }
-}
-
-// 玻璃订单（glassHole 模板，table.field=glassInfoList）
-async function printGlassHole() {
-  if (!lines.value.length) {
-    message.warning('暂无订单行')
-    return
-  }
-  try {
-    await ensureFormulaImages()
-    await printByMode('glassHole', { glassInfoList: printApi.value.glassInfoProduces() })
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '玻璃订单打印失败')
-  }
-}
-
-// 生产单定制（product2，mode 8）/ 生产单3（product3，mode 9）—— 均走 `oldSheet` 载荷。
-// **product3 需要配对**：`_0x1ebfe1` 把相邻两行合成一张，第二行的所有键加 `1` 后缀
-// （模板里同时有 `oldSheet` 与 `oldSheet1` 两张表，正是为此）。原版 mode 9 有独立分支，
-// 我们原先只有 product2 一个出口，product3 只能从「模板预览」里打。
-async function printProductionCustom(mode: 'product2' | 'product3' = 'product2') {
-  if (!lines.value.length) {
-    message.warning('暂无订单行')
-    return
-  }
-  try {
-    await printByMode(mode, printApi.value.oldSheetProduces(mode === 'product3'))
-  } catch (e) {
-    message.error(e instanceof Error ? e.message : '生产单定制打印失败')
-  }
-}
+// 2026-09-20 本段 3 个打印出口（玻璃单 / 玻璃订单 / 生产单定制）已随上面那段一起搬到
+// `composables/hui/useHuiPrint.ts`（逐字搬迁，零行为变化）—— 调用点见「打印载荷」那一节的解构。
+// 页面里剩下的读者是 `onMoreSelect` 的四个 `case`（那是**点击时**才求值，故解构在下面不成问题）。
 
 // —— 回执单分享 / 下载（无外部依赖：下载独立 HTML、分享文本摘要） ——
 
@@ -1570,23 +1499,22 @@ onBeforeUnmount(() => {
 // （玻璃单 / 玻璃订单 / 生产单 —— 见 `printGlass` / `printProduction` 那几处），
 // 这几张模板里根本没有 `TotalBalance` 这一格。回执族的打印**全部**走
 // `PrintPreviewDialog` → `useOrderPrint.loadPrintPrereqs`，余额在那儿取。
-const printCtx = computed<PrintContext>(() => ({
-  order,
-  lines: lines.value,
-  formulas: formulas.value,
-  clients: clients.value,
-  tenantName: tenantName.value,
-  maker: currentUserName.value,
-  payQrcode: payQrcodeUrl.value,
-  terminalLink: terminalLink.value,
-  showPing: showPing.value,
-  showDiao: showDiao.value,
-  sortMethod: sortMethod.value,
-  formulaImages: formulaImages.value,
-  today: today(),
-  onMarkupError: markupError,
-}))
-const printApi = computed(() => createPrintPayloads(printCtx.value))
+// 2026-09-20 本段 2 个声明（`printCtx` / `printApi`）搬到 `composables/hui/useHuiPrint.ts`
+// （逐字搬迁，零行为变化）—— **调用点放在这里**（不是上面两段处）：本块依赖的 `tenantName`/`currentUserName`/
+// `terminalLink`(C7) 与 `sortMethod`(C13) 解构在更下面，只有放到这一行才全部就绪。
+// 🔴🔴 **注入项一律传引用本身**（`lines`/`formulas`/`clients`/`tenantName`/`showPing`/`sortMethod`…）。
+//    `printCtx` 是 `computed`：传值 ⇒ 它读的是**快照** ⇒ **打印内容冻结在注入那一刻**
+//    （新加的行走不进玻璃单、隐藏的移门照样打、换了排序方式没反应），而且**不报错**。
+// 回传 5 项：四个打印出口（`onMoreSelect` 的四个 `case`）+ `loadFormulaImages`（`calcSingleRow` 里用）。
+// ⚠️ 其余 4 个（`formulaImages`/`ensureFormulaImages`/`printCtx`/`printApi`）**有意不回传**，见新家文件头。
+// ⚠️ 上面 `onMoreSelect` 与 `calcSingleRow` 会**在本行之前**引用这些名字 —— 安全，因为两处都是
+//    **运行时才求值**（函数声明 + 点击触发）；**别**把它们挪进 `onMounted` 那类 setup 期同步语句（会撞 TDZ）。
+const {
+  printLabels, printGlass, printGlassHole, printProductionCustom, loadFormulaImages,
+} = useHuiPrint({
+  order, lines, formulas, clients, tenantName, currentUserName, payQrcodeUrl, terminalLink,
+  showPing, showDiao, sortMethod, today, markupError, message,
+})
 
 onMounted(async () => {
   loadOpenDirectionSettings()
