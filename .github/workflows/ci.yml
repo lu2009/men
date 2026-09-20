@@ -11,7 +11,7 @@
 #   · 后端由 `verify` 自己起（自带 migrate + 播种管理员），端口 3100、库 `smartdoor_verify`。
 #   · `/tmp` 里那几个**夹具**（`home-map.json` / `progress*.json` / `progress.decoded.js`）不在仓库里，
 #     CI 上没人事先跑过生成它们的那几步 —— 所以由**台子自己现生成**（缺了就现算，见
-#     `docs/home-audit/legacy-slice.mjs` 与 `docs/progress-*.mjs`）。2026-09-20 CI run #1 就是栽在
+#     `docs/home-audit/legacy-slice.mjs` 与 `docs/progress-{cell,dashboard,more,select,toolbar}-logiccheck.mjs`）。2026-09-20 CI run #1 就是栽在
 #     这上面：8 个台子 `ENOENT: /tmp/home-map.json`。**别在 workflow 里补生成步骤** ——
 #     台子自给自足才能在别人机器上直接跑。
 #

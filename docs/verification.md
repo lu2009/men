@@ -135,7 +135,7 @@ npm run verify -- --quiet   # 差分台只打汇总表
 
 | 文件 | 改了什么 |
 |---|---|
-| `docs/home-audit/legacy-slice.mjs` | `/tmp/home-map.json` **不在就现生成**（调 `legacy/decode-home-map.mjs`）—— 与 `docs/progress-*.mjs` 早就有的口径一致 |
+| `docs/home-audit/legacy-slice.mjs` | `/tmp/home-map.json` **不在就现生成**（调 `legacy/decode-home-map.mjs`）—— 与 `docs/progress-{cell,dashboard,more,select,toolbar}-logiccheck.mjs` 早就有的口径一致 |
 | `docs/home-audit/total-balance-logiccheck.mjs` | 同上（它自己读那份表） |
 | `legacy/decode-progress-scoped.mjs` | `createRequire` 的锚点从**写死的绝对路径**改成从 `import.meta.url` 推根 |
 
