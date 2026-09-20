@@ -87,10 +87,13 @@ const OLD_PATH = 'app/src/views/Home.vue'
  *
  * ⚠️⚠️ **登记新名字前先验「切片切得完整」** —— 本脚本的绿只等于「切出来的那一段逐字一致」，
  * **不等于「整个声明都对过」**。切片器是文本启发式，**不是解析器**，
- * 所以它每多认一种形状都得单独钉一例自测（`--selftest` 现在 **29** 条：其中 9 条是
+ * 所以它每多认一种形状都得单独钉一例自测（`--selftest` 现在 **32** 条：其中 9 条是
  * 2026-09-20 为「声明跨行」这一族补的，7 条是 Task 3.6 补的 —— 洞④ 5 条 + 快车道 `<= 0`
- * 1 条 + 联合类型夹注释 1 条）。
+ * 1 条 + 联合类型夹注释 1 条，**3 条是 Task 3.7 补的** —— 快车道看下一行行首 2 条（`.`
+ * 与 `?` 各一）+ 行尾续行记号含 `<` 1 条）。
  * ⚠️ 这个数字**此前写着 21，而实际是 22**（⑭ 那条加进来时没跟着改）—— 现已按实测改。
+ * ⚠️ **数字只为「看得出它长过」**，别拿它当覆盖率：`--selftest` 只证明「定义好的输入上会红」，
+ *    它**不扫真代码**。要扫真代码用 `docs/home-audit/decl-sweep.mjs`（那台才是硬闸）。
  *
  * **验法**（别只看绿勾）：把该声明的**第二行**随便改一下 → 跑本脚本 → **必须报红**；
  * 不红就别登记（登记了等于给自己发一张假绿卡）。改完**还原**。
@@ -99,6 +102,13 @@ const OLD_PATH = 'app/src/views/Home.vue'
  * `ts.createSourceFile` + 递归遍历整棵树取同名声明的 `getText()`，与 `sliceFn` 的结果
  * 都过一遍 `norm()` 再比。2026-09-20 用它复核了双方清单里的**每一个**名字，
  * **查出 4 个已登记的名字此前是假绿**（见下）。这就是「守卫自己的绿证明不了切片完整」的实证。
+ *
+ * ⚠️ 那套判据**已经从「一次性脚本」落成常驻仪器**：`docs/home-audit/decl-sweep.mjs`
+ *    （2026-09-20 Task 3.7 建，全 `app/src` 154 文件 / 4434 个声明 / 三方对照）。
+ *    用法：`node docs/home-audit/decl-sweep.mjs [--check] [--against <git-ref>]` ——
+ *    `--check` 把「解析器切得全、`sliceFn` 切短」变成**硬闸**（exit 1）；
+ *    `--against <sha>` 打「旧核 vs 新核」方向表（`旧对新错` **必须是 0**）。
+ *    **改 `lib/` 里的核心之后跑它** —— 本脚本与姊妹件都只验清单内的名字，看不见这一类。
  *
  * ### 已知残留（切片器还没认的形状，别登记这些）
  *
@@ -117,8 +127,27 @@ const OLD_PATH = 'app/src/views/Home.vue'
  *    `props`/`emit` 虽在 Hui 守卫的目标文件里却**没被登记**（今天不构成假绿，登记那一刻才会），
  *    `financeOrder` 不属任何块。本洞的性质是「**发绿卡的那台机器会把这一类全盖成绿的**」。
  * 修法与判据见核心文件头「路 2」第 4 条；`--selftest` ⑮ 有 5 条断言钉住它。
- * ⚠️ 同族的 `const x = {` + 换行（多行对象字面量当整个初值）与 `type X = {` 是**等价**的
- *    （修前走「函数体」那条路、修后走「语句末」，实测切出同一段），不在残留里。
+ *
+ * ⚠️⚠️ **「受害四处」是低报 —— 四处只是「需要立刻保护的那四个」**（2026-09-20 Task 3.7
+ *    按 `decl-sweep.mjs` 实测改准）。上一版这里把同族的 `const x = {` + 换行与 `type X = {`
+ *    写成**「等价」**（「修前走函数体、修后走语句末，实测切出同一段」）—— **那句话是错的**。
+ *    实测（旧核 = `bc8d5855` 的 `lib/extract-movecheck-core.mjs`，新核 = `970369c3`，
+ *    全 `app/src` 154 文件 / 3645 个非重名声明，脚本 `/tmp/t37/class.mjs`）：
+ *    **旧错 → 新对 70 条**，按首行形状分四类 ——
+ *      · **42** `const props = defineProps<{` / `const emit = defineEmits<{`（`>()` 被丢）
+ *      · **24** `const X = {` / `type X = {` + 换行（**就是被写成「等价」的那一族**）
+ *      · **3**  `reactive<{…}>({…})` / `ref<{…} | null>(null)`（`queryForm` / `financeOrder` / `moreForm`）
+ *      · **1**  `const HEADER_ROWS: {…}[] = [ … ]`（`Receipt2SettingsDialog.vue:277`，**整段数组初值被丢**，4 行 → 8 行）
+ *    **触发条件**：多行字面量收尾的 `}` **同一行后面还有文本**（` as const` / ` as const satisfies …`
+ *    / ` & B`）时，旧核切到 `}` 就返回、新核切全；只有收尾 `}` 恰好就是声明末尾时两侧才逐字相同。
+ *    反例（4/4 不等价，**行数一模一样、只有内容能区分** —— 别用行数证明这件事）：
+ *    `printService.ts::HiprintModule`（丢 ` & Partial<HiprintCtor>`）·
+ *    `docsheet/defaults.ts::PAPER_UI_RANGES` · `receipt2/defaults.ts::FONT_RANGES` ·
+ *    `productionsheet/profile.ts::PS_CLASSES`（三个都丢 ` as const …`）。
+ *    ⇒ **这 70 处是 Task 3.6 修好的**，不是「没变化」；`decl-sweep.mjs --against <改前 sha>`
+ *    随时可复跑这张方向表。
+ *
+ * **第三条残留（2026-09-20 Task 3.7 才修）：路 1（快车道）不看下一行行首** —— 详见 §9h。
  */
 const BLOCKS = [
   {
@@ -720,8 +749,22 @@ if (process.argv.includes('--selftest')) {
    *
    * prettier 风格的联合类型把 `|` 写在下一行行首，靠 `headContinues()` 看下一行行首判「还续」；
    * 而它中间**夹一行 `//` 注释**时，若不跳过注释行，就会在注释处停住 ⇒ 只切出前半段。
-   * ⚠️ **这是「潜在」不是「现存」**：全仓库 **0 处**这种形状（注释夹在联合类型成员之间）——
-   *    所以这条断言是**把判据钉死**，不是在复现一个已知 bug。
+   *
+   * ⚠️ **这是「现存」不是「潜在」**（2026-09-20 Task 3.7 改准；本节此前写「仓库里 0 处」，**错**）：
+   *    全 `app/src` 有 **1 个声明**是这个形状 —— `app/src/utils/docsheet/profile.ts:79-85`
+   *    的 `export type CellKind =`（**3 个成员**，7 行），成员之间夹的是 `/** … *\/` 而不是 `//`：
+   *    ```ts
+   *    export type CellKind =
+   *      /** `renderMultiline` —— 富文本按 `<br>` 切行 *\/
+   *      | 'multiline'
+   *      …
+   *    ```
+   *    ⇒ ① 这条断言（⑰）**是在守一个现存声明**，价值比注释里原来写的高；
+   *       ② **`//` 与 `/** *\/` 两种注释都要跳**（`headContinues` 里的 `t.startsWith('/*')`
+   *          与 `t.startsWith('*')` 就是为 `/** *\/` 的起始行与续行准备的）——
+   *          只跳 `//` 的话，`CellKind` 会立刻变成一张假绿卡（今天它不在清单里，所以暂时无害）。
+   *    ⚠️ 量法：对每个可整体搬走的声明，看真 TS 解析器给的文本里有没有哪一行 trim 后以
+   *       `|` / `&` 开头、而**它前一行**是注释。实测全仓库 1 处。
    */
   const unionCmtSrc = (last) =>
     [
@@ -736,6 +779,83 @@ if (process.argv.includes('--selftest')) {
     '联合类型中间夹一行 `//` 注释 → 仍切出**整段**（含注释后那两行）',
     ucmtR.v === unionCmtSrc('c'),
     ucmtR.e ? `抛错：${ucmtR.e}` : `实得 ${JSON.stringify(ucmtR.v)}`,
+  )
+
+  /*
+   * ⑱ 路 1（快车道）必须看**下一行行首**（2026-09-20 Task 3.7 补）。
+   *
+   * 这一例钉的是**第五个洞**（复审 §2🟠2）：路 1 的判据只看**首行自己**
+   * （收支 ≤ 0 + 行尾不是续行记号 + 首行没有未闭合的串），于是
+   * ```ts
+   * const theadCells = cols     ← 收支 0、行尾是 `cols`（不在行尾表里）
+   *   .map(…)                   ← 声明在下一行继续，但快车道根本不看这一行
+   * ```
+   * 会被切成 **1 行**并返回；而 `fast: true` 让 `sliceFn` **跳过结构性硬闸**
+   * ⇒ 「配平、不报错、只有 1 行」地被拿去比对 ⇒ **假绿卡**。
+   * 实测受害 **33 处**（含 6 处顶层），形状最多的是「下一行以 `.` / `?` 开头」
+   * （`printPayloads.ts::{main,src,casing,suppress}` · `partsEngine.ts::bad` ·
+   *  `docsheet/paginate.ts::{theadCells,bodyRows,tds}` …）。
+   *
+   * ⚠️ 判据必须**经过 `sliceFn`**（走 `sliceDiff`），不能只比 `norm` 的两段常量 ——
+   *    洞就长在 `sliceFn` 的路 1 里。断言里同时钉**切片行数**：只钉 `diff` 的话，
+   *    万一哪天切成 2 行却内容错位，这一例仍可能碰巧是 2。
+   * ⚠️ **变异 M-a**（把路 1 里那条 `&& !headContinues(…)` 去掉）下这一例必须红 ——
+   *    实测就是红（切片退回 1 行、`diff` 变 0）。这不是「顺手加的断言」。
+   */
+  const chainSrc = (meth) => ['const x = foo', `  .${meth}()`].join('\n')
+  const chainR = sliceDiff(chainSrc('bar'), chainSrc('baz'), 'x')
+  const chainGot = chainR.text ?? null
+  check(
+    '路 1 快车道看**下一行行首**：成员链断行（下一行 `.` 开头）**改第 2 行** → 报红且定位第 2 行',
+    chainR.diff === 2 && chainGot != null && chainGot.split('\n').length === 2,
+    chainR.why
+      ? `切不出来：${chainR.why}`
+      : `切片 ${chainGot?.split('\n').length} 行（应 2）、首个差异在第 ${chainR.diff ?? -1} 行（应 2；0 = 快车道只切了首行 ⇒ 洞复发）`,
+  )
+  /*
+   * 同一条判据的**第二个记号**：下一行以 `?` 开头（三元断行）。
+   * `?` 与 `.` 是 `HEAD_CONTINUES` 里两个不同的 token —— 只钉一个等于「只在单侧被钉住」
+   * （洞③ 的教训）。真形状：`app/src/utils/partsEngine.ts::bad`
+   * （`const bad = !isSecondPass && mainLt1` + 下一行 `? …`）。
+   */
+  const ternSrc = (then) => ['const bad = a && b', `  ? ${then}`, '  : c'].join('\n')
+  const ternR = sliceDiff(ternSrc('x'), ternSrc('y'), 'bad')
+  const ternGot = ternR.text ?? null
+  check(
+    '路 1 快车道看**下一行行首**：三元断行（下一行 `?` 开头）**改第 2 行** → 报红且定位第 2 行',
+    ternR.diff === 2 && ternGot != null && ternGot.split('\n').length === 3,
+    ternR.why
+      ? `切不出来：${ternR.why}`
+      : `切片 ${ternGot?.split('\n').length} 行（应 3）、首个差异在第 ${ternR.diff ?? -1} 行（应 2；0 = 快车道只切了首行 ⇒ 洞复发）`,
+  )
+
+  /*
+   * ⑲ 行尾续行记号必须含 **`<`**（2026-09-20 Task 3.7 补）。
+   *
+   * 泛型形参/实参断行的声明，首行以 `<` 收尾：
+   * ```ts
+   * export interface DocSheetRenderApi<     ← `<` `>` 不在括号栈里 ⇒ 首行收支正好 0
+   *   C = DocSheetConfig,
+   *   …
+   * > {
+   * ```
+   * `'<'` 缺了行尾表、下一行又以 `T`（普通标识符）开头 ⇒ `headContinues` 也拦不住
+   * ⇒ **两条修法各管一半**：实测那 6 处**顶层**受害者（真声明 22/10/24/45/5/5 行）
+   * **全靠 `<` 这一条**，而 33 处里的嵌套那些**全靠 `headContinues`**。少任何一条都还有一半在漏。
+   *
+   * ⚠️ **变异 M-b**（把 `'<'` 从 `TAIL_CONTINUES` 里去掉）下这一例必须红 ——
+   *    实测就是红（切片退回 1 行、`diff` 变 0）。这一例**只在 M-b 下红**，
+   *    ⑱ 只在 M-a 下红 ⇒ 两条修法各有一条**独立**的钉。
+   */
+  const genIfaceSrc = (param) => ['export interface X<', `  ${param},`, '> {', '  a: T', '}'].join('\n')
+  const giR = sliceDiff(genIfaceSrc('T extends string'), genIfaceSrc('T extends number'), 'X')
+  const giGot = giR.text ?? null
+  check(
+    '行尾续行记号含 `<`：泛型断行（`export interface X<`）**改第 2 行** → 报红且定位第 2 行',
+    giR.diff === 2 && giGot != null && giGot.split('\n').length === 5,
+    giR.why
+      ? `切不出来：${giR.why}`
+      : `切片 ${giGot?.split('\n').length} 行（应 5）、首个差异在第 ${giR.diff ?? -1} 行（应 2；0 = 快车道只切了首行 ⇒ 洞复发）`,
   )
 
   process.exit(bad ? 1 : 0)
