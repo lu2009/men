@@ -1,12 +1,4 @@
 <template>
-  <!--
-    ⚠️ `:locale` / `:date-locale` **必须给**。naive 的默认 locale 是 **enUS**，
-    不给的话组件内置文案会回退成英文 —— 最典型的是 `n-input-number`：
-    它会把 locale 的 `InputNumber.placeholder` 当默认 placeholder
-    （`naive-ui/es/input-number/src/InputNumber.mjs:149`），
-    英文包写的是 **"Please Input"**（`locales/common/enUS.mjs:95`），
-    中文包才是「请输入」。财务面板里一堆金额框都吃这个。
-  -->
   <n-config-provider
     :theme-overrides="appThemeOverrides"
     :locale="zhCN"
@@ -14,10 +6,18 @@
   >
     <n-dialog-provider>
       <n-message-provider>
-        <!-- 全局标题栏：登录后的页面才有（登录页/电子回执分享页不加）。
-             ⚠️ 这是**新增**不是复刻 —— 旧版没有全局导航，见 AppHeader.vue 的注释。 -->
-        <AppHeader v-if="showHeader" />
-        <router-view />
+        <div class="app-shell">
+          <a v-if="showHeader" class="app-shell__skip-link" href="#app-main">
+            跳至主要内容
+          </a>
+
+          <!-- 登录后的业务页面共用全局工作台导航；登录页和回执分享页保持独立。 -->
+          <AppHeader v-if="showHeader" />
+
+          <div id="app-main" class="app-shell__content" tabindex="-1">
+            <router-view />
+          </div>
+        </div>
       </n-message-provider>
     </n-dialog-provider>
   </n-config-provider>
@@ -31,21 +31,55 @@ import AppHeader from './components/AppHeader.vue'
 import { appThemeOverrides } from './styles/naive-theme'
 
 const route = useRoute()
-/**
- * 挂标题栏的页面 —— **白名单**，不是「所有 requiresAuth」。
- *
- * ⚠️ 电子回执单预览（`receipt-view`）也带 `requiresAuth`，但那是给客户看的独立页面，
- *    顶个后台导航栏不合适；登录页 / 无认证分享页本来就没有。
- */
+
+/** 只有后台业务页面显示全局导航，回执预览与分享页保持沉浸式独立布局。 */
 const HEADER_ROUTES = new Set(['home', 'hui', 'progress', 'qrscanner', 'formulas', 'clients'])
 const showHeader = computed(() => HEADER_ROUTES.has(String(route.name ?? '')))
-
 </script>
 
 <style>
-/* 全局标题栏高度 —— 页面里的 `calc(100vh - var(--app-header-h))` 靠它。
-   ⚠️ scoped 样式设不了 :root，所以放在这里（无 scoped）。 */
 :root {
   --app-header-h: var(--sd-shell-header-height);
+}
+
+.app-shell {
+  min-width: 0;
+  min-height: 100vh;
+  color: var(--sd-color-text);
+  background: var(--sd-color-bg-page);
+  font-family: var(--sd-font-sans);
+}
+
+.app-shell__content {
+  min-width: 0;
+  outline: none;
+}
+
+.app-shell__skip-link {
+  position: fixed;
+  z-index: 1000;
+  top: var(--sd-space-2);
+  left: var(--sd-space-3);
+  padding: var(--sd-space-2) var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-action-border);
+  border-radius: var(--sd-radius-control);
+  color: var(--sd-color-text-on-action);
+  background: var(--sd-color-action);
+  box-shadow: var(--sd-shadow-action);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--sd-space-4)));
+  transition: transform var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.app-shell__skip-link:focus {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell__skip-link {
+    transition: none;
+  }
 }
 </style>

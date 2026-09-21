@@ -1,179 +1,419 @@
 <template>
-  <!--
-    全局顶部导航栏。
-
-    ## 为什么只有这几项
-
-    旧版桌面导航有 12 个位置（线上外壳里 `class:"desktop-icon"` 那一批），但**那些模块本版还没做**
-    （画门窗 / 制作回执单 …），其中 7 个连文案都还是 token（`o(436)` 等，
-    解码器在另一个 chunk 里，没解出来）。
-
-    ⇒ **只列本版真有的路由**，标签一律用**能核实到字面量**的那几个：
-
-    | 图标 | 文案 | 核实来源 | 路由 |
-    |---|---|---|---|
-    | 📋 | 订单管理 | 线上外壳**字面量**（移动 Tab 那套） | `/` |
-    | 🧮 | 汇算下单 | **本版新增**（旧版从 Home 里的按钮进） | `/hui` |
-    | ⏳ | 生产进度 | 线上外壳**字面量** | `/progress` |
-    | 📱 | 扫码生产 | 线上外壳**字面量**（`o(396)`，`docs/2026-09-19-legacy-nav.md`） | `/qrscanner` |
-    | ➗ | 公式 | 线上外壳**字面量**（桌面那套） | `/formulas` |
-    | 👥 | 客户信息 | 线上外壳**字面量**（桌面那套） | `/clients` |
-
-    ⚠️ **不摆置灰的占位项**：文案解不出、模块也没做，摆上去只是噪音。
-       等那些模块做的时候，按 `docs/2026-09-19-legacy-nav.md` 里记的三套导航清单补。
-
-    ⚠️ `/qrscanner` 这一项曾经只是「放它是为了让工序名配得上」（Progress 的「更新进度」下拉
-       靠它写 `procedure_name_*` 两个键）；那页现在已整页补齐，见 `Qrscanner.vue` 文件头。
-
-    ## 谁看得见哪几项（2026-09-19 补）
-
-    不是所有人都该看见全部六项。**按账号角色过滤**，用的是 `utils/roles.ts` 里那张
-    **和路由拦截共用**的受限表 —— 所以「这儿看不见」与「敲 URL 也进不去」永远一致。
-
-    | 角色 | 看得见的项 |
-    |---|---|
-    | `scanner`（扫码账号，旧版 `defaulted=2`） | **只有「📱 扫码生产」** |
-    | 其余（`admin` / `staff` / …） | 全部六项（**与加这套门控之前一模一样**） |
-
-    依据见 `docs/2026-09-19-legacy-nav.md` 的「新版映射」一节。
-
-    ## 为什么需要它（2026-09-19 用户提）
-
-    新版把入口都放在 Home（「汇算下单」→ `/hui`），而 Hui 里**没有任何回头的路**，进去就出不来。
-    旧版靠这条导航栏做页面间跳转。
-
-    ⚠️ 平时这里**不放「退出登录」**：`Home.vue` 自己工具条上已经有一颗，会重复。
-       只有**到不了 Home 的账号**（扫码账号）才补一颗 —— 否则它没地方退出。
-  -->
   <header class="app-header">
-    <nav class="nav">
-      <template v-for="it in visibleItems" :key="it.label">
+    <div class="app-header__brand" aria-label="SmartDoor 智能门窗工作台">
+      <span class="app-header__brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 28 28" fill="none">
+          <path d="M6.5 23V5.5h15V23" />
+          <path d="M10 23V9h8v14M14 9v14" />
+          <circle cx="16.2" cy="16" r=".8" />
+        </svg>
+      </span>
+      <span class="app-header__brand-copy">
+        <strong>SMARTDOOR</strong>
+        <small>智能门窗工作台</small>
+      </span>
+    </div>
+
+    <div class="app-header__nav-viewport">
+      <nav class="app-header__nav" aria-label="主导航">
         <RouterLink
+          v-for="it in visibleItems"
+          :key="it.to.name"
           :to="it.to"
-          class="nav-item"
+          class="app-header__nav-item"
           :class="{ 'is-active': isActive(it) }"
+          :aria-current="isActive(it) ? 'page' : undefined"
+          :title="it.description"
         >
-          <span class="ico">{{ it.icon }}</span>{{ it.label }}
+          <span class="app-header__nav-icon" aria-hidden="true">
+            <AppNavIcon :name="it.icon" />
+          </span>
+          <span class="app-header__nav-label">{{ it.label }}</span>
         </RouterLink>
-      </template>
-    </nav>
+      </nav>
+    </div>
 
-    <span class="grow" />
+    <div class="app-header__account">
+      <div
+        v-if="auth.tenant || auth.user"
+        class="app-header__identity"
+        :title="`${auth.tenant?.name || ''}${auth.user?.name ? ` · ${auth.user.name}` : ''}`"
+      >
+        <span class="app-header__avatar" aria-hidden="true">{{ userInitial }}</span>
+        <span class="app-header__identity-copy">
+          <strong>{{ auth.tenant?.name || '当前企业' }}</strong>
+          <small>{{ auth.user?.name || '已登录' }}</small>
+        </span>
+      </div>
 
-    <span v-if="auth.tenant || auth.user" class="who">
-      {{ auth.tenant?.name || '' }}<template v-if="auth.user?.name"> · {{ auth.user.name }}</template>
-    </span>
-
-    <!-- 退出登录：**只在到不了「订单管理」的账号上补一颗**。
-         平时不摆 —— `Home.vue` 工具条上本来就有一颗，摆上去是重复的。
-         但扫码账号进不去 Home（`utils/roles.ts` 的受限表），顶栏再不给就**没地方退出了**。 -->
-    <n-button v-if="needsOwnLogout" class="logout" size="small" quaternary @click="onLogout">
-      退出登录
-    </n-button>
+      <!-- 扫码账号无法进入 Home，因此仍由全局导航提供退出入口。 -->
+      <n-button
+        v-if="needsOwnLogout"
+        class="app-header__logout"
+        size="small"
+        quaternary
+        @click="onLogout"
+      >
+        <template #icon>
+          <AppNavIcon name="logout" />
+        </template>
+        退出登录
+      </n-button>
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { canAccessRoute } from '../utils/roles'
+import AppNavIcon from './AppNavIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-/** 导航项 —— **只放本版真有的路由**（见文件头的表）。 */
+/** 仅展示已经实现的业务入口；图标统一使用同一套 24px 线性符号。 */
 const items = [
-  { icon: '📋', label: '订单管理', to: { name: 'home' } as const },
-  { icon: '🧮', label: '汇算下单', to: { name: 'hui' } as const },
-  { icon: '⏳', label: '生产进度', to: { name: 'progress' } as const },
-  { icon: '📱', label: '扫码生产', to: { name: 'qrscanner' } as const },
-  { icon: '➗', label: '公式', to: { name: 'formulas' } as const },
-  { icon: '👥', label: '客户信息', to: { name: 'clients' } as const },
-]
+  { icon: 'orders', label: '订单管理', description: '查询、编辑与跟进订单', to: { name: 'home' } as const },
+  { icon: 'quote', label: '汇算下单', description: '核算门窗配置并创建订单', to: { name: 'hui' } as const },
+  { icon: 'progress', label: '生产进度', description: '跟踪工序与交付状态', to: { name: 'progress' } as const },
+  { icon: 'scanner', label: '扫码生产', description: '扫码录入与更新生产工序', to: { name: 'qrscanner' } as const },
+  { icon: 'formula', label: '公式', description: '维护产品计算公式', to: { name: 'formulas' } as const },
+  { icon: 'clients', label: '客户信息', description: '维护客户与物流资料', to: { name: 'clients' } as const },
+] satisfies Array<{
+  icon: 'orders' | 'quote' | 'progress' | 'scanner' | 'formula' | 'clients'
+  label: string
+  description: string
+  to: { name: string }
+}>
 
-/**
- * 按**角色**过滤后的导航项。
- *
- * ⚠️ 过滤用的是 `utils/roles.ts` 那张**和路由拦截同一张**的表 —— 两边不会各写一份。
- *    这意味着「导航里看不见」与「敲 URL 也进不去」永远一致：**不会再出现
- *    『藏了菜单但直接敲地址栏还进得去』**那种假门控。
- *
- * ⚠️ 同样地：**藏起来不是授权**。真正的授权在后端，见 `utils/roles.ts` 抬头。
- */
+/** 导航显隐继续与路由守卫共用同一套角色规则。 */
 const visibleItems = computed(() =>
   items.filter((it) => canAccessRoute(auth.user?.role, it.to.name)),
 )
 
-/** 当前账号到不了「订单管理」⇒ 顶栏得自己带一颗退出登录（Home 那颗够不着）。 */
+/** 当前账号到不了订单管理页时，由顶栏提供独立退出入口。 */
 const needsOwnLogout = computed(() => !canAccessRoute(auth.user?.role, 'home'))
 
-function isActive(it: { to: unknown }) {
-  const name = (it.to as { name?: string } | null)?.name
-  return !!name && route.name === name
+const userInitial = computed(() => {
+  const source = auth.user?.name?.trim() || auth.tenant?.name?.trim() || 'S'
+  return source.slice(0, 1).toUpperCase()
+})
+
+function isActive(it: { to: { name: string } }) {
+  return route.name === it.to.name
 }
 
 async function onLogout() {
   await auth.logout()
   router.push({ name: 'login' })
 }
-
 </script>
 
 <style scoped>
 .app-header {
-  /* ⚠️ **固定高度**：Home / Hui 都是 `100vh` 布局，顶栏一进来就会把它们顶出去。
-     那两个页面用 `calc(100vh - var(--app-header-h))` 减掉它（见 .home-container / .page）。 */
+  position: sticky;
+  z-index: 100;
+  top: 0;
   height: var(--app-header-h);
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  padding: 6px 16px;
-  background: #fff;
-  border-bottom: 1px solid #ebeef5;
+  gap: var(--sd-space-4);
+  padding: var(--sd-space-2) var(--sd-space-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-border-glass-divider);
+  background: var(--sd-material-surface);
+  box-shadow: var(--sd-shadow-sm);
+  backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
 }
-.nav {
+
+.app-header::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--sd-border-width);
+  background: var(--sd-material-highlight-faint);
+  content: '';
+  pointer-events: none;
+}
+
+.app-header__brand {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--sd-space-2-5);
 }
-.nav-item {
+
+.app-header__brand-mark {
+  width: var(--sd-control-height-large);
+  height: var(--sd-control-height-large);
+  box-sizing: border-box;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: var(--sd-border-width) solid var(--sd-border-action-faint);
+  border-radius: var(--sd-radius-control);
+  color: var(--sd-color-action);
+  background: var(--sd-material-brand-chip);
+  box-shadow: var(--sd-shadow-brand-mark);
+}
+
+.app-header__brand-mark svg {
+  width: 25px;
+  height: 25px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+}
+
+.app-header__brand-copy {
+  display: grid;
+  min-width: 0;
+  line-height: 1.1;
+}
+
+.app-header__brand-copy strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-bold);
+  letter-spacing: 0.055em;
+}
+
+.app-header__brand-copy small {
+  margin-top: var(--sd-space-1);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-medium);
+}
+
+.app-header__nav-viewport {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.app-header__nav-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.app-header__nav {
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sd-space-1);
+}
+
+.app-header__nav-item {
+  position: relative;
+  height: var(--sd-control-height-large);
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-  color: #606266;
+  flex: 0 0 auto;
+  gap: var(--sd-space-2);
+  padding: 0 var(--sd-space-3);
+  border: var(--sd-border-width) solid transparent;
+  border-radius: var(--sd-radius-control);
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-medium);
   text-decoration: none;
+  transition:
+    color var(--sd-duration-fast) var(--sd-ease-standard),
+    background-color var(--sd-duration-fast) var(--sd-ease-standard),
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard),
+    transform var(--sd-duration-fast) var(--sd-ease-standard);
 }
-.ico {
-  font-size: 15px;
-  line-height: 1;
+
+.app-header__nav-icon {
+  width: 19px;
+  height: 19px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--sd-color-text-muted);
+  transition: color var(--sd-duration-fast) var(--sd-ease-standard);
 }
-.nav-item:hover {
-  background: #f0f9eb;
-  color: #1a7f3c;
+
+.app-header__nav-item:hover {
+  border-color: var(--sd-border-glass-soft);
+  color: var(--sd-color-text-strong);
+  background: var(--sd-material-control-hover);
+  transform: translateY(var(--sd-motion-hover-y));
 }
-.nav-item.is-active {
-  background: #1a7f3c;
-  color: #fff;
+
+.app-header__nav-item:hover .app-header__nav-icon {
+  color: var(--sd-color-action);
 }
-.grow {
-  flex: 1;
+
+.app-header__nav-item:focus-visible {
+  outline: none;
+  box-shadow: var(--sd-focus-ring);
 }
-.who {
-  font-size: 12px;
-  color: #909399;
+
+.app-header__nav-item:active {
+  transform: scale(var(--sd-motion-press-scale));
 }
-.logout {
-  /* 顶栏是 flex 行（`flex-wrap: wrap` + 定高 60px）；`.grow` 已经把名字推到右边，
-     按钮只需要不被压缩、且和名字之间留一点缝。 */
-  flex: none;
-  margin-left: 4px;
+
+.app-header__nav-item.is-active {
+  border-color: var(--sd-border-action-faint);
+  color: var(--sd-color-action);
+  background: var(--sd-color-action-soft);
+  box-shadow: var(--sd-shadow-sm);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.app-header__nav-item.is-active::after {
+  position: absolute;
+  right: var(--sd-space-3);
+  bottom: calc(var(--sd-space-1) * -1);
+  left: var(--sd-space-3);
+  height: 2px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action);
+  content: '';
+}
+
+.app-header__nav-item.is-active .app-header__nav-icon {
+  color: var(--sd-color-action);
+}
+
+.app-header__account {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: var(--sd-space-2);
+}
+
+.app-header__identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sd-space-2);
+  padding-left: var(--sd-space-3);
+  border-left: var(--sd-border-width) solid var(--sd-material-separator-soft);
+}
+
+.app-header__avatar {
+  width: var(--sd-control-height-medium);
+  height: var(--sd-control-height-medium);
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+  border-radius: var(--sd-radius-pill);
+  color: var(--sd-color-action);
+  background: var(--sd-material-brand-chip);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+.app-header__identity-copy {
+  max-width: 132px;
+  display: grid;
+  line-height: 1.15;
+}
+
+.app-header__identity-copy strong,
+.app-header__identity-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__identity-copy strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.app-header__identity-copy small {
+  margin-top: var(--sd-space-1);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-2xs);
+}
+
+.app-header__logout {
+  flex: 0 0 auto;
+}
+
+.app-header__logout :deep(.n-button__icon) {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 1180px) {
+  .app-header {
+    gap: var(--sd-space-2);
+    padding-right: var(--sd-space-3);
+    padding-left: var(--sd-space-3);
+  }
+
+  .app-header__brand-copy small,
+  .app-header__identity-copy {
+    display: none;
+  }
+
+  .app-header__identity {
+    padding-left: var(--sd-space-2);
+  }
+}
+
+@media (max-width: 820px) {
+  .app-header__brand-copy {
+    display: none;
+  }
+
+  .app-header__nav {
+    justify-content: flex-start;
+  }
+
+  .app-header__nav-item {
+    gap: var(--sd-space-1-5);
+    padding: 0 var(--sd-space-2-5);
+  }
+
+  .app-header__identity {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-header {
+    padding-right: var(--sd-space-2);
+    padding-left: var(--sd-space-2);
+  }
+
+  .app-header__brand-mark {
+    width: var(--sd-control-height-medium);
+    height: var(--sd-control-height-medium);
+    border-radius: var(--sd-radius-md);
+  }
+
+  .app-header__brand-mark svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .app-header__nav-item {
+    padding: 0 var(--sd-space-2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header__nav-item,
+  .app-header__nav-icon {
+    transition: none;
+  }
 }
 </style>
