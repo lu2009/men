@@ -1084,221 +1084,304 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page">
-    <n-card>
-      <template #header>
-        <div class="header">
-          <div class="title-box">
-            <span class="title">公式管理（吊）</span>
-            <router-link class="back" to="/">← 返回首页</router-link>
+  <div class="formula-page">
+    <div class="formula-page__inner">
+      <header class="formula-hero" aria-labelledby="formula-page-title">
+        <div class="formula-hero__identity">
+          <div class="formula-mark" aria-hidden="true">
+            <span>ƒ</span><small>x</small>
           </div>
-          <div class="actions">
-            <n-button v-if="isAdminUser" type="primary" @click="openList">查询/修改/删除公式</n-button>
+          <div class="formula-hero__copy">
+            <div class="formula-eyebrow">产品数据 · 计算规则</div>
+            <h1 id="formula-page-title">公式工作台</h1>
+            <p>集中维护门型尺寸、材料计算与配件规则，减少录入与校验之间的来回切换。</p>
+          </div>
+        </div>
+        <div class="formula-hero__status" :class="{ 'is-active': editorVisible }">
+          <span class="formula-status-dot" aria-hidden="true"></span>
+          <div>
+            <span>当前状态</span>
+            <strong>{{ editorVisible ? (editingId ? '正在修改' : '新建公式') : '等待选择' }}</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="formula-workbench">
+        <div class="formula-workbench__toolbar">
+          <div class="formula-context">
+            <div class="formula-context__topline">
+              <span class="formula-context__label">当前公式</span>
+              <span v-if="editorVisible" class="formula-context__type">
+                {{ TYPE_LABEL[formulaType] || '未选择门型' }}
+              </span>
+            </div>
+            <h2>{{ formulaName || (editorVisible ? '未命名公式' : '尚未打开公式') }}</h2>
+            <p>
+              {{
+                editorVisible
+                  ? `已载入 ${filteredRows.length} 项材料规则，请按流程完成校验并保存。`
+                  : '从门型模板开始，或打开已有公式继续维护。'
+              }}
+            </p>
+          </div>
+
+          <div class="formula-toolbar-actions" aria-label="公式工作台操作">
             <!-- 旧版这颗按钮点下去就把编辑器放出来（`D:1178` 设 `_0x579c3d`）。 -->
-            <n-button v-if="isAdminUser" type="success" @click="openTemplateDrawer">公式模板</n-button>
-            <n-button @click="glassModal = true">开孔图</n-button>
-            <n-button @click="videoDrawer = true">视频</n-button>
+            <n-button v-if="isAdminUser" type="primary" @click="openTemplateDrawer">选择模板</n-button>
+            <n-button v-if="isAdminUser" @click="openList">管理公式</n-button>
+            <n-button secondary @click="glassModal = true">管理开孔图</n-button>
+            <n-button secondary @click="videoDrawer = true">操作教程</n-button>
           </div>
         </div>
-      </template>
 
-      <!-- 尺寸输入区 -->
-      <!-- 尺寸区 / 配置区 / 搜索区 三块都受 `editorVisible` 控制 —— 复刻旧版把这一整片
-           包在一个 `v-show="_0x579c3d"` 里（`Diao.deobfuscated.js:3365-3428`）。
-           ⚠️ 旧版是套一层**无 class 的外层 div**；我们**逐块加 v-show** ——
-           语义相同，但不会因为多一层 wrapper 动到 `dims`/`config-row`/`search-row` 的
-           flex/margin 布局。 -->
-      <div class="dims" v-show="editorVisible">
-        <div class="dim-item">
-          <label>公式名称:</label>
-          <n-input v-model:value="formulaName" size="small" style="width: 160px" />
+        <div v-if="!editorVisible" class="formula-empty">
+          <div class="formula-empty__symbol" aria-hidden="true">
+            <span class="formula-empty__line"></span>
+            <span class="formula-empty__operator">=</span>
+            <span class="formula-empty__result">ƒx</span>
+          </div>
+          <div class="formula-empty__copy">
+            <span class="formula-eyebrow">标准工作流</span>
+            <h2>先选择门型，再开始配置</h2>
+            <p>公式模板会带入对应材料规则，后续只需确认尺寸、附加条件和计算结果。</p>
+          </div>
+          <ol class="formula-empty__steps">
+            <li><span>01</span><div><strong>选择门型模板</strong><small>载入对应的基础材料结构</small></div></li>
+            <li><span>02</span><div><strong>确认基础尺寸</strong><small>补全门洞与工艺参数</small></div></li>
+            <li><span>03</span><div><strong>校验并保存</strong><small>检查材料结果后提交公式</small></div></li>
+          </ol>
         </div>
-        <div v-if="isSimpleSquare" class="dim-item">
-          <label>单扇最小平方数:</label>
-          <n-input v-model:value="square" size="small" style="width: 90px" @blur="squareBlur" />
-        </div>
-        <div v-if="!isSimpleSquare" class="dim-item">
-          <n-button size="small" type="primary" @click="openMinSquare">移门最低方数设置</n-button>
-        </div>
-        <div class="dim-item">
-          <label>门洞高:</label>
-          <n-input v-model:value="dimH" size="small" style="width: 90px" @blur="dimBlur('h')" />
-        </div>
-        <div class="dim-item">
-          <label>{{ dimLabel('w') }}:</label>
-          <n-input v-model:value="dimW" size="small" style="width: 90px" @blur="dimBlur('w')" />
-        </div>
-        <div v-if="isSubsidiary" class="dim-item">
-          <label>母门宽:</label>
-          <n-input v-model:value="dimS" size="small" style="width: 90px" @blur="dimBlur('s')" />
-        </div>
-        <div class="dim-item">
-          <label>{{ dimLabel('h1') }}:</label>
-          <n-input v-model:value="dimH1" size="small" style="width: 90px" @blur="dimBlur('h1')" />
-        </div>
-        <div class="dim-item">
-          <label>{{ dimLabel('t') }}:</label>
-          <n-input v-model:value="dimT" size="small" style="width: 90px" @blur="dimBlur('t')" />
-        </div>
-        <div v-if="showJiao" class="dim-item">
-          <label>吊脚:</label>
-          <n-input v-model:value="dimJ" size="small" style="width: 90px" @blur="dimBlur('j')" />
-        </div>
-      </div>
 
-      <!-- 附加配置 -->
-      <div class="config-row" v-show="editorVisible">
-        <n-button size="small" @click="openResetSize">洞尺设置</n-button>
-        <span v-if="resetSizeSummary" class="config-summary">{{ resetSizeSummary }}</span>
-        <n-button size="small" @click="openTaoDong">包边洞尺</n-button>
-        <span v-if="taoDongSummary" class="config-summary">{{ taoDongSummary }}</span>
-        <n-button size="small" @click="openSwingWall">平开门丁墙</n-button>
-        <span v-if="swingWallSummary" class="config-summary">{{ swingWallSummary }}</span>
-        <n-button size="small" @click="openHinge">平开门合页</n-button>
-        <span v-if="hingeSummary" class="config-summary config-summary-multi">{{ hingeSummary }}</span>
-        <n-button size="small" @click="openWidthIncrement">边封增量</n-button>
-        <span v-if="widthIncrementSummary" class="config-summary">{{ widthIncrementSummary }}</span>
-        <n-button size="small" @click="openHardware">固定配件</n-button>
-        <span v-if="hardwareSummary" class="config-summary">{{ hardwareSummary }}</span>
-      </div>
+        <div v-show="editorVisible" class="formula-editor">
+          <!-- 尺寸区 / 配置区 / 搜索区 三块都受 `editorVisible` 控制 —— 复刻旧版把这一整片
+               包在一个 `v-show="_0x579c3d"` 里（`Diao.deobfuscated.js:3365-3428`）。 -->
+          <section class="formula-section" aria-labelledby="formula-dimensions-title">
+            <div class="formula-section__heading">
+              <span class="formula-section__index">01</span>
+              <div>
+                <h3 id="formula-dimensions-title">基础尺寸</h3>
+                <p>确认名称与门洞参数，失焦后自动重新计算。</p>
+              </div>
+            </div>
+            <div class="dims">
+              <div class="dim-item dim-item--name">
+                <label>公式名称</label>
+                <n-input v-model:value="formulaName" size="small" class="formula-name-input" />
+              </div>
+              <div v-if="isSimpleSquare" class="dim-item">
+                <label>单扇最小平方数</label>
+                <n-input v-model:value="square" size="small" class="dimension-input" @blur="squareBlur" />
+              </div>
+              <div v-if="!isSimpleSquare" class="dim-item dim-item--action">
+                <label>最低方数</label>
+                <n-button size="small" @click="openMinSquare">移门最低方数设置</n-button>
+              </div>
+              <div class="dim-item">
+                <label>门洞高</label>
+                <n-input v-model:value="dimH" size="small" class="dimension-input" @blur="dimBlur('h')" />
+              </div>
+              <div class="dim-item">
+                <label>{{ dimLabel('w') }}</label>
+                <n-input v-model:value="dimW" size="small" class="dimension-input" @blur="dimBlur('w')" />
+              </div>
+              <div v-if="isSubsidiary" class="dim-item">
+                <label>母门宽</label>
+                <n-input v-model:value="dimS" size="small" class="dimension-input" @blur="dimBlur('s')" />
+              </div>
+              <div class="dim-item">
+                <label>{{ dimLabel('h1') }}</label>
+                <n-input v-model:value="dimH1" size="small" class="dimension-input" @blur="dimBlur('h1')" />
+              </div>
+              <div class="dim-item">
+                <label>{{ dimLabel('t') }}</label>
+                <n-input v-model:value="dimT" size="small" class="dimension-input" @blur="dimBlur('t')" />
+              </div>
+              <div v-if="showJiao" class="dim-item">
+                <label>吊脚</label>
+                <n-input v-model:value="dimJ" size="small" class="dimension-input" @blur="dimBlur('j')" />
+              </div>
+            </div>
+          </section>
 
-      <!-- 材料搜索 + 亮窗示意图 -->
-      <div class="search-row" v-show="editorVisible">
-        <n-input
-          v-model:value="materialSearch"
-          placeholder="搜索材料名称,如：光企"
-          clearable
-          size="small"
-          style="width: 240px"
-        />
-        <n-button size="small" @click="lightWindowModal = true">亮窗示意图</n-button>
-      </div>
+          <section class="formula-section" aria-labelledby="formula-config-title">
+            <div class="formula-section__heading">
+              <span class="formula-section__index">02</span>
+              <div>
+                <h3 id="formula-config-title">附加规则</h3>
+                <p>按需设置减尺、丁墙、合页与固定配件等工艺条件。</p>
+              </div>
+            </div>
+            <div class="config-row">
+              <div class="config-item">
+                <n-button size="small" @click="openResetSize">洞尺设置</n-button>
+                <span class="config-summary">{{ resetSizeSummary || '未设置' }}</span>
+              </div>
+              <div class="config-item">
+                <n-button size="small" @click="openTaoDong">包边洞尺</n-button>
+                <span class="config-summary">{{ taoDongSummary || '未设置' }}</span>
+              </div>
+              <div class="config-item">
+                <n-button size="small" @click="openSwingWall">平开门丁墙</n-button>
+                <span class="config-summary">{{ swingWallSummary || '未设置' }}</span>
+              </div>
+              <div class="config-item">
+                <n-button size="small" @click="openHinge">平开门合页</n-button>
+                <span class="config-summary config-summary-multi">{{ hingeSummary || '未设置' }}</span>
+              </div>
+              <div class="config-item">
+                <n-button size="small" @click="openWidthIncrement">边封增量</n-button>
+                <span class="config-summary">{{ widthIncrementSummary || '未设置' }}</span>
+              </div>
+              <div class="config-item">
+                <n-button size="small" @click="openHardware">固定配件</n-button>
+                <span class="config-summary">{{ hardwareSummary || '未设置' }}</span>
+              </div>
+            </div>
+          </section>
 
-      <!-- 部件表。结构与类名照抄原版（旧版是 el-table，列宽固定像素；
-           四个类的样式来自 legacy/css/Diao-15870f7d.css 的 [data-v-6ed0eb3d] 作用域）。 -->
-      <table class="parts-table">
-        <thead>
-          <tr>
-            <th>材料名</th>
-            <th>数量</th>
-            <th>计算结果</th>
-            <th>操作</th>
-            <th>公式类别</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="row in filteredRows" :key="row.name" :style="{ background: rowBg(row.def.color) }">
-            <!-- 材料名格（原版 @236617-237600）：`glass-inputs-container2` >(`glass-input-group` > tooltip+输入框)；
-                 部件带 `title` 时，再跟一个 `glass-input-label`(如「套线名称: 」) + 第二个输入框填
-                 套线名/轨道名/下轨名。tooltip 内容是 `row.name.split('_')[0]` —— 列窄、名字会被截断，靠它看全。 -->
-            <td>
-              <div class="glass-inputs-container2">
-                <div class="glass-input-group">
-                  <n-tooltip
-                    :content="(row.name || '无公式类别').split('_')[0]"
-                    placement="top"
-                    :delay="100"
-                    :duration="100"
-                  >
-                    <template #trigger>
+          <section class="formula-section formula-section--materials" aria-labelledby="formula-materials-title">
+            <div class="formula-section__heading formula-section__heading--split">
+              <div class="formula-section__heading-main">
+                <span class="formula-section__index">03</span>
+                <div>
+                  <h3 id="formula-materials-title">材料计算</h3>
+                  <p>共 {{ filteredRows.length }} 项规则；可搜索、复制或补充材料。</p>
+                </div>
+              </div>
+              <div class="search-row">
+                <n-input
+                  v-model:value="materialSearch"
+                  placeholder="搜索材料名称，如：光企"
+                  clearable
+                  size="small"
+                  class="material-search-input"
+                />
+                <n-button size="small" @click="lightWindowModal = true">亮窗示意图</n-button>
+              </div>
+            </div>
+
+            <!-- 部件表。结构与类名照抄原版（旧版是 el-table，列宽固定像素；
+                 四个类的样式来自 legacy/css/Diao-15870f7d.css 的 [data-v-6ed0eb3d] 作用域）。 -->
+            <div class="parts-table-shell" tabindex="0" aria-label="材料计算表，可横向滚动">
+              <table class="parts-table">
+                <thead>
+                  <tr>
+                    <th>材料名</th>
+                    <th>数量</th>
+                    <th>计算结果</th>
+                    <th>操作</th>
+                    <th>公式类别</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in filteredRows" :key="row.name" :style="{ background: rowBg(row.def.color) }">
+                    <!-- 材料名格（原版 @236617-237600）：`glass-inputs-container2` >(`glass-input-group` > tooltip+输入框)；
+                         部件带 `title` 时，再跟一个 `glass-input-label` + 第二个输入框。 -->
+                    <td>
+                      <div class="glass-inputs-container2">
+                        <div class="glass-input-group">
+                          <n-tooltip
+                            :content="(row.name || '无公式类别').split('_')[0]"
+                            placement="top"
+                            :delay="100"
+                            :duration="100"
+                          >
+                            <template #trigger>
+                              <n-input
+                                class="formula-input"
+                                size="small"
+                                v-model:value="row.def.materialName"
+                                @blur="refreshPlaceholders"
+                              />
+                            </template>
+                          </n-tooltip>
+                        </div>
+                        <template v-if="row.def.title">
+                          <div class="glass-input-label">{{ row.def.title }}</div>
+                          <div class="glass-input-group">
+                            <n-input
+                              class="formula-input"
+                              size="small"
+                              :value="row.def.track"
+                              @update:value="(v: string) => onTrackInput(row, v)"
+                              @blur="onTrackBlur()"
+                            />
+                          </div>
+                        </template>
+                      </div>
+                    </td>
+                    <td>
                       <n-input
                         class="formula-input"
+                        :value="countText[row.name]"
                         size="small"
-                        v-model:value="row.def.materialName"
-                        @blur="refreshPlaceholders"
+                        @update:value="(v: string) => (countText[row.name] = v)"
+                        @blur="quantityBlur(row.name)"
                       />
-                    </template>
-                  </n-tooltip>
-                </div>
-                <template v-if="row.def.title">
-                  <div class="glass-input-label">{{ row.def.title }}</div>
-                  <div class="glass-input-group">
-                    <n-input
-                      class="formula-input"
-                      size="small"
-                      :value="row.def.track"
-                      @update:value="(v: string) => onTrackInput(row, v)"
-                      @blur="onTrackBlur()"
-                    />
-                  </div>
-                </template>
-              </div>
-            </td>
-            <td>
-              <n-input
-                class="formula-input"
-                :value="countText[row.name]"
-                size="small"
-                @update:value="(v: string) => (countText[row.name] = v)"
-                @blur="quantityBlur(row.name)"
-              />
-            </td>
-            <td>
-              <n-tooltip
-                :content="(row.name || '无公式类别').split('_')[0]"
-                placement="top"
-                :delay="100"
-                :duration="100"
-              >
-                <template #trigger>
-                  <n-input
-                    class="formula-input"
-                    :value="resultText[row.name]"
-                    :placeholder="placeholderText(row.name)"
-                    size="small"
-                    @update:value="(v: string) => (resultText[row.name] = v)"
-                    @blur="resultBlur(row.name)"
-                  />
-                </template>
-              </n-tooltip>
-            </td>
-            <td>
-              <!-- 旧版操作列：`div` `display:flex; justify-content:space-around` + 三个 `el-button link`
-                   （查看3D 条件 / 删除 / 复制）。我们没有 3D，故只有后两个；顺序照旧版是**删除在前**。 -->
-              <div style="display: flex; justify-content: space-around">
-                <!-- 按钮文案照旧版 `:3478` 的 `confirm-button-text:"确定"` / `"取消"` ——
-                     naive 的默认是「确认/取消」，差一个字，得显式给。 -->
-                <n-popconfirm
-                  positive-text="确定"
-                  negative-text="取消"
-                  @positive-click="deleteRow(row.name)"
-                >
-                  <template #trigger>
-                    <n-button size="small" text type="primary">删除</n-button>
-                  </template>
-                  确定删除该行吗?
-                </n-popconfirm>
-                <n-button size="small" text type="primary" @click="copyRow(row.name)">复制</n-button>
-              </div>
-            </td>
-            <td class="cat-cell">{{ row.name }}</td>
-          </tr>
-          <tr v-if="filteredRows.length === 0">
-            <td colspan="5" class="empty-cell">
-              点击「公式模板」选择门型开始录入
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                    </td>
+                    <td>
+                      <n-tooltip
+                        :content="(row.name || '无公式类别').split('_')[0]"
+                        placement="top"
+                        :delay="100"
+                        :duration="100"
+                      >
+                        <template #trigger>
+                          <n-input
+                            class="formula-input"
+                            :value="resultText[row.name]"
+                            :placeholder="placeholderText(row.name)"
+                            size="small"
+                            @update:value="(v: string) => (resultText[row.name] = v)"
+                            @blur="resultBlur(row.name)"
+                          />
+                        </template>
+                      </n-tooltip>
+                    </td>
+                    <td>
+                      <div class="row-actions">
+                        <n-popconfirm
+                          positive-text="确定"
+                          negative-text="取消"
+                          @positive-click="deleteRow(row.name)"
+                        >
+                          <template #trigger>
+                            <n-button size="small" text type="error">删除</n-button>
+                          </template>
+                          确定删除该行吗?
+                        </n-popconfirm>
+                        <n-button size="small" text type="primary" @click="copyRow(row.name)">复制</n-button>
+                      </div>
+                    </td>
+                    <td class="cat-cell">{{ row.name }}</td>
+                  </tr>
+                  <tr v-if="filteredRows.length === 0">
+                    <td colspan="5" class="empty-cell">没有匹配的材料规则，请调整搜索条件或新增材料。</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-      <!-- 内联挖孔图展示（复刻旧版 _0x44ca5e） -->
-      <div v-if="glassImages.length" class="glass-images">
-        <div v-for="img in glassImages" :key="img.id" class="glass-image-item">
-          <img :src="img.data_url" :alt="img.direction" />
-          <div class="glass-image-dir">{{ img.direction }}{{ img.mirrored ? '（镜像）' : '' }}</div>
+            <!-- 内联挖孔图展示（复刻旧版 _0x44ca5e） -->
+            <div v-if="glassImages.length" class="glass-images">
+              <div v-for="img in glassImages" :key="img.id" class="glass-image-item">
+                <img :src="img.data_url" :alt="img.direction" />
+                <div class="glass-image-dir">{{ img.direction }}{{ img.mirrored ? '（镜像）' : '' }}</div>
+              </div>
+            </div>
+
+            <!-- 表格下方操作（复刻旧版「新增材料」+「确认」） -->
+            <div class="formula-actions">
+              <n-button @click="addMaterialDrawer = true">新增材料</n-button>
+              <n-button type="primary" :loading="saving" @click="save">保存公式</n-button>
+            </div>
+          </section>
         </div>
-      </div>
-
-      <!-- 表格下方操作（复刻旧版「新增材料」+「确认」） -->
-      <div class="formula-actions" v-show="editorVisible">
-        <n-button type="primary" @click="addMaterialDrawer = true">新增材料</n-button>
-        <n-button type="primary" :loading="saving" @click="save">确认</n-button>
-      </div>
-    </n-card>
-
+      </main>
+    </div>
     <!-- 查询 / 修改 / 删除 -->
     <n-modal v-model:show="listModal">
-      <n-card style="width: 820px" title="查询 / 修改 / 删除公式" :bordered="false" role="dialog">
+      <n-card style="width: min(820px, calc(100vw - 24px))" title="查询 / 修改 / 删除公式" :bordered="false" role="dialog">
         <div class="list-toolbar">
           <n-input
             v-model:value="listSearch"
@@ -1322,8 +1405,9 @@ onMounted(() => {
     </n-modal>
 
     <!-- 公式模板 -->
-    <n-drawer v-model:show="templateDrawer" title="公式模板" placement="right" :width="420">
-      <div class="tpl-group">
+    <n-drawer v-model:show="templateDrawer" placement="right" width="min(420px, 100vw)">
+      <n-drawer-content title="公式模板" closable>
+        <div class="tpl-group">
         <div
           v-for="tpl in TEMPLATE_LIST"
           :key="tpl.key"
@@ -1333,12 +1417,13 @@ onMounted(() => {
           <span class="tpl-label">{{ tpl.label }}</span>
           <span class="tpl-key">{{ tpl.key }}</span>
         </div>
-      </div>
+        </div>
+      </n-drawer-content>
     </n-drawer>
 
     <!-- 必填参数弹窗（复刻旧版 requiredFieldsDialog） -->
     <n-modal v-model:show="requiredFieldsModal">
-      <n-card style="width: 420px" title="请填写必要参数" :bordered="false" role="dialog">
+      <n-card style="width: min(420px, calc(100vw - 24px))" title="请填写必要参数" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>公式名称:</label>
           <n-input v-model:value="formulaName" size="small" placeholder="请输入公式名称" style="width: 220px" />
@@ -1384,7 +1469,8 @@ onMounted(() => {
     </n-modal>
 
     <!-- 添加材料 -->
-    <n-drawer v-model:show="addMaterialDrawer" title="添加材料" placement="right" :width="460">
+    <n-drawer v-model:show="addMaterialDrawer" placement="right" width="min(460px, 100vw)">
+      <n-drawer-content title="添加材料" closable>
       <!-- ⚠️「常规材料」= **撤销删除**（见 `deletedStash` 的注释），不是"常用材料库"。
            标题**恒显**（旧版那个 `<h3>` 是静态节点，没有 v-if），按钮才看有没有删过的行。 -->
       <div class="mat-section">
@@ -1429,11 +1515,12 @@ onMounted(() => {
           </div>
         </div>
       </div>
+      </n-drawer-content>
     </n-drawer>
 
     <!-- 开孔图 -->
     <n-modal v-model:show="glassModal">
-      <n-card style="width: 720px" title="挖孔图（玻璃开孔图）" :bordered="false" role="dialog">
+      <n-card style="width: min(720px, calc(100vw - 24px))" title="挖孔图（玻璃开孔图）" :bordered="false" role="dialog">
         <GlassDraw
           :formula-id="editingId"
           :formula-name="formulaName"
@@ -1448,7 +1535,7 @@ onMounted(() => {
       <!-- ⚠️ 标题是「洞尺减尺」而**不是**触发它的那颗按钮文案「洞尺设置」——
            旧版这两处本来就不一样（`Diao.deobfuscated.js:3811` / 按钮 `:3407`）。
            同类的还有「平开门单双丁」「增量设置」，见各自弹窗上的注释。 -->
-      <n-card style="width: 400px" title="洞尺减尺" :bordered="false" role="dialog">
+      <n-card style="width: min(400px, calc(100vw - 24px))" title="洞尺减尺" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>宽减:</label>
           <n-input v-model:value="resetSizeDraft.width" size="small" style="width: 160px" />
@@ -1468,7 +1555,7 @@ onMounted(() => {
 
     <!-- 包边洞尺 -->
     <n-modal v-model:show="taoDongOpen">
-      <n-card style="width: 460px" title="包边洞尺" :bordered="false" role="dialog">
+      <n-card style="width: min(460px, calc(100vw - 24px))" title="包边洞尺" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>单包边洞 宽减:</label>
           <n-input v-model:value="taoDongDraft.sKuan" size="small" style="width: 120px" />
@@ -1493,7 +1580,7 @@ onMounted(() => {
     <!-- 平开门丁墙 -->
     <n-modal v-model:show="swingWallOpen">
       <!-- ⚠️ 标题是「平开门单双丁」，按钮文案才是「平开门丁墙」（旧版 `:3895` / `:3415`）。 -->
-      <n-card style="width: 440px" title="平开门单双丁" :bordered="false" role="dialog">
+      <n-card style="width: min(440px, calc(100vw - 24px))" title="平开门单双丁" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>单丁:</label>
           <n-input v-model:value="swingWallDraft.SingleWall" size="small" style="width: 120px" />
@@ -1513,7 +1600,7 @@ onMounted(() => {
 
     <!-- 平开门合页 -->
     <n-modal v-model:show="hingeOpen">
-      <n-card style="width: 560px" title="平开门合页" :bordered="false" role="dialog">
+      <n-card style="width: min(560px, calc(100vw - 24px))" title="平开门合页" :bordered="false" role="dialog">
         <div v-for="(it, i) in hingeDraft" :key="i" class="cfg-form">
           <n-input v-model:value="it.name" size="small" placeholder="合页名称" style="width: 140px" />
           <n-input
@@ -1543,7 +1630,7 @@ onMounted(() => {
     <!-- 边封增量 -->
     <n-modal v-model:show="widthIncrementOpen">
       <!-- ⚠️ 标题是「增量设置」，按钮文案才是「边封增量」（旧版 `:3996` / `:3423`）。 -->
-      <n-card style="width: 440px" title="增量设置" :bordered="false" role="dialog">
+      <n-card style="width: min(440px, calc(100vw - 24px))" title="增量设置" :bordered="false" role="dialog">
         <div class="cfg-form">
           <label>边封增量:</label>
           <n-input
@@ -1569,7 +1656,7 @@ onMounted(() => {
 
     <!-- 固定配件 -->
     <n-modal v-model:show="hardwareOpen">
-      <n-card style="width: 520px" title="配件设置" :bordered="false" role="dialog">
+      <n-card style="width: min(520px, calc(100vw - 24px))" title="配件设置" :bordered="false" role="dialog">
         <n-input
           v-model:value="hardwareDraft"
           type="textarea"
@@ -1587,7 +1674,7 @@ onMounted(() => {
 
     <!-- 移门最低方数设置 -->
     <n-modal v-model:show="minSquareOpen">
-      <n-card style="width: 520px" title="移门最低方数设置" :bordered="false" role="dialog">
+      <n-card style="width: min(520px, calc(100vw - 24px))" title="移门最低方数设置" :bordered="false" role="dialog">
         <div class="min-square-header">
           <span class="min-square-type">类型</span>
           <span class="min-square-col">无亮窗</span>
@@ -1609,7 +1696,7 @@ onMounted(() => {
 
     <!-- 亮窗示意图 -->
     <n-modal v-model:show="lightWindowModal">
-      <n-card style="width: 480px" title="亮窗示意图" :bordered="false" role="dialog">
+      <n-card style="width: min(480px, calc(100vw - 24px))" title="亮窗示意图" :bordered="false" role="dialog">
         <div class="light-window-diagram">
           <svg :width="300" :height="420" viewBox="0 0 300 420">
             <rect x="60" y="30" width="180" height="90" fill="#f0f6ff" stroke="#333" stroke-width="2" />
@@ -1639,8 +1726,9 @@ onMounted(() => {
     </n-modal>
 
     <!-- 视频教程 -->
-    <n-drawer v-model:show="videoDrawer" title="视频教程" placement="right" :width="320">
-      <div class="video-list">
+    <n-drawer v-model:show="videoDrawer" placement="right" width="min(320px, 100vw)">
+      <n-drawer-content title="视频教程" closable>
+        <div class="video-list">
         <n-button
           v-for="[label, link] in VIDEO_LINKS"
           :key="label"
@@ -1649,279 +1737,1050 @@ onMounted(() => {
         >
           {{ label }}
         </n-button>
-      </div>
+        </div>
+      </n-drawer-content>
     </n-drawer>
   </div>
 </template>
 
 <style scoped>
-.page {
+.formula-page {
   min-height: 100vh;
-  background: #f5f7fa;
-  padding: 24px;
+  padding: var(--sd-page-padding);
+  background: var(--sd-color-bg-page);
+  color: var(--sd-color-text);
+  font-family: var(--sd-font-sans);
 }
-.header {
+
+.formula-page__inner {
+  display: grid;
+  gap: var(--sd-page-gap);
+  width: min(100%, var(--sd-content-max-width));
+  margin: 0 auto;
+}
+
+.formula-hero,
+.formula-workbench {
+  border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+  background: var(--sd-material-surface);
+  box-shadow: var(--sd-shadow-material-card);
+  backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+}
+
+.formula-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--sd-space-8);
+  padding: var(--sd-space-6) var(--sd-space-7);
+  border-radius: var(--sd-radius-material);
+  animation: formula-surface-enter var(--sd-duration-enter) var(--sd-ease-enter) both;
 }
-.title-box {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-}
-.title {
-  font-size: 16px;
-  font-weight: 600;
-}
-.back {
-  font-size: 13px;
-  color: #409eff;
-  text-decoration: none;
-}
-.actions {
+
+.formula-hero__identity {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  min-width: 0;
+  gap: var(--sd-space-5);
 }
-.dims {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 8px;
-  background: #fafbfc;
-  border-radius: 6px;
-}
-.dim-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.dim-item label {
-  font-size: 13px;
-  white-space: nowrap;
-}
-.parts-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.parts-table th,
-.parts-table td {
-  border: 1px solid #e5e6eb;
-  padding: 4px 6px;
-  vertical-align: middle;
-}
-.parts-table th {
-  background: #f5f7fa;
-  font-weight: 600;
-  text-align: center;
-}
-/* ===== 部件表：列宽固定 + 旧版四个类（照抄 legacy/css/Diao-15870f7d.css 的 [data-v-6ed0eb3d]）=====
-   旧版是 el-table：列宽 材料名100 / 数量30 / 计算结果65 / 操作80或120 / 公式类别120，
-   输入框统一 60px 宽、28px 粗体居中；窄列靠 `el-table .cell{overflow:hidden}` 裁掉两侧，
-   因为文字居中，数字仍看得见。 */
-.parts-table {
-  table-layout: fixed;
-}
-.parts-table td {
-  overflow: hidden;
-}
-.glass-inputs-container2 {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0px;
-  width: 100%;
-}
-.glass-input-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.glass-input-label {
-  font-size: 11px;
-  white-space: nowrap;
-  color: #1302fa;
-  margin-right: 0;
-  flex-shrink: 0;
-}
-/* ⚠️ 旧版这条写的是 `width:60px; font-size:28px; font-weight:700; text-align:center`，
-   但**实测两者都不生效**：`.formula-input` 所在的 el-input 根元素会被 flex 拉伸
-   （实测 176px，不是 60px），而 `font-size:28px` 够不到内层 `<input>`（EP 自己给它定了 16px）。
-   所以只保留肉眼可见的那一条 `text-align:center`，别照抄那两个无效声明。
-   （验证方式：用 legacy/vendor 的 vue + element-plus + legacy/css/Diao-15870f7d.css
-     把这张表单独渲染出来实测 —— 列宽实测 336/101/218/403/403，声明的 100/30/65/120/120 全被拉伸。） */
-.formula-input {
-  text-align: center;
-}
-.cat-cell {
-  color: #888;
-  font-size: 12px;
-  text-align: center;
-}
-.empty-cell {
-  text-align: center;
-  color: #999;
-  padding: 24px;
-}
-.list-toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-.tpl-group {
+
+.formula-mark {
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  place-items: center;
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  border: var(--sd-border-width) solid var(--sd-border-action-subtle);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-material-brand-glass);
+  color: var(--sd-color-action);
+  box-shadow: var(--sd-shadow-brand-mark);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
 }
-.tpl-btn {
-  border: 1px solid #e5e6eb;
-  border-radius: 6px;
-  padding: 10px;
-  cursor: pointer;
+
+.formula-mark::after {
+  content: "";
+  position: absolute;
+  inset: var(--sd-space-2);
+  border: var(--sd-border-width) solid var(--sd-border-action-faint);
+  border-radius: var(--sd-radius-md);
+  pointer-events: none;
+}
+
+.formula-mark span {
+  transform: translate(-2px, 1px);
+  font-size: var(--sd-font-size-display);
+  font-style: italic;
+}
+
+.formula-mark small {
+  position: absolute;
+  right: 16px;
+  bottom: 14px;
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-eyebrow {
+  color: var(--sd-color-action);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+  letter-spacing: var(--sd-letter-spacing-eyebrow);
+  text-transform: uppercase;
+}
+
+.formula-hero__copy h1 {
+  margin: var(--sd-space-1) 0 var(--sd-space-1-5);
+  color: var(--sd-color-text-strong);
+  font-size: clamp(var(--sd-font-size-2xl), 3vw, var(--sd-font-size-3xl));
+  font-weight: var(--sd-font-weight-bold);
+  line-height: var(--sd-line-height-tight);
+  letter-spacing: -0.025em;
+}
+
+.formula-hero__copy p,
+.formula-context p,
+.formula-section__heading p,
+.formula-empty__copy p {
+  margin: 0;
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+  line-height: var(--sd-line-height-base);
+}
+
+.formula-hero__status {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  transition: background 0.15s;
-}
-.tpl-btn:hover {
-  background: #f0f6ff;
-}
-.tpl-label {
-  font-size: 14px;
-  font-weight: 600;
-}
-.tpl-key {
-  font-size: 12px;
-  color: #999;
-}
-.mat-section {
-  margin-bottom: 16px;
-}
-.mat-section h3 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  border-left: 3px solid #409eff;
-  padding-left: 8px;
-}
-.mat-section h4 {
-  margin: 8px 0 4px;
-  font-size: 13px;
-  color: #666;
-}
-.mat-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.mat-group {
-  margin-bottom: 6px;
-}
-.config-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
   align-items: center;
-  margin-bottom: 16px;
-  padding: 8px;
-  background: #fafbfc;
-  border-radius: 6px;
+  flex: 0 0 auto;
+  gap: var(--sd-space-3);
+  min-width: 148px;
+  padding: var(--sd-space-3) var(--sd-space-4);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-material-control);
 }
-.config-summary {
-  font-size: 12px;
-  color: #888;
+
+.formula-hero__status > div {
+  display: grid;
+  gap: 2px;
+}
+
+.formula-hero__status span:not(.formula-status-dot) {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.formula-hero__status strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.formula-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-text-disabled);
+  box-shadow: var(--sd-shadow-status-soft);
+  transition:
+    background var(--sd-duration-base) var(--sd-ease-standard),
+    box-shadow var(--sd-duration-base) var(--sd-ease-standard);
+}
+
+.formula-hero__status.is-active .formula-status-dot {
+  background: var(--sd-color-success);
+  box-shadow: var(--sd-shadow-status);
+}
+
+.formula-workbench {
+  overflow: hidden;
+  border-radius: var(--sd-radius-material);
+  animation: formula-surface-enter var(--sd-duration-enter) var(--sd-ease-enter) 50ms both;
+}
+
+.formula-workbench__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sd-space-6);
+  padding: var(--sd-space-5) var(--sd-space-6);
+  border-bottom: var(--sd-border-width) solid var(--sd-border-glass-divider);
+  background: var(--sd-material-surface-strong);
+}
+
+.formula-context {
+  min-width: 220px;
+}
+
+.formula-context__topline {
+  display: flex;
+  align-items: center;
+  gap: var(--sd-space-2);
+}
+
+.formula-context__label {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+  letter-spacing: 0.04em;
+}
+
+.formula-context__type {
+  padding: 2px var(--sd-space-2);
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action-soft);
+  color: var(--sd-color-action);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-context h2 {
+  margin: var(--sd-space-1) 0 2px;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-xl);
+  font-weight: var(--sd-font-weight-bold);
+  line-height: var(--sd-line-height-tight);
+}
+
+.formula-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+}
+
+.formula-page :deep(.n-button) {
+  border-radius: var(--sd-radius-control);
+  font-weight: var(--sd-font-weight-medium);
+  transition:
+    transform var(--sd-duration-fast) var(--sd-ease-standard),
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard),
+    color var(--sd-duration-fast) var(--sd-ease-standard),
+    background-color var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.formula-page :deep(.n-button:not(.n-button--disabled):hover) {
+  transform: translateY(var(--sd-motion-hover-y));
+}
+
+.formula-page :deep(.n-button:not(.n-button--disabled):active) {
+  transform: scale(var(--sd-motion-press-scale));
+}
+
+.formula-page :deep(.n-input) {
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-material-control);
+  transition:
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard),
+    background var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.formula-page :deep(.n-input.n-input--focus) {
+  background: var(--sd-material-control-focus);
+  box-shadow: var(--sd-focus-ring-soft);
+}
+
+.formula-empty {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(240px, 1.15fr) minmax(300px, 1.4fr);
+  align-items: center;
+  gap: var(--sd-space-8);
+  min-height: 320px;
+  padding: var(--sd-space-10) clamp(var(--sd-space-6), 5vw, var(--sd-space-14));
+  background: var(--sd-color-bg-surface);
+}
+
+.formula-empty__symbol {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sd-space-4);
+  min-height: 150px;
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-material-highlight-faint);
+  color: var(--sd-color-action);
+}
+
+.formula-empty__line {
+  width: 54px;
+  height: 2px;
+  background: var(--sd-material-measure-line);
+}
+
+.formula-empty__operator {
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-2xl);
+  color: var(--sd-color-text-muted);
+}
+
+.formula-empty__result {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: var(--sd-font-size-3xl);
+  font-style: italic;
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-empty__copy h2 {
+  margin: var(--sd-space-2) 0 var(--sd-space-2);
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-xl);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-empty__steps {
+  display: grid;
+  gap: var(--sd-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.formula-empty__steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--sd-space-3);
+  padding: var(--sd-space-3);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.formula-empty__steps li:last-child {
+  border-bottom: 0;
+}
+
+.formula-empty__steps li > span {
+  color: var(--sd-color-action);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-empty__steps li > div {
+  display: grid;
+  gap: 2px;
+}
+
+.formula-empty__steps strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-sm);
+}
+
+.formula-empty__steps small {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.formula-editor {
+  padding: 0 var(--sd-space-6) var(--sd-space-6);
+  background: var(--sd-color-bg-surface);
+}
+
+.formula-section {
+  padding: var(--sd-space-6) 0;
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.formula-section:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.formula-section__heading,
+.formula-section__heading-main {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sd-space-3);
+}
+
+.formula-section__heading {
+  margin-bottom: var(--sd-space-4);
+}
+
+.formula-section__heading--split {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sd-space-6);
+}
+
+.formula-section__index {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 24px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action-soft);
+  color: var(--sd-color-action);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.formula-section__heading h3 {
+  margin: 0 0 2px;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-lg);
+  font-weight: var(--sd-font-weight-bold);
+  line-height: var(--sd-line-height-tight);
+}
+
+.dims {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sd-space-3);
+  padding: var(--sd-space-4);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-subtle);
+}
+
+.dim-item {
+  display: grid;
+  align-content: start;
+  gap: var(--sd-space-1-5);
+  min-width: 0;
+}
+
+.dim-item label,
+.cfg-form label {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
   white-space: nowrap;
 }
+
+.dim-item--action :deep(.n-button) {
+  width: 100%;
+}
+
+.formula-name-input,
+.dimension-input,
+.material-search-input {
+  width: 100%;
+}
+
+.config-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sd-space-2);
+}
+
+.config-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-2);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-subtle);
+  transition:
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    background var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.config-item:hover {
+  border-color: var(--sd-color-action-border);
+  background: var(--sd-color-bg-hover);
+}
+
+.config-item :deep(.n-button) {
+  flex: 0 0 auto;
+}
+
+.config-summary {
+  overflow: hidden;
+  min-width: 0;
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  line-height: var(--sd-line-height-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .config-summary-multi {
   white-space: pre-line;
 }
-.cfg-form {
+
+.search-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  flex: 0 1 390px;
+  justify-content: flex-end;
+  gap: var(--sd-space-2);
 }
-.cfg-form label {
-  font-size: 13px;
+
+.material-search-input {
+  max-width: 260px;
+}
+
+.parts-table-shell {
+  overflow: auto;
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-surface);
+  outline: none;
+  scrollbar-color: var(--sd-color-border) transparent;
+  scrollbar-width: thin;
+}
+
+.parts-table-shell:focus-visible {
+  box-shadow: var(--sd-focus-ring);
+}
+
+.parts-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: var(--sd-font-size-sm);
+}
+
+.parts-table th,
+.parts-table td {
+  height: 46px;
+  padding: var(--sd-space-1-5) var(--sd-space-2);
+  border-right: var(--sd-border-width) solid var(--sd-color-divider);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  vertical-align: middle;
+}
+
+.parts-table th:last-child,
+.parts-table td:last-child {
+  border-right: 0;
+}
+
+.parts-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.parts-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--sd-color-bg-subtle);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.parts-table th:nth-child(1) { width: 24%; }
+.parts-table th:nth-child(2) { width: 12%; }
+.parts-table th:nth-child(3) { width: 22%; }
+.parts-table th:nth-child(4) { width: 16%; }
+.parts-table th:nth-child(5) { width: 26%; }
+
+.parts-table td {
+  overflow: hidden;
+  transition: filter var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.parts-table tbody tr:hover td {
+  filter: saturate(1.02) brightness(0.99);
+}
+
+.glass-inputs-container2 {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sd-space-1);
+  width: 100%;
+}
+
+.glass-input-group {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: var(--sd-space-1);
+}
+
+.glass-input-group :deep(.n-tooltip-trigger) {
+  width: 100%;
+}
+
+.glass-input-label {
+  color: var(--sd-color-action);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-strong);
   white-space: nowrap;
 }
+
+.formula-input {
+  width: 100%;
+  text-align: center;
+}
+
+.formula-input :deep(input) {
+  font-family: var(--sd-font-data);
+  text-align: center;
+}
+
+.cat-cell {
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  text-align: center;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sd-space-3);
+}
+
+.empty-cell {
+  padding: var(--sd-space-8) !important;
+  color: var(--sd-color-text-muted);
+  text-align: center;
+}
+
+.glass-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sd-space-3);
+  margin-top: var(--sd-space-4);
+}
+
+.glass-image-item {
+  padding: var(--sd-space-2);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-subtle);
+  text-align: center;
+}
+
+.glass-image-item img {
+  display: block;
+  width: 90px;
+  height: auto;
+  border-radius: var(--sd-radius-xs);
+}
+
+.glass-image-dir {
+  margin-top: var(--sd-space-1);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.formula-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-4) 0 var(--sd-space-1);
+}
+
+.formula-actions :deep(.n-button) {
+  min-width: 112px;
+}
+
+.list-toolbar,
+.cfg-form,
 .min-square-header,
 .min-square-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sd-space-2);
 }
-.min-square-header {
-  font-weight: 600;
-  margin-bottom: 6px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 6px;
+
+.list-toolbar {
+  flex-wrap: wrap;
 }
+
+.cfg-form {
+  flex-wrap: wrap;
+  margin-bottom: var(--sd-space-2-5);
+}
+
+.min-square-header,
 .min-square-row {
-  margin-bottom: 6px;
+  gap: var(--sd-space-2);
 }
+
+.min-square-header {
+  margin-bottom: var(--sd-space-1-5);
+  padding-bottom: var(--sd-space-1-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  color: var(--sd-color-text-strong);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.min-square-row {
+  margin-bottom: var(--sd-space-1-5);
+}
+
 .min-square-type {
   flex: 0 0 120px;
-  font-size: 13px;
+  font-size: var(--sd-font-size-sm);
 }
+
 .min-square-col {
   flex: 1;
 }
-.search-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+
+.tpl-group {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-2);
 }
-.glass-images {
+
+.tpl-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-surface);
+  cursor: pointer;
+  transition:
+    transform var(--sd-duration-fast) var(--sd-ease-standard),
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    background var(--sd-duration-fast) var(--sd-ease-standard),
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.tpl-btn:hover {
+  transform: translateY(var(--sd-motion-hover-y));
+  border-color: var(--sd-color-action-border);
+  background: var(--sd-color-action-soft);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+.tpl-btn:active {
+  transform: scale(var(--sd-motion-press-scale));
+}
+
+.tpl-label {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.tpl-key {
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+}
+
+.mat-section {
+  margin-bottom: var(--sd-space-4);
+}
+
+.mat-section h3 {
+  margin: 0 0 var(--sd-space-2);
+  padding-left: var(--sd-space-2);
+  border-left: 3px solid var(--sd-color-action);
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
+}
+
+.mat-section h4 {
+  margin: var(--sd-space-2) 0 var(--sd-space-1);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+}
+
+.mat-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
+  gap: var(--sd-space-1-5);
 }
-.glass-image-item {
-  text-align: center;
+
+.mat-group {
+  margin-bottom: var(--sd-space-1-5);
 }
-.glass-image-item img {
-  width: 90px;
-  height: auto;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-.glass-image-dir {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-.formula-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 15px;
-}
+
 .video-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-2);
 }
+
+.video-list :deep(.n-button) {
+  justify-content: flex-start;
+}
+
 .light-window-diagram {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--sd-space-3);
 }
+
+.light-window-diagram svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .light-window-legend {
-  font-size: 13px;
-  color: #555;
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
   text-align: left;
 }
+
 .light-window-legend p {
-  margin: 4px 0;
+  margin: var(--sd-space-1) 0;
+}
+
+@keyframes formula-surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sd-motion-enter-y));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .formula-hero {
+    align-items: flex-start;
+  }
+
+  .formula-workbench__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .formula-toolbar-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .formula-empty {
+    grid-template-columns: minmax(180px, 0.8fr) minmax(300px, 1.4fr);
+  }
+
+  .formula-empty__copy {
+    align-self: end;
+  }
+
+  .formula-empty__steps {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .formula-empty__steps li {
+    align-items: flex-start;
+    border-right: var(--sd-border-width) solid var(--sd-color-divider);
+    border-bottom: 0;
+  }
+
+  .formula-empty__steps li:last-child {
+    border-right: 0;
+  }
+
+  .config-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .formula-section__heading--split {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .search-row {
+    flex-basis: auto;
+    justify-content: flex-start;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .formula-page {
+    padding-bottom: calc(var(--sd-shell-mobile-dock-reserve) + var(--sd-page-padding));
+  }
+
+  .formula-hero {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--sd-space-4);
+    padding: var(--sd-space-5);
+    border-radius: var(--sd-radius-card);
+  }
+
+  .formula-mark {
+    flex-basis: 58px;
+    width: 58px;
+    height: 58px;
+    border-radius: var(--sd-radius-control);
+  }
+
+  .formula-mark span {
+    font-size: var(--sd-font-size-3xl);
+  }
+
+  .formula-mark small {
+    right: 12px;
+    bottom: 10px;
+  }
+
+  .formula-hero__status {
+    min-width: 0;
+  }
+
+  .formula-workbench {
+    border-radius: var(--sd-radius-card);
+  }
+
+  .formula-workbench__toolbar,
+  .formula-editor {
+    padding-right: var(--sd-space-4);
+    padding-left: var(--sd-space-4);
+  }
+
+  .formula-toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .formula-toolbar-actions :deep(.n-button) {
+    width: 100%;
+  }
+
+  .formula-empty {
+    grid-template-columns: 1fr;
+    min-height: 0;
+    padding: var(--sd-space-6) var(--sd-space-4);
+  }
+
+  .formula-empty__symbol {
+    min-height: 112px;
+  }
+
+  .formula-empty__steps {
+    grid-column: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .formula-empty__steps li,
+  .formula-empty__steps li:last-child {
+    border-right: 0;
+    border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  }
+
+  .formula-empty__steps li:last-child {
+    border-bottom: 0;
+  }
+
+  .dims,
+  .config-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dim-item--name {
+    grid-column: 1 / -1;
+  }
+
+  .config-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .config-item :deep(.n-button) {
+    width: 100%;
+  }
+
+  .config-summary {
+    min-height: 16px;
+    padding: 0 var(--sd-space-1);
+  }
+
+  .parts-table-shell {
+    border-radius: var(--sd-radius-control);
+  }
+
+  .formula-actions {
+    position: sticky;
+    bottom: calc(var(--sd-shell-mobile-dock-reserve) - var(--sd-space-1));
+    z-index: 2;
+    margin: var(--sd-space-3) calc(var(--sd-space-4) * -1) calc(var(--sd-space-4) * -1);
+    padding: var(--sd-space-3) var(--sd-space-4);
+    border-top: var(--sd-border-width) solid var(--sd-border-glass-strong);
+    background: var(--sd-material-surface-strong);
+    box-shadow: var(--sd-shadow-md);
+    backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+    -webkit-backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+  }
+
+  .formula-actions :deep(.n-button) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tpl-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .formula-hero__identity {
+    align-items: flex-start;
+  }
+
+  .formula-hero__copy p {
+    font-size: var(--sd-font-size-xs);
+  }
+
+  .formula-workbench__toolbar {
+    padding: var(--sd-space-4);
+  }
+
+  .formula-toolbar-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .formula-section {
+    padding: var(--sd-space-5) 0;
+  }
+
+  .formula-section__heading,
+  .formula-section__heading-main {
+    gap: var(--sd-space-2);
+  }
+
+  .dims,
+  .config-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dim-item--name {
+    grid-column: auto;
+  }
+
+  .search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .material-search-input {
+    max-width: none;
+  }
+
+  .search-row :deep(.n-button) {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .formula-hero,
+  .formula-workbench {
+    animation: none;
+  }
 }
 </style>
