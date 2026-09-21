@@ -14,8 +14,9 @@ import { appColors } from './design-tokens'
  * 非颜色的 token（字体、圆角、阴影、控件高度、动效）不经过 seemly，
  * 是直接落到 CSS 上的，用 `var()` 没问题 —— 这些由 `tokens.css` 提供。
  *
- * ⚠️ 已知重复：`appColors` 与 `tokens.css` 各自写着同一套色值，
- * 改色时要**两处同改**（否则 Naive 侧与业务 CSS 侧会漂）。
+ * `appColors` 是颜色字面量的唯一来源；`tokens.css` 不重复保存颜色。启动时
+ * `installDesignTokenVariables()` 会把同一份值安装为 CSS variables，因此 Naive UI
+ * 与业务 CSS 始终共享同一套语义色和材质色。
  */
 export const appThemeOverrides: GlobalThemeOverrides = {
   common: {

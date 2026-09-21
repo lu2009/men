@@ -1,6 +1,8 @@
 # 前端布局与 UI 规范
 
 > 目的：保证所有页面在桌面与窄屏（移动端 / 小窗口）下排版一致、窄屏自动换行。**所有新页面必须遵守。**
+>
+> 视觉、Token、材质、组件状态与微交互的完整规范见 [`docs/design-system.md`](./design-system.md)。本文件保留布局和表格的工程约束。
 
 ## 1. 页面外壳
 
@@ -8,9 +10,10 @@
 
 ```css
 .page {
-  min-height: 100vh;
-  padding: 24px;
-  background: #f5f7fa;
+  min-height: 100%;
+  padding: var(--sd-page-padding);
+  color: var(--sd-color-text-strong);
+  background: var(--sd-color-bg-page);
 }
 ```
 
@@ -50,7 +53,12 @@
   > ⇒ 遇到"这个样式到底长什么样"说不清时，**把旧版那页用它的 vendor 单独跑起来量**，
   > 比读 CSS 靠谱。
 
-## 4. 其它
+## 4. Token 与组件约束
 
 - 组件库：Naive UI（全局注册，`app.use(naive)`）。
 - 弹窗 / 抽屉内布局同样遵守第 2 条（横向 flex 容器也要 `flex-wrap`）。
+- 新页面和重构页面必须优先使用 `--sd-*` token。
+- 不得新增未经定义的颜色、圆角、阴影、控件高度和动效值；通用值应提升到全局 token。
+- 不得在页面内建立 `--ios-*`、`--page-theme-*` 等平行 token 系统。
+- 毛玻璃只用于页面 shell、主任务卡、Modal / Drawer 等有限层级，不用于长表格滚动层。
+- 打印、标签、回执和所见即所得画布属于输出契约，不套用应用 UI token。

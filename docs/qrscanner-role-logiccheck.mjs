@@ -11,6 +11,8 @@
  *      只把 `createWebHistory` 换成 `createMemoryHistory`（脱离浏览器），
  *      `.vue` 组件与 `api/client` 用桩替掉；**router 本身、守卫、roles.ts、pinia auth store
  *      全是真代码**。然后逐个角色走一遍导航，看**真的落在哪**，而不是「我读了一遍觉得对」。
+ *      另外钉住 `/me` 失败的**两种形状**：服务端明确 401（清令牌、回登录页）
+ *      vs **没拿到响应**（网络故障/被导航掐掉 —— 不许注销会话）。两个不能混为一谈。
  *   ③ 「设置工序」的角色门控 —— `canEditProcedures()` 纯函数逐条断言
  *      **＋一条源码守卫**（那颗按钮真的带了 `v-if` 吗）。
  *      ⚠️ 只测纯函数是不够的：函数对、但**没人调用**（或 `v-if` 被删）时②③照样全绿。
@@ -57,11 +59,23 @@ const STUB_CLIENT = `
   let _t = (globalThis.__TOKEN__ ?? null)
   export const getToken = () => _t
   export const setToken = (v) => { _t = v; globalThis.__TOKEN__ = v }
+  // ★ 「/me 失败」**分两种形状**，② 那一块钉的就是这个区别：
+  //   '401'         —— 服务端**明确拒绝**了这个令牌。真实现：api/client.ts 的 request()
+  //                    在非 2xx 时抛的错**带 status**（401/403 正是这一档）。
+  //   'no-response' —— **压根没拿到响应**（网络故障、超时、被整文档导航掐掉）。
+  //                    真实现：fetch 自己抛 TypeError，**没有 status**。
+  //   ⚠️ 别再用 new Error('401') 那种写法：它只是 message 里写着 401、**没有 status**，
+  //      形状属于「没拿到响应」那一档。它以前能过，是因为旧代码**不看形状一律清令牌** ——
+  //      那等于在测一个真实现里根本不存在的错误。
+  const meFail = (mode) => mode === '401'
+    ? Object.assign(new Error('未提供认证令牌'), { status: 401 })
+    : new TypeError('Failed to fetch')
+
   export const api = {
     login: async () => { throw new Error('本台不测登录，只测登录之后的落地') },
     logout: async () => ({ logged_out: true }),
     me: async () => {
-      if (globalThis.__ME_FAILS__) throw new Error('401')
+      if (globalThis.__ME_FAILS__) throw meFail(globalThis.__ME_FAILS__)
       return {
         user: { id: 1, tenant_id: 1, username: 'u', name: 'n', role: globalThis.__ROLE__ },
         tenant: { id: 1, name: 't' },
@@ -204,23 +218,55 @@ for (const [role, token, from, to, want, why] of NAV) {
   console.log(`   ${name === want ? '✓' : '✗'} ${role.padEnd(7)} → ${to.padEnd(18)} 落 ${name.padEnd(13)} ${why}`)
 }
 
-// 守卫里那次补 /me 失败 ⇒ 必须清令牌回登录页，不能停在受限页
+// 守卫里那次补 /me 被服务端**明确拒绝**（真 401）⇒ 必须清令牌回登录页，不能停在受限页。
+// ⚠️ 喂的必须是**带 status 的** 401（见 STUB_CLIENT 里 meFail 的说明）—— 形状不对就不是
+//    「令牌失效」，那是下一条管的事。
 {
   setActivePinia(createPinia())
-  globalThis.__TOKEN__ = 'dead'; globalThis.__ROLE__ = 'scanner'; globalThis.__ME_FAILS__ = true
+  globalThis.__TOKEN__ = 'dead'; globalThis.__ROLE__ = 'scanner'; globalThis.__ME_FAILS__ = '401'
   const a = useAuthStore(); a.token = 'dead'; a.user = null
   await router.replace('/qrscanner').catch(() => {})
   await router.replace('/progress').catch(() => {})
   await new Promise((r) => setTimeout(r, 0))
   const ok = String(router.currentRoute.value.name) === 'login' && a.token === null
   check(ok, '令牌失效时没回登录页')
-  console.log(`   ${ok ? '✓' : '✗'} 令牌失效 → 守卫补 /me 失败 ⇒ 清令牌回登录页（落 ${router.currentRoute.value.name}）`)
+  console.log(`   ${ok ? '✓' : '✗'} 令牌被服务端拒了（401）⇒ 清令牌回登录页（落 ${router.currentRoute.value.name}）`)
 }
 
-// 无认证的分享页不该顺手要一次 /me（那是给客户看的）
+// 反过来：**没拿到响应**（网络故障 / 被整文档导航掐掉）**不是**「令牌失效」——
+// 那时候**不许**注销会话。依据：`app/src/stores/auth.ts` 的 `loadMe()` 与
+// `app/e2e/auth.spec.ts` 最后一条（登录后落地页补的那次 /me 还在飞时按刷新，
+// 掐掉它会把令牌从 localStorage 抹掉 ⇒ 人莫名其妙被登出，后端越慢越容易中）。
 {
   setActivePinia(createPinia())
-  globalThis.__TOKEN__ = 't'; globalThis.__ROLE__ = 'scanner'; globalThis.__ME_FAILS__ = true
+  globalThis.__TOKEN__ = 'flaky'; globalThis.__ROLE__ = 'scanner'; globalThis.__ME_FAILS__ = 'no-response'
+  const a = useAuthStore(); a.token = 'flaky'; a.user = null
+  await router.replace('/qrscanner').catch(() => {})
+  await router.replace('/progress').catch(() => {})
+  await new Promise((r) => setTimeout(r, 0))
+  const kept = a.token === 'flaky' && globalThis.__TOKEN__ === 'flaky'
+  check(kept, '「没拿到响应」被当成「令牌失效」把会话注销了')
+  console.log(`   ${kept ? '✓' : '✗'} 无响应 ⇒ 令牌**留着**（落 ${router.currentRoute.value.name}）`)
+
+  // 而且**权限一点没放松**：网一好、身份问得到，扫码账号照样进不了 /progress。
+  // （问不到身份时前端会临时按「不是扫码账号」渲染，但那是**不出数据**的空壳 ——
+  //   数据归后端挡，见 `utils/roles.ts` 抬头；这里钉的是「恢复后立刻收回」。）
+  globalThis.__ME_FAILS__ = false
+  setActivePinia(createPinia())
+  const b = useAuthStore(); b.token = 'flaky'; b.user = null
+  await router.replace('/login').catch(() => {})
+  await router.replace('/progress').catch(() => {})
+  await new Promise((r) => setTimeout(r, 0))
+  const blocked = String(router.currentRoute.value.name) === 'qrscanner'
+  check(blocked, '身份问得到之后，扫码账号仍进得了 /progress —— 门控被网故障放松了')
+  console.log(`   ${blocked ? '✓' : '✗'} 网络恢复、身份问得到 ⇒ 照样挡回扫码页（落 ${router.currentRoute.value.name}）`)
+}
+
+// 无认证的分享页不该顺手要一次 /me（那是给客户看的）。
+// 这里故意喂**会清令牌的那个 401** —— 万一守卫真去要了 /me，落点会当场变，这条立刻红。
+{
+  setActivePinia(createPinia())
+  globalThis.__TOKEN__ = 't'; globalThis.__ROLE__ = 'scanner'; globalThis.__ME_FAILS__ = '401'
   const a = useAuthStore(); a.token = 't'; a.user = null
   await router.replace('/receipt-share').catch(() => {})
   await new Promise((r) => setTimeout(r, 0))

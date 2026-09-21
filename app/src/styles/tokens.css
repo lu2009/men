@@ -1,8 +1,8 @@
 /*
  * SmartDoor 应用 UI token
  *
- * 视觉方向：面向门窗厂高频操作的“生产控制台”。强调快速扫描、稳定层级和
- * 异常优先，不使用营销型大圆角、大渐变或低信息密度卡片。
+ * 视觉方向：iOS / iPadOS 材质语言与企业级 SaaS / ERP 信息密度的结合。
+ * 强调快速扫描、稳定层级、清晰反馈；玻璃只用于高层容器，不铺满业务内容区。
  *
  * 边界：这些 token 服务应用界面。打印单、标签、回执和所见即所得画布的尺寸、
  * 字体、分页与颜色属于输出契约，不应改用这里的布局/排版 token。
@@ -11,68 +11,96 @@
   color-scheme: light;
 
   /*
-   * ⚠️ 颜色不在这里定义 —— 全部由 `design-tokens.ts` 的 `appColors` 提供，
-   * 并在启动时由 `installDesignTokenVariables()`（`main.ts` 里调用）写成
-   * 同名的 `--sd-palette-*` / `--sd-color-*` 变量。
-   *
-   * 为什么不静态写在这里：Naive UI 的主题色**必须是字面量**，它用 seemly 在渲染期
-   * 解析并推导 hover/pressed/suppl，`var()` 会让它抛错、整页白屏。所以那份字面量
-   * 必须存在于 TS 里；而**同一套色值写两遍必然漂**，于是这里不再抄第二份。
-   *
-   * 本文件只管**不经 seemly** 的那部分（字体、间距、圆角、阴影、控件高度、动效）。
+   * ⚠️ 颜色不在这里定义：全部由 `design-tokens.ts` 的 `appColors` 提供，
+   * 并在 `main.ts` mount 前安装为 `--sd-palette-*` / `--sd-color-*` /
+   * `--sd-material-*` / `--sd-shadow-*` 变量。
    */
 
-  /* 中文界面正文 + 编号/金额。字体均为系统已有字体，不引入网络依赖。 */
-  --sd-font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Typography：系统字体优先，中文回退稳定，不引入网络字体。 */
+  --sd-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans CJK SC", "Segoe UI", sans-serif;
   --sd-font-data: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --sd-font-size-2xs: 10px;
   --sd-font-size-xs: 12px;
   --sd-font-size-sm: 13px;
   --sd-font-size-md: 14px;
+  --sd-font-size-control: 15px;
   --sd-font-size-lg: 16px;
   --sd-font-size-xl: 20px;
+  --sd-font-size-2xl: 24px;
+  --sd-font-size-3xl: 32px;
+  --sd-font-size-display: 44px;
   --sd-line-height-tight: 1.35;
   --sd-line-height-base: 1.6;
+  --sd-line-height-relaxed: 1.8;
   --sd-font-weight-regular: 400;
   --sd-font-weight-medium: 500;
   --sd-font-weight-strong: 600;
+  --sd-font-weight-bold: 700;
+  --sd-letter-spacing-eyebrow: 0.08em;
 
-  /* 4px 基准网格；6px/12px 用于紧凑表格和工具条。 */
+  /* Spacing：4px 基准网格；紧凑表格可使用 6px，页面结构优先使用 12–32px。 */
+  --sd-space-0: 0;
   --sd-space-1: 4px;
+  --sd-space-1-5: 6px;
   --sd-space-2: 8px;
+  --sd-space-2-5: 10px;
   --sd-space-3: 12px;
   --sd-space-4: 16px;
   --sd-space-5: 20px;
   --sd-space-6: 24px;
+  --sd-space-7: 28px;
   --sd-space-8: 32px;
+  --sd-space-10: 40px;
+  --sd-space-12: 48px;
+  --sd-space-14: 56px;
+  --sd-space-16: 64px;
 
-  /* 克制的工业工作台轮廓。 */
-  --sd-radius-sm: 3px;
-  --sd-radius-md: 4px;
-  --sd-radius-lg: 6px;
+  /* Radius：控件克制，材质容器才使用更大的连续圆角。 */
+  --sd-radius-xs: 6px;
+  --sd-radius-sm: 8px;
+  --sd-radius-md: 10px;
+  --sd-radius-control: 13px;
+  --sd-radius-card: 20px;
+  --sd-radius-material: 24px;
+  --sd-radius-shell: 28px;
+  --sd-radius-pill: 999px;
   --sd-border-width: 1px;
-  --sd-shadow-sm: 0 1px 2px rgb(48 49 51 / 8%);
-  --sd-shadow-md: 0 8px 24px rgb(48 49 51 / 12%);
-  --sd-focus-ring: 0 0 0 3px rgb(64 158 255 / 24%);
 
-  /* 保留现有 Naive UI 密度，避免 token 接入本身改变业务页面尺寸。 */
+  /* Controls：保留既有业务密度；登录、搜索等突出任务可使用 prominent。 */
   --sd-control-height-mini: 16px;
   --sd-control-height-tiny: 22px;
   --sd-control-height-small: 28px;
   --sd-control-height-medium: 34px;
   --sd-control-height-large: 40px;
   --sd-control-height-huge: 46px;
+  --sd-control-height-prominent: 48px;
 
-  /* 应用壳层。 */
+  /* Application shell。 */
   --sd-shell-header-height: 60px;
   --sd-page-padding: 24px;
   --sd-page-gap: 16px;
   --sd-content-max-width: 1600px;
 
-  /* 动效只服务状态反馈；业务数据切换不做装饰性动画。 */
-  --sd-duration-fast: 120ms;
+  /* Glass：仅用于 shell、主任务卡、Modal / Drawer，不用于长表格滚动层。 */
+  --sd-glass-blur-sm: 12px;
+  --sd-glass-blur-md: 22px;
+  --sd-glass-blur-lg: 30px;
+  --sd-glass-saturation: 150%;
+  --sd-glass-saturation-strong: 180%;
+
+  /* Motion：只服务状态、层级和操作反馈。 */
+  --sd-duration-instant: 100ms;
+  --sd-duration-fast: 140ms;
   --sd-duration-base: 180ms;
+  --sd-duration-slow: 220ms;
+  --sd-duration-enter: 420ms;
+  --sd-duration-ambient: 2800ms;
   --sd-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --sd-ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --sd-motion-hover-y: -1px;
+  --sd-motion-press-scale: 0.985;
+  --sd-motion-enter-y: 8px;
 }
 
 @media (max-width: 768px) {
@@ -84,7 +112,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --sd-duration-instant: 1ms;
     --sd-duration-fast: 1ms;
     --sd-duration-base: 1ms;
+    --sd-duration-slow: 1ms;
+    --sd-duration-enter: 1ms;
+    --sd-duration-ambient: 1ms;
+    --sd-motion-hover-y: 0px;
+    --sd-motion-press-scale: 1;
+    --sd-motion-enter-y: 0px;
   }
 }

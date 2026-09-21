@@ -5,19 +5,24 @@
  * 再把这些东西通过环境变量喂进来。**这套 spec 必须整装置跑** —— 它们不只是「点点看」，
  * 每一条断言都要**现查克隆库**跟页面对账（差分台的精神：左边数据库、右边页面，逐字段比）。
  *
- * 三件东西：
+ * 四件东西：
  *   1. `test` / `expect` —— **从这里 import，不要从 `@playwright/test` import**。
- *      `test` 上挂了 auto fixture：`pageerror` / `console.error` 零容忍 + **`:3000` 请求守卫**
- *      自动生效，判定在 fixture 的 teardown 里跑（测试体怎么挂都会跑）。见文件末尾 §4。
+ *      `test` 上挂了两个 auto fixture：**写隔离的重置**（§3.5）+ 三道闸
+ *      （`pageerror` / `console.error` 零容忍 + **`:3000` 请求守卫**，见 §4）。
+ *      两道都是自动生效，判定在 fixture 的 teardown 里跑（测试体怎么挂都会跑）。
  *   2. `login(page)` —— 走**真表单**登录（不是塞 token），返回落地的 URL；
- *   3. `dbQuery` / `progressLineCount` / `adminTenantId` —— **现查克隆库**的小工具。
+ *   3. `dbQuery` / `progressLineCount` / `adminTenantId` —— **现查克隆库**的小工具；
+ *   4. `resetWorkDb()` —— 写隔离的重置（已挂在 auto fixture 上，测试体一般**不用**直接调）。
  *
  * ⚠️ **期望值一律现查，不许写死会随数据变的常数**。库里的行数、聚合值都从 `dbQuery` 拿，
  *    页面上读到的跟它比。数据变了（用户又录了几单）测试**不该红**。
- * ⚠️ 每条断言在**它自己这条测试开始时**现查 —— 不依赖 spec 之间的执行顺序：
- *    `progress.spec` 会删行、`home.spec` 会改单元格，`mount.spec` 要数行。
+ *
+ * ★ **写隔离（2026-09-21 加的，取代「只许改别的 spec 不读的字段」那条约定）**：
+ *   每个用例开始前，工作库从只读母本 `TEMPLATE` 重建 ⇒ **上一条用例的写全被抹掉**。
+ *   ⇒ 你**不再需要**挑字段躲着别的 spec 写，「创建 / 修改 / 删除」这类流程可以放心测。
+ *   代价实测 0.363s/用例（与库体积无关）。细节见 §3.5。
  */
-import { expect, test as base, type Page } from '@playwright/test'
+import { expect, test as base, type Page, type Request } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 
 // ── 路径与文案（全部实测过的字面量，别改成「看起来更对」的写法）──────────────────
@@ -50,6 +55,16 @@ const DB_USER = process.env.E2E_DB_USER ?? 'smartdoor'
  * —— 这几个工具只读库，但也不能把默认值指到用户的库上。
  */
 const DB_NAME = process.env.E2E_DB_NAME ?? 'smartdoor_e2e'
+/**
+ * **只读母本**（`scripts/e2e.mjs` 建的一次性库）：工作库每个用例前从它 `TEMPLATE` 重建。
+ * 同样由装置喂进来，理由与 `FORBIDDEN_PORT` 一样 —— 两边各写一份，改漏一处就静默指错库。
+ */
+const SEED_DB = process.env.E2E_SEED_DB ?? 'smartdoor_e2e_seed'
+// 防御性再查一次（装置那边已有三条守卫）：母本等于工作库的话，「重建」就是自己拷自己，
+// 重置**静默失效**、测试之间又开始互相看见写入 —— 那种绿是最坏的一种。
+if (SEED_DB === DB_NAME) {
+  throw new Error(`E2E_SEED_DB 不能等于 E2E_DB_NAME（都是 ${DB_NAME}）—— 重置会静默失效`)
+}
 export const ADMIN_USER = process.env.E2E_ADMIN_USER ?? 'admin'
 export const ADMIN_PW = process.env.E2E_ADMIN_PW ?? 'Admin@12345'
 
@@ -141,9 +156,74 @@ function attachGuards(page: Page, options: GuardOptions = {}): GuardHandle {
 const indent = (s: string) => `  · ${s.split('\n').join('\n    ')}`
 
 // ── 2. 登录辅助（走真表单）──────────────────────────────────────────────────
+/** `settleApi` 判「安静」的窗口：这么久没有再动，才算落定。 */
+const SETTLE_QUIET_MS = 300
+
 /**
- * 走**真表单**登录：填 placeholder、点「登录」，然后等路由离开 `/login`。
+ * 等**应用安静下来**：没有在飞的 `/api/` 请求，且已有一小段时间没再发新的。
+ *
+ * ── 为什么 `login()` 必须等这一步（★ 这不是「顺手加个等待」）────────────────────
+ * 登录后落地页在 `onMounted` 里还会补一次 `/me`（`Home.vue:543`）。原先 `login()` 是
+ * **URL 一变就返回** —— 那次 `/me` **还在飞**。spec 紧接着的 `page.goto(...)` 是**整文档导航**，
+ * 会把在飞的 fetch 掐掉 ⇒ `stores/auth.ts` 的 `loadMe()` 走进它的 `catch { this.clear() }`，
+ * **令牌被抹**（`localStorage.removeItem`，同源共享）⇒ 下一个文档读到 `token === null`，
+ * 路由守卫把 `/login` 弹回来。实测三档对照：不等待必红；`login()` 后等 1 秒必绿；
+ * 把写隔离的重置夹具停掉也必绿（重置让冷下来的连接池把 `/me` 拖慢，把这个窗口撑开）。
+ *
+ * 所以这**不是**「页面错了」，是**这个辅助函数返回得太早**。断言必须诚实地测应用，
+ * 不能靠在 spec 里垫一次耗时操作、赌它「恰好够快」—— 那种绿是掷骰子掷出来的。
+ *
+ * ── 为什么不干脆等某一次具体的 `/me` ─────────────────────────────────────────
+ * 那等于把「落地页一定会补 `/me`」写死进辅助函数：非 admin/scanner 的落地页（`landingRouteName`）
+ * 不发 `/me` 时，等待会挂到超时。等「网络安静」跟落地页是哪个页面无关。
+ *
+ * ── 为什么不用 `waitForLoadState('networkidle')` ──────────────────────────────
+ * 那个 lifecycle 事件**每个文档只发一次**，而这里文档早就 load 完了（SPA 换路由）
+ * ⇒ 调用会立刻返回，等于没等。
+ *
+ * 超时不静默：真的一直不安静就抛，别让「没等到」被当成「等到了」。
+ */
+async function settleApi(page: Page, timeoutMs = 20_000): Promise<void> {
+  let last = Date.now()
+  // ⚠️ 这里的 `Request` 是 **Playwright 的**（上面 `type` 引进来的），不是 DOM 那个同名的。
+  //    两者**形状不同**：Playwright 的 `url` 是**方法** `r.url()`，DOM 的 `url` 是**字符串属性**。
+  //    不引这一个的话，TS 会解析到 `lib: DOM` 里那个全局 `Request` ⇒ 下面 `r.url()` 报
+  //    「This expression is not callable」、`page.on('request', …)` 报重载不匹配。
+  //    而**这套 spec 根本不过 `vue-tsc`**（`app/tsconfig.json` 的 include 只有 `src/**` 与
+  //    `vite.config.ts`）⇒ 那个错**没有任何闸看得见**，运行期还照样对（真实回调收到的就是
+  //    Playwright 的 Request）。2026-09-21 拿一个临时 tsconfig 把它引进来才量出来（7 处）。
+  const inflight = new Set<Request>()
+  const isApi = (r: Request) => r.url().includes('/api/')
+  // 请求**开始**也要算活动：只看响应的话，「刚发出去、还没回来」会被误判成安静。
+  const onStart = (r: Request) => { if (isApi(r)) { inflight.add(r); last = Date.now() } }
+  const onEnd = (r: Request) => { if (isApi(r)) { inflight.delete(r); last = Date.now() } }
+
+  page.on('request', onStart)
+  page.on('requestfinished', onEnd)
+  page.on('requestfailed', onEnd)
+  try {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+      if (inflight.size === 0 && Date.now() - last >= SETTLE_QUIET_MS) return
+      await page.waitForTimeout(50)
+    }
+    throw new Error(
+      `等应用安静超时（${timeoutMs}ms）：仍有 ${inflight.size} 个 /api/ 请求在飞 —— ` +
+        `本次结果不可信，别把「没等到」当成「等到了」。`,
+    )
+  } finally {
+    page.off('request', onStart)
+    page.off('requestfinished', onEnd)
+    page.off('requestfailed', onEnd)
+  }
+}
+
+/**
+ * 走**真表单**登录：填 placeholder、点「登录」，等路由离开 `/login`，**再等应用落定**。
  * 已经登录过（localStorage 里有令牌）就直接返回 —— 守卫会把 `/login` 弹走，这里等不到表单。
+ *
+ * ★ 两条路径都要 `settleApi`：前者是落地页 `onMounted` 补的那次 `/me`，后者是守卫补的那次，
+ *   一样是「在飞的请求」，一样会被调用方下一次 `goto` 掐掉。
  *
  * 返回值是**落地的 URL**（admin 是 `/`）。**不断言落地页**：不同角色的落地页不同，
  * 由调用方自己断言它关心的页面。
@@ -151,12 +231,16 @@ const indent = (s: string) => `  · ${s.split('\n').join('\n    ')}`
 export async function login(page: Page, opts: { user?: string; pw?: string } = {}): Promise<string> {
   await page.goto(LOGIN_PATH)
   // 有登录态的话，路由守卫会把 /login 弹到落地页 ⇒ 这里已经不是 /login 了。
-  if (!new URL(page.url()).pathname.startsWith(LOGIN_PATH)) return page.url()
+  if (!new URL(page.url()).pathname.startsWith(LOGIN_PATH)) {
+    await settleApi(page)
+    return page.url()
+  }
 
   await page.getByPlaceholder(LOGIN_USER_PLACEHOLDER).fill(opts.user ?? ADMIN_USER)
   await page.getByPlaceholder(LOGIN_PW_PLACEHOLDER).fill(opts.pw ?? ADMIN_PW)
   await page.getByRole('button', { name: LOGIN_BUTTON_TEXT }).click()
   await page.waitForURL((u) => !u.pathname.startsWith(LOGIN_PATH), { timeout: 20_000 })
+  await settleApi(page)
   return page.url()
 }
 
@@ -164,6 +248,59 @@ export async function login(page: Page, opts: { user?: string; pw?: string } = {
 /** 单引号字面量转义（值只来自本文件的环境变量，不是用户输入；够用了）。 */
 function sqlLit(v: string): string {
   return v.replace(/'/g, "''")
+}
+
+// ── 3.5 ★ 写隔离：每个用例开始前，把工作库重置回干净克隆态 ──────────────────────
+/**
+ * 掐掉工作库上的连接 → DROP → **从只读母本 `TEMPLATE` 重建**。
+ *
+ * ── 为什么要有它 ────────────────────────────────────────────────────────────
+ * 老办法是靠人工挑字段躲开冲突（「只许改别的 spec 不读的列」），那条路自己写着
+ * 「今天的安全是「选得好」，**不是「被保证的**」。而且它**根本盖不住创建/删除** ——
+ * 「删一行」没有哪个字段是「别的 spec 不读的」。有了重置，写流程才**能测**。
+ *
+ * ── 为什么是「每个用例」而不是「每个文件」──────────────────────────────────
+ * 每条用例自动生效（auto fixture），**新 spec 作者没有选错路的机会**。
+ * 这与本文件给三道闸用 auto fixture 是同一条理由：留一条「记得手动调」的路，
+ * 就会有人忘，而忘了是**静默**的。
+ *
+ * ── 为什么不用重启后端 ──────────────────────────────────────────────────────
+ * 实测（2026-09-21）：掐连接后 SQLx 池**自己活过来** —— health 200、重新登录拿到令牌、
+ * `GET /clients` 200，后端日志 error+panic **零行**。所以只重置库，不碰进程。
+ *
+ * ── 成本 ────────────────────────────────────────────────────────────────────
+ * `CREATE DATABASE … TEMPLATE` 实测 **0.098s**、整轮 **0.363s**，且**与库体积无关**
+ * （TEMPLATE 是文件级拷贝）。开发库现在 10 MB，长大十倍也不会变慢。
+ *
+ * ⚠️ 它会**真的删库**。库名只从环境变量来，且上面查过 `SEED_DB !== DB_NAME` ——
+ *    这两个名字是装置建的一次性库，**不是**开发库。
+ */
+export function resetWorkDb(): void {
+  const on = (db: string, sql: string): string => {
+    const r = spawnSync('docker', ['exec', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', db, '-tAc', sql], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    if (r.error) throw new Error(`重置工作库时跑 psql 失败：${r.error.message}`)
+    if (r.status !== 0) {
+      throw new Error(
+        `重置工作库失败（库 ${DB_NAME} / 母本 ${SEED_DB} / 容器 ${DB_CONTAINER}）：${(r.stderr || '').trim()}\n` +
+          `  **本次结果不可信** —— 重置没成功，上一条用例的写还在库里。`,
+      )
+    }
+    return (r.stdout ?? '').trim()
+  }
+
+  // 1. 掐掉后端池持有的连接 —— 不掐的话 DROP 会被「有连接在用」挡回来。
+  //    （`WITH (FORCE)` 自己也会断连接，但这一条是**实测过的那条路**，别省。）
+  on(
+    'postgres',
+    `SELECT pg_terminate_backend(pid) FROM pg_stat_activity ` +
+      `WHERE datname = '${sqlLit(DB_NAME)}' AND pid <> pg_backend_pid()`,
+  )
+  // 2/3. 重建。母本全程没有任何连接 ⇒ 它永远能当 TEMPLATE。
+  on('postgres', `DROP DATABASE IF EXISTS "${DB_NAME}" WITH (FORCE)`)
+  on('postgres', `CREATE DATABASE "${DB_NAME}" TEMPLATE "${SEED_DB}"`)
 }
 
 /**
@@ -229,10 +366,22 @@ export interface E2EFixtures {
   allowedConsole: RegExp[]
   /** 三道闸的句柄。测试体一般**不用管它**；要在中途看一眼 `guards.collected` 才用得上。 */
   guards: GuardHandle
+  /** **内部件，别用**：写隔离的重置。它的存在只为了让 Playwright 跑它（`{auto:true}`）。 */
+  dbReset: void
 }
 
 export const test = base.extend<E2EFixtures>({
   allowedConsole: [[], { option: true }],
+  // ★ 写隔离。**必须声明在 `guards` 之前** —— auto fixture 按**声明序**跑，
+  //   重置要先于任何页面动作发生（`guards` 会挂 page 监听，但页面请求是在测试体里才发的，
+  //   所以真实约束只有一条：重置要在**测试体开始之前**跑完，声明序保证了这点）。
+  dbReset: [
+    async ({}, use) => {
+      resetWorkDb()
+      await use()
+    },
+    { auto: true },
+  ],
   guards: [
     async ({ page, allowedConsole }, use) => {
       const handle = attachGuards(page, { allowConsoleError: allowedConsole })

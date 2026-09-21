@@ -1,10 +1,11 @@
 /**
  * 「路由与登录状态」—— 未登录会被弹走、真表单能登进来、刷新之后令牌还在。
  *
- * 为什么这三条值得占一个 spec：
+ * 为什么这四条值得占一个 spec：
  *   · 它们是**后面所有 spec 的地基**（登录/路由一旦坏，别的红得看不懂）；
  *   · 「刷新后仍是 Progress」这条盖的是**持久化**那一环（令牌在 `localStorage`，
- *     刷新后由路由守卫补 `/me` 再判角色）—— 单测与类型闸都碰不到这一段。
+ *     刷新后由路由守卫补 `/me` 再判角色）—— 单测与类型闸都碰不到这一段；
+ *   · 最后一条盖的是**「请求没拿到响应」与「令牌失效」被混为一谈**那个坑（见那条的注释）。
  *
  * ⚠️ 凭据从环境变量读，默认值是 `scripts/verify.mjs:71-72` 里已有的开发缺省值
  *    （**不是**生产凭据，也**不引入新口令**）。
@@ -71,5 +72,38 @@ test.describe('路由与登录状态', () => {
     await expect(page.getByRole('button', { name: '打印选项' })).toBeVisible()
     await expect(page.locator('.n-data-table')).toBeVisible()
     expect(await page.evaluate((k) => localStorage.getItem(k), TOKEN_KEY)).toBe(tokenBefore)
+  })
+
+  test('那次 /me 还在飞的时候刷新 ⇒ 不掉线（「没拿到响应」≠「令牌失效」）', async ({ page }) => {
+    await login(page)
+
+    // ★ 把 `/me` 按住，让「在飞」这个状态**必然**出现。
+    //   不按的话，「刷新时它是否还在飞」取决于后端快慢 —— 快了这条就**空转通过**
+    //   （0 证据力却长得跟真绿一样）。按住它，窗口就是确定的。
+    //   这不是 mock 响应：请求照样发到真后端、拿真响应，我们只改**它什么时候回来**。
+    const HOLD_MS = 1000
+    await page.route('**/api/v1/auth/me', async (route) => {
+      await new Promise((r) => setTimeout(r, HOLD_MS))
+      // 被下面那次刷新掐掉的请求，在这里 continue 会抛 —— **那正是预期的**（按住它就是为了让它被掐）。
+      await route.continue().catch(() => {})
+    })
+
+    // 整文档导航 ⇒ 路由守卫补的那次 `/me` 被按住；**不等它**，等它一开始就再导航一次把它掐掉。
+    const meStarted = page.waitForRequest((r) => r.url().includes('/api/v1/auth/me'))
+    await page.goto(HOME_PATH)
+    await meStarted
+    await page.reload()
+
+    // 修复前：被掐掉的 fetch ⇒ `loadMe` 的 catch ⇒ `clear()` ⇒ 令牌从 localStorage 抹掉
+    //        ⇒ 新文档读到 token=null ⇒ 守卫弹 /login ⇒ `.home-container` 永远不出现。
+    // 刷新后 URL 本来就是 `/`，所以**不能拿 URL 当断言**（那会恒绿地空转）——
+    // 要等的是「Home 真的渲染出来了」，它只有没被弹走才可能出现。
+    await expect(page.locator('.home-container')).toBeVisible()
+    expect(
+      await page.evaluate((k) => localStorage.getItem(k), TOKEN_KEY),
+      '刷新把令牌弄没了 —— 说明「请求被中止」又被当成「令牌失效」了',
+    ).toBeTruthy()
+
+    await page.unroute('**/api/v1/auth/me')
   })
 })

@@ -28,8 +28,10 @@
  * 所以它只在「有 docker 容器 + 有开发库 + 有系统 Chrome」的本机跑。
  *
  * ── 为什么必须 workers=1（写死进 `app/playwright.config.ts`）────────────────
- * 所有 spec 共用**同一个**一次性库，而且 spec 里有**写操作**（`progress.spec` 删行、
- * `home.spec` 改单元格）。并行跑就是自己踩自己。
+ * 本装置只起**一个**后端、**一个** vite（端口写死），并行 worker 会互相抢这套进程与端口；
+ * 而且所有 spec 共用**同一个**工作库、库里还有**写操作**。并行跑就是自己踩自己。
+ * 写与写之间的隔离**不靠这条** —— 靠「每个用例开始前把工作库重置回干净克隆态」
+ * （见下面「写隔离」，实测 0.363s/次）。`workers=1` 管的是进程与端口那一层。
  *
  * ── 为什么绝对不许碰 :3000 ──────────────────────────────────────────────────
  * `:3000` 是**用户正在用的 dev 后端**，它连的是**用户真在用的开发库** `smartdoor`。
@@ -42,9 +44,23 @@
  *        于是测试的写操作全落进用户的开发库。解析一次配置就能在**任何东西跑起来之前**拦住。
  *   ③ 测试进程里还有一条运行时守卫（`app/e2e/lib/setup.ts`）：任何请求落到 `:3000` 直接判红。
  *
+ * ── 写隔离（2026-09-21 加，取代「只许改别的 spec 不读的字段」那条约定）──────────
+ * 老办法是靠**人工挑字段**躲开冲突（谁要改编辑字段先回来对清单），那条路自己写着
+ * 「今天的安全是「选得好」，**不是「被保证的**」。现在换成机制：
+ *
+ *   **两个库。** `smartdoor_e2e_seed` 是**只读母本**（从开发库克隆一次，全程没人写它）；
+ *   `smartdoor_e2e` 是**工作库**，从母本 `CREATE DATABASE … TEMPLATE` 拷出来。
+ *   每个用例开始前，spec 侧（`app/e2e/lib/setup.ts` 的 auto fixture）把工作库
+ *   **掐连接 → DROP → 从母本重建**，于是上一条用例的写全被抹掉。
+ *   ⇒ 创建/修改/删除这类流程才**能测** —— 不必再躲着别的 spec 写。
+ *
+ *   成本实测：`CREATE DATABASE … TEMPLATE` **0.098s**、整轮重置 **0.363s**，
+ *   且与库体积无关（TEMPLATE 是文件级拷贝）。**不需要重启后端** —— 实测池会自愈
+ *   （掐连接后 health 200、重新登录拿到令牌、`GET /clients` 200，后端日志 error+panic 零行）。
+ *
  * ── 隔离细则 ────────────────────────────────────────────────────────────────
- *   · 库 = `smartdoor_e2e`（**每次跑之前删掉重建**，跑完再删）；源库 `smartdoor` **只读**，
- *     只 `pg_dump` 出来灌进一次性库，绝不回写。
+ *   · 母本 = `smartdoor_e2e_seed`、工作库 = `smartdoor_e2e`（**每次跑之前删掉重建**，跑完
+ *     两个都删）；源库 `smartdoor` **只读**，只 `pg_dump` 出来灌进母本，绝不回写。
  *   · `E2E_DB` 有**两行硬守卫**（见常量块之后）：不许等于源库、不许不是 `*_e2e` 结尾 ——
  *     本文件对库做的第一件事就是 `DROP DATABASE ... WITH (FORCE)`，库名是唯一能真删用户库的入口。
  *   · **不要**「清空 users 让它重新播种」：后端的 `seed_admin` 只在 users 表为空时播种，
@@ -73,6 +89,11 @@ const DB_USER = process.env.DB_USER || 'smartdoor'
 /** 源库：**用户真在用的开发库**。只读，只当克隆源。 */
 const SOURCE_DB = process.env.E2E_SOURCE_DB || 'smartdoor'
 /**
+ * **只读母本**：开发库克隆下来的那一份，全程没有任何进程连它。
+ * 工作库 `DB_NAME` 每个用例前从它 `TEMPLATE` 重建（见文件头「写隔离」）。
+ */
+const SEED_DB = process.env.E2E_SEED_DB || 'smartdoor_e2e_seed'
+/**
  * 用户正在用的 dev 后端端口 —— 本装置**绝不**碰它，两个端口也绝不许等于它。
  *
  * 值**从环境变量来**（默认仍是 3000），并且由本文件喂给 spec 侧（`E2E_FORBIDDEN_PORT`）
@@ -95,6 +116,11 @@ const ADMIN_TENANT = process.env.E2E_ADMIN_TENANT || '默认门窗厂'
 //    默认值（smartdoor_e2e）本来就是安全的 —— 这两行防的是「有人手滑改了 E2E_DB」。
 if (DB_NAME === SOURCE_DB) throw new Error(`E2E_DB 不能等于克隆源库 ${SOURCE_DB}`)
 if (!/_e2e$/.test(DB_NAME)) throw new Error(`E2E_DB 必须是 *_e2e 这种一次性库名，收到 ${DB_NAME}`)
+// 母本同样会被 DROP/CREATE，所以一样要有守卫 —— 而且**多两条**：它绝不能等于工作库
+// （否则「从母本重建工作库」就成了自己拷自己，重置会静默失效，测试之间又开始互相看见写入）。
+if (SEED_DB === SOURCE_DB) throw new Error(`E2E_SEED_DB 不能等于克隆源库 ${SOURCE_DB}`)
+if (SEED_DB === DB_NAME) throw new Error(`E2E_SEED_DB 不能等于工作库 ${DB_NAME}（重置会静默失效）`)
+if (!/_seed$/.test(SEED_DB)) throw new Error(`E2E_SEED_DB 必须是 *_seed 这种一次性库名，收到 ${SEED_DB}`)
 
 const BASE = `http://127.0.0.1:${BACKEND_PORT}`
 const WEB = `http://127.0.0.1:${VITE_PORT}`
@@ -123,6 +149,7 @@ function record(name, ok, detail = '') {
 let backend = null
 let vite = null
 let dbCreated = false
+let seedCreated = false
 let backendLog = ''
 let viteLog = ''
 
@@ -236,11 +263,16 @@ async function cleanup() {
       }
     }
   }
-  if (dbCreated) {
-    console.log(dim(`  收尾：删掉本次建的库 ${DB_NAME}…`))
+  // 两个库都要删：工作库与母本。母本也不许留 —— 它装着开发库的克隆，是个不该过夜的东西。
+  for (const [created, name, what] of [
+    [dbCreated, DB_NAME, '工作库'],
+    [seedCreated, SEED_DB, '母本库'],
+  ]) {
+    if (!created) continue
+    console.log(dim(`  收尾：删掉本次建的${what} ${name}…`))
     // PG13+ 的 WITH (FORCE)：连同残留连接一起断掉，否则 DROP 会被占用挡回来。
-    const r = psql('postgres', `DROP DATABASE IF EXISTS "${DB_NAME}" WITH (FORCE)`)
-    if (r.status !== 0) console.error(red(`  ⚠️ 库 ${DB_NAME} 没删掉：${(r.stderr || '').trim()}`))
+    const r = psql('postgres', `DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)
+    if (r.status !== 0) console.error(red(`  ⚠️ ${what} ${name} 没删掉：${(r.stderr || '').trim()}`))
   }
 }
 
@@ -302,14 +334,15 @@ try {
     '那是你正在用的 dev 后端 —— E2E 打到那儿就会写进你的开发库',
   )
 
-  // ── 2. 建库 + 克隆（源库只读）─────────────────────────────────────────────
-  banner(`建一次性库 ${DB_NAME}（从开发库 ${SOURCE_DB} 只读克隆）`)
-  const drop = psql('postgres', `DROP DATABASE IF EXISTS "${DB_NAME}" WITH (FORCE)`)
-  if (drop.status !== 0) throw new Error(`删不掉旧库 ${DB_NAME}：${(drop.stderr || '').trim()}`)
-  const create = psql('postgres', `CREATE DATABASE "${DB_NAME}"`)
-  if (create.status !== 0) throw new Error(`建不了库 ${DB_NAME}：${(create.stderr || '').trim()}`)
-  dbCreated = true
-  record('建库', true)
+  // ── 2. 建母本 + 从母本建工作库（源库只读）─────────────────────────────────
+  banner(`建只读母本 ${SEED_DB}（从开发库 ${SOURCE_DB} 克隆）→ 工作库 ${DB_NAME}`)
+
+  // 2a. 母本：开发库只读克隆，全程没有进程连它 ⇒ 它永远不会被写脏。
+  const dropSeed = psql('postgres', `DROP DATABASE IF EXISTS "${SEED_DB}" WITH (FORCE)`)
+  if (dropSeed.status !== 0) throw new Error(`删不掉旧母本 ${SEED_DB}：${(dropSeed.stderr || '').trim()}`)
+  const createSeed = psql('postgres', `CREATE DATABASE "${SEED_DB}"`)
+  if (createSeed.status !== 0) throw new Error(`建不了母本 ${SEED_DB}：${(createSeed.stderr || '').trim()}`)
+  seedCreated = true
 
   // 参数**传数组**，不拼 shell 字符串（同文件别处的 `psql()` 也是这么写的）——
   // 库名/用户名只从环境变量来，但带引号或空格时拼字符串会**静默**出错。
@@ -319,14 +352,30 @@ try {
   if (dump.status !== 0) {
     throw new Error(`pg_dump ${SOURCE_DB} 失败：${(dump.stderr || '').toString().trim()}`)
   }
-  const load = spawnSync('docker', ['exec', '-i', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', DB_NAME, '-q'], {
+  const load = spawnSync('docker', ['exec', '-i', DB_CONTAINER, 'psql', '-U', DB_USER, '-d', SEED_DB, '-q'], {
     input: dump.stdout,
     maxBuffer: 512 * 1024 * 1024,
   })
   if (load.status !== 0) {
-    throw new Error(`灌进 ${DB_NAME} 失败：${(load.stderr || '').toString().trim()}`)
+    throw new Error(`灌进母本 ${SEED_DB} 失败：${(load.stderr || '').toString().trim()}`)
   }
-  console.log(green(`  已从 ${SOURCE_DB} **只读**克隆一份到 ${DB_NAME}`) + dim('（写操作只落在一次性库上）'))
+  console.log(
+    green(`  已从 ${SOURCE_DB} **只读**克隆一份到母本 ${SEED_DB}`) +
+      dim('（母本从此只读；写操作只落在工作库上）'),
+  )
+
+  // 2b. 工作库：**从母本 TEMPLATE 拷**，不是再 dump 一次。
+  //     TEMPLATE 是文件级拷贝，与库体积无关（实测 0.098s）—— 这正是「每个用例重置一次」
+  //     能负担得起的原因；spec 侧每次重置走的是同一条路（见 app/e2e/lib/setup.ts）。
+  const createWork = psql('postgres', `CREATE DATABASE "${DB_NAME}" TEMPLATE "${SEED_DB}"`)
+  if (createWork.status !== 0) {
+    throw new Error(
+      `从母本建工作库失败：${(createWork.stderr || '').trim()}\n` +
+        `      母本 ${SEED_DB} 上**不许有任何连接**（TEMPLATE 拷贝要求独占）—— 有残留连接就是这个报错。`,
+    )
+  }
+  dbCreated = true
+  record('母本 + 工作库', true)
 
   // 克隆出来的东西对不对 —— 别等页面空白了才发现库是空的（那会误判成「实现坏了」）。
   const lineCount = (db) => Number(psql(db, 'select count(*) from order_lines').stdout?.trim() || -1)
@@ -435,11 +484,23 @@ try {
 
   // ── 6. 起 vite（代理指向本次后端）──────────────────────────────────────────
   banner(`起 vite :${VITE_PORT}（/api → ${BASE}）`)
-  vite = spawn(process.execPath, [resolve(APP, 'node_modules/vite/bin/vite.js')], {
-    cwd: APP,
-    env: { ...process.env, VITE_PORT: String(VITE_PORT), VITE_API_TARGET: BASE },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // ⚠️ `--host 127.0.0.1` 不能省。`vite.config.ts` 没写 `server.host`，vite 就用
+  //    `localhost`，而 Node 把 `localhost` 交给系统解析器、**取第一个结果** ——
+  //    这台机器上 `/etc/hosts` 里 `127.0.0.1` 与 `::1` 都在，解析顺序会翻。
+  //    解析出 `::1` 时 vite 只绑 IPv6，而下面 `waitHttp` 探的是 `WEB`（写死的
+  //    `127.0.0.1`）⇒ `ECONNREFUSED` ⇒ 30 秒超时 ⇒ **装置在任何用例之前就挂**，
+  //    报出来的却是「vite 没起来」（vite 明明 ready 了）。
+  //    2026-09-21 就是这么栽的：重启后解析顺序翻转，之前三次全绿纯属运气。
+  //    钉死监听地址，让两端都确定，不再看解析器的脸色。
+  vite = spawn(
+    process.execPath,
+    [resolve(APP, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1'],
+    {
+      cwd: APP,
+      env: { ...process.env, VITE_PORT: String(VITE_PORT), VITE_API_TARGET: BASE },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  )
   vite.stdout.on('data', (b) => {
     viteLog += b
   })
@@ -465,6 +526,9 @@ try {
       E2E_BASE_URL: WEB,
       // spec 侧「现查克隆库」用这几个（见 app/e2e/lib/setup.ts）—— 不写死任何库名/端口。
       E2E_DB_NAME: DB_NAME,
+      // 母本：spec 侧每个用例前从它 TEMPLATE 重建工作库（写隔离）。同样**由装置喂**，
+      // 两边各写一份的话改漏一处就会让重置静默指向错的库。
+      E2E_SEED_DB: SEED_DB,
       E2E_DB_CONTAINER: DB_CONTAINER,
       E2E_DB_USER: DB_USER,
       E2E_ADMIN_USER: ADMIN_USER,
@@ -497,12 +561,15 @@ for (const port of [BACKEND_PORT, VITE_PORT]) {
 // ⚠️ 这里**不许**再加 `if (dbCreated)`：失败在「建库之前」的那些轮次（前置检查不过、端口被占、
 //    `E2E_PORT=3000`…）dbCreated 是 false，于是库检查整段被跳过、自检却照样印「库已删」——
 //    **没量过就下结论**（实测栽过）。库里没有这个名字就等价于删干净了，查一次即可。
-const still = psql('postgres', `select count(*) from pg_database where datname = '${DB_NAME}'`).stdout?.trim()
-if (still !== '0') leftovers.push(`库 ${DB_NAME} 还在${still === '' ? '（连库都查不动，别当它是干净）' : ''}`)
+// 两个库都要量（母本同样装着开发库的克隆，同样不该过夜），理由同上：无条件查。
+for (const name of [DB_NAME, SEED_DB]) {
+  const still = psql('postgres', `select count(*) from pg_database where datname = '${name}'`).stdout?.trim()
+  if (still !== '0') leftovers.push(`库 ${name} 还在${still === '' ? '（连库都查不动，别当它是干净）' : ''}`)
+}
 if (leftovers.length) {
   console.log(red(`\n  ⚠️ 收尾没干净：${leftovers.join('；')}`))
 } else {
-  console.log(dim(`\n  收尾自检 ✓ 端口 ${BACKEND_PORT}/${VITE_PORT} 已释放，库 ${DB_NAME} 已删`))
+  console.log(dim(`\n  收尾自检 ✓ 端口 ${BACKEND_PORT}/${VITE_PORT} 已释放，库 ${DB_NAME} / ${SEED_DB} 已删`))
 }
 
 if (failed) {
@@ -512,8 +579,16 @@ if (failed) {
   //    （也就是最要紧的那条报错）截掉**。这里让 node 自然退出。
   process.exitCode = 1
 } else {
-  console.log(
-    testStatus === 0 ? green('\n  ✅ E2E 全绿\n') : red(`\n  ❌ E2E 有失败（playwright 退出码 ${testStatus}）\n`),
-  )
+  if (testStatus === 0) {
+    console.log(green('\n  ✅ E2E 全绿\n'))
+  } else {
+    console.log(red(`\n  ❌ E2E 有失败（playwright 退出码 ${testStatus}）\n`))
+    // ★ 只在**红的时候**印两边的日志。绿的时候印一整屏没人看；红了却什么都没有才是要命的：
+    //   在这之前 `backendLog` 唯一的用途是「后端没起来」那条错误 —— 用例跑到一半才失败时，
+    //   后端说的话**全丢了**。而失败的黑盒现象常常是「页面空白 / 接口 500」，
+    //   光看 playwright 的报错判不出来是哪一端的事。
+    console.log(dim(`  ── 后端最后 30 行（RUST_LOG=warn）──\n${tail(backendLog, 30)}\n`))
+    console.log(dim(`  ── vite 最后 20 行 ──\n${tail(viteLog, 20)}\n`))
+  }
   process.exitCode = testStatus
 }
