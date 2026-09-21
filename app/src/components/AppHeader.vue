@@ -1,5 +1,5 @@
 <template>
-  <header class="app-header">
+  <header class="app-header" :class="{ 'is-restricted': needsOwnLogout }">
     <div class="app-header__brand" aria-label="SmartDoor 智能门窗工作台">
       <span class="app-header__brand-mark" aria-hidden="true">
         <svg viewBox="0 0 28 28" fill="none">
@@ -23,10 +23,13 @@
           class="app-header__nav-item"
           :class="{ 'is-active': isActive(it) }"
           :aria-current="isActive(it) ? 'page' : undefined"
+          :aria-label="it.label"
           :title="it.description"
         >
           <span class="app-header__nav-icon" aria-hidden="true">
-            <AppNavIcon :name="it.icon" />
+            <span class="app-header__nav-glyph">
+              <AppNavIcon :name="it.icon" />
+            </span>
           </span>
           <span class="app-header__nav-label">{{ it.label }}</span>
         </RouterLink>
@@ -59,6 +62,19 @@
         </template>
         退出登录
       </n-button>
+
+      <button
+        v-if="needsOwnLogout"
+        class="app-header__mobile-logout"
+        type="button"
+        aria-label="退出登录"
+        @click="onLogout"
+      >
+        <span class="app-header__mobile-logout-icon" aria-hidden="true">
+          <AppNavIcon name="logout" />
+        </span>
+        <span class="app-header__mobile-logout-label">退出</span>
+      </button>
     </div>
   </header>
 </template>
@@ -352,6 +368,10 @@ async function onLogout() {
   height: 17px;
 }
 
+.app-header__mobile-logout {
+  display: none;
+}
+
 @media (max-width: 1180px) {
   .app-header {
     gap: var(--sd-space-2);
@@ -388,31 +408,322 @@ async function onLogout() {
   }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 720px) {
   .app-header {
-    padding-right: var(--sd-space-2);
-    padding-left: var(--sd-space-2);
+    position: fixed;
+    z-index: 300;
+    top: auto;
+    right: var(--sd-shell-mobile-dock-gutter);
+    bottom: calc(var(--sd-shell-mobile-dock-offset) + env(safe-area-inset-bottom, 0px));
+    left: var(--sd-shell-mobile-dock-gutter);
+    width: auto;
+    max-width: var(--sd-shell-mobile-dock-max-width);
+    height: var(--sd-shell-mobile-dock-height);
+    margin-inline: auto;
+    gap: 0;
+    padding: var(--sd-space-1-5);
+    border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+    border-radius: var(--sd-radius-pill);
+    background: var(--sd-material-surface-strong);
+    box-shadow: var(--sd-shadow-material-card);
+    transform: none;
+    animation: app-header-dock-enter var(--sd-duration-enter) var(--sd-ease-enter) both;
+    isolation: isolate;
   }
 
-  .app-header__brand-mark {
-    width: var(--sd-control-height-medium);
-    height: var(--sd-control-height-medium);
-    border-radius: var(--sd-radius-md);
+  .app-header::before {
+    position: absolute;
+    z-index: -1;
+    top: var(--sd-border-width);
+    right: var(--sd-space-5);
+    left: var(--sd-space-5);
+    height: 44%;
+    border-radius: var(--sd-radius-pill);
+    background: linear-gradient(
+      180deg,
+      var(--sd-material-highlight-soft),
+      transparent
+    );
+    content: '';
+    opacity: 0.68;
+    pointer-events: none;
   }
 
-  .app-header__brand-mark svg {
-    width: 22px;
-    height: 22px;
+  .app-header::after {
+    top: var(--sd-border-width);
+    right: var(--sd-space-6);
+    bottom: auto;
+    left: var(--sd-space-6);
+    height: var(--sd-border-width);
+    border-radius: var(--sd-radius-pill);
+    background: var(--sd-material-highlight-strong);
+    opacity: 0.86;
+  }
+
+  .app-header.is-restricted {
+    max-width: var(--sd-shell-mobile-dock-compact-width);
+  }
+
+  .app-header__brand,
+  .app-header__identity,
+  .app-header__logout {
+    display: none;
+  }
+
+  .app-header__nav-viewport {
+    height: 100%;
+    overflow: visible;
+  }
+
+  .app-header__nav {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    justify-content: stretch;
+    gap: var(--sd-space-0);
   }
 
   .app-header__nav-item {
-    padding: 0 var(--sd-space-2);
+    min-width: 0;
+    height: 100%;
+    justify-content: center;
+    flex: 1 1 0;
+    gap: 0;
+    padding: 0;
+    border-color: transparent;
+    border-radius: var(--sd-radius-pill);
+    color: var(--sd-color-text-muted);
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition:
+      color var(--sd-duration-base) var(--sd-ease-standard),
+      filter var(--sd-duration-slow) var(--sd-ease-standard),
+      transform var(--sd-duration-fast) var(--sd-ease-standard);
+  }
+
+  .app-header__nav-item:hover {
+    border-color: transparent;
+    color: var(--sd-color-text-muted);
+    background: transparent;
+    transform: none;
+  }
+
+  .app-header__nav-item:focus-visible {
+    outline: none;
+    box-shadow: var(--sd-focus-ring);
+  }
+
+  .app-header__nav-item.is-active,
+  .app-header__nav-item.is-active:hover {
+    border-color: transparent;
+    color: var(--sd-color-action);
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .app-header__nav-item.is-active::after {
+    display: none;
+  }
+
+  .app-header__nav-icon {
+    position: relative;
+    width: var(--sd-shell-mobile-nav-icon-size);
+    height: var(--sd-shell-mobile-nav-icon-size);
+    display: grid;
+    color: currentColor;
+    filter: saturate(0.32);
+    transform: translateY(0);
+    transition:
+      color var(--sd-duration-base) var(--sd-ease-standard),
+      filter var(--sd-duration-slow) var(--sd-ease-standard),
+      transform var(--sd-duration-slow) var(--sd-ease-enter);
+  }
+
+  .app-header__nav-icon::before,
+  .app-header__mobile-logout-icon::before {
+    position: absolute;
+    inset: var(--sd-space-1);
+    border: var(--sd-border-width) solid var(--sd-border-glass-soft);
+    border-radius: var(--sd-radius-control);
+    background: var(--sd-material-control);
+    box-shadow:
+      inset 0 1px 0 var(--sd-material-highlight),
+      var(--sd-shadow-sm);
+    content: '';
+    transform: translateY(0) scale(1);
+    transform-origin: center;
+    transition:
+      border-color var(--sd-duration-base) var(--sd-ease-standard),
+      background-color var(--sd-duration-base) var(--sd-ease-standard),
+      box-shadow var(--sd-duration-base) var(--sd-ease-standard),
+      transform var(--sd-duration-fast) var(--sd-ease-standard);
+  }
+
+  .app-header__nav-icon::after,
+  .app-header__mobile-logout-icon::after {
+    position: absolute;
+    z-index: 1;
+    top: 9px;
+    left: 12px;
+    width: 12px;
+    height: 4px;
+    border-top: var(--sd-border-width) solid var(--sd-material-highlight-strong);
+    border-radius: var(--sd-radius-pill);
+    content: '';
+    opacity: 0.92;
+    pointer-events: none;
+    transform: rotate(-8deg);
+  }
+
+  .app-header__nav-glyph,
+  .app-header__mobile-logout-icon > .app-nav-icon {
+    position: relative;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    transform: translateY(0) scale(1);
+    transform-origin: center;
+    transition:
+      color var(--sd-duration-base) var(--sd-ease-standard),
+      transform var(--sd-duration-slow) var(--sd-ease-enter);
+  }
+
+  .app-header__nav-item:hover .app-header__nav-icon {
+    color: currentColor;
+  }
+
+  .app-header__nav-item.is-active .app-header__nav-icon {
+    color: var(--sd-color-action);
+    filter: saturate(1);
+    transform: translateY(-1px);
+  }
+
+  .app-header__nav-item.is-active .app-header__nav-icon::before {
+    border-color: var(--sd-border-action-subtle);
+    background: var(--sd-color-action-soft);
+    box-shadow:
+      inset 0 1px 0 var(--sd-material-highlight-strong),
+      var(--sd-shadow-action);
+    transform: translateY(-1px) scale(1.02);
+  }
+
+  .app-header__nav-item.is-active .app-header__nav-glyph {
+    transform: translateY(-1px) scale(1.04);
+  }
+
+  .app-header__nav-item:active .app-header__nav-icon::before,
+  .app-header__mobile-logout:active .app-header__mobile-logout-icon::before {
+    box-shadow: inset 0 1px 0 var(--sd-material-highlight-soft);
+    transform: translateY(1px) scale(0.94);
+  }
+
+  .app-header__nav-item:active .app-header__nav-glyph,
+  .app-header__mobile-logout:active .app-header__mobile-logout-icon > .app-nav-icon {
+    transform: translateY(1px) scale(0.9);
+  }
+
+  .app-header__nav-label,
+  .app-header__mobile-logout-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .app-header__account {
+    display: none;
+  }
+
+  .app-header.is-restricted .app-header__account {
+    height: 100%;
+    display: flex;
+    flex: 0 0 50%;
+    gap: 0;
+  }
+
+  .app-header.is-restricted .app-header__nav-viewport {
+    flex: 0 0 50%;
+  }
+
+  .app-header__mobile-logout {
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--sd-radius-pill);
+    color: var(--sd-color-text-muted);
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .app-header__mobile-logout:focus-visible {
+    outline: none;
+    box-shadow: var(--sd-focus-ring);
+  }
+
+  .app-header__mobile-logout:active {
+    color: var(--sd-color-danger);
+    background: transparent;
+  }
+
+  .app-header__mobile-logout-icon {
+    position: relative;
+    width: var(--sd-shell-mobile-nav-icon-size);
+    height: var(--sd-shell-mobile-nav-icon-size);
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+  }
+
+  .app-header__mobile-logout-icon > .app-nav-icon {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @media (max-width: 720px) {
+    .app-header {
+      background: var(--sd-material-fallback);
+    }
+  }
+}
+
+@keyframes app-header-dock-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-header,
   .app-header__nav-item,
-  .app-header__nav-icon {
+  .app-header__nav-icon,
+  .app-header__nav-label,
+  .app-header__mobile-logout {
+    animation: none;
     transition: none;
   }
 }

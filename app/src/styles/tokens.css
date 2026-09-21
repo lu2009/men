@@ -78,6 +78,16 @@
 
   /* Application shell。 */
   --sd-shell-header-height: 60px;
+  --sd-shell-mobile-dock-height: 64px;
+  --sd-shell-mobile-dock-offset: 12px;
+  --sd-shell-mobile-dock-gutter: 16px;
+  --sd-shell-mobile-dock-max-width: 432px;
+  --sd-shell-mobile-dock-compact-width: 164px;
+  --sd-shell-mobile-nav-icon-size: 40px;
+  --sd-shell-mobile-dock-reserve: calc(
+    var(--sd-shell-mobile-dock-height) + var(--sd-shell-mobile-dock-offset) +
+      env(safe-area-inset-bottom, 0px) + var(--sd-space-3)
+  );
   --sd-page-padding: 24px;
   --sd-page-gap: 16px;
   --sd-content-max-width: 1600px;

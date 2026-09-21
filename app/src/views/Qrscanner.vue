@@ -130,159 +130,265 @@
     - 「扫码账号管理」对所有角色都置灰，理由见上面第 8 条。
   -->
   <div class="qr-scanner">
-    <!--
-      工具条（旧版 `.button-group`，分析文档 §2.1）。
-      顺序、类型色、出现条件逐条照旧版：1/2 互斥（`!ot` / `ot`）、6 只要 defaulted===1、7 只要主账号。
-      ⚠️ Element Plus 的 `plain`（浅底 + 同色边框）在 naive-ui 里没有同名 prop，
-         用视觉上最接近的 `secondary`（浅底 + 同色字）。这页的 `plain` 只出现在第 3、5 两颗。
-    -->
-    <div class="button-group">
-      <n-button v-if="!scanning" type="primary" :loading="submitting" @click="startScanEntry">
-        扫码录单
-      </n-button>
-      <n-button v-else type="primary" class="confirm-btn" @click="stopScan">停止扫码</n-button>
+    <header class="scanner-page-header">
+      <div class="scanner-page-header__copy">
+        <div class="scanner-page-header__eyebrow">车间作业台</div>
+        <h1>扫码生产</h1>
+        <p>确认操作员与工序后，连续扫描门单并批量提交生产进度。</p>
+      </div>
+      <div class="scanner-state" :class="{ 'scanner-state--active': scanning }" aria-live="polite">
+        <span class="scanner-state__dot" aria-hidden="true"></span>
+        <span>{{ scanning ? '相机扫描中' : '等待作业' }}</span>
+      </div>
+    </header>
 
-      <n-button type="primary" secondary @click="openManual('entry')">手动录单</n-button>
-
-      <n-button type="success" :loading="querying" @click="startScanQuery">扫码查单</n-button>
-      <n-button type="success" secondary :loading="querying" @click="openManual('query')">
-        手动查单
-      </n-button>
-
-      <!-- 旧版 `yt`：`defaulted === 1` 才显示这颗。新栈映射成 `role === 'admin'`，
-           见 `utils/roles.ts` 的 `canEditProcedures`（那里有完整依据）。 -->
-      <n-button v-if="canEditProcedures(auth.user?.role)" type="info" @click="settingsShow = true">
-        设置工序
-      </n-button>
-
-      <!-- ⛔ 扫码账号管理：后端决定不做（见文件头第 8 条），按死链态度置灰 + 提示。 -->
-      <span class="pending-slot" @click="notYet('扫码账号管理', '给车间同事开扫码账号、停用旧账号')">
-        <n-button type="warning" disabled>扫码账号管理</n-button>
-      </span>
-    </div>
-
-    <!--
-      日期范围（旧版 `.date-range-actions`，分析文档 §2.2）。
-      四颗文字按钮，「更多」展开日期选择：PC 一个区间选择器、手机两个独立选择器（旧版如此）。
-      ⚠️ 只有「更多」下**两个日期都齐**才查（旧版先 `ea()` 校验「开始日期不能晚于结束日期」）。
-    -->
-    <div class="date-range-actions">
-      <n-button
-        v-for="label in RANGE_LABELS"
-        :key="label"
-        text
-        class="range-btn"
-        :class="{ active: rangeLabel === label }"
-        :loading="label === rangeLabel && statsLoading"
-        @click="pickRange(label)"
-      >
-        {{ label }}
-      </n-button>
-    </div>
-
-    <div v-if="rangeLabel === '更多'" class="custom-date-picker">
-      <template v-if="isMobile">
-        <n-date-picker v-model:value="rangeStart" type="date" :editable="false" />
-        <span class="range-sep">至</span>
-        <n-date-picker v-model:value="rangeEnd" type="date" :editable="false" />
-      </template>
-      <n-date-picker v-else v-model:value="rangePair" type="daterange" range-separator="至" />
-      <n-button type="primary" size="small" @click="queryStats('更多')">查询</n-button>
-    </div>
-
-    <!--
-      员工名称 + 工序下拉（旧版 §2.6）。
-      ⚠️ 员工名既是**提交进度**用的操作员名，也是**统计查询**的员工筛选（留空 = 全部员工）。
-      ⚠️ 工序下拉的选项**只列配过名字的槽**（旧版 `Ca` 也是 `filter(v => v)` 丢掉空槽），
-         但**不过滤工序10** —— 旧版这里本来就不排工序10（分析文档 §4.4-(d)），新版 15 槽一视同仁。
-    -->
-    <n-input
-      v-model:value="staffName"
-      class="staff-name-input"
-      placeholder="请输入员工名称"
-      @blur="saveStaffName"
-    />
-    <n-select
-      v-model:value="procedureSlot"
-      class="procedure-select"
-      placeholder="请选择工序"
-      :options="procedureOptions"
-    />
-
-    <!-- 扫码容器（旧版 `div.scanner-container`，§2.7）。⚠️ `<video>` 放模板里而不是 `createElement`。 -->
-    <div v-show="scanning" class="scanner-container">
-      <video ref="videoRef" class="scanner-video" autoplay playsinline muted />
-    </div>
-
-    <!--
-      扫码结果区（旧版 `div.scan-results`，§2.8）—— 列表非空才出现。
-
-      ⚠️ 标题显示的是**勾选数**（旧版 `et2.length`）**不是**扫到的数量（`Xe.length`），
-         这不是笔误：旧版原文就是 `选中门单数： {et2.length}个`。
-      ⚠️ 旧版扫到一个码**不会自动勾上**（`na()` 只往列表里加、`el-checkbox` 要用户自己点），
-         这里照旧。厂里用的人是「扫一批、核对一遍、再全勾」的流程。
-    -->
-    <div v-if="codes.length > 0" class="scan-results">
-      <h3 class="result-count">选中门单数：{{ checked.length }}个</h3>
-
-      <div class="result-toolbar">
-        <n-button type="success" class="print-btn" :loading="printing" @click="printLabels">
-          打印标签
-        </n-button>
-        <!--
-          固定标签数（旧版 `rt` / `ut`，持久化在 `label_quantity_enabled` / `label_quantity_value`）。
-          开着时**覆盖**算出来的张数（见 `utils/scanLabels.ts` 的顺序说明）。
-        -->
-        <span class="fixed-count">
-          <n-switch v-model:value="fixedCountOn" size="small" @update:value="saveFixedCount" />
-          <span class="fixed-count-label">固定标签数</span>
-          <n-input-number
-            v-if="fixedCountOn"
-            v-model:value="fixedCount"
-            size="small"
-            :min="1"
-            :max="99"
-            class="fixed-count-input"
-            @update:value="saveFixedCount"
-          />
-        </span>
+    <section class="workstation-card" aria-labelledby="workstation-title">
+      <div class="section-heading workstation-card__heading">
+        <div>
+          <span class="section-heading__kicker">生产录入</span>
+          <h2 id="workstation-title">本次作业</h2>
+        </div>
+        <p>员工名称同时用于扫码统计筛选，工序将写入已选门单。</p>
       </div>
 
-      <n-checkbox-group v-model:value="checked">
-        <div v-for="code in codes" :key="code" class="result-item">
-          <n-checkbox :value="code" :label="code" />
+      <div class="workstation-layout">
+        <div class="operator-fields">
+          <label class="field-block">
+            <span class="field-block__label"><b>1</b> 操作员</span>
+            <n-input
+              v-model:value="staffName"
+              class="staff-name-input"
+              size="large"
+              placeholder="请输入员工名称"
+              @blur="saveStaffName"
+            />
+            <span class="field-block__hint">名称会保存在本机，下一次自动带入</span>
+          </label>
+
+          <label class="field-block">
+            <span class="field-block__label"><b>2</b> 当前工序</span>
+            <n-select
+              v-model:value="procedureSlot"
+              class="procedure-select"
+              size="large"
+              placeholder="请选择要录入的工序"
+              :options="procedureOptions"
+            />
+            <span class="field-block__hint">仅显示已配置名称的工序</span>
+          </label>
         </div>
+
+        <div class="action-panel">
+          <div class="action-panel__label"><b>3</b> 开始录入</div>
+          <div class="entry-actions">
+            <n-button
+              v-if="!scanning"
+              type="primary"
+              size="large"
+              class="primary-scan-action"
+              :loading="submitting"
+              @click="startScanEntry"
+            >
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3M7 12h10" />
+                </svg>
+              </template>
+              扫码录单
+            </n-button>
+            <n-button v-else type="primary" size="large" class="primary-scan-action stop-action" @click="stopScan">
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="7" y="7" width="10" height="10" rx="2" />
+                </svg>
+              </template>
+              停止扫码
+            </n-button>
+
+            <n-button size="large" class="secondary-entry-action" @click="openManual('entry')">
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 7.5h16v11H4zM7 11h.01M10.5 11h.01M14 11h.01M17 11h.01M7 14.5h.01M10.5 14.5h6.5" />
+                </svg>
+              </template>
+              手动录单
+            </n-button>
+          </div>
+
+          <div class="query-actions" aria-label="查单工具">
+            <n-button :loading="querying" class="query-action" @click="startScanQuery">
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="10.5" cy="10.5" r="5.5" />
+                  <path d="m15 15 5 5M8 8.5h5M8 11h3" />
+                </svg>
+              </template>
+              扫码查单
+            </n-button>
+            <n-button :loading="querying" class="query-action" @click="openManual('query')">
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 4h10l4 4v12H5zM14 4v5h5M8 13h8M8 16h5" />
+                </svg>
+              </template>
+              手动查单
+            </n-button>
+          </div>
+
+          <div class="utility-actions">
+            <n-button v-if="canEditProcedures(auth.user?.role)" text class="utility-action" @click="settingsShow = true">
+              <template #icon>
+                <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19 13.5v-3l-2-.7-.6-1.4.9-1.9-2.1-2.1-1.9.9-1.4-.6-.7-2h-3l-.7 2-1.4.6-1.9-.9-2.1 2.1.9 1.9-.6 1.4-2 .7v3l2 .7.6 1.4-.9 1.9 2.1 2.1 1.9-.9 1.4.6.7 2h3l.7-2 1.4-.6 1.9.9 2.1-2.1-.9-1.9.6-1.4z" />
+                </svg>
+              </template>
+              设置工序
+            </n-button>
+
+            <span class="pending-slot" @click="notYet('扫码账号管理', '给车间同事开扫码账号、停用旧账号')">
+              <n-button text disabled class="utility-action">扫码账号管理 · 尚未开放</n-button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section v-show="scanning" class="capture-card" aria-label="扫码取景器">
+      <div class="capture-card__header">
+        <div>
+          <span class="section-heading__kicker">实时取景</span>
+          <h2>将二维码放入取景框</h2>
+        </div>
+        <span class="capture-status"><i aria-hidden="true"></i>持续识别</span>
+      </div>
+      <div class="scanner-container">
+        <video ref="videoRef" class="scanner-video" autoplay playsinline muted />
+        <div class="scanner-frame" aria-hidden="true">
+          <i class="scanner-corner scanner-corner--tl"></i>
+          <i class="scanner-corner scanner-corner--tr"></i>
+          <i class="scanner-corner scanner-corner--bl"></i>
+          <i class="scanner-corner scanner-corner--br"></i>
+          <span class="scanner-line"></span>
+        </div>
+      </div>
+      <p class="capture-card__hint">识别成功后会自动加入下方清单，可连续扫描多个门单。</p>
+    </section>
+
+    <section v-if="codes.length > 0" class="scan-results" aria-labelledby="result-title">
+      <div class="scan-results__header">
+        <div>
+          <span class="section-heading__kicker">待提交批次</span>
+          <h2 id="result-title">已选择 {{ checked.length }} 个门单</h2>
+          <p>本批共识别 {{ codes.length }} 个，请核对并勾选需要提交的门单。</p>
+        </div>
+        <div class="result-toolbar">
+          <n-button class="print-btn" :loading="printing" @click="printLabels">
+            <template #icon>
+              <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 14h10v6H7z" />
+              </svg>
+            </template>
+            打印标签
+          </n-button>
+          <span class="fixed-count">
+            <n-switch v-model:value="fixedCountOn" size="small" @update:value="saveFixedCount" />
+            <span class="fixed-count-label">固定标签数</span>
+            <n-input-number
+              v-if="fixedCountOn"
+              v-model:value="fixedCount"
+              size="small"
+              :min="1"
+              :max="99"
+              class="fixed-count-input"
+              @update:value="saveFixedCount"
+            />
+          </span>
+        </div>
+      </div>
+
+      <n-checkbox-group v-model:value="checked" class="result-list">
+        <label v-for="code in codes" :key="code" class="result-item">
+          <n-checkbox :value="code" />
+          <span class="result-item__code">{{ code }}</span>
+          <span class="result-item__state">{{ checked.includes(code) ? '已选' : '待选择' }}</span>
+        </label>
       </n-checkbox-group>
 
-      <div class="button-group-bottom">
-        <n-button type="primary" :loading="submitting" @click="submitProgress">确认</n-button>
+      <div class="result-submit-bar">
+        <div class="result-submit-bar__summary">
+          <span>当前工序</span>
+          <strong>{{ selectedName || '尚未选择' }}</strong>
+        </div>
+        <n-button type="primary" size="large" class="submit-progress-action" :loading="submitting" @click="submitProgress">
+          确认提交 {{ checked.length ? `${checked.length} 个` : '' }}
+        </n-button>
       </div>
-    </div>
+    </section>
 
-    <!--
-      扫码统计面板（旧版 `div.process-stats-mobile`）。⚠️ 旧版的 `pl` 只有置 `true`、**从不置回 false**
-         ⇒ 面板一旦出现就不会自己消失，这里也**不给关闭按钮**（由它挂着）。
-         内容与口径全在 `components/ScanStatsPanel.vue` / `utils/scanStats.ts`。
-    -->
-    <ScanStatsPanel
-      v-if="statsOpen"
-      :rows="statsRows"
-      :title="statsTitle"
-      :employee="statsEmployee"
-      :procedures="procedures"
-    />
+    <section class="stats-section" aria-labelledby="stats-title">
+      <div class="stats-section__header">
+        <div>
+          <span class="section-heading__kicker">生产统计</span>
+          <h2 id="stats-title">扫码记录</h2>
+          <p>按日期范围查看当前员工或全部员工的扫码产量。</p>
+        </div>
+        <div class="date-range-actions" aria-label="统计日期范围">
+          <n-button
+            v-for="label in RANGE_LABELS"
+            :key="label"
+            text
+            class="range-btn"
+            :class="{ active: rangeLabel === label }"
+            :loading="label === rangeLabel && statsLoading"
+            @click="pickRange(label)"
+          >
+            {{ label }}
+          </n-button>
+        </div>
+      </div>
 
-    <!-- 手动录入单号 / 手动查单（旧版 `vt`，§2.10 第 4 个弹窗 / §3.3-(c)） -->
+      <div v-if="rangeLabel === '更多'" class="custom-date-picker">
+        <template v-if="isMobile">
+          <n-date-picker v-model:value="rangeStart" type="date" :editable="false" />
+          <span class="range-sep">至</span>
+          <n-date-picker v-model:value="rangeEnd" type="date" :editable="false" />
+        </template>
+        <n-date-picker v-else v-model:value="rangePair" type="daterange" range-separator="至" />
+        <n-button type="primary" size="small" @click="queryStats('更多')">查询</n-button>
+      </div>
+
+      <div v-if="!statsOpen" class="stats-empty">
+        <div class="stats-empty__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 19V9M12 19V5M19 19v-7M3 19h18" />
+          </svg>
+        </div>
+        <div>
+          <strong>选择时间范围查看统计</strong>
+          <p>也可以通过“扫码查单”或“手动查单”查看单个门单。</p>
+        </div>
+      </div>
+
+      <ScanStatsPanel
+        v-if="statsOpen"
+        :rows="statsRows"
+        :title="statsTitle"
+        :employee="statsEmployee"
+        :procedures="procedures"
+      />
+    </section>
+
     <n-modal
       v-model:show="manualShow"
       preset="card"
       :title="manualMode === 'query' ? '手动查单' : '手动录入单号'"
-      style="width: 90%; max-width: 420px"
+      class="manual-modal"
       :bordered="false"
       :mask-closable="false"
     >
       <div class="manual-form">
-        <div class="manual-row">
+        <label class="manual-field manual-field--wide">
           <span class="manual-label">单号</span>
           <n-input
             v-model:value="manual.number"
@@ -290,35 +396,40 @@
             :maxlength="10"
             @input="onNumberInput"
           />
-        </div>
-        <div class="manual-row">
-          <span class="manual-label">年</span>
-          <n-select v-model:value="manual.year" :options="yearOptions" placeholder="年" filterable tag />
-        </div>
-        <div class="manual-row">
-          <span class="manual-label">月</span>
-          <n-select v-model:value="manual.month" :options="monthOptions" placeholder="月" filterable tag />
-        </div>
-        <div class="manual-row">
-          <span class="manual-label">日</span>
-          <n-input v-model:value="manual.day" placeholder="日" :maxlength="2" @input="onDayInput" />
+        </label>
+        <div class="manual-date-grid">
+          <label class="manual-field">
+            <span class="manual-label">年</span>
+            <n-select v-model:value="manual.year" :options="yearOptions" placeholder="年" filterable tag />
+          </label>
+          <label class="manual-field">
+            <span class="manual-label">月</span>
+            <n-select v-model:value="manual.month" :options="monthOptions" placeholder="月" filterable tag />
+          </label>
+          <label class="manual-field">
+            <span class="manual-label">日</span>
+            <n-input v-model:value="manual.day" placeholder="日" :maxlength="2" @input="onDayInput" />
+          </label>
         </div>
 
-        <!-- 旧版 `kt`：**只在 2–11 月预填年份**（1 月/12 月跨年边界要手选），此时提示这句。 -->
-        <div v-if="yearPrefilled" class="manual-hint">默认预录入当前年份，请根据实际录入</div>
+        <div v-if="yearPrefilled" class="manual-hint">已预填当前年份，请按门单日期确认。</div>
 
-        <div class="manual-preview">将要录入：<code>{{ manualPreview }}</code></div>
+        <div class="manual-preview">
+          <span>将要{{ manualMode === 'query' ? '查询' : '录入' }}</span>
+          <code>{{ manualPreview }}</code>
+        </div>
       </div>
 
       <template #footer>
         <div class="dialog-footer">
           <n-button @click="manualShow = false">取消</n-button>
-          <n-button type="primary" :loading="querying" @click="confirmManual">确认</n-button>
+          <n-button type="primary" :loading="querying" @click="confirmManual">
+            {{ manualMode === 'query' ? '查询门单' : '加入清单' }}
+          </n-button>
         </div>
       </template>
     </n-modal>
 
-    <!-- 设置工序（旧版 `ml`，§2.10 第 2 个弹窗 / §4）—— 表单与保存语义都在组件里。 -->
     <ProcedureSettingsDialog
       v-model:show="settingsShow"
       :slots="procedures"
@@ -880,196 +991,998 @@ onMounted(loadProcedures)
 </script>
 
 <style scoped>
-/*
- * 根容器 —— 旧版 `div.qr-scanner` 的 CSS 逐条照抄（分析文档 §2）：
- * `padding:16px; max-width:100%; margin:65px auto 0`，≤768px 时 `margin-top:17px; padding:10px`。
- * ⚠️ 旧版那个 `margin-top:65px` 是给它自己的固定标题栏让位的；我们的标题栏是全局的
- *    （`App.vue` 的 `--app-header-h`，其它页面一律 `calc(100vh - var(--app-header-h))`）
- *    ⇒ 这里改用同一个变量，与 Progress 等页面保持一致（**有意偏离**）。
- */
 .qr-scanner {
   min-height: calc(100vh - var(--app-header-h));
-  max-width: 100%;
-  padding: 16px;
-  background: #fff;
+  padding: var(--sd-space-8) var(--sd-page-padding) var(--sd-space-12);
+  background: var(--sd-color-bg-page);
+  color: var(--sd-color-text);
+  font-family: var(--sd-font-sans);
 }
-/* 工具条：旧版 `display:flex; flex-wrap:wrap; gap:10px; justify-content:center`。 */
-.button-group {
+
+.scanner-page-header,
+.workstation-card,
+.capture-card,
+.scan-results,
+.stats-section {
+  box-sizing: border-box;
+  width: min(100%, 1120px);
+  margin-inline: auto;
+}
+
+.scanner-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sd-space-6);
+  margin-bottom: var(--sd-space-5);
+}
+
+.scanner-page-header__eyebrow,
+.section-heading__kicker {
+  display: block;
+  margin-bottom: var(--sd-space-1);
+  color: var(--sd-color-action);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+  letter-spacing: var(--sd-letter-spacing-eyebrow);
+  line-height: var(--sd-line-height-tight);
+  text-transform: uppercase;
+}
+
+.scanner-page-header h1,
+.section-heading h2,
+.capture-card__header h2,
+.scan-results__header h2,
+.stats-section__header h2 {
+  margin: 0;
+  color: var(--sd-color-text-strong);
+  font-weight: var(--sd-font-weight-bold);
+  line-height: var(--sd-line-height-tight);
+}
+
+.scanner-page-header h1 {
+  font-size: clamp(var(--sd-font-size-2xl), 3vw, var(--sd-font-size-3xl));
+  letter-spacing: -0.035em;
+}
+
+.scanner-page-header p,
+.section-heading p,
+.scan-results__header p,
+.stats-section__header p,
+.capture-card__hint,
+.stats-empty p {
+  margin: var(--sd-space-2) 0 0;
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+  line-height: var(--sd-line-height-base);
+}
+
+.scanner-state {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--sd-space-2);
+  min-height: var(--sd-control-height-medium);
+  padding: 0 var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-bg-surface);
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-medium);
+  box-shadow: var(--sd-shadow-sm);
+  transition:
+    color var(--sd-duration-base) var(--sd-ease-standard),
+    border-color var(--sd-duration-base) var(--sd-ease-standard),
+    background var(--sd-duration-base) var(--sd-ease-standard);
+}
+
+.scanner-state__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-text-disabled);
+}
+
+.scanner-state--active {
+  border-color: var(--sd-color-process-border);
+  background: var(--sd-color-process-soft);
+  color: var(--sd-color-process);
+}
+
+.scanner-state--active .scanner-state__dot {
+  background: var(--sd-color-success);
+  box-shadow: var(--sd-shadow-status-soft);
+  animation: status-pulse var(--sd-duration-ambient) var(--sd-ease-standard) infinite;
+}
+
+.workstation-card,
+.capture-card,
+.scan-results {
+  border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+  border-radius: var(--sd-radius-material);
+  background: var(--sd-material-surface-strong);
+  box-shadow: var(--sd-shadow-material-card);
+  backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+}
+
+.workstation-card {
+  padding: var(--sd-space-6);
+}
+
+.section-heading,
+.scan-results__header,
+.stats-section__header,
+.capture-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sd-space-5);
+}
+
+.section-heading h2,
+.capture-card__header h2,
+.scan-results__header h2,
+.stats-section__header h2 {
+  font-size: var(--sd-font-size-xl);
+  letter-spacing: -0.02em;
+}
+
+.workstation-card__heading {
+  padding-bottom: var(--sd-space-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.workstation-card__heading p {
+  max-width: 420px;
+  margin-top: var(--sd-space-1);
+  text-align: right;
+}
+
+.workstation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.82fr);
+  gap: var(--sd-space-6);
+  padding-top: var(--sd-space-6);
+}
+
+.operator-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sd-space-4);
+  align-content: start;
+}
+
+.field-block {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--sd-space-2);
+}
+
+.field-block__label,
+.action-panel__label {
+  display: flex;
+  align-items: center;
+  gap: var(--sd-space-2);
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.field-block__label b,
+.action-panel__label b {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action-soft);
+  color: var(--sd-color-action);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-bold);
+}
+
+.field-block__hint {
+  min-height: 1.4em;
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  line-height: var(--sd-line-height-tight);
+}
+
+.staff-name-input,
+.procedure-select {
+  width: 100%;
+}
+
+.staff-name-input :deep(.n-input-wrapper),
+.procedure-select :deep(.n-base-selection) {
+  transition:
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard),
+    transform var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.staff-name-input:focus-within :deep(.n-input-wrapper),
+.procedure-select:focus-within :deep(.n-base-selection) {
+  box-shadow: var(--sd-focus-ring-soft);
+}
+
+.action-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sd-space-3);
+  padding-left: var(--sd-space-6);
+  border-left: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.entry-actions,
+.query-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sd-space-2);
+}
+
+.entry-actions {
+  margin-top: var(--sd-space-1);
+}
+
+.primary-scan-action,
+.secondary-entry-action,
+.query-action,
+.submit-progress-action {
+  min-width: 0;
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.primary-scan-action {
+  box-shadow: var(--sd-shadow-action);
+}
+
+.primary-scan-action:hover {
+  transform: translateY(var(--sd-motion-hover-y));
+  box-shadow: var(--sd-shadow-action-hover);
+}
+
+.primary-scan-action:active {
+  transform: scale(var(--sd-motion-press-scale));
+  box-shadow: var(--sd-shadow-action-pressed);
+}
+
+.stop-action {
+  --n-color: var(--sd-color-danger) !important;
+  --n-color-hover: var(--sd-color-danger-hover) !important;
+  --n-color-pressed: var(--sd-color-danger-pressed) !important;
+  --n-border: var(--sd-border-width) solid var(--sd-color-danger) !important;
+  --n-border-hover: var(--sd-border-width) solid var(--sd-color-danger-hover) !important;
+  --n-border-pressed: var(--sd-border-width) solid var(--sd-color-danger-pressed) !important;
+}
+
+.query-action {
+  --n-color: var(--sd-color-bg-subtle) !important;
+  --n-color-hover: var(--sd-color-bg-hover) !important;
+  --n-color-pressed: var(--sd-color-bg-pressed) !important;
+  --n-border: var(--sd-border-width) solid var(--sd-color-divider) !important;
+  --n-border-hover: var(--sd-border-width) solid var(--sd-color-action-border) !important;
+  --n-text-color: var(--sd-color-text-strong) !important;
+  --n-text-color-hover: var(--sd-color-action) !important;
+}
+
+.action-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.utility-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
+  align-items: center;
+  gap: var(--sd-space-3);
+  padding-top: var(--sd-space-1);
 }
-/* 旧版 `.button-group button { min-width:100px }`。 */
-.button-group :deep(button) {
-  min-width: 100px;
+
+.utility-action {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
 }
-/*
- * 置灰按钮的可点包装（与 `PrintDrawer.vue` 的 `.doc-pending` 同一套机制）：
- * naive 的 `disabled` 按钮会吃掉点击事件，所以包一层 span 接 click，按钮本身设 `pointer-events:none`。
- * ⚠️ `Progress.vue` 里原先也有一份同名的，2026-09-19 那页的占位按钮全部接上真目标后已删 ——
- *    这里的这份是**本组件自己的**，别因为那边没了就顺手删。
- */
+
 .pending-slot {
   display: inline-flex;
   cursor: not-allowed;
 }
+
 .pending-slot :deep(button) {
   pointer-events: none;
 }
-/* 日期范围：旧版 `.date-range-actions`，居中一排。 */
-.date-range-actions {
+
+.capture-card,
+.scan-results,
+.stats-section {
+  margin-top: var(--sd-space-5);
+}
+
+.capture-card {
+  padding: var(--sd-space-5);
+  animation: surface-enter var(--sd-duration-enter) var(--sd-ease-enter) both;
+}
+
+.capture-card__header {
+  align-items: center;
+  margin-bottom: var(--sd-space-4);
+}
+
+.capture-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sd-space-2);
+  color: var(--sd-color-process);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.capture-status i {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-success);
+  box-shadow: var(--sd-shadow-status);
+}
+
+.scanner-container {
+  position: relative;
+  width: min(100%, 480px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  overflow: hidden;
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-text-strong);
+  box-shadow: var(--sd-shadow-material-art);
+}
+
+.scanner-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.scanner-frame::before {
+  position: absolute;
+  inset: 13%;
+  border: var(--sd-border-width) solid var(--sd-material-highlight-soft);
+  border-radius: var(--sd-radius-control);
+  content: '';
+}
+
+.scanner-corner {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-color: var(--sd-color-action);
+  border-style: solid;
+  filter: drop-shadow(0 0 6px var(--sd-color-action));
+}
+
+.scanner-corner--tl {
+  top: 13%;
+  left: 13%;
+  border-width: 3px 0 0 3px;
+  border-radius: var(--sd-radius-sm) 0 0 0;
+}
+
+.scanner-corner--tr {
+  top: 13%;
+  right: 13%;
+  border-width: 3px 3px 0 0;
+  border-radius: 0 var(--sd-radius-sm) 0 0;
+}
+
+.scanner-corner--bl {
+  bottom: 13%;
+  left: 13%;
+  border-width: 0 0 3px 3px;
+  border-radius: 0 0 0 var(--sd-radius-sm);
+}
+
+.scanner-corner--br {
+  right: 13%;
+  bottom: 13%;
+  border-width: 0 3px 3px 0;
+  border-radius: 0 0 var(--sd-radius-sm) 0;
+}
+
+.scanner-line {
+  position: absolute;
+  top: 16%;
+  right: 16%;
+  left: 16%;
+  height: 2px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action);
+  box-shadow: var(--sd-focus-ring);
+  animation: scanner-sweep var(--sd-duration-ambient) var(--sd-ease-standard) infinite alternate;
+}
+
+.capture-card__hint {
+  text-align: center;
+}
+
+.scan-results {
+  padding: var(--sd-space-6);
+  animation: surface-enter var(--sd-duration-enter) var(--sd-ease-enter) both;
+}
+
+.scan-results__header {
+  align-items: center;
+  padding-bottom: var(--sd-space-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.result-toolbar {
   display: flex;
+  flex: 0 0 auto;
   flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sd-space-3);
 }
-/* 旧版 `.range-btn`：常态灰、选中蓝加粗。 */
+
+.fixed-count {
+  display: inline-flex;
+  min-height: var(--sd-control-height-medium);
+  align-items: center;
+  gap: var(--sd-space-2);
+  padding: 0 var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-subtle);
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-xs);
+}
+
+.fixed-count-input {
+  width: 76px;
+}
+
+.result-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sd-space-2);
+  max-height: 360px;
+  margin-top: var(--sd-space-4);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.result-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sd-space-3);
+  min-height: var(--sd-control-height-prominent);
+  padding: var(--sd-space-2) var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    background var(--sd-duration-fast) var(--sd-ease-standard),
+    transform var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.result-item:hover {
+  border-color: var(--sd-color-action-border);
+  background: var(--sd-color-action-soft);
+  transform: translateY(var(--sd-motion-hover-y));
+}
+
+.result-item__code {
+  overflow: hidden;
+  color: var(--sd-color-text-strong);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-item__state {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.result-submit-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sd-space-4);
+  margin-top: var(--sd-space-5);
+  padding-top: var(--sd-space-5);
+  border-top: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.result-submit-bar__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sd-space-1);
+  min-width: 0;
+}
+
+.result-submit-bar__summary span {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.result-submit-bar__summary strong {
+  overflow: hidden;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.submit-progress-action {
+  min-width: 180px;
+  box-shadow: var(--sd-shadow-action);
+}
+
+.stats-section {
+  padding-top: var(--sd-space-6);
+  border-top: var(--sd-border-width) solid var(--sd-color-divider);
+}
+
+.stats-section__header {
+  align-items: flex-end;
+}
+
+.date-range-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--sd-space-1);
+  padding: var(--sd-space-1);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-material-control);
+}
+
 .range-btn {
-  font-size: 13px;
+  min-width: 56px;
+  min-height: var(--sd-control-height-small);
+  padding-inline: var(--sd-space-3);
+  border-radius: var(--sd-radius-sm);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-medium);
+  transition:
+    color var(--sd-duration-fast) var(--sd-ease-standard),
+    background var(--sd-duration-fast) var(--sd-ease-standard),
+    box-shadow var(--sd-duration-fast) var(--sd-ease-standard);
 }
+
 .range-btn.active {
-  color: #409eff;
-  font-weight: 700;
+  background: var(--sd-color-bg-surface);
+  color: var(--sd-color-action);
+  box-shadow: var(--sd-shadow-sm);
 }
-/* 「更多」展开区：PC 一个区间选择器、手机两个独立选择器（旧版 §2.2）。 */
+
 .custom-date-picker {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 8px;
+  justify-content: flex-end;
+  gap: var(--sd-space-2);
+  margin-top: var(--sd-space-3);
+  padding: var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-bg-subtle);
 }
+
 .range-sep {
-  font-size: 13px;
-  color: #909399;
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
 }
-/*
- * 员工名称输入 + 工序下拉：旧版两件都是 `width:50%`，且**没为窄屏加媒体查询**
- * （分析文档 §2.6 末句）⇒ 窄屏仍是 50%（见下面媒体查询里的**有意偏离**说明）。
- */
-.staff-name-input,
-.procedure-select {
-  width: 50%;
-  min-width: 160px;
-  margin-top: 10px;
-}
-/* 旧版 `.scanner-container`：`width:100%; max-width:300px; height:300px; margin:1rem auto`。 */
-.scanner-container {
-  width: 100%;
-  max-width: 300px;
-  height: 300px;
-  margin: 1rem auto;
-  border: 1px solid #ddd;
-  border-radius: 0.5rem;
-  overflow: hidden;
-}
-/* video 的 `object-fit:cover` 等内联样式（旧版是 `createElement` 后设的）搬到这里。 */
-.scanner-video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-/* 扫码结果区。 */
-.scan-results {
-  margin-top: 16px;
-}
-.result-count {
-  margin: 0 0 10px;
-  font-size: 15px;
-  font-weight: 700;
-}
-/* 打印标签 + 固定标签数那一行。 */
-.result-toolbar {
+
+.stats-empty {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: var(--sd-space-4);
+  margin-top: var(--sd-space-5);
+  padding: var(--sd-space-5);
+  border: var(--sd-border-width) dashed var(--sd-color-border);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-subtle);
 }
-.fixed-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #606266;
+
+.stats-empty__mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-action-soft);
+  color: var(--sd-color-action);
 }
-.fixed-count-input {
-  width: 90px;
+
+.stats-empty__mark svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
-/* 旧版 `.result-item`：一个单号一行。 */
-.result-item {
-  padding: 4px 0;
+
+.stats-empty strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
 }
-/* 旧版 `.button-group-bottom`：确认按钮居中。 */
-.button-group-bottom {
-  display: flex;
-  justify-content: center;
-  margin-top: 12px;
+
+.manual-modal {
+  width: min(92vw, 460px);
+  border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+  border-radius: var(--sd-radius-material);
+  background: var(--sd-material-surface-strong);
+  box-shadow: var(--sd-shadow-material-shell);
+  backdrop-filter: blur(var(--sd-glass-blur-lg)) saturate(var(--sd-glass-saturation-strong));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur-lg)) saturate(var(--sd-glass-saturation-strong));
 }
-/* 手动录入弹窗表单。宽度走 `n-modal` 的行内 style（旧版 `vt` 宽 90%，见模板）。 */
+
 .manual-form {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--sd-space-4);
 }
-.manual-row {
+
+.manual-field {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-}
-.manual-label {
-  flex: none;
-  width: 40px;
-  font-size: 13px;
-  color: #606266;
-}
-.manual-row :deep(.n-input),
-.manual-row :deep(.n-select) {
-  flex: 1 1 160px;
   min-width: 0;
+  flex-direction: column;
+  gap: var(--sd-space-2);
 }
+
+.manual-label {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-sm);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.manual-date-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: var(--sd-space-3);
+}
+
 .manual-hint {
-  font-size: 12px;
-  color: #e6a23c;
+  padding: var(--sd-space-2) var(--sd-space-3);
+  border-radius: var(--sd-radius-sm);
+  background: var(--sd-color-warning-soft);
+  color: var(--sd-color-warning-pressed);
+  font-size: var(--sd-font-size-xs);
+  line-height: var(--sd-line-height-base);
 }
+
 .manual-preview {
-  font-size: 13px;
-  color: #606266;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sd-space-4);
+  padding: var(--sd-space-3) var(--sd-space-4);
+  border: var(--sd-border-width) solid var(--sd-color-action-border);
+  border-radius: var(--sd-radius-control);
+  background: var(--sd-color-action-soft);
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-sm);
 }
+
 .manual-preview code {
-  color: #409eff;
-  font-size: 14px;
+  color: var(--sd-color-action-pressed);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-md);
+  font-weight: var(--sd-font-weight-bold);
 }
+
 .dialog-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--sd-space-2);
 }
 
-/*
- * 窄屏（旧版 `@media (max-width:768px)`）：根容器 padding 收紧、工具条改纵向铺满。
- * ⚠️ 员工名/工序下拉旧版窄屏**仍是 50%**；这里**有意偏离**改成 100%
- *    —— 手机上 50% 宽的输入框放不下「请输入员工名称」那行提示，
- *    与 `frontend-conventions.md` 的窄屏规范也冲突。记在这里免得被当成抄错。
- */
+@keyframes status-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.18);
+  }
+}
+
+@keyframes scanner-sweep {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(300px);
+  }
+}
+
+@keyframes surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sd-motion-enter-y));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .workstation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .action-panel {
+    padding-top: var(--sd-space-5);
+    padding-left: 0;
+    border-top: var(--sd-border-width) solid var(--sd-color-divider);
+    border-left: 0;
+  }
+
+  .stats-section__header {
+    align-items: flex-start;
+  }
+}
+
 @media (max-width: 768px) {
   .qr-scanner {
-    padding: 10px;
+    padding-top: var(--sd-space-5);
+    padding-bottom: var(--sd-space-8);
   }
-  .button-group {
+
+  .scanner-page-header {
+    align-items: flex-start;
+    margin-bottom: var(--sd-space-4);
+  }
+
+  .scanner-page-header p {
+    max-width: 260px;
+  }
+
+  .scanner-state {
+    min-height: var(--sd-control-height-small);
+    padding-inline: var(--sd-space-2-5);
+    font-size: var(--sd-font-size-xs);
+  }
+
+  .workstation-card,
+  .capture-card,
+  .scan-results {
+    border-radius: var(--sd-radius-card);
+  }
+
+  .workstation-card,
+  .scan-results {
+    padding: var(--sd-space-4);
+  }
+
+  .workstation-card__heading,
+  .scan-results__header,
+  .stats-section__header {
     flex-direction: column;
+    gap: var(--sd-space-3);
   }
-  .button-group :deep(button) {
+
+  .workstation-card__heading p {
+    max-width: none;
+    text-align: left;
+  }
+
+  .workstation-layout {
+    gap: var(--sd-space-5);
+    padding-top: var(--sd-space-5);
+  }
+
+  .operator-fields {
+    grid-template-columns: 1fr;
+    gap: var(--sd-space-4);
+  }
+
+  .field-block__hint {
+    min-height: 0;
+  }
+
+  .entry-actions,
+  .query-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .entry-actions :deep(.n-button),
+  .query-actions :deep(.n-button) {
     width: 100%;
   }
-  .staff-name-input,
-  .procedure-select {
+
+  .primary-scan-action {
+    min-height: var(--sd-control-height-prominent);
+  }
+
+  .utility-actions {
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: var(--sd-space-1);
+  }
+
+  .pending-slot {
+    max-width: 100%;
+  }
+
+  .capture-card {
+    padding: var(--sd-space-3);
+  }
+
+  .capture-card__header {
+    padding: var(--sd-space-1);
+  }
+
+  .capture-status {
+    font-size: var(--sd-font-size-xs);
+  }
+
+  .scanner-container {
+    border-radius: var(--sd-radius-control);
+  }
+
+  .scanner-line {
+    animation-name: scanner-sweep-mobile;
+  }
+
+  .result-toolbar {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .result-list {
+    grid-template-columns: 1fr;
+    max-height: 300px;
+  }
+
+  .result-submit-bar {
+    position: sticky;
+    bottom: calc(var(--sd-shell-mobile-dock-reserve) - var(--sd-space-2));
+    z-index: 2;
+    margin-inline: calc(var(--sd-space-4) * -1);
+    margin-bottom: calc(var(--sd-space-4) * -1);
+    padding: var(--sd-space-3) var(--sd-space-4);
+    border-top-color: var(--sd-border-glass-divider);
+    border-radius: 0 0 var(--sd-radius-card) var(--sd-radius-card);
+    background: var(--sd-material-surface);
+    box-shadow: var(--sd-shadow-md);
+    backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+    -webkit-backdrop-filter: blur(var(--sd-glass-blur-md)) saturate(var(--sd-glass-saturation));
+  }
+
+  .submit-progress-action {
+    min-width: 154px;
+  }
+
+  .stats-section {
+    padding-top: var(--sd-space-5);
+  }
+
+  .stats-section__header {
+    align-items: stretch;
+  }
+
+  .date-range-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .range-btn {
+    min-width: 0;
+    padding-inline: var(--sd-space-1);
+  }
+
+  .custom-date-picker {
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .custom-date-picker :deep(.n-date-picker) {
+    width: 100%;
+  }
+
+  .range-sep {
+    display: none;
+  }
+
+  .stats-empty {
+    align-items: flex-start;
+    padding: var(--sd-space-4);
+  }
+
+  .manual-date-grid {
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: var(--sd-space-2);
+  }
+}
+
+@media (max-width: 430px) {
+  .scanner-page-header {
+    gap: var(--sd-space-3);
+  }
+
+  .scanner-page-header h1 {
+    font-size: var(--sd-font-size-2xl);
+  }
+
+  .scanner-page-header p {
+    max-width: 230px;
+  }
+
+  .scanner-state span:last-child {
+    max-width: 58px;
+    line-height: var(--sd-line-height-tight);
+  }
+
+  .entry-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .query-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fixed-count {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .result-submit-bar__summary {
+    max-width: 38%;
+  }
+
+  .submit-progress-action {
+    min-width: 0;
+  }
+
+  .manual-date-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes scanner-sweep-mobile {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(62vw);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanner-state--active .scanner-state__dot,
+  .scanner-line {
+    animation: none;
   }
 }
 </style>

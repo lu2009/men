@@ -77,6 +77,17 @@ const showHeader = computed(() => HEADER_ROUTES.has(String(route.name ?? '')))
   transform: translateY(0);
 }
 
+@media (max-width: 720px) {
+  :root {
+    --app-header-h: var(--sd-shell-mobile-dock-reserve);
+  }
+
+  .app-shell__content {
+    box-sizing: border-box;
+    padding-bottom: var(--sd-shell-mobile-dock-reserve);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-shell__skip-link {
     transition: none;
