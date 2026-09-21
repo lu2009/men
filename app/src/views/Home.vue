@@ -1,148 +1,91 @@
 <template>
-  <div class="home-container">
-    <!-- 顶部：按钮组 + 搜索框 + 汇总信息条（仿旧版 search-section） -->
-    <div class="header-container">
-      <div class="toolbar-row">
-        <n-button size="small" :loading="loading" @click="load">刷新</n-button>
-        <!--
-          「查询更多」（旧版工具栏按钮 `Home.formatted.js:11269-11273`，class `custom-search-btn`
-          = `dr(1009)`，文案 `dr(1355)` = " 查询更多 "，onClick `ms`）。位置上旧版紧跟在「刷新」之后
-          （中间那颗是终端视图专用的「电子回执单」，新版不做），所以放这儿。
-        -->
-        <n-button size="small" @click="openQuery">查询更多</n-button>
-        <n-button
-          size="small"
-          :type="onlyUnproduced ? 'error' : 'default'"
-          @click="onlyUnproduced = !onlyUnproduced"
-        >
-          {{ onlyUnproduced ? '未生产' : '显示全部' }}
-        </n-button>
-        <n-button
-          size="small"
-          :type="checkedRowKeys.length ? 'warning' : 'default'"
-          @click="openPrint"
-        >
-          打印选中订单{{ checkedRowKeys.length ? `（${checkedRowKeys.length}）` : '' }}
-        </n-button>
-        <!--
-          ⚠️ 自定义单据与标签的入口**不在这里** —— 它们在「打印选项」抽屉里。
-          旧版工具栏**只有一个**按钮（工厂「打印选中订单」/ 终端「查看回执单」，onClick 是同一个 `Gi`），
-          那 ~24 个单据入口（含 `自定义单据：` 分组）全在抽屉内。我们先前平铺在工具条上是偏离，
-          2026-09-18 按用户要求改回原样。见 `docs/2026-09-17-home-print.md` §4。
-        -->
-        <n-button size="small" type="error" @click="deleteSelected">删除选中数据</n-button>
-        <n-button size="small" type="success" @click="clearAccounts">清账</n-button>
-        <!--
-          「合并订单」（旧版 `:11287-11289`，class `custom-combine-btn`，文案 ` 合并订单 (N) `，
-          onClick `Ii`）。**只在选中 ≥2 条时出现** —— 旧版是 `Fl.value.length>1 ? … : createCommentVNode`。
-        -->
-        <n-button
-          v-if="checkedRowKeys.length > 1"
-          size="small"
-          class="custom-combine-btn"
-          @click="combineSelected"
-        >
-          合并订单 ({{ checkedRowKeys.length }})
-        </n-button>
-        <span class="grow-spacer" />
-        <n-button size="small" @click="dashboardShow = true">经营看板</n-button>
-        <n-button size="small" type="primary" @click="router.push({ name: 'hui' })">汇算下单</n-button>
-        <n-button size="small" @click="router.push({ name: 'clients' })">客户信息</n-button>
-        <n-button size="small" @click="router.push({ name: 'formulas' })">公式管理</n-button>
-        <n-button size="small" quaternary @click="onLogout">退出登录</n-button>
-      </div>
-
-      <div class="search-row">
-        <n-input
-          v-model:value="searchText"
-          class="search-input"
-          placeholder="搜索客户、安装地址等"
-          clearable
-        >
-          <template #prefix>🔍</template>
-        </n-input>
-        <!--
-          汇总条 = 旧版 `:11251` 那颗**二选一**的 `v-if/v-else-if`（同一行里就是这俩分支）：
-            · 有搜索词（`Rc` 非空，`:11244`）→ 「 当前筛选: …」
-            · **无搜索词**且 `_l.length > 0`（原始列表非空）→ 「 总计: N 条记录 …」
-          两分支的**字段集与顺序完全相同**（旧版共用同一串 `dr` token）：
-            时间 → 门数 → 总价 → 已付 → 未付 → 未付单数 → 未审核
-          各自 token：`dr(1364)`=" | 时间: "、`dr(1444)`=" 总计: "、`dr(954)`=" | 门数: "、
-          `dr(742)`=" | 总价: "、`dr(525)`=" | 未付: "、`dr(792)`="未付单数: "、`dr(1134)`="未审核: "，
-          `已付` / `至` 是旧版模板里的字面量。两分支的数字都取自**筛选后**的列表（旧版 `ps`）。
-          ⚠️ 旧版条件用的是 `_l`（原始列表）而不是 `ps`（筛选后），所以「筛选后为空但原始非空」时
-             仍会显示一条「总计: 0 条记录」——照抄。
-        -->
-        <div v-if="searchText.trim()" class="summary-info">
-          当前筛选: {{ searchText.trim() }}（{{ filtered.length }} 条结果）
-          | 时间: {{ summary.earliest || '—' }} 至 {{ summary.latest || '—' }}
-          | 门数: {{ summary.doors }} | 总价: {{ fmt(summary.total) }}
-          | 已付: {{ fmt(summary.paid) }} | 未付: {{ fmt(summary.unpaid) }}
-          | 未付单数: {{ summary.unpaidCount }} | 未审核: {{ summary.unaudited }}
-        </div>
-        <!--
-          **无搜索词时的常驻汇总条**（旧版 `:11251` 那颗 `v-if/v-else-if` 的 else-if 分支）。
-          两分支的**字段集与顺序完全相同**，只有开头一个是「当前筛选: X（N 条结果）」、
-          一个是「总计: N 条记录」。
-          ⚠️ 条件用的是 `rawOrders`（旧版 `_l`，**原始列表**）而不是 `filtered`（旧版 `ps`）——
-             所以「筛选后为空但原始非空」时仍会显示一条「总计: 0 条记录」，**照抄**。
-        -->
-        <div v-else-if="rawOrders.length > 0" class="summary-info">
-          总计: {{ filtered.length }} 条记录
-          | 时间: {{ summary.earliest || '—' }} 至 {{ summary.latest || '—' }}
-          | 门数: {{ summary.doors }} | 总价: {{ fmt(summary.total) }}
-          | 已付: {{ fmt(summary.paid) }} | 未付: {{ fmt(summary.unpaid) }}
-          | 未付单数: {{ summary.unpaidCount }} | 未审核: {{ summary.unaudited }}
-        </div>
-        <!-- ⚠️ 2026-09-19 删掉了一块**永不命中**的重复 `v-else-if="rawOrders.length"`：
-             它紧跟在 `v-else-if="rawOrders.length > 0"` 之后、条件被后者完全覆盖，
-             且两块内容**逐字相同** ⇒ 死代码。留着会让人以为还有第三种情形。 -->
-      </div>
-    </div>
-
-    <!-- 订单主表 -->
-    <div class="table-container">
-      <n-data-table
-        ref="tableRef"
-        :columns="columns"
-        :data="paged"
-        :row-key="(row: OrderSummaryDto) => row.id"
+  <main class="home-page">
+    <div class="home-page__inner">
+      <HomeOrderCommand
+        v-model:search="searchText"
         :loading="loading"
-        :max-height="tableHeight"
-        :scroll-x="1750"
-        :checked-row-keys="checkedRowKeys"
-        :expanded-row-keys="expandedRowKeys"
-        :row-class-name="rowClass"
-        :bordered="false"
-        size="small"
-        @update:checked-row-keys="onCheckedKeys"
-        @update:expanded-row-keys="onExpandedKeys"
-        @update:filters="onUpdateFilters"
+        :only-unproduced="onlyUnproduced"
+        :selected-count="checkedRowKeys.length"
+        :filtered-count="filtered.length"
+        :raw-count="rawOrders.length"
+        :summary="summary"
+        @refresh="load"
+        @open-query="openQuery"
+        @toggle-unproduced="onlyUnproduced = !onlyUnproduced"
+        @print-selected="openPrint"
+        @delete-selected="deleteSelected"
+        @clear-accounts="clearAccounts"
+        @combine-selected="combineSelected"
+        @open-dashboard="dashboardShow = true"
+        @logout="onLogout"
       />
-    </div>
 
-    <!-- 分页 -->
-    <div class="pagination-container">
-      <n-pagination
-        v-model:page="page"
-        :page-size="pageSize"
-        :item-count="filtered.length"
-        :page-sizes="[10, 20, 50, 100, 200]"
-        show-size-picker
-        :display-order="['size-picker', 'pages']"
-        @update:page-size="onPageSizeChange"
-        @update:page="onPageChange"
-      >
+      <section class="order-ledger" aria-labelledby="order-ledger-title">
+        <header class="order-ledger__header">
+          <div class="order-ledger__heading">
+            <span>ACTIVE ORDERS</span>
+            <h2 id="order-ledger-title">
+              {{ searchText.trim() ? '检索结果' : onlyUnproduced ? '未生产订单' : '全部订单' }}
+            </h2>
+          </div>
+          <div class="order-ledger__status" aria-live="polite">
+            <span :class="{ 'is-loading': loading }" aria-hidden="true"></span>
+            {{ loading ? '正在同步订单' : `当前 ${filtered.length} 条` }}
+            <strong v-if="checkedRowKeys.length">已选 {{ checkedRowKeys.length }} 条</strong>
+          </div>
+        </header>
+
+        <!-- 订单主表：保留全部字段、筛选、展开、选中及滚动行为。 -->
+        <div class="table-container">
+          <n-data-table
+            ref="tableRef"
+            class="order-table"
+            :columns="columns"
+            :data="paged"
+            :row-key="(row: OrderSummaryDto) => row.id"
+            :loading="loading"
+            :max-height="tableHeight"
+            :scroll-x="1750"
+            :checked-row-keys="checkedRowKeys"
+            :expanded-row-keys="expandedRowKeys"
+            :row-class-name="rowClass"
+            :bordered="false"
+            size="small"
+            @update:checked-row-keys="onCheckedKeys"
+            @update:expanded-row-keys="onExpandedKeys"
+            @update:filters="onUpdateFilters"
+          >
+            <template #empty>
+              <div class="order-table-empty">
+                <span class="order-table-empty__symbol" aria-hidden="true"></span>
+                <strong>
+                  {{ searchText.trim() ? '没有找到匹配的订单' : onlyUnproduced ? '当前没有未生产订单' : '暂无订单数据' }}
+                </strong>
+                <span>调整搜索或筛选条件后再试</span>
+              </div>
+            </template>
+          </n-data-table>
+        </div>
+
         <!--
-          旧版 `layout: "total,sizes,prev, pager, next"`（`:11607`，`s(531)`）——
-          顺序是「共 N 条 → 每页条数 → 上一页/页码/下一页」，**没有跳页输入框**（E3）。
-          naive 的默认 `displayOrder` 是 `["pages","size-picker","quick-jumper"]` ⇒
-          ① 用 `#prefix` 补「共 N 条」（Element 的 `total` 文案就是「共 {total} 条」）；
-          ② `display-order` 把 size-picker 提到 pages 前面；
-          ③ **不传** `show-quick-jumper`（旧版没有那把输入框；先前新版反而有、且没有总数 —— 正好反过来）。
+          旧版分页顺序为“共 N 条 → 每页条数 → 上一页/页码/下一页”，没有跳页输入框；
+          继续用 prefix + display-order 保持同一交互口径。
         -->
-        <template #prefix>共 {{ filtered.length }} 条</template>
-      </n-pagination>
+        <footer class="pagination-container">
+          <n-pagination
+            v-model:page="page"
+            :page-size="pageSize"
+            :item-count="filtered.length"
+            :page-sizes="[10, 20, 50, 100, 200]"
+            show-size-picker
+            :display-order="['size-picker', 'pages']"
+            @update:page-size="onPageSizeChange"
+            @update:page="onPageChange"
+          >
+            <template #prefix>共 {{ filtered.length }} 条</template>
+          </n-pagination>
+        </footer>
+      </section>
     </div>
 
     <!--
@@ -409,7 +352,7 @@
     <!-- 展开行明细表的四个弹窗（新增加价项目 / 修改平方数 / 门图预览 / 门图名字）。
          与 Hui 页挂的是**同一个组件**（状态在 `useDetailLineDialogs`）。 -->
     <DetailLineDialogs :d="homeDialogs" />
-  </div>
+  </main>
 </template>
 
 <script setup lang="ts">
@@ -464,6 +407,7 @@ import GlassSheet2Dialog from '../components/GlassSheet2Dialog.vue'
 import ProductionSheet2Dialog from '../components/ProductionSheet2Dialog.vue'
 import ProductionSheetDialog from '../components/ProductionSheetDialog.vue'
 import QualifiedLabelDialog from '../components/QualifiedLabelDialog.vue'
+import HomeOrderCommand from '../components/home/HomeOrderCommand.vue'
 // 2026-09-20 随搬迁一并删掉的 import（它们在页面里**只剩那一处用处**）：
 //   · B9 → `useHomePrint.ts`：`QualifiedLabelEntry`
 //   · B6 → `useHomeExpand.ts`：`OrderDto` / `OrderLineDto` / `FormulaDto` / `OrderLineInput` /
@@ -1167,84 +1111,270 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
   },
 ])
 
-const tableHeight = 'calc(100vh - 300px)'
+const tableHeight = 'max(320px, calc(100vh - var(--app-header-h) - 386px))'
 </script>
 
 <style scoped>
-/* 减掉全局标题栏的高度（`App.vue` 的 `--app-header-h`），否则整页会被顶出去 60px。 */
-.home-container {
-  padding: 10px;
-  height: calc(100vh - var(--app-header-h));
+/* 首页是订单操作台：指令区使用玻璃材质，长表格保持稳定的实体表面。 */
+.home-page {
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--app-header-h));
+  padding: var(--sd-page-padding);
+  color: var(--sd-color-text);
+  background: var(--sd-color-bg-page);
+  font-family: var(--sd-font-sans);
+}
+
+.home-page__inner {
   display: flex;
   flex-direction: column;
-  background: #f5f7fa;
+  gap: var(--sd-page-gap);
+  width: min(100%, var(--sd-content-max-width));
+  min-height: calc(100vh - var(--app-header-h) - (var(--sd-page-padding) * 2));
+  margin: 0 auto;
 }
 
-.header-container {
-  flex-shrink: 0;
+.order-ledger {
+  display: flex;
+  overflow: hidden;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-surface);
+  box-shadow: var(--sd-shadow-md);
+  animation: order-ledger-enter var(--sd-duration-enter) var(--sd-ease-enter) 55ms both;
 }
 
-.toolbar-row {
+.order-ledger__header {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  gap: var(--sd-space-4);
+  padding: var(--sd-space-3) var(--sd-space-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  background: var(--sd-color-bg-subtle);
 }
 
-.grow-spacer {
-  flex: 1;
+.order-ledger__heading {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: var(--sd-space-3);
 }
 
-.search-row {
+.order-ledger__heading > span {
+  color: var(--sd-color-action);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-bold);
+  letter-spacing: var(--sd-letter-spacing-eyebrow);
+}
+
+.order-ledger__heading h2 {
+  margin: 0;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-lg);
+  font-weight: var(--sd-font-weight-bold);
+  line-height: var(--sd-line-height-tight);
+}
+
+.order-ledger__status {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: var(--sd-space-2);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  white-space: nowrap;
 }
 
-.search-input {
-  width: 320px;
+.order-ledger__status > span {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-success);
+  box-shadow: var(--sd-shadow-status-soft);
 }
 
-.summary-info {
-  font-size: 13px;
-  color: #606266;
+.order-ledger__status > span.is-loading {
+  background: var(--sd-color-warning);
+  animation: order-status-pulse 1.2s var(--sd-ease-standard) infinite;
+}
+
+.order-ledger__status strong {
+  padding: 2px var(--sd-space-2);
+  border-radius: var(--sd-radius-pill);
+  color: var(--sd-color-action);
+  background: var(--sd-color-action-soft);
+  font-weight: var(--sd-font-weight-strong);
 }
 
 .table-container {
-  flex: 1;
+  overflow: hidden;
+  flex: 1 1 auto;
   min-height: 0;
+  background: var(--sd-color-bg-surface);
 }
 
-/* 表头米色 + 16px bold 左对齐；单元格 16px（§3 `ha`/`dn`） */
+.order-table {
+  height: 100%;
+}
+
+/* 高密度订单表：表头低对比、正文清晰，业务状态色仍由下方兼容规则负责。 */
 :deep(.n-data-table-th) {
-  background-color: #faeBD7 !important;
-  color: #000 !important;
-  font-size: 16px;
-  font-weight: bold;
+  background-color: var(--sd-color-bg-subtle) !important;
+  color: var(--sd-color-text-strong) !important;
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+  letter-spacing: 0.01em;
   text-align: left;
 }
+
 :deep(.n-data-table-td) {
-  font-size: 16px;
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-sm);
 }
 
-/* 旧版 `legacy/css/Home-97d96482.css`：
-     .pagination-container{display:flex;justify-content:center;align-items:center;margin-top:0;padding:5px 0}
-     [data-v-…] .el-pagination{display:flex;align-items:center;gap:8px}
-   元素间距那条：Element 是给 `__total`/`__sizes`/`__jump` 各加 `margin:0 5px`，
-   naive 用自己的 `--n-item-margin`；这里统一成 `gap:8px`（两者的净观感以 8px 为基准）。 */
-.pagination-container {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 0;
-  padding: 5px 0;
+:deep(.n-data-table-th),
+:deep(.n-data-table-td) {
+  border-color: var(--sd-color-divider) !important;
 }
+
+:deep(.n-data-table-tr:not(.n-data-table-tr--summary):hover > .n-data-table-td) {
+  background-color: var(--sd-color-bg-hover);
+}
+
+.order-table-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 240px;
+  gap: var(--sd-space-2);
+  color: var(--sd-color-text-muted);
+  text-align: center;
+}
+
+.order-table-empty__symbol {
+  position: relative;
+  width: 44px;
+  height: 36px;
+  margin-bottom: var(--sd-space-2);
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-md);
+  background:
+    linear-gradient(var(--sd-color-divider), var(--sd-color-divider)) 9px 10px / 24px 1px no-repeat,
+    linear-gradient(var(--sd-color-divider), var(--sd-color-divider)) 9px 17px / 18px 1px no-repeat,
+    linear-gradient(var(--sd-color-divider), var(--sd-color-divider)) 9px 24px / 21px 1px no-repeat,
+    var(--sd-color-bg-subtle);
+}
+
+.order-table-empty strong {
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
+  font-weight: var(--sd-font-weight-strong);
+}
+
+.order-table-empty > span:last-child {
+  font-size: var(--sd-font-size-xs);
+}
+
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 48px;
+  padding: var(--sd-space-2) var(--sd-space-4);
+  border-top: var(--sd-border-width) solid var(--sd-color-divider);
+  background: var(--sd-color-bg-subtle);
+}
+
 .pagination-container :deep(.n-pagination) {
-  gap: 8px;
+  gap: var(--sd-space-2);
+}
+
+.pagination-container :deep(.n-pagination-item),
+.pagination-container :deep(.n-base-selection) {
+  border-radius: var(--sd-radius-sm);
+}
+
+@keyframes order-ledger-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sd-motion-enter-y));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes order-status-pulse {
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+@media (max-width: 768px) {
+  .home-page {
+    padding-bottom: var(--sd-page-padding);
+  }
+
+  .home-page__inner {
+    min-height: 0;
+  }
+
+  .order-ledger {
+    flex: none;
+    border-radius: var(--sd-radius-card);
+  }
+
+  .order-ledger__header {
+    align-items: flex-start;
+    padding: var(--sd-space-3) var(--sd-space-4);
+  }
+
+  .order-ledger__heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .order-ledger__status {
+    align-items: flex-end;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .pagination-container {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
+
+  .pagination-container :deep(.n-pagination) {
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .order-ledger__heading > span {
+    display: none;
+  }
+
+  .order-ledger__status strong {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-ledger,
+  .order-ledger__status > span.is-loading {
+    animation: none;
+  }
 }
 
 /*
