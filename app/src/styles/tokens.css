@@ -75,6 +75,7 @@
   --sd-control-height-large: 40px;
   --sd-control-height-huge: 46px;
   --sd-control-height-prominent: 48px;
+  --sd-control-select-menu-min-width: 180px;
 
   /* Application shell。 */
   --sd-shell-header-height: 60px;

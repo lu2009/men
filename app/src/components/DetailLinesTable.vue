@@ -9,41 +9,61 @@
 
     搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对（第二轮：51 个定义逐字比）。
   -->
-  <section class="table-wrap">
-    <div class="table-head">
-      <n-button v-if="selectedCount" size="tiny" text type="error" @click="emit('batch-delete')">
-        批量删除({{ selectedCount }})
-      </n-button>
-      <!-- ⚠️ 「填入单号」**只有平开表有**（旧版移门那份没有这颗按钮，别顺手统一） -->
-      <n-button
-        v-if="kind === 'ping'"
-        size="tiny"
-        text
-        type="primary"
-        :loading="filling"
-        @click="emit('fill-line-numbers')"
-      >
-        填入单号
-      </n-button>
-      <span class="grow-spacer" />
-      <n-button size="tiny" text type="error" @click="emit('toggle-show')">隐藏</n-button>
+  <section class="detail-table-shell" :class="`detail-table-shell--${kind}`" :aria-label="`${kind === 'ping' ? '平开门' : '移门'}订单明细`">
+    <header class="detail-table-toolbar">
+      <div class="detail-table-toolbar__identity">
+        <span class="detail-table-toolbar__mark" aria-hidden="true"></span>
+        <div>
+          <p class="detail-table-toolbar__eyebrow">ORDER LINES</p>
+          <h3>{{ kind === 'ping' ? '平开门明细' : '移门明细' }}</h3>
+        </div>
+        <span class="detail-table-toolbar__count">{{ rows.length }} 行</span>
+      </div>
+
+      <div class="detail-table-toolbar__actions">
+        <n-tag v-if="selectedCount" size="small" type="info" round>
+          已选 {{ selectedCount }}
+        </n-tag>
+        <n-button v-if="selectedCount" size="tiny" text type="error" @click="emit('batch-delete')">
+          批量删除
+        </n-button>
+        <!-- ⚠️ 「填入单号」只有平开表有，保持原业务入口不变。 -->
+        <n-button
+          v-if="kind === 'ping'"
+          size="tiny"
+          secondary
+          type="primary"
+          :loading="filling"
+          @click="emit('fill-line-numbers')"
+        >
+          填入单号
+        </n-button>
+        <n-button size="tiny" quaternary type="error" @click="emit('toggle-show')">隐藏</n-button>
+      </div>
+    </header>
+
+    <div class="detail-table-scroll">
+      <n-data-table
+        class="detail-data-table"
+        :columns="kind === 'diao' ? diaoColumns : pingColumns"
+        :data="rows"
+        :bordered="false"
+        :row-key="rowKey"
+        :row-class-name="rowClassName"
+        :row-props="rowPropsOf"
+        size="small"
+        :max-height="560"
+        :scroll-x="scrollX"
+      />
     </div>
-    <n-data-table
-      :columns="kind === 'diao' ? diaoColumns : pingColumns"
-      :data="rows"
-      :bordered="true"
-      :row-key="rowKey"
-      :row-class-name="rowClassName"
-      :row-props="rowPropsOf"
-      size="small"
-      :max-height="560"
-      :scroll-x="scrollX"
-    />
-    <!-- 「 添加行 」在**表格下方**居中，蓝色实心带 + 图标（原版 :2635-2639：
-         `div.table-footer > el-button.custom-button-btn(icon=plus) 文案 " 添加行 "`） -->
-    <div class="table-footer">
-      <n-button class="custom-button-btn" size="small" @click="emit('add-row')">＋ 添加行 </n-button>
-    </div>
+
+    <footer class="detail-table-footer">
+      <n-button class="custom-button-btn" size="small" @click="emit('add-row')">
+        <span class="detail-table-footer__plus" aria-hidden="true">＋</span>
+        添加明细行
+      </n-button>
+      <span class="detail-table-footer__hint">点击任意行进入编辑</span>
+    </footer>
   </section>
 </template>
 
@@ -51,7 +71,7 @@
 import { computed, h, reactive, watch } from 'vue'
 import {
   NButton, NCheckbox, NDataTable, NInput, NInputNumber,
-  NSelect, NTooltip, useDialog, useMessage,
+  NSelect, NTag, NTooltip, useDialog, useMessage,
 } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
 import { api } from '../api/client'
@@ -162,11 +182,27 @@ function colVis(map: Record<string, boolean>, key: string): boolean {
   return map[key] !== false
 }
 
+/**
+ * 非编辑行只渲染轻量文本节点；点击行后才挂载输入/下拉控件。
+ * 明细表一行包含大量 Naive UI 控件，这是滚动性能的关键边界：
+ * 默认视图不应该为每一行创建几十个交互组件。
+ */
+function detailValue(value: unknown, fallback = '—') {
+  const text = value == null || String(value).trim() === '' ? fallback : String(value)
+  return h('span', { class: 'detail-value', title: text }, text)
+}
+
+function detailMultiline(value: unknown, fallback = '—') {
+  const text = value == null || String(value).trim() === '' ? fallback : String(value)
+  return h('span', { class: 'detail-value detail-value--multiline', title: text }, text)
+}
+
 /** 两表不同的 `scroll-x`（旧版列宽不同：平开 2000 / 移门 2200）。 */
-const scrollX = computed(() => (props.kind === 'diao' ? 2200 : 2000))
+const scrollX = computed(() => (props.kind === 'diao' ? 2320 : 2120))
 
 // ════ 搬迁自 Hui.vue 1442-1701：A 单元格 ════
 function wallThicknessCell(l: Line) {
+  if (!isEditing(l)) return detailValue(l.wall_thickness)
   return h(
     NInputNumber,
     {
@@ -188,11 +224,16 @@ function wallThicknessCell(l: Line) {
 
 // 玻璃单元格（面玻/底玻）：onSelect 需拿改前值做「元/方」加价项联动，故此处自行实现。
 function glassSelectCell(l: Line, field: 'face_glass' | 'bottom_glass') {
+  if (!isEditing(l)) return detailValue((l as unknown as Record<string, string>)[field])
   const oldByField = new WeakMap<object, string>()
   return h(
     NSelect,
     {
       ...CELL,
+      virtualScroll: false,
+      consistentMenuWidth: false,
+      widthMode: 'max-content',
+      menuProps: { class: 'detail-select-menu' },
       status: cellError(l, field) ? 'error' : undefined,
       value: (l as unknown as Record<string, string>)[field],
       options: glassOptions,
@@ -243,6 +284,7 @@ function cellError(l: Line, field: string): boolean {
 }
 
 function tCell(l: Line, field: string, onBlur?: (l: Line) => void) {
+  if (!isEditing(l)) return detailMultiline((l as unknown as Record<string, string>)[field])
   return h(
     NInput,
     {
@@ -273,6 +315,7 @@ function isRedNum(l: Line, field: string): boolean {
 }
 
 function intCell(l: Line, field: string, min = 0) {
+  if (!isEditing(l)) return detailValue((l as unknown as Record<string, number>)[field])
   // 门洞宽/门洞高在**失焦**时触发尺寸类自动加价（原版 `Qt` 挂在 onBlur 上，不是随输入）
   const sizeField =
     field === 'door_width' || field === 'door_height' ? (field as SizeField) : null
@@ -296,6 +339,7 @@ function intCell(l: Line, field: string, min = 0) {
 }
 
 function moneyCell(l: Line, field: string, min = 0) {
+  if (!isEditing(l)) return detailValue((l as unknown as Record<string, number>)[field])
   return h(
     NInputNumber,
     {
@@ -321,10 +365,15 @@ function optCell(
   allowCreate = false,
   historyKey?: string,
 ) {
+  if (!isEditing(l)) return detailValue((l as unknown as Record<string, string>)[field])
   return h(
     NSelect,
     {
       ...CELL,
+      virtualScroll: false,
+      consistentMenuWidth: false,
+      widthMode: 'max-content',
+      menuProps: { class: 'detail-select-menu' },
       status: cellError(l, field) ? 'error' : undefined,
       value: (l as unknown as Record<string, string>)[field],
       options,
@@ -344,6 +393,7 @@ function optCell(
 // 型材/颜色：带候选下拉（可搜索 + 可输入新值，仿旧版 autocomplete），型材变化即取价/算料
 // 型材候选按行门型过滤（平开不显示移门公式）
 function profileCell(l: Line) {
+  if (!isEditing(l)) return detailValue(l.profile)
   const opts = l.line_type === 'diao' ? diaoProfileOptions.value : pingProfileOptions.value
   // 不加 `historyKey`：原版型材**不写候选库**（见 `profileOptionsFor` 注释），故无需记忆。
   return optCell(l, 'profile', opts, (x) => void resolveRow(x), true)
@@ -351,10 +401,15 @@ function profileCell(l: Line) {
 
 
 function colorCell(l: Line) {
+  if (!isEditing(l)) return detailValue(l.color)
   return h(
     NSelect,
     {
       ...CELL,
+      virtualScroll: false,
+      consistentMenuWidth: false,
+      widthMode: 'max-content',
+      menuProps: { class: 'detail-select-menu' },
       status: cellError(l, 'color') ? 'error' : undefined,
       value: l.color,
       options: colorOptions.value,
@@ -371,11 +426,13 @@ function colorCell(l: Line) {
   )
 }
 function trackCell(l: Line) {
+  if (!isEditing(l)) return detailValue(l.track)
   // 轨道候选按当前行公式 parts 的 track 提取（随型材联动），合并历史
   const opts = partsTrackOptions(l, 'track') // 轨道候选仅来自公式 parts + 历史，无内置兜底
   return optCell(l, 'track', opts, undefined, true, 'track')
 }
 function casingCell(l: Line) {
+  if (!isEditing(l)) return detailValue(l.casing)
   // 套线候选仅来自当前行公式 parts 的单包/双包 + 历史，无内置候选（原版）
   const opts = partsTrackOptions(l, 'casing')
   return optCell(l, 'casing', opts, undefined, true, 'casing')
@@ -394,10 +451,15 @@ function hardwareCell(l: Line) {
     .split('_')
     .map((s) => s.trim())
     .filter(Boolean)
+  if (!isEditing(l)) return detailMultiline(selected.join('、'))
   const options = hardwareOptionsFor(l).filter((o) => !selected.includes(o.value))
   return h('div', { class: 'glass-inputs-container' }, [
     h(NSelect, {
       ...CELL,
+      virtualScroll: false,
+      consistentMenuWidth: false,
+      widthMode: 'max-content',
+      menuProps: { class: 'detail-select-menu' },
       multiple: true,
       filterable: true,
       tag: true,
@@ -473,9 +535,9 @@ function partsTooltip(l: Line) {
 // | `snapshot` | `pt` | `ae` | rowKey → 进入编辑态那一刻的行副本（「取消」靠它回滚） |
 // | `dirty`    | `vt` | `_e` | rowKey 集合；判定见 `recomputeDirty` |
 //
-// ⚠️ **`unsaved-row` 的语义跟着改了**：旧版是「脏」，我们原先写的是「行还没有 id」。
-//    旧版新建行在客户端就有临时 id（`id:n()`，`:1805`）且没有快照 ⇒ `Et` 直接 `vt.delete`
-//    ⇒ **永不判脏 ⇒ 从不标粉**。我们照旧版：无 id 的行没有 rowKey，进不了编辑态，也就不标粉。
+// ⚠️ 新建行在服务端落库前没有 `id`，但仍必须支持就地编辑。
+//    因此为无 id 的行分配组件实例内的稳定临时 key；它只用于编辑态、脏状态和表格行识别，
+//    不会写入 API 或数据库。保存/取消/删除后对象离开表格，WeakMap 也会自然释放。
 
 // ════ 搬迁自 Hui.vue 1782-1924：D 行级编辑态 ════
 type EditState = {
@@ -486,8 +548,22 @@ type EditState = {
 const pingEdit = reactive<EditState>({ editing: new Map(), snapshot: {}, dirty: new Set() })
 const diaoEdit = reactive<EditState>({ editing: new Map(), snapshot: {}, dirty: new Set() })
 
-/** 行键（旧版 `Ct`/`oe`：`String(row.id || row["回执单号"] || "")`）。我们行上没有回执单号，只认 id。 */
-const rowKeyOf = (l: Line): string => (l.id != null ? String(l.id) : '')
+/**
+ * 行键：已落库行使用服务端 `id`；新建行使用组件实例内的临时 key。
+ * 临时 key 只用于 Vue / Naive UI 的行识别和编辑状态，不会写入业务字段。
+ */
+const ephemeralRowKeys = new WeakMap<object, string>()
+let ephemeralRowKeySeed = 0
+const rowKeyOf = (l: Line): string => {
+  if (l.id != null) return String(l.id)
+  const objectKey = l as unknown as object
+  let key = ephemeralRowKeys.get(objectKey)
+  if (!key) {
+    key = `new-line-${++ephemeralRowKeySeed}`
+    ephemeralRowKeys.set(objectKey, key)
+  }
+  return key
+}
 /** 该行归哪张表的编辑态。 */
 const editOf = (l: Line): EditState => (l.line_type === 'diao' ? diaoEdit : pingEdit)
 
@@ -675,8 +751,9 @@ const opsCol = (label: string): DataTableColumn<Line> => ({
 // （原版 :2482-2491：外层 div 挂 onContextmenu，内层 el-input `modelValue:行["平方数"] readonly`）。
 
 // ════ 搬迁自 Hui.vue 1967-2061：F sqCell/amountCell/remarkCell/markupSelectCell/markupCol ════
-const sqCell = (l: Line) =>
-  h(
+const sqCell = (l: Line) => {
+  if (!isEditing(l)) return detailValue(l.square.toFixed(2))
+  return h(
     'div',
     {
       onContextmenu: (e: MouseEvent) => {
@@ -686,13 +763,16 @@ const sqCell = (l: Line) =>
     },
     [h(NInput, { ...CELL, readonly: true, value: l.square.toFixed(2) })],
   )
+}
 
 // 金额格的「金额」那一行：原版是 `el-input readonly:!we["金额"][id]`，
 // 而 `we` 只在 onBlur 里被写成 `false`（`!false` 仍是 true）⇒ **恒只读**，不会变成可编辑。
-const amountCell = (l: Line) => h(NInput, { ...CELL, readonly: true, value: l.amount.toFixed(2) })
+const amountCell = (l: Line) =>
+  isEditing(l) ? h(NInput, { ...CELL, readonly: true, value: l.amount.toFixed(2) }) : detailValue(l.amount.toFixed(2))
 
 // 备注格：原版是 `el-input type="textarea" :autosize="{minRows:1}"`，不是单行输入框。
 function remarkCell(l: Line) {
+  if (!isEditing(l)) return detailMultiline(l.remark)
   return h(NInput, {
     ...CELL,
     type: 'textarea',
@@ -708,7 +788,6 @@ function remarkCell(l: Line) {
 // 加价项目列：行内摘要（名称+金额），点击进入行编辑抽屉管理
 // 行内加价：多选目录 + 明细行 + 点击添加（自定义→抽屉）
 function markupSelectCell(l: Line) {
-  const opts = markupCatalogOptions.value
   const selected = (l.markup ?? [])
     .filter((m) => m && m.name)
     .map((m) => {
@@ -719,6 +798,8 @@ function markupSelectCell(l: Line) {
   // 内容是**带算式的文本**（如 `超宽: 5元/公分*3.5公分*2=35元`），不是「名称 ¥金额」。
   // 文本可现算（与金额同源、同一批分支），故不必落库。
   const lines = markupLines(l, markupError)
+  if (!isEditing(l)) return detailMultiline(lines.join(' · '))
+  const opts = markupCatalogOptions.value
   // ⚠️ 结构与类名照抄原版（平开 @2497-2520 / 吊趟 @5288-5300 两处同构）：
   //   div.extra-items-container
   //     ├ div.glass-input-label  文案 `" 点击添加： "`（**前后各一个空格 + 全角冒号**）cursor:pointer
@@ -733,6 +814,10 @@ function markupSelectCell(l: Line) {
     ),
     h(NSelect, {
       size: 'small',
+      virtualScroll: false,
+      consistentMenuWidth: false,
+      widthMode: 'max-content',
+      menuProps: { class: 'detail-select-menu' },
       multiple: true,
       'collapse-tags': true,
       'collapse-tags-tooltip': true,
@@ -869,7 +954,7 @@ function pingCols(): DataTableColumn<Line>[] {
     {
       title: '型材/颜色',
       key: 'profile_color',
-      width: 118,
+      width: 142,
       render: (l) => cCol(sub('型材：', profileCell(l)), sub('颜色：', colorCell(l))),
     },
     {
@@ -881,7 +966,7 @@ function pingCols(): DataTableColumn<Line>[] {
     {
       title: '玻璃',
       key: 'glass',
-      width: 128,
+      width: 150,
       render: (l) =>
         cCol(
           // 面玻标签**随公式类型变**（原版 :1992-1998：
@@ -909,7 +994,7 @@ function pingCols(): DataTableColumn<Line>[] {
           h('span', { style: 'font-size:11px' }, '⚙'),
         ]),
       key: 'open_dir',
-      width: 132,
+      width: 150,
       render: (l) => {
         // ⚠️ 开向图要**先把自定义开向名还原成原始开向**再查表（原版 `ve.value[C(行["开向"])]`，
         //    `C` = `getOriginalOpenDirection`）。直接用显示名查会漏图。
@@ -970,7 +1055,7 @@ function pingCols(): DataTableColumn<Line>[] {
       render: (l) => (isDiamond(l) ? null : intCell(l, 'light_window_height')),
     },
     // 原版「五金」（`["五金"]` 闸门）与「封板高」是两个独立列
-    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l) },
+    { title: '五金', key: 'hardware', width: 110, render: (l) => hardwareCell(l) },
     { title: '封板高', key: 'seal_board', width: 62, render: (l) => intCell(l, 'seal_board_height') },
     {
       title: '备注',
@@ -981,11 +1066,11 @@ function pingCols(): DataTableColumn<Line>[] {
     { title: '金额', key: 'money', width: 96, render: (l) => moneyCell_2(l) },
     markupCol(),
     // 原版平开表尾部列序：加价项目 → 计价方式 → 打折 → 前包加长 → 后包加长 → 单双丁 → 单号 → …
-    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
+    { title: '计价方式', key: 'price_type', width: 88, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
     { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount') },
     { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add') },
     { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add') },
-    { title: '单/双丁墙体', key: 'double_ding', width: 96, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
+    { title: '单/双丁墙体', key: 'double_ding', width: 110, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
     { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
     { title: '图片ID', key: 'image_id', width: 80, render: (l) => h('span', { style: 'font-size:11px;color:#606266' }, l.image_id || '—') },
     // 原版「客户」「客户编号」是**订单级**（行上无此字段），故取 order 而非 l
@@ -1003,7 +1088,7 @@ function diaoCols(): DataTableColumn<Line>[] {
     {
       title: '型材/颜色',
       key: 'profile_color',
-      width: 118,
+      width: 142,
       render: (l) => cCol(sub('型材：', profileCell(l)), sub('颜色：', colorCell(l))),
     },
     // 原版移门表列序与列内容见 `Hui-d088417c` @176837..@207080（表头 label 偏移即列序）：
@@ -1034,7 +1119,7 @@ function diaoCols(): DataTableColumn<Line>[] {
     {
       title: '玻璃',
       key: 'glass',
-      width: 128,
+      width: 150,
       render: (l) =>
         cCol(
           // 移门表**不分支**（原版 :4803-4870 恒为「面玻：/底玻：/厚度：」，无 diamond 变体）
@@ -1046,7 +1131,7 @@ function diaoCols(): DataTableColumn<Line>[] {
     {
       title: '扇数/开向',
       key: 'fans_dir',
-      width: 124,
+      width: 150,
       render: (l) => {
         // 原版 :4962-4963 是 img 的 v-if = 「开向 && 图表[扇数+开向]」，class="direction-image"，
         // 图取自「扇数+开向」联合键（**不过 getOriginalOpenDirection**，与平开不同）。
@@ -1109,7 +1194,7 @@ function diaoCols(): DataTableColumn<Line>[] {
         ),
     },
     // 原版「五金」是独立列（`["五金"]` 闸门）
-    { title: '五金', key: 'hardware', width: 82, render: (l) => hardwareCell(l) },
+    { title: '五金', key: 'hardware', width: 110, render: (l) => hardwareCell(l) },
     {
       title: '备注',
       key: 'remark',
@@ -1128,8 +1213,8 @@ function diaoCols(): DataTableColumn<Line>[] {
     },
     { title: '前包加长', key: 'front_casing', width: 84, render: (l) => intCell(l, 'front_casing_add') },
     { title: '后包加长', key: 'back_casing', width: 84, render: (l) => intCell(l, 'back_casing_add') },
-    { title: '单双丁', key: 'double_ding', width: 82, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
-    { title: '计价方式', key: 'price_type', width: 74, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
+    { title: '单双丁', key: 'double_ding', width: 110, render: (l) => optCell(l, 'double_ding', DOUBLE_DING_OPTS) },
+    { title: '计价方式', key: 'price_type', width: 88, render: (l) => optCell(l, 'price_type', priceTypeOptions) },
     { title: '打折', key: 'discount', width: 62, render: (l) => moneyCell(l, 'discount') },
     { title: '单号', key: 'order_no', width: 78, render: (l) => orderNoCell(l) },
     // 原版「图片ID」列不可编辑（只展示），故用只读 span
@@ -1142,7 +1227,7 @@ function diaoCols(): DataTableColumn<Line>[] {
 }
 
 // ════ 搬迁自 Hui.vue 2550-2581：J rowKey/rowClassName/rowPropsOf/pingColumns/diaoColumns ════
-const rowKey = (r: Line) => (r.id ?? r) as unknown as number
+const rowKey = (r: Line) => rowKeyOf(r)
 
 /**
  * `unsaved-row` 粉底 —— **语义改过了**（2026-09-19）。
@@ -1405,5 +1490,296 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
 .table-wrap :deep(.direction-image) {
   max-width: 100%;
   object-fit: contain;
+}
+
+
+.detail-value {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--sd-color-text);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--sd-line-height-tight);
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.detail-value--multiline {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* ── SmartDoor detail table redesign ───────────────────────────────────────
+ * 业务逻辑仍由本组件原有的列定义、行编辑与 hooks 驱动；这里重新组织的是
+ * 信息层级、滚动容器和反馈，不改变字段/API/交互契约。
+ */
+.detail-table-shell {
+  min-width: 0;
+  overflow: hidden;
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-md);
+  background: var(--sd-color-bg-surface);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+.detail-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sd-space-3);
+  min-height: 56px;
+  padding: var(--sd-space-3) var(--sd-space-4);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  background: var(--sd-color-bg-subtle);
+}
+
+.detail-table-toolbar__identity,
+.detail-table-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+}
+
+.detail-table-toolbar__identity {
+  min-width: 0;
+}
+
+.detail-table-toolbar__mark {
+  width: 8px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-action);
+  box-shadow: var(--sd-shadow-action);
+}
+
+.detail-table-shell--diao .detail-table-toolbar__mark {
+  background: var(--sd-color-process);
+  box-shadow: var(--sd-shadow-status-soft);
+}
+
+.detail-table-toolbar__eyebrow {
+  margin: 0;
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-strong);
+  letter-spacing: var(--sd-letter-spacing-eyebrow);
+  line-height: var(--sd-line-height-tight);
+}
+
+.detail-table-toolbar h3 {
+  margin: 1px 0 0;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-md);
+  font-weight: var(--sd-font-weight-strong);
+  line-height: var(--sd-line-height-tight);
+}
+
+.detail-table-toolbar__count {
+  padding: 3px var(--sd-space-2);
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-pill);
+  color: var(--sd-color-text-muted);
+  background: var(--sd-color-bg-surface);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detail-table-toolbar__actions :deep(.n-button) {
+  border-radius: var(--sd-radius-control);
+  transition:
+    background-color var(--sd-duration-fast) var(--sd-ease-standard),
+    color var(--sd-duration-fast) var(--sd-ease-standard),
+    transform var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.detail-table-toolbar__actions :deep(.n-button:hover) {
+  transform: translateY(var(--sd-motion-hover-y));
+}
+
+.detail-table-toolbar__actions :deep(.n-button:active) {
+  transform: scale(var(--sd-motion-press-scale));
+}
+
+.detail-table-scroll {
+  min-width: 0;
+  overflow: hidden;
+  background: var(--sd-color-bg-surface);
+}
+
+.detail-table-scroll :deep(.n-data-table) {
+  --n-th-color: var(--sd-color-bg-subtle);
+  --n-td-color: var(--sd-color-bg-surface);
+  --n-td-color-hover: var(--sd-color-bg-hover);
+  --n-th-text-color: var(--sd-color-text-muted);
+  --n-td-text-color: var(--sd-color-text);
+  --n-border-color: var(--sd-color-divider);
+  font-family: var(--sd-font-sans);
+}
+
+.detail-table-scroll :deep(.n-data-table-base-table-header) {
+  background: var(--sd-color-bg-subtle);
+}
+
+.detail-table-scroll :deep(.n-data-table-base-table-body) {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+  touch-action: pan-x pan-y;
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-th) {
+  min-height: var(--sd-control-height-small);
+  padding: var(--sd-space-2) var(--sd-space-2-5);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-border);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-td) {
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  color: var(--sd-color-text);
+  font-size: var(--sd-font-size-xs);
+  line-height: var(--sd-line-height-tight);
+  transition: background-color var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr:last-child .n-data-table-td) {
+  border-bottom: 0;
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr:hover .n-data-table-td) {
+  background: var(--sd-color-bg-hover);
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr:focus-within .n-data-table-td) {
+  background: var(--sd-color-action-soft);
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr .n-data-table-td:first-child),
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr .n-data-table-th:first-child) {
+  padding-left: var(--sd-space-3);
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr .n-data-table-td:last-child),
+.detail-table-scroll :deep(.n-data-table .n-data-table-tr .n-data-table-th:last-child) {
+  padding-right: var(--sd-space-3);
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-input),
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-base-selection),
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-input-number) {
+  border-radius: var(--sd-radius-xs);
+}
+
+/*
+ * 明细表列宽是固定的，NSelect 默认会为箭头预留较大的左右空间。
+ * 这里仅压缩表格内触发器的无效留白，避免中文选中值只剩一两个字；
+ * 下拉菜单本身通过 widthMode=max-content 展开，不会被触发器宽度锁死。
+ */
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-base-selection) {
+  --n-padding-single-left: var(--sd-space-1) !important;
+  --n-padding-single-right: var(--sd-space-2-5) !important;
+  --n-padding-multiple-left: var(--sd-space-1) !important;
+  --n-padding-multiple-right: var(--sd-space-2-5) !important;
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-base-selection-label__render-label) {
+  min-width: 0;
+}
+
+/* NSelect 的弹出层 Teleport 到 body，使用专用 class 控制菜单不被触发器窄宽锁死。 */
+:global(.detail-select-menu) {
+  width: max-content !important;
+  min-width: var(--sd-control-select-menu-min-width);
+  max-width: calc(100vw - var(--sd-space-6));
+  overflow-x: auto;
+}
+
+:global(.detail-select-menu .n-base-select-option__content) {
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-input:focus-within),
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-base-selection:focus-within),
+.detail-table-scroll :deep(.n-data-table .n-data-table-td .n-input-number:focus-within) {
+  box-shadow: var(--sd-focus-ring-soft);
+}
+
+.detail-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+  min-height: 50px;
+  padding: var(--sd-space-2) var(--sd-space-4) var(--sd-space-3);
+  border-top: var(--sd-border-width) solid var(--sd-color-divider);
+  background: var(--sd-color-bg-subtle);
+}
+
+.detail-table-footer :deep(.custom-button-btn) {
+  border: var(--sd-border-width) solid var(--sd-color-action-border);
+  border-radius: var(--sd-radius-control);
+  color: var(--sd-color-action);
+  background: var(--sd-color-action-soft);
+  font-weight: var(--sd-font-weight-strong);
+  transition:
+    background-color var(--sd-duration-fast) var(--sd-ease-standard),
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    transform var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.detail-table-footer :deep(.custom-button-btn:hover) {
+  border-color: var(--sd-color-action);
+  background: var(--sd-color-bg-pressed);
+  transform: translateY(var(--sd-motion-hover-y));
+}
+
+.detail-table-footer :deep(.custom-button-btn:active) {
+  transform: scale(var(--sd-motion-press-scale));
+}
+
+.detail-table-footer__plus {
+  margin-right: var(--sd-space-1);
+  font-size: var(--sd-font-size-lg);
+  line-height: 1;
+}
+
+.detail-table-footer__hint {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+@media (max-width: 768px) {
+  .detail-table-toolbar {
+    align-items: flex-start;
+    padding: var(--sd-space-3);
+  }
+
+  .detail-table-toolbar__actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .detail-table-scroll :deep(.n-data-table .n-data-table-th),
+  .detail-table-scroll :deep(.n-data-table .n-data-table-td) {
+    padding-left: var(--sd-space-2);
+    padding-right: var(--sd-space-2);
+  }
 }
 </style>
