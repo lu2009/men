@@ -17,6 +17,7 @@
         @clear-accounts="clearAccounts"
         @combine-selected="combineSelected"
         @open-dashboard="dashboardShow = true"
+        @new-order="openNewOrder"
         @logout="onLogout"
       />
 
@@ -47,12 +48,10 @@
             :max-height="tableHeight"
             :scroll-x="1750"
             :checked-row-keys="checkedRowKeys"
-            :expanded-row-keys="expandedRowKeys"
             :row-class-name="rowClass"
             :bordered="false"
             size="small"
             @update:checked-row-keys="onCheckedKeys"
-            @update:expanded-row-keys="onExpandedKeys"
             @update:filters="onUpdateFilters"
           >
             <template #empty>
@@ -499,6 +498,14 @@ async function onLogout() {
   router.push({ name: 'login' })
 }
 
+function openNewOrder() {
+  router.push({ name: 'hui', query: { mode: 'create' } })
+}
+
+function openOrderEditor(row: OrderSummaryDto) {
+  router.push({ name: 'hui', query: { id: String(row.id) } })
+}
+
 // ---------------------------------------------------------------------------
 // 「查单号」（§3.2，旧版 `po`/`fo`/`ho`/`Co` @ `:7671`）
 //
@@ -646,7 +653,7 @@ const {
 //    其余 15 个声明**段外零命中**（实测），解构出来就是未使用变量，`vue-tsc` 的 TS6133 会报错。
 const {
   expandedRowKeys, details, homeFormulas, homeDialogs, loadedIds,
-  onExpandedKeys, loadDetail, renderExpandDetail,
+  loadDetail,
 } = useHomeExpand({
   message,
   dialog,
@@ -712,7 +719,7 @@ const {
   orderNoCell, confirmOrderNoQuery, clearOrderNoQuery,
 } = useHomeOrderNo({
   rawOrders, orderNoQuery, onlyUnproduced, filtered, page, queryRows, queryMode,
-  expandedRowKeys, details, loadDetail, message,
+  expandedRowKeys, details, loadDetail, openOrderEditor, message,
 })
 
 // ---------------------------------------------------------------------------
@@ -776,7 +783,6 @@ const progressPopShow = ref(false)
 
 const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
   { type: 'selection' },
-  { type: 'expand', renderExpand: (row) => renderExpandDetail(row) },
   {
     title: '操作',
     key: 'actions',
@@ -788,9 +794,8 @@ const columns = computed<DataTableColumns<OrderSummaryDto>>(() => [
             h(NButton, { size: 'tiny', onClick: cancelEdit }, { default: () => '取消' }),
           ])
         : h('div', { class: 'action-buttons' }, [
+            h(NButton, { size: 'tiny', type: 'primary', secondary: true, onClick: () => openOrderEditor(row) }, { default: () => '编辑' }),
             h(NButton, { size: 'tiny', quaternary: true, type: 'info', onClick: () => openFinance(row) }, { default: () => '财务' }),
-            // 电子回执单：进预览页，分享链接在那边一键复制（旧版 Home 是直接复制链接到剪贴板，
-            // 但那样看不到内容、剪贴板失败也没提示 —— 新版多一步、两件事都能干）。
             h(NButton, { size: 'tiny', quaternary: true, onClick: () => openReceipt(row) }, { default: () => '电子回执单' }),
           ]),
   },

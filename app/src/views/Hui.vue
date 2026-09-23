@@ -13,9 +13,9 @@
         `docs/2026-09-19-hui-shell-audit.md` §2。）
       -->
       <div class="toolbar-row">
-        <n-button @click="clearOrder">1.清空</n-button>
-        <n-button type="error" @click="addTypeOpen = true">2.添加门类</n-button>
-        <n-button type="warning" :loading="saving" @click="saveOrder">3.保存回执单</n-button>
+        <n-button @click="clearEditorOrder">清空当前订单</n-button>
+        <n-button type="error" @click="addTypeOpen = true">添加门型</n-button>
+        <n-button type="primary" :loading="saving" @click="saveOrder">保存订单</n-button>
         <n-tooltip>
           <template #trigger>
             <n-button disabled>3D画图</n-button>
@@ -43,18 +43,45 @@
         </n-dropdown>
       </div>
 
-      <!-- 客户/订单头：就地编辑表单行（仿旧版浅边框行） -->
-      <div class="header-form">
+      <!-- 订单头：先确定这张回执单的归属，再进入门明细。 -->
+      <section class="order-form-card" aria-labelledby="order-form-title">
+        <div class="order-form-header">
+          <div>
+            <span class="order-form-header__eyebrow">RECEIPT PROFILE</span>
+            <h2 id="order-form-title">订单信息</h2>
+          </div>
+          <span class="order-form-header__hint">一张回执单可包含多条平开门与移门明细</span>
+        </div>
+        <div class="header-form">
         <div class="field">
           <span class="label">客户:</span>
-          <n-select
-            v-model:value="order.client_code"
-            filterable
+          <!--
+            客户框（2026-09-22 改）：旧版是 **`el-autocomplete`**（`Hui.formatted.js:13049`：
+            `fetch-suggestions` + `"trigger-on-focus":!0` + `clearable` + `onSelect` + `onBlur`，
+            候选显示 `e.name`）。原来这个位置写的是 `n-select` —— **只能选、不能打字**，
+            于是「填入不存在的客户」这件事在界面上根本发生不了（自动建档那条语义就没了入口）。
+            改回可自由输入的 auto-complete，保存时按名字查/建档，见下面 `saveOrder` 里那一段。
+
+            ⚠️ **不能用 `v-model:value`**：naive 清空时 `update:value` 抛的是 **null**
+               （`handleClear` → `doUpdateValue(null)`），直接绑 `string` 会脏 ⇒ 显式收口成 `''`。
+               与 `Home.vue:241-254` 同一招（那边已经踩过一次，注释留在原地）。
+            ⚠️ naive 的 `n-auto-complete` **没有内置过滤**（props 里没有 `filter`），
+               候选要自己算 ⇒ `clientSuggestions`（旧版 `_0x33e155` 口径）。
+            ⚠️ 候选的 `label` **必须等于名字**（不能写成「名称（编号）」）：naive 选中时写进模型的是
+               **`option.label`**，而 `@select` 拿到的是 `option.value`（`AutoComplete.mjs:209-216`）——
+               只把 `value` 填对，框里会落成**标签**，保存时照这个名字建出一个垃圾客户（实测踩过）。
+               详见 `clientSuggestions` 上方那段。
+               `useHuiClients` 回传的 `clientOptions` 是 n-select 时代的口径（值=编号）⇒ 不能复用。
+          -->
+          <n-auto-complete
+            :value="order.client_name"
+            :options="clientSuggestions"
+            :get-show="AUTOCOMPLETE_ALWAYS_SHOW"
             clearable
             placeholder="输入客户信息"
-            :options="clientOptions"
             style="width: 190px"
-            @update:value="onClientChange"
+            @update:value="(v: string | null) => (order.client_name = v ?? '')"
+            @select="onClientSelect"
           />
         </div>
         <div class="field">
@@ -116,68 +143,93 @@
         <div class="field readonly-meta">
           <span class="label">编号:</span><b>{{ order.receipt_no || '（未生成）' }}</b>
         </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="detail-workspace" aria-label="门明细编辑区">
+      <div class="editor-mode-switch" role="tablist" aria-label="选择门型">
+        <n-button
+          size="small"
+          :type="editorKind === 'ping' ? 'primary' : 'default'"
+          :secondary="editorKind !== 'ping'"
+          role="tab"
+          :aria-selected="editorKind === 'ping'"
+          @click="selectEditorKind('ping')"
+        >
+          平开门
+        </n-button>
+        <n-button
+          size="small"
+          :type="editorKind === 'diao' ? 'primary' : 'default'"
+          :secondary="editorKind !== 'diao'"
+          role="tab"
+          :aria-selected="editorKind === 'diao'"
+          @click="selectEditorKind('diao')"
+        >
+          移门
+        </n-button>
       </div>
-    </div>
 
-    <!-- 两表区域：平开门 / 移门左右并排网格（仿旧版） -->
-    <div v-if="!showPing && !showDiao" class="empty-hint">
-      点击顶部「2.添加门类」选择要录的门类（平开门 / 移门）。
-    </div>
+      <div class="tables-grid">
+        <DetailLinesTable
+          :kind="editorKind"
+          :rows="editorRows"
+          :col-vis="editorKind === 'ping' ? pingColVis : diaoColVis"
+          :client="{ name: order.client_name, code: order.client_code }"
+          :engine="engine"
+          :saved-order-id="orderId"
+          :selected-count="0"
+          :filling="fillingLineNo"
+          editor-mode
+          :hooks="detailHooks"
+          @add-row="commitEditorLine"
+          @toggle-show="selectEditorKind(editorKind === 'ping' ? 'diao' : 'ping')"
+          @fill-line-numbers="fillLineNumbers"
+        />
+      </div>
+    </section>
 
-    <div class="tables-grid">
-      <!-- 旧版没有表格标题栏：门型名是**操作列的表头**（`label:"平开门"/"移门"`）。
-           这一条只留我们自己的「批量删除 / 隐藏」入口，不再是标题。 -->
-      <!-- 明细表外壳已抽成 `components/DetailLinesTable.vue`（2026-09-19，步骤 3a）。
-           搬走的是**模板 + 那 ~220 行表格 CSS**；列定义/单元格仍在下面（步骤 3b 再搬）。
-           `scroll-x` 两表不同：平开 2000 / 移门 2200 —— 别统一。 -->
-      <DetailLinesTable
-        v-if="showPing"
-        kind="ping"
-        :rows="pingRows"
-        :col-vis="pingColVis"
-        :client="{ name: order.client_name, code: order.client_code }"
-        :engine="engine"
-        :saved-order-id="orderId"
-        :selected-count="selectedLines.length"
-        :filling="fillingLineNo"
-        :hooks="detailHooks"
-        @add-row="addRowOf('ping')"
-        @batch-delete="batchDeleteRows"
-        @toggle-show="toggleShow('ping')"
-        @fill-line-numbers="fillLineNumbers"
-      />
-
-      <DetailLinesTable
-        v-if="showDiao"
-        kind="diao"
-        :rows="diaoRows"
-        :col-vis="diaoColVis"
-        :client="{ name: order.client_name, code: order.client_code }"
-        :engine="engine"
-        :saved-order-id="orderId"
-        :selected-count="selectedLines.length"
-        :filling="fillingLineNo"
-        :hooks="detailHooks"
-        @add-row="addRowOf('diao')"
-        @batch-delete="batchDeleteRows"
-        @toggle-show="toggleShow('diao')"
-      />
-      <!-- 「 填入单号 」：旧版 Hui `:8491-8524` 那颗（文案 `_0x250a(1010)` = " 填入单号 "）。
-           旧版走 `param1=getDiaoFormulas` 顺带返回 `data.orderNumbers{行id→单号}`；
-           新版拆成独立端点 `POST /orders/{id}/fill-line-numbers`（有意偏离，理由见后端
-           `service::fill_line_numbers`：那个老接口还兼着写副作用，混在一起既难测也危险）。
-           ⚠️ **只有平开表有这颗按钮**，所以挂在 ping 那个实例上（组件内也是按 `kind` 判）。 -->
-      <!-- 「 添加行 」在**表格下方**居中，蓝色实心带 + 图标（原版 :2635-2639：
-           `div.table-footer > el-button.custom-button-btn(icon=plus) 文案 " 添加行 "`） -->
-    </div>
+    <section class="receipt-lines-card" aria-label="当前回执单明细列表">
+      <div v-if="!receiptRows.length" class="receipt-lines-empty">
+        还没有录入明细，填写上方表格后点击“录入订单”。
+      </div>
+      <div v-else class="receipt-lines-list">
+        <article v-for="item in receiptRows" :key="item.line.id ?? `draft-${item.index}`" class="receipt-line-item">
+          <div class="receipt-line-item__type" :class="`is-${item.line.line_type}`">
+            {{ item.line.line_type === 'ping' ? '平开门' : '移门' }}
+          </div>
+          <div class="receipt-line-item__main">
+            <strong>{{ item.line.profile || '未填写型材' }}</strong>
+            <span>{{ item.line.color || '未填写颜色' }} · {{ item.line.quantity || 0 }} 樘 · ¥ {{ (item.line.amount || 0).toFixed(2) }}</span>
+          </div>
+          <div class="receipt-line-item__meta">
+            <span>{{ item.line.door_width || 0 }} × {{ item.line.door_height || 0 }}</span>
+            <n-button size="tiny" secondary @click="editReceiptLine(item.index)">编辑</n-button>
+            <n-button size="tiny" quaternary type="error" @click="removeReceiptLine(item.index)">删除</n-button>
+          </div>
+        </article>
+      </div>
+    </section>
 
     <!-- 底部合计条 -->
-    <div class="totals-strip" v-if="lines.length">
+    <div class="totals-strip" v-if="receiptRows.length">
       <n-tag v-if="showPing" size="small">平开门 {{ pingRows.reduce((s,l)=>s+(l.quantity||0),0) }} 樘 / ¥ {{ pingRows.reduce((s,l)=>s+(l.amount||0),0).toFixed(2) }}</n-tag>
       <n-tag v-if="showDiao" size="small">移门 {{ diaoRows.reduce((s,l)=>s+(l.quantity||0),0) }} 樘 / ¥ {{ diaoRows.reduce((s,l)=>s+(l.amount||0),0).toFixed(2) }}</n-tag>
       <span class="grand">合计 ¥ <b>{{ totalPrice.toFixed(2) }}</b> · 门数 {{ doorCount }}</span>
       <span class="bal">余款 ¥ {{ (totalPrice - (order.deposit || 0)).toFixed(2) }}</span>
     </div>
+
+    <footer class="editor-sticky-actions" aria-label="订单保存操作">
+      <div class="editor-sticky-actions__status">
+        <span class="editor-sticky-actions__dot" :class="{ 'is-dirty': orderId == null }" aria-hidden="true"></span>
+        <span>{{ orderId != null ? '回执单已载入，可继续保存修改' : '新建回执单尚未保存' }}</span>
+      </div>
+      <div class="editor-sticky-actions__buttons">
+        <n-button secondary @click="backToOrders">返回列表</n-button>
+        <n-button type="primary" :loading="saving" @click="saveOrder">保存订单</n-button>
+      </div>
+    </footer>
 
     <!--
       「视频教程」抽屉 —— 旧版 `H:13338-13376`：
@@ -260,11 +312,11 @@
     <n-drawer v-model:show="addTypeOpen" placement="right" :width="200">
       <n-drawer-content>
         <div class="door-buttons">
-          <n-button block :type="showPing ? 'error' : 'info'" @click="toggleShow('ping')">
-            平开门
+          <n-button block type="primary" @click="selectEditorKind('ping'); addTypeOpen = false">
+            录入平开门
           </n-button>
-          <n-button block :type="showDiao ? 'error' : 'info'" @click="toggleShow('diao')">
-            移门
+          <n-button block type="primary" @click="selectEditorKind('diao'); addTypeOpen = false">
+            录入移门
           </n-button>
           <n-button block type="warning" @click="importLastOrder">导入上次订单</n-button>
           <n-button block type="info" class="orange-button" @click="openMarkupMgmt">
@@ -595,12 +647,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 // 2026-09-20 C9：`onBeforeRouteLeave` 的唯一调用点随「离开拦截」搬进
 // `composables/hui/useHuiOrderIo.ts` ⇒ 本文件不再 import（留着就是 TS6133）。
 import {
+  NAutoComplete,
   NButton,
-  NCheckbox,
   NInput,
   NInputNumber,
   NModal,
@@ -649,6 +702,9 @@ import { readAssistiveFullscreen, readAssistiveMenu } from '../utils/assistiveMe
 import { idbGetImage } from '../utils/imageStore'
 // 2026-09-20 C11：明细行两件**纯校验**（保存整单的必填清单 / 剔除全空行）搬到 `utils/huiLineChecks.ts`。
 import { missingFieldsOf, rowHasContent } from '../utils/huiLineChecks'
+// 客户框「聚焦即弹」（旧版 `"trigger-on-focus":!0`）—— 该常量的**声明**在
+// `utils/homeConstants.ts`（2026-09-20 从 `Home.vue` 归位），Home / Progress / 这里共用一个。
+import { AUTOCOMPLETE_ALWAYS_SHOW } from '../utils/homeConstants'
 // 2026-09-20 C1：`markupCatalog`/`removeCatalogItem`/`syncAddCatalogItem`/`updateCatalogItem`
 // 的**唯一**消费者是「加价项目管理」那块，已随它搬进 `composables/hui/useHuiMarkupMgmt.ts`
 // ⇒ 本文件不再 import 它们（留着就是 TS6133 未使用变量）。
@@ -662,7 +718,6 @@ import { useHuiClients } from '../composables/hui/useHuiClients'
 import { useHuiPreview } from '../composables/hui/useHuiPreview'
 import { useTerminalLink } from '../composables/hui/useTerminalLink'
 import { useHuiSortMethod } from '../composables/hui/useHuiSortMethod'
-import { useHuiLineSelection } from '../composables/hui/useHuiLineSelection'
 import { useHuiAutoMarkup } from '../composables/hui/useHuiAutoMarkup'
 import { useHuiOrderIo } from '../composables/hui/useHuiOrderIo'
 import { useHuiPrint } from '../composables/hui/useHuiPrint'
@@ -693,6 +748,13 @@ import {
 
 
 
+
+const route = useRoute()
+const router = useRouter()
+
+function backToOrders() {
+  router.push({ name: 'home' })
+}
 
 const message = useMessage()
 const dialog = useDialog()
@@ -871,29 +933,15 @@ const {
 //    里都有活读者（含 `showPing`/`showDiao` 在 `loadOrder` 里被**写**、三个开关 ref 在 `onMounted`
 //    里被**写**）⇒ 模板只对顶层绑定自动解包。完整清单见新家文件头。
 const {
-  showPing, showDiao, addTypeOpen, toggleShow, ensureShown,
+  showPing, showDiao, addTypeOpen,
   showTotalBalance, onTotalBalanceChange,
   showAssistiveMenu, assistiveFullscreen,
   onAssistiveMenuChange, onAssistiveFullscreenChange,
 } = useHuiShellToggles({ message })
 
-// 更多功能（次级菜单）—— 高级入口收进这里，主按钮行贴近旧版
-//
-// ⚠️ 旧版**没有**这个下拉（见 `docs/2026-09-19-hui-shell-audit.md` §5.1）——收编本身是偏离。
-// 但**加价项目管理 / 自动加价设置 / 排序方式**这三项 2026-09-19 已从本表**删掉**：
-// 旧版它们就在「添加门类」抽屉里（`H:13290-13315`），我们曾挪到这儿，现在搬回抽屉了 ——
-// 同一件事不给两个入口。
+// 更多功能（次级菜单）—— 当前只保留列显隐设置，避免把打印、配置和辅助入口
+// 与订单编辑主流程混在一起。其他能力如果需要，应从对应业务模块进入。
 const moreMenuOptions = [
-  { label: '订单列表', key: 'orders' },
-  { label: '模板预览', key: 'templates' },
-  { label: '标签打印', key: 'labels' },
-  { label: '玻璃合片单', key: 'glass' },
-  { label: '玻璃订单', key: 'glassHole' },
-  { label: '生产单定制打印', key: 'productionCustom' },
-  { label: '生产单3打印（双联）', key: 'productionCustom3' },
-  { label: '终端链接', key: 'terminal' },
-  { label: '收款码设置', key: 'payQrcode' },
-  { label: '开向模式设置', key: 'openDir' },
   { label: '列显隐设置', key: 'columns' },
 ]
 
@@ -1037,13 +1085,17 @@ function onMoreSelect(key: string) {
   }
 }
 
-const pingRows = computed(() => lines.value.filter((l) => l.line_type === 'ping'))
-const diaoRows = computed(() => lines.value.filter((l) => l.line_type === 'diao'))
+// 合计只统计已经点击“录入订单”的明细；当前编辑器中的占位/草稿行不参与计算。
+const committedLines = computed(() =>
+  lines.value.filter((_line, index) => index !== editorIndex.value),
+)
+const pingRows = computed(() => committedLines.value.filter((l) => l.line_type === 'ping'))
+const diaoRows = computed(() => committedLines.value.filter((l) => l.line_type === 'diao'))
 const totalPrice = computed(() =>
-  round2(lines.value.reduce((s, l) => s + (l.amount || 0), 0)),
+  round2(committedLines.value.reduce((s, l) => s + (l.amount || 0), 0)),
 )
 const doorCount = computed(() =>
-  lines.value.reduce((s, l) => s + (l.quantity || 0), 0),
+  committedLines.value.reduce((s, l) => s + (l.quantity || 0), 0),
 )
 // 顶栏日期（n-date-picker 用时间戳，order.order_date 保持 'YYYY-MM-DD'）
 function strToTs(s: string): number {
@@ -1057,15 +1109,144 @@ function onOrderDate(ts: number | null) {
   orderDateTs.value = ts
 }
 
-// 每表底部「添加行」→ 直接往表里插一行默认空行，就地编辑（仿旧版，不弹窗）
-function addRowOf(kind: 'ping' | 'diao') {
-  ensureShown(kind)
-  const l = newLine(kind)
-  l.price_type = kind === 'ping' ? LS.get('PriceType') || '套' : '方'
-  lines.value.push(l)
-  lineRefresh(l)
-  message.info(`已添加一行${kind === 'ping' ? '平开门' : '移门'}，直接在表内填写`)
+// ── 单条明细录入器 ─────────────────────────────────────────────────────────
+// 编辑器永远只显示一条待录入明细；已确认的明细进入下方回执单列表。
+const editorKind = ref<'ping' | 'diao'>('ping')
+const editorIndex = ref<number | null>(null)
+const editorBaseline = ref('')
+const editorCanCommit = ref(false)
+
+const editorRows = computed(() => {
+  const index = editorIndex.value
+  return index != null && lines.value[index] ? [lines.value[index]] : []
+})
+
+const receiptRows = computed(() =>
+  lines.value
+    .map((line, index) => ({ line, index }))
+    .filter(({ line, index }) => index !== editorIndex.value && rowHasContent(line)),
+)
+
+/**
+ * 新建行自带默认玻璃/数量/开向等值，不能用 rowHasContent 判断是否开始编辑。
+ * 以当前编辑行的基线快照判断：基线未变化 = 空白占位行；发生变化 = 用户已经录入/修改。
+ */
+function editorHasChanges(line: Line): boolean {
+  return JSON.stringify(line) !== editorBaseline.value
 }
+
+function cloneLineForNext(source: Line): Line {
+  const next = JSON.parse(JSON.stringify(source)) as Line
+  // 下一条沿用业务配置，但不能复用上一条的服务端身份和生产结果。
+  next.id = null
+  next.line_no = ''
+  next.progress = ''
+  next.parts = []
+  next.isSelected = false
+  return next
+}
+
+function prepareEditorLine(kind: 'ping' | 'diao', seed?: Line) {
+  const currentIndex = editorIndex.value
+  if (currentIndex != null) {
+    const current = lines.value[currentIndex]
+    if (current && editorHasChanges(current)) return false
+    if (current) lines.value.splice(currentIndex, 1)
+  }
+  const line = seed ? cloneLineForNext(seed) : newLine(kind)
+  if (!seed) line.price_type = kind === 'ping' ? LS.get('PriceType') || '套' : '方'
+  lines.value.push(line)
+  editorIndex.value = lines.value.length - 1
+  editorKind.value = kind
+  lineRefresh(line)
+  editorBaseline.value = JSON.stringify(line)
+  editorCanCommit.value = Boolean(seed)
+  return true
+}
+
+function selectEditorKind(kind: 'ping' | 'diao') {
+  if (kind === editorKind.value && editorIndex.value != null) return
+  // 切换门型直接丢弃当前未录入的占位明细，不弹确认、不阻断用户操作。
+  if (editorIndex.value != null) {
+    lines.value.splice(editorIndex.value, 1)
+    editorIndex.value = null
+  }
+  prepareEditorLine(kind)
+}
+
+function commitEditorLine() {
+  const index = editorIndex.value
+  const line = index == null ? null : lines.value[index]
+  if (!line || (!editorHasChanges(line) && !editorCanCommit.value)) {
+    message.warning('请先填写当前门明细')
+    return
+  }
+  const missing = missingFieldsOf(line)
+  if (missing.length) {
+    message.error(`请补充当前明细：${missing.join('、')}`)
+    return
+  }
+  editorIndex.value = null
+  prepareEditorLine(editorKind.value, line)
+  message.success('明细已录入当前回执单，下一条已沿用上一条配置')
+}
+
+function editReceiptLine(index: number) {
+  const currentIndex = editorIndex.value
+  if (currentIndex != null && editorHasChanges(lines.value[currentIndex])) {
+    message.warning('当前明细尚未录入，请先点击“录入订单”')
+    return
+  }
+  if (currentIndex != null) {
+    lines.value.splice(currentIndex, 1)
+  }
+  const targetIndex = currentIndex != null && currentIndex < index ? index - 1 : index
+  const target = lines.value[targetIndex]
+  if (!target) return
+  editorIndex.value = targetIndex
+  editorKind.value = target.line_type
+  editorBaseline.value = JSON.stringify(target)
+  editorCanCommit.value = true
+}
+
+function removeReceiptLine(index: number) {
+  dialog.warning({
+    title: '删除明细',
+    content: '确定从当前回执单移除这条门明细吗？',
+    positiveText: '删除',
+    negativeText: '取消',
+    onPositiveClick: () => {
+      lines.value.splice(index, 1)
+      if (editorIndex.value != null && editorIndex.value > index) editorIndex.value -= 1
+      message.success('明细已移除')
+    },
+  })
+}
+
+function clearEditorOrder() {
+  // 「清空订单」自带确认框（`useHuiOrderIo.clearOrder`），确认后才真的清 ⇒ 这里**只转发**。
+  // 清空后的收尾（补回一条待录入行）交给下面那个 watcher。
+  clearOrder()
+}
+
+/**
+ * 编辑区常驻一条待录入行：明细被清空时自动补回。
+ *
+ * 2026-09-23 取代 `clearEditorOrder` 里原来的 `void nextTick(...)` + `window.setTimeout(..., 360)`
+ * 两段 —— 那是在跟「清空订单」确认框的**异步动画抢时间**（360ms 这个数没有任何依据），
+ * 补不补全靠猜；`nextTick` 那段还会在用户**点「取消」**时照跑一遍。
+ * 改成盯着唯一真正相关的事实：明细条数。
+ */
+watch(
+  () => lines.value.length,
+  (n) => {
+    if (n > 0) return
+    editorIndex.value = null
+    prepareEditorLine(editorKind.value)
+    // 刚补的行是空白占位、不属于回执单，重拍一次「已保存」快照，别让它把整单判成脏。
+    markSaved()
+  },
+)
 
 // 客户
 // 2026-09-20 两段共 6 个声明搬到 `composables/hui/useHuiClients.ts`（逐字搬迁，零行为变化）：
@@ -1077,9 +1258,55 @@ function addRowOf(kind: 'ping' | 'diao') {
 //    下面 3 处写它（本文件的 `loadOrder`/清空订单/导入订单）都已改成 `setLastAppliedClient(...)`：
 //    导出「值」= 导出一张**一次快照**，之后 C5 内部再改它就同步不过来，而且**不报错**。
 const {
-  clients, clientOptions, applyClient, onClientChange, currentClient,
+  clients, applyClient, onClientChange, currentClient,
   setLastAppliedClient,
 } = useHuiClients({ order, lines, dialog })
+
+/**
+ * 客户候选（2026-09-22 新增，配合「客户框改成可自由输入 + 保存时自动建档」）。
+ *
+ * 旧版 `_0x33e155`（`Hui.formatted.js:8231-8233`）：
+ *
+ *     e => e ? _0x583867.filter(a => a.name.toLowerCase().includes(e.trim())) : _0x583867
+ *
+ * —— **空查询给全量**（配合 `"trigger-on-focus":!0`，点进空框就看到整份客户表），
+ *    否则按 `name` 子串过滤。⚠️ 口径照抄：**name 侧 `toLowerCase()`，查询侧只 `trim()`**
+ *    ——查询侧不 lower，大写查询词滤不出候选，旧版就是这样，别顺手"修"。
+ *    查询词为纯空白时旧版走「有值」那支、`includes('')` 恒真 ⇒ 仍是全量，与下面的写法等价。
+ *
+ * 候选 `label` / `value` **都填名字**，一处都不能省、也不能只填一个：
+ *   · naive 选中时写进模型的是 **`option.label`**（`auto-complete/src/AutoComplete.mjs:209-216`：
+ *     `if (props.clearAfterSelect) … else if (option.label !== void 0) doUpdateValue(option.label)`），
+ *     而 **`@select` 拿到的是 `option.value`** —— 两者不一致就会把**标签**写进 `order.client_name`
+ *     （实测：填 `名称（编号）` 当 label，框里就落成 `1234（1）`，保存时还会照这个名字**建出一个垃圾客户**）。
+ *   · 旧版候选槽渲染的就是 `e.name`（`Hui.formatted.js:13055-13056`），所以标签**只放名字**也是照抄：
+ *     同名客户在候选里分不出来，旧版同样分不出来（`clients` 表允许重名，只对 `(tenant_id, code)` 唯一）。
+ *
+ * ⚠️ 不复用 C5 回传的 `clientOptions`：那份 `value` 是**编号**、`label` 是「名称（编号）」（n-select 时代的口径）。
+ */
+const clientSuggestions = computed(() => {
+  const q = order.client_name.trim()
+  const list = q ? clients.value.filter((c) => c.name.toLowerCase().includes(q)) : clients.value
+  return list.map((c) => ({ label: c.name, value: c.name }))
+})
+
+/**
+ * 客户框**选中候选**（旧版 `_0x387d5d`：名字←`e.name`、电话←`e.tel`、品牌←`e[品牌]`、
+ * 客户编号←`e.id`，末尾再刷一次终端链接）。这里 = 写客户编号 + 走既有的 `onClientChange`
+ * （切换确认 + `applyClient` 套档案）。
+ *
+ * 🔴 **必须先写 `order.client_code`、再调 `onClientChange`** —— 后者的「取消切换」分支会把
+ *    `client_code` 回滚成 `lastAppliedClient`；写在后面就会被那句覆盖回去，
+ *    用户点了「取消」反而也切过去了（而且**不报错**）。
+ *    这也是本框从 `n-select` 改过来的**唯一**行为差异点：以前 `client_code` 由 `v-model` 写，
+ *    现在模型是名字，编号只能在这里显式落。
+ */
+function onClientSelect(name: string) {
+  const c = clients.value.find((x) => x.name === name)
+  if (!c) return
+  order.client_code = c.code
+  onClientChange(c.code)
+}
 
 // `formulas` 的声明已上提到 setup 开头（引擎依赖它）。以下型材候选三件套
 // （`PING_FAMILY_TYPES` / `belongsToTable` / `profileOptionsFor`）已搬到 `useOrderLines.ts`。
@@ -1115,16 +1342,8 @@ const {
 
 // 墙厚单元格：输入后同步「超墙厚」加价项（旧版 blur 联动）。
 
-// 2026-09-20 本段 3 个声明搬到 `composables/hui/useHuiLineSelection.ts`（逐字搬迁，零行为变化），只留调用点。
-// 🔴 **3 个名字一个都不能少**，`checkboxTick` 尤其要紧 —— 它是**组件通过页面级回调写**的：
-//    `DetailLinesTable.vue` 勾一下 ⇒ `props.hooks.onSelectChange()` ⇒ 下面 `detailHooks` 里那句
-//    `checkboxTick.value++`。**必须写解构出来的这个 ref**。
-// ⚠️ **失效长什么样**（不报错、界面上就是不对）：页面若另留一份 `const checkboxTick = ref(0)`，
-//    计数就涨在**另一份** ref 上 ⇒ `selectedLines`（里面那句 `void checkboxTick.value` 是**建依赖**用的）
-//    永不重算 ⇒ 勾选后「已选 N 行」与批量删除按钮态**永远是初始值**，且**不报错**。
-//    这一类**守卫验不了**（守卫只做逐字文本比对）—— 所以页面与新家文件头**两处都写死**了这段。
-// `selectedLines`：模板 `:141`/`:158` 的 `:selected-count`；`batchDeleteRows`：模板 `:145`/`:162` 的 `@batch-delete`。
-const { checkboxTick, selectedLines, batchDeleteRows } = useHuiLineSelection({ lines, orderId, message, dialog })
+// 当前编辑器只操作一条待录入明细，不在编辑器中提供批量选择。
+
 
 /**
  * 交给明细表组件的**页面级回调**（2026-09-19 组件化时新增）。
@@ -1154,9 +1373,7 @@ const detailHooks = {
   openTextImg: (l: Line) => dialogs.openTextImg(l),
   previewImage: (url: string) => dialogs.previewImage(url),
   calcSingleRow: (l: Line) => void calcSingleRow(l),
-  onSelectChange: () => {
-    checkboxTick.value++
-  },
+  onSelectChange: () => {},
   lineInputOf: (l: Line) => lineInputOf(l),
 }
 
@@ -1216,7 +1433,17 @@ async function hydrateRowImages(rows: Line[]) {
 // 保存
 /** 保存订单。成功返回服务端结果（**「填入单号」要用它的 id**），被守卫拦下时返回 null。 */
 async function saveOrder(): Promise<OrderDto | null> {
-  if (lines.value.length === 0) {
+  // **只保存已录入回执单的明细**（2026-09-23）：编辑区那条待录入行**不进 payload** ——
+  // 它还没点过「录入订单」，不算本单的明细。
+  //
+  // 🔴 **不要重建 `lines.value`**（旧写法 `lines.value = lines.value.filter(rowHasContent)`）：
+  //    那是**新数组**，而 `editorIndex` 记的是旧数组的下标 ⇒ 它随即指到别的行或越界，
+  //    `editorRows` 拿到错的行（或空），编辑区就被清空了 —— 正是要修的现象。
+  //    这里只算一份**送服务端的副本**，`lines.value` 本身一个字都不动 ⇒
+  //    没被保存的那条草稿**仍留在编辑区**（旧实现是先 `splice` 掉它再保存，草稿直接没了）。
+  const editorIdx = editorIndex.value
+  const payloadLines = lines.value.filter((l, i) => i !== editorIdx && rowHasContent(l))
+  if (payloadLines.length === 0) {
     message.warning('请先添加门类，填写订单信息！')
     return null
   }
@@ -1224,13 +1451,8 @@ async function saveOrder(): Promise<OrderDto | null> {
     message.warning('请先选择客户')
     return null
   }
-  // 剔除整行空行；其余行按门型检查必填，缺失则拦保存并列出（旧版 makeReceipt 语义）
-  lines.value = lines.value.filter(rowHasContent)
-  if (lines.value.length === 0) {
-    message.warning('请先添加门类，填写订单信息！')
-    return null
-  }
-  const problems = lines.value
+  // 其余行按门型检查必填，缺失则拦保存并列出（旧版 makeReceipt 语义）
+  const problems = payloadLines
     .map((l, i) => ({ row: i + 1, missing: missingFieldsOf(l) }))
     .filter((p) => p.missing.length > 0)
   if (problems.length) {
@@ -1242,6 +1464,47 @@ async function saveOrder(): Promise<OrderDto | null> {
   }
   saving.value = true
   try {
+    // ── 客户：目录里查得到就套用档案，查不到就**建客户**（旧版 `Hui.formatted.js:8634-8653`）──
+    //   旧版口径：① 名字 `trim()` 后与客户表**完全相等**才算命中（`===`，不是模糊匹配）；
+    //   ② 命中 ⇒ 套用档案里的 姓名/电话/品牌/编号；③ 未命中且名字非空 ⇒ `POST` 建档
+    //   （只带 name/phone/brand），采用**服务端回传**的档案并 push 回客户表，toast「客户添加成功」；
+    //   ④ 建档失败 ⇒ 报错并**中止保存**（不留半张单）。
+    // ⚠️ 这一段放在 `saving` 的 try **内**：建档期间按钮处于 `:loading` ⇒ 挡住双击重复建档。
+    // ⚠️ 名字空则中止 —— 上面 `!order.client_name` 那条挡的是**空串**，纯空白串（`' '`）过得去，
+    //    这里按 trim 后再挡一次，报的还是旧版那句「请先选择客户」（否则会拿空名字去打后端 400）。
+    {
+      const clientName = order.client_name.trim()
+      if (!clientName) {
+        message.warning('请先选择客户')
+        return null
+      }
+      order.client_name = clientName
+      const existing = clients.value.find((c) => c.name.trim() === clientName)
+      if (existing) {
+        order.client_code = existing.code
+        // `applyClient` 顺带把 `lastAppliedClient` 落成这个编号（切换确认的基准）
+        applyClient(existing.code)
+      } else {
+        try {
+          const created = await api.createClient({
+            name: clientName,
+            phone: order.phone,
+            brand: order.brand,
+          })
+          order.client_code = created.code
+          // push 回目录：`applyClient` 是按编号**回查目录**的，不 push 就查不到、档案会被抹空
+          // （同 `useHuiOrderIo.applyLastOrder` 里那条「查不到会抹空」的警告）。
+          clients.value.push(created)
+          applyClient(created.code)
+          message.success('客户添加成功')
+        } catch (e) {
+          message.error(
+            e instanceof Error && e.message ? `添加客户失败：${e.message}` : '添加客户失败',
+          )
+          return null
+        }
+      }
+    }
     // 表头全局默认安装地址：行内地址为空的行用默认值回填（仿原版）
     if (order.install_address.trim()) {
       for (const l of lines.value) {
@@ -1266,7 +1529,7 @@ async function saveOrder(): Promise<OrderDto | null> {
       //    列表里都没有它），所以既不需要、也发不进去。
       production_status: order.production_status,
       lock_direction: order.lock_direction,
-      lines: lines.value.map(lineInputOf),
+      lines: payloadLines.map(lineInputOf),
     }
     const saved =
       orderId.value != null
@@ -1274,13 +1537,28 @@ async function saveOrder(): Promise<OrderDto | null> {
         : await api.createOrder(payload)
     orderId.value = saved.id
     order.receipt_no = saved.receipt_no
-    // 回填/刷新服务端分配的行 id（create 与整单 update 后行顺序一致）
+    // 回填/刷新服务端分配的行 id（create 与整单 update 后行顺序一致）。
+    // ⚠️ 下标走 `payloadLines`（送上去的那份），**不是** `lines.value` —— 两者已被空占位行错开。
     saved.lines.forEach((sl, i) => {
-      const local = lines.value[i]
+      const local = payloadLines[i]
       if (local) local.id = sl.id
     })
+    // 「上次订单」快照与 payload **同口径**：只收已录入的明细。
+    // ⚠️ `persistLastOrder`（在被搬迁守卫钉住的 `useHuiOrderIo.ts` 里）读的是 `deps.lines.value`，
+    //    没法把 payload 传进去 ⇒ 只能在它读之前把编辑区那条草稿临时摘掉、读完立刻挂回**原数组**。
+    //    不这么做的话：草稿会被写进 `smartdoor_last_order`，下次「导入上次订单」就把它当成
+    //    一条真明细带回界面（它有内容，`receiptRows` 不会滤掉它）。
+    const allLines = lines.value
+    if (editorIdx != null) lines.value = allLines.filter((_, i) => i !== editorIdx)
     persistLastOrder()
+    if (editorIdx != null) lines.value = allLines
     markSaved()
+    // 🔴 保存后**不动编辑区**（2026-09-23）：先前这里调 `prepareEditorLine()` 造一条全新空白行，
+    //    于是编辑区被清空 —— 用户报的「点保存订单后编辑区被清空」。
+    //    现在编辑区维持原样：已录入的明细落库了（`id` 也回填到 `payloadLines` 对应行上），
+    //    编辑区里那条待录入草稿**原封不动留着**，点「录入订单」后可以再存一次。
+    //    连带删掉的是它下面那句**重复的** `markSaved()`：那是为「新建占位行改变了序列化结果」
+    //    再补一次的补偿动作，编辑区不动就没有这个副作用了。
     message.success(`订单已保存（${saved.receipt_no}）`)
     return saved
   } catch (e) {
@@ -1376,6 +1654,9 @@ async function loadOrder(id: number) {
       //    （与上面那四个头字段同一个坑）。
       line_no: l.line_no,
     }))
+    editorIndex.value = null
+    editorKind.value = o.lines.some((l) => l.line_type === 'diao') ? 'diao' : 'ping'
+    prepareEditorLine(editorKind.value)
     void hydrateRowImages(lines.value)
     listOpen.value = false
     markSaved()
@@ -1559,10 +1840,309 @@ onMounted(async () => {
   } catch (e) {
     message.error(e instanceof Error ? e.message : '加载公式失败')
   }
+
+  const requestedId = Number(route.query.id)
+  if (Number.isInteger(requestedId) && requestedId > 0) {
+    await loadOrder(requestedId)
+  } else if (editorIndex.value == null) {
+    prepareEditorLine(editorKind.value)
+    markSaved()
+  }
 })
 </script>
 
 <style scoped>
+.order-form-card,
+.detail-workspace,
+.receipt-lines-card {
+  box-sizing: border-box;
+  width: 100%;
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-surface);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+.order-form-card {
+  overflow: hidden;
+}
+
+.order-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sd-space-3);
+  padding: var(--sd-space-3) var(--sd-space-4);
+  border-bottom: var(--sd-border-width) solid var(--sd-color-divider);
+  background: var(--sd-color-bg-subtle);
+}
+
+.order-form-header__eyebrow {
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-2xs);
+  font-weight: var(--sd-font-weight-strong);
+  letter-spacing: var(--sd-letter-spacing-eyebrow);
+}
+
+.order-form-header h2 {
+  margin: var(--sd-space-1) 0 0;
+  color: var(--sd-color-text-strong);
+  font-size: var(--sd-font-size-lg);
+  line-height: var(--sd-line-height-tight);
+}
+
+.order-form-header__hint {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.order-form-card .header-form {
+  padding: var(--sd-space-4);
+  background: var(--sd-color-bg-surface);
+}
+
+.detail-workspace {
+  overflow: hidden;
+  margin-top: var(--sd-space-4);
+}
+
+.detail-workspace .tables-grid {
+  gap: var(--sd-space-4);
+  padding: var(--sd-space-4);
+  background: var(--sd-color-bg-subtle);
+}
+
+.editor-mode-switch {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-3) var(--sd-space-4) 0;
+  background: var(--sd-color-bg-subtle);
+}
+
+.receipt-lines-card {
+  margin-top: var(--sd-space-4);
+  border: var(--sd-border-width) solid var(--sd-color-border);
+  border-radius: var(--sd-radius-card);
+  background: var(--sd-color-bg-surface);
+  box-shadow: var(--sd-shadow-sm);
+}
+
+.receipt-lines-empty {
+  padding: var(--sd-space-6) var(--sd-space-4);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+  text-align: center;
+}
+
+.receipt-lines-list {
+  display: grid;
+  gap: var(--sd-space-2);
+  padding: var(--sd-space-3);
+}
+
+.receipt-line-item {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sd-space-3);
+  min-width: 0;
+  padding: var(--sd-space-3);
+  border: var(--sd-border-width) solid var(--sd-color-divider);
+  border-radius: var(--sd-radius-sm);
+  background: var(--sd-color-bg-surface);
+  transition:
+    border-color var(--sd-duration-fast) var(--sd-ease-standard),
+    background-color var(--sd-duration-fast) var(--sd-ease-standard);
+}
+
+.receipt-line-item:hover {
+  border-color: var(--sd-color-action-border);
+  background: var(--sd-color-bg-hover);
+}
+
+.receipt-line-item__type {
+  padding: var(--sd-space-1) var(--sd-space-2);
+  border-radius: var(--sd-radius-pill);
+  color: var(--sd-color-action);
+  background: var(--sd-color-action-soft);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.receipt-line-item__type.is-diao {
+  color: var(--sd-color-process);
+  background: var(--sd-color-process-soft);
+}
+
+.receipt-line-item__main,
+.receipt-line-item__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+  min-width: 0;
+}
+
+.receipt-line-item__main strong {
+  overflow: hidden;
+  color: var(--sd-color-text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.receipt-line-item__main span,
+.receipt-line-item__meta > span {
+  color: var(--sd-color-text-muted);
+  font-family: var(--sd-font-data);
+  font-size: var(--sd-font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.receipt-line-item__meta {
+  justify-content: flex-end;
+}
+
+.editor-sticky-actions {
+  position: sticky;
+  bottom: var(--sd-space-3);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sd-space-3);
+  margin-top: var(--sd-space-4);
+  padding: var(--sd-space-3) var(--sd-space-4);
+  border: var(--sd-border-width) solid var(--sd-border-glass-strong);
+  border-radius: var(--sd-radius-material);
+  background: var(--sd-material-surface);
+  box-shadow: var(--sd-shadow-material-card);
+  backdrop-filter: blur(var(--sd-glass-blur-sm)) saturate(var(--sd-glass-saturation));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur-sm)) saturate(var(--sd-glass-saturation));
+}
+
+.editor-sticky-actions__status,
+.editor-sticky-actions__buttons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sd-space-2);
+}
+
+.editor-sticky-actions__status {
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-xs);
+}
+
+.editor-sticky-actions__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sd-radius-pill);
+  background: var(--sd-color-success);
+  box-shadow: var(--sd-shadow-status-soft);
+}
+
+.editor-sticky-actions__dot.is-dirty {
+  background: var(--sd-color-warning);
+  box-shadow: 0 0 0 4px var(--sd-color-warning-soft);
+}
+
+@media (max-width: 768px) {
+  .order-form-header {
+    min-height: 38px;
+    padding: var(--sd-space-2) var(--sd-space-3);
+  }
+
+  .order-form-header__eyebrow {
+    display: none;
+  }
+
+  .order-form-header h2 {
+    margin: 0;
+    font-size: var(--sd-font-size-md);
+  }
+
+  .order-form-header__hint {
+    display: none;
+  }
+
+  .order-form-card .header-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sd-space-2) var(--sd-space-3);
+    align-items: center;
+    padding: var(--sd-space-3);
+  }
+
+  .order-form-card .field {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--sd-space-1-5);
+    width: auto;
+    min-width: 0;
+  }
+
+  .order-form-card .field .label {
+    flex: 0 0 auto;
+    font-size: var(--sd-font-size-xs);
+  }
+
+  .order-form-card .field :deep(.n-input),
+  .order-form-card .field :deep(.n-input-number),
+  .order-form-card .field :deep(.n-select),
+  .order-form-card .field :deep(.n-date-picker) {
+    flex: 1;
+    width: auto !important;
+    min-width: 0;
+  }
+
+  .order-form-card .field :deep(.n-input .n-input__input-el),
+  .order-form-card .field :deep(.n-input-number .n-input__input-el),
+  .order-form-card .field :deep(.n-base-selection-label) {
+    font-size: var(--sd-font-size-xs);
+  }
+
+  .order-form-card .readonly-meta {
+    overflow: hidden;
+  }
+
+  .order-form-card .readonly-meta b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .receipt-line-item {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .receipt-line-item__meta {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .editor-sticky-actions {
+    bottom: var(--sd-space-2);
+  }
+
+  .editor-sticky-actions__status,
+  .editor-sticky-actions__buttons {
+    width: 100%;
+  }
+
+  .editor-sticky-actions__buttons :deep(.n-button) {
+    flex: 1;
+  }
+}
+
 /* 减掉全局标题栏的高度（`App.vue` 的 `--app-header-h`）。 */
 .page {
   min-height: calc(100vh - var(--app-header-h));
@@ -1743,11 +2323,10 @@ onMounted(async () => {
 }
 /* —— 新版骨架（仿旧版命令行 + 就地表单行 + 两表并排网格）—— */
 .top-bar {
-  border-top: 2px solid #1a7f3c;
-  border-bottom: 1px solid #ebeef5;
-  background: #fafbfc;
-  padding: 8px 10px 12px;
-  margin-bottom: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin-bottom: var(--sd-space-4);
 }
 .toolbar-row {
   display: flex;

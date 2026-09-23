@@ -11,8 +11,23 @@ import { appColors } from './design-tokens'
  * 抛在渲染期 ⇒ **整棵组件树挂掉、页面全白**，而不是「某个颜色不对」。
  * 所以颜色一律取自 `design-tokens.ts` 的 `appColors`。
  *
- * 非颜色的 token（字体、圆角、阴影、控件高度、动效）不经过 seemly，
- * 是直接落到 CSS 上的，用 `var()` 没问题 —— 这些由 `tokens.css` 提供。
+ * 🔴 **控件高度（`height*`）同样必须写字面量 —— 这条曾经写错，代价是「所有下拉打开都是空的」。**
+ * 它们**确实**会进 seemly：Naive 的 `InternalSelectMenu` 把 `optionHeight{Size}` 直接取成
+ * `common.height{Size}`（`_internal/select-menu/styles/light.mjs`：
+ * `optionHeightMedium: heightMedium`），再 `depx()` 成**数字**喂给虚拟列表的 `itemSize`
+ * （`SelectMenu.mjs:144`）。而 seemly 的 `depx` 只认数字或 `px` 结尾的串：
+ *
+ *     depx('34px') → 34        depx('var(--sd-control-height-medium)') → Number('var(…)') → NaN
+ *
+ * `itemSize: NaN` ⇒ vueuc 虚拟列表算不出任何可见项 ⇒ **下拉弹层只剩上下 padding（8px）、
+ * 一个候选都不渲染**。选中的值照常显示在框里，所以看起来「下拉失效」，而不是「报错」。
+ * 只有 n-select / n-auto-complete / n-tree 这类**走虚拟列表**的组件中招；
+ * 显式 `consistentMenuWidth: false` 的（如 `DetailLinesTable` 那一批）走非虚拟分支，侥幸没事。
+ *
+ * 其余非颜色 token（字体、圆角、阴影、动效）确实只落到 CSS 上，用 `var()` 没问题。
+ *
+ * ⚠️ 因此控件高度在**两处**各写一份：这里（Naive 侧，必须字面量）与 `tokens.css`
+ * 的 `--sd-control-height-*`（业务 CSS 侧）。改高度时**两处同改**。
  *
  * `appColors` 是颜色字面量的唯一来源；`tokens.css` 不重复保存颜色。启动时
  * `installDesignTokenVariables()` 会把同一份值安装为 CSS variables，因此 Naive UI
@@ -85,12 +100,14 @@ export const appThemeOverrides: GlobalThemeOverrides = {
     boxShadow2: 'var(--sd-shadow-md)',
     boxShadow3: 'var(--sd-shadow-md)',
 
-    heightMini: 'var(--sd-control-height-mini)',
-    heightTiny: 'var(--sd-control-height-tiny)',
-    heightSmall: 'var(--sd-control-height-small)',
-    heightMedium: 'var(--sd-control-height-medium)',
-    heightLarge: 'var(--sd-control-height-large)',
-    heightHuge: 'var(--sd-control-height-huge)',
+    // ⚠️ 字面量，别换成 `var(--sd-control-height-*)` —— 理由见文件头（下拉会变空）。
+    //    值与 `tokens.css` 的 `--sd-control-height-*` 一一对应，两处同改。
+    heightMini: '16px',
+    heightTiny: '22px',
+    heightSmall: '28px',
+    heightMedium: '34px',
+    heightLarge: '40px',
+    heightHuge: '46px',
     cubicBezierEaseInOut: 'var(--sd-ease-standard)',
     cubicBezierEaseOut: 'var(--sd-ease-standard)',
   },

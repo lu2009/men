@@ -9,8 +9,11 @@
 
     搬迁保真由 `docs/home-audit/hui-extract-movecheck.mjs` 机器核对（第二轮：51 个定义逐字比）。
   -->
-  <section class="detail-table-shell" :class="`detail-table-shell--${kind}`" :aria-label="`${kind === 'ping' ? '平开门' : '移门'}订单明细`">
-    <header class="detail-table-toolbar">
+  <section
+    :class="props.editorMode ? 'detail-editor-content' : ['detail-table-shell', `detail-table-shell--${kind}`]"
+    :aria-label="`${kind === 'ping' ? '平开门' : '移门'}订单明细`"
+  >
+    <header v-if="!props.editorMode" class="detail-table-toolbar">
       <div class="detail-table-toolbar__identity">
         <span class="detail-table-toolbar__mark" aria-hidden="true"></span>
         <div>
@@ -21,15 +24,15 @@
       </div>
 
       <div class="detail-table-toolbar__actions">
-        <n-tag v-if="selectedCount" size="small" type="info" round>
+        <n-tag v-if="!props.editorMode && selectedCount" size="small" type="info" round>
           已选 {{ selectedCount }}
         </n-tag>
-        <n-button v-if="selectedCount" size="tiny" text type="error" @click="emit('batch-delete')">
+        <n-button v-if="!props.editorMode && selectedCount" size="tiny" text type="error" @click="emit('batch-delete')">
           批量删除
         </n-button>
         <!-- ⚠️ 「填入单号」只有平开表有，保持原业务入口不变。 -->
         <n-button
-          v-if="kind === 'ping'"
+          v-if="!props.editorMode && kind === 'ping'"
           size="tiny"
           secondary
           type="primary"
@@ -38,14 +41,14 @@
         >
           填入单号
         </n-button>
-        <n-button size="tiny" quaternary type="error" @click="emit('toggle-show')">隐藏</n-button>
+        <n-button v-if="!props.editorMode" size="tiny" quaternary type="error" @click="emit('toggle-show')">隐藏</n-button>
       </div>
     </header>
 
     <div class="detail-table-scroll">
       <n-data-table
         class="detail-data-table"
-        :columns="kind === 'diao' ? diaoColumns : pingColumns"
+        :columns="renderColumns"
         :data="rows"
         :bordered="false"
         :row-key="rowKey"
@@ -57,20 +60,44 @@
       />
     </div>
 
+    <MobileEditorForm v-if="props.editorMode" />
+
+    <n-modal
+      v-if="props.editorMode"
+      v-model:show="extraInfoOpen"
+      preset="card"
+      title="添加额外信息"
+      :style="{ width: 'min(420px, calc(100vw - 32px))' }"
+    >
+      <p class="detail-extra-modal__hint">点击部件添加到录入卡片；再次点击“已添加”部件即可移除显示，已填写内容不会丢失。</p>
+      <div class="detail-extra-options">
+        <n-button
+          v-for="field in mobileExtraFields"
+          :key="field.key"
+          size="small"
+          :secondary="activeExtraKeys.includes(field.key)"
+          :type="activeExtraKeys.includes(field.key) ? 'primary' : 'default'"
+          @click="toggleMobileExtra(field.key)"
+        >
+          {{ activeExtraKeys.includes(field.key) ? '已添加 · ' : '' }}{{ field.label }}
+        </n-button>
+      </div>
+    </n-modal>
+
     <footer class="detail-table-footer">
       <n-button class="custom-button-btn" size="small" @click="emit('add-row')">
         <span class="detail-table-footer__plus" aria-hidden="true">＋</span>
-        添加明细行
+        {{ props.editorMode ? '录入订单' : '添加明细行' }}
       </n-button>
-      <span class="detail-table-footer__hint">点击任意行进入编辑</span>
+      <span class="detail-table-footer__hint">{{ props.editorMode ? '录入后继续添加下一条明细' : '点击任意行进入编辑' }}</span>
     </footer>
   </section>
 </template>
 
 <script setup lang="ts">
-import { computed, h, reactive, watch } from 'vue'
+import { computed, defineComponent, h, reactive, ref, watch } from 'vue'
 import {
-  NButton, NCheckbox, NDataTable, NInput, NInputNumber,
+  NButton, NCheckbox, NDataTable, NInput, NInputNumber, NModal,
   NSelect, NTag, NTooltip, useDialog, useMessage,
 } from 'naive-ui'
 import type { DataTableColumn } from 'naive-ui'
@@ -81,11 +108,11 @@ import type { Line } from '../utils/partsEngine'
 import { diaoDirImage } from '../utils/printPayloads'
 import { PING_DIRECTION_IMAGES } from '../data/directionImages'
 import { markupCatalog, markupCatalogOptions } from '../composables/useMarkupCatalog'
-import type { Ref } from 'vue'
+import type { Ref, VNodeChild } from 'vue'
 import type { FormulaDto } from '../api/types'
 import { useOrderLines, type OrderLines } from '../composables/useOrderLines'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   kind: 'ping' | 'diao'
   rows: Line[]
   /** 本表可显隐列。平开传 props.colVis、移门传 props.colVis（两表各一份）。 */
@@ -117,6 +144,8 @@ const props = defineProps<{
   selectedCount: number
   /** 「填入单号」进行中。 */
   filling: boolean
+  /** 单条明细录入器模式：底部按钮录入到回执单，不展示批量/隐藏等列表操作。 */
+  editorMode?: boolean
   /** 页面级的回调。组件不持有这些弹窗/流程（它们跨两表或在页面里）。 */
   hooks: {
     openSquareDialog: (l: Line) => void
@@ -129,7 +158,7 @@ const props = defineProps<{
     onSelectChange: () => void
     lineInputOf: (l: Line) => OrderLineInput
   }
-}>()
+}>(), { editorMode: false })
 
 const emit = defineEmits<{
   (e: 'add-row'): void
@@ -596,6 +625,7 @@ function recomputeDirty(l: Line) {
 
 /** 该行是否处于编辑态（决定操作列出「确认修改/取消」还是「删除/复制/算料」）。 */
 const isEditing = (l: Line) => {
+  if (props.editorMode) return true
   const k = rowKeyOf(l)
   return !!k && editOf(l).editing.has(k)
 }
@@ -653,6 +683,17 @@ async function confirmLeaveDirtyRow(target?: Line): Promise<boolean> {
  *    只有 `row-props`，拿不到列信息）。
  */
 async function enterEdit(l: Line) {
+  // 录入器模式（`editorMode`）：编辑区**只有一条**待录入行，且它常驻编辑态（`isEditing` 恒真）。
+  // 行级编辑态（快照 / 脏标记 / 下面那条 `confirmLeaveDirtyRow` 守卫）在这里**没有意义** ——
+  // 那套东西是为「切到另一行之前先提醒你存盘」服务的，而编辑区根本没有第二行可切。
+  //
+  // 🔴 2026-09-23 修（「未保存提醒一直弹、编辑区点不动」的根因）：先前漏了这条早返回 ⇒
+  //    在编辑区点**任意**单元格都会走 `confirmLeaveDirtyRow`。而它对 `id == null` 的行
+  //    （编辑区里新录入、尚未落库的行）**永远清不掉脏标记**：用户点「保存并切换」时
+  //    `saveRow` 走到 `l.id == null` 就 `return`（只在界面上 warning 一句「该行还没落库」），
+  //    脏标记原样留着 ⇒ 守卫末尾 `if (st.dirty.has(key)) return false` 把这次编辑挡回去。
+  //    表现：弹一次「未保存提醒」之后，**每次**点单元格都再弹一次，且永远进不了编辑态。
+  if (props.editorMode) return
   if (!(await confirmLeaveDirtyRow(l))) return
   const st = editOf(l)
   st.editing.clear()
@@ -723,7 +764,9 @@ const opsCol = (label: string): DataTableColumn<Line> => ({
   // ⚠️ 外层 `stopPropagation`：我们的「进入编辑态」挂在 `row-props` 的 onClick 上，
   //    不拦住的话点「删除」会先把该行推进编辑态（旧版靠 `column.property === "平开门"` 跳过）。
   render: (l) =>
-    h(
+    props.editorMode
+      ? h('span', { class: 'editor-row-state' }, '正在录入')
+      : h(
       'div',
       {
         style:
@@ -1259,6 +1302,145 @@ const pingColumns = computed<DataTableColumn<Line>[]>(() =>
 const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
   diaoCols().filter((c) => colVis(props.colVis, (c as KeyedCol).key ?? '')),
 )
+const renderColumns = computed<DataTableColumn<Line>[]>(() => {
+  const columns = props.kind === 'diao' ? diaoColumns.value : pingColumns.value
+  return props.editorMode ? columns.filter((c) => (c as KeyedCol).key !== 'selection') : columns
+})
+
+type MobileRenderableCol = DataTableColumn<Line> & {
+  key: string
+  render?: (row: Line, index: number) => VNodeChild
+}
+
+const MOBILE_FIELD_LABELS: Record<string, string> = {
+  door_img: '门花图与算料',
+  profile_color: '型材与颜色',
+  unit_quantity: '单价与数量',
+  unit_qty: '单价、数量与套线价格',
+  glass: '玻璃配置',
+  open_dir: '包边、锁具与开向',
+  fans_dir: '扇数与开向',
+  track_line: '轨道与套线',
+  door_size: '门洞尺寸',
+  light_window_height: '亮窗总高',
+  lightwin: '亮窗信息',
+  hardware: '五金',
+  seal_board: '封板高度',
+  remark: '地址与备注',
+  money: '金额与平方数',
+  markup_summary: '加价项目',
+  price_type: '计价方式',
+  discount: '折扣',
+  front_casing: '前包加长',
+  back_casing: '后包加长',
+  double_ding: '单双丁墙体',
+  up_track_seal: '上轨与边封',
+  other_fee: '其他费用',
+}
+
+const MOBILE_HIDDEN_KEYS = new Set([
+  'selection',
+  'actions',
+  'order_no',
+  'image_id',
+  'client',
+  'client_code',
+])
+
+/** 移动端按录入顺序组织：先定尺寸，再配玻璃，减少来回滚动。 */
+const MOBILE_FIELD_ORDER = [
+  'door_img',
+  'profile_color',
+  'unit_quantity',
+  'unit_qty',
+  'door_size',
+  'glass',
+  'open_dir',
+  'fans_dir',
+  'track_line',
+  'light_window_height',
+  'lightwin',
+  'hardware',
+  'seal_board',
+  'remark',
+  'markup_summary',
+  'money',
+  'up_track_seal',
+  'front_casing',
+  'back_casing',
+  'double_ding',
+  'price_type',
+  'discount',
+  'other_fee',
+] as const
+
+const extraInfoOpen = ref(false)
+const activeExtraKeys = ref<string[]>([])
+
+const mobilePrimaryKeys = computed(() => new Set(
+  props.kind === 'ping'
+    ? ['profile_color', 'unit_quantity', 'door_size', 'glass', 'open_dir', 'remark', 'money', 'markup_summary']
+    : ['profile_color', 'unit_qty', 'door_size', 'glass', 'fans_dir', 'remark', 'money', 'markup_summary'],
+))
+
+const allMobileEditorFields = computed(() => {
+  const row = props.rows[0]
+  if (!row) return []
+  const columns = props.kind === 'diao' ? diaoColumns.value : pingColumns.value
+  return columns
+    .map((column) => column as MobileRenderableCol)
+    .filter((column) => column.key && !MOBILE_HIDDEN_KEYS.has(column.key))
+    .map((column) => ({
+      key: column.key,
+      label: MOBILE_FIELD_LABELS[column.key] ?? column.key,
+      content: column.render ? column.render(row, 0) : detailValue((row as unknown as Record<string, unknown>)[column.key]),
+    }))
+    .sort((a, b) => {
+      const ai = MOBILE_FIELD_ORDER.indexOf(a.key as (typeof MOBILE_FIELD_ORDER)[number])
+      const bi = MOBILE_FIELD_ORDER.indexOf(b.key as (typeof MOBILE_FIELD_ORDER)[number])
+      return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi)
+    })
+})
+
+const mobileEditorFields = computed(() => {
+  const primary = mobilePrimaryKeys.value
+  return allMobileEditorFields.value
+    .filter((field) => primary.has(field.key) || activeExtraKeys.value.includes(field.key))
+    .map((field) => ({ ...field, isExtra: !primary.has(field.key) }))
+})
+
+const mobileExtraFields = computed(() =>
+  allMobileEditorFields.value.filter((field) => !mobilePrimaryKeys.value.has(field.key)),
+)
+
+function toggleMobileExtra(key: string) {
+  const index = activeExtraKeys.value.indexOf(key)
+  if (index >= 0) activeExtraKeys.value.splice(index, 1)
+  else activeExtraKeys.value.push(key)
+}
+
+
+const MobileEditorForm = defineComponent({
+  name: 'DetailMobileEditorForm',
+  setup() {
+    return () =>
+      h(
+        'div',
+        { class: 'detail-mobile-editor', 'aria-label': '移动端门明细录入表单' },
+        [
+          ...mobileEditorFields.value.map((field) =>
+            h('section', { class: ['detail-mobile-field', `detail-mobile-field--${field.key}`, { 'is-extra': field.isExtra }], key: field.key }, [
+              h('div', { class: 'detail-mobile-field__label' }, field.label),
+              h('div', { class: 'detail-mobile-field__control' }, [field.content]),
+            ]),
+          ),
+          h('div', { class: 'detail-mobile-editor__extra-action' }, [
+            h(NButton, { secondary: true, type: 'primary', onClick: () => (extraInfoOpen.value = true) }, { default: () => '＋ 添加额外信息' }),
+          ]),
+        ],
+      )
+  },
+})
 </script>
 
 <style scoped>
@@ -1516,6 +1698,11 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
  * 业务逻辑仍由本组件原有的列定义、行编辑与 hooks 驱动；这里重新组织的是
  * 信息层级、滚动容器和反馈，不改变字段/API/交互契约。
  */
+.detail-editor-content {
+  min-width: 0;
+  background: transparent;
+}
+
 .detail-table-shell {
   min-width: 0;
   overflow: hidden;
@@ -1720,6 +1907,40 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
   box-shadow: var(--sd-focus-ring-soft);
 }
 
+.detail-extra-modal__hint {
+  margin: 0 0 var(--sd-space-3);
+  color: var(--sd-color-text-muted);
+  font-size: var(--sd-font-size-sm);
+  line-height: var(--sd-line-height-base);
+}
+
+.detail-extra-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sd-space-2);
+}
+
+.detail-extra-options :deep(.n-button) {
+  min-height: var(--sd-control-height-medium);
+  white-space: normal;
+}
+
+.detail-mobile-editor__extra-action {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding-top: var(--sd-space-1);
+}
+
+.detail-mobile-editor__extra-action :deep(.n-button) {
+  min-height: var(--sd-control-height-medium);
+  border-radius: var(--sd-radius-pill);
+}
+
+.detail-mobile-editor {
+  display: none;
+}
+
 .detail-table-footer {
   display: flex;
   align-items: center;
@@ -1765,7 +1986,165 @@ const diaoColumns = computed<DataTableColumn<Line>[]>(() =>
   font-size: var(--sd-font-size-xs);
 }
 
+.editor-row-state {
+  color: var(--sd-color-action);
+  font-size: var(--sd-font-size-xs);
+  font-weight: var(--sd-font-weight-strong);
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
+  .detail-editor-content .detail-table-scroll {
+    display: none;
+  }
+
+  .detail-editor-content .detail-mobile-editor {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--sd-space-2);
+    padding: var(--sd-space-3);
+    background: var(--sd-color-bg-subtle);
+  }
+
+  :deep(.detail-mobile-field) {
+    display: grid;
+    grid-column: span 3;
+    gap: var(--sd-space-2);
+    padding: var(--sd-space-3);
+    border: var(--sd-border-width) solid var(--sd-color-divider);
+    border-radius: var(--sd-radius-sm);
+    background: var(--sd-color-bg-surface);
+    box-shadow: var(--sd-shadow-sm);
+  }
+
+  :deep(.detail-mobile-field.is-extra) {
+    grid-column: 1 / -1;
+  }
+
+  :deep(.detail-mobile-field--door_img),
+  :deep(.detail-mobile-field--open_dir),
+  :deep(.detail-mobile-field--fans_dir),
+  :deep(.detail-mobile-field--track_line),
+  :deep(.detail-mobile-field--lightwin),
+  :deep(.detail-mobile-field--remark) {
+    grid-column: 1 / -1;
+  }
+
+  :deep(.detail-mobile-field--money) {
+    grid-column: span 2;
+  }
+
+  :deep(.detail-mobile-field--markup_summary) {
+    grid-column: span 4;
+  }
+
+  :deep(.detail-mobile-field__label) {
+    color: var(--sd-color-text-muted);
+    font-size: var(--sd-font-size-xs);
+    font-weight: var(--sd-font-weight-strong);
+    line-height: var(--sd-line-height-tight);
+  }
+
+  :deep(.detail-mobile-field__control) {
+    min-width: 0;
+  }
+
+  :deep(.detail-mobile-field__control) :deep(.n-input),
+  :deep(.detail-mobile-field__control) :deep(.n-input-number),
+  :deep(.detail-mobile-field__control) :deep(.n-base-selection),
+  :deep(.detail-mobile-field__control) :deep(.n-select) {
+    width: 100% !important;
+    min-width: 0;
+    border-radius: var(--sd-radius-control);
+  }
+
+  :deep(.detail-mobile-field__control) :deep(.n-input__input-el),
+  :deep(.detail-mobile-field__control) :deep(.n-input-number .n-input__input-el),
+  :deep(.detail-mobile-field__control) :deep(.n-base-selection-label) {
+    min-height: var(--sd-control-height-medium);
+    font-size: var(--sd-font-size-control);
+  }
+
+  :deep(.detail-mobile-field__control) :deep(.n-input:focus-within),
+  :deep(.detail-mobile-field__control) :deep(.n-input-number:focus-within),
+  :deep(.detail-mobile-field__control) :deep(.n-base-selection:focus-within) {
+    box-shadow: var(--sd-focus-ring-soft);
+  }
+
+  /* 开向类字段：控件在左，示意图固定在右侧，避免图片把输入区挤到下方。 */
+  :deep(.detail-mobile-field--open_dir) :deep(.glass-inputs-container),
+  :deep(.detail-mobile-field--fans_dir) :deep(.glass-inputs-container) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 76px;
+    align-items: center;
+    gap: var(--sd-space-2);
+  }
+
+  :deep(.detail-mobile-field--open_dir) :deep(.glass-input-group),
+  :deep(.detail-mobile-field--fans_dir) :deep(.glass-input-group) {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  :deep(.detail-mobile-field--open_dir) :deep(.image-cell2),
+  :deep(.detail-mobile-field--fans_dir) :deep(.image-cell2) {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    width: 76px !important;
+    max-width: 76px;
+    min-height: 54px;
+  }
+
+  :deep(.detail-mobile-field--open_dir) :deep(.direction-image),
+  :deep(.detail-mobile-field--fans_dir) :deep(.direction-image) {
+    max-width: 76px;
+    max-height: 96px;
+  }
+
+  .detail-editor-content .detail-table-footer {
+    position: static;
+    z-index: auto;
+    padding: var(--sd-space-3);
+    border-top: var(--sd-border-width) solid var(--sd-color-divider);
+    background: var(--sd-color-bg-subtle);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .detail-editor-content .detail-table-footer :deep(.custom-button-btn) {
+    flex: 1;
+    min-height: var(--sd-control-height-large);
+  }
+
+  .detail-editor-content .detail-table-footer__hint {
+    display: none;
+  }
+
+  @media (max-width: 340px) {
+    .detail-editor-content .detail-mobile-editor {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    :deep(.detail-mobile-field) {
+      grid-column: 1 / -1;
+    }
+
+    :deep(.detail-mobile-field--door_img),
+    :deep(.detail-mobile-field--open_dir),
+    :deep(.detail-mobile-field--fans_dir),
+    :deep(.detail-mobile-field--track_line),
+    :deep(.detail-mobile-field--lightwin),
+    :deep(.detail-mobile-field--remark) {
+      grid-column: 1 / -1;
+    }
+
+    :deep(.detail-mobile-field--money),
+    :deep(.detail-mobile-field--markup_summary) {
+      grid-column: 1 / -1;
+    }
+  }
+
   .detail-table-toolbar {
     align-items: flex-start;
     padding: var(--sd-space-3);

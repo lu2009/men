@@ -1,27 +1,5 @@
 <template>
-  <section class="order-command" aria-labelledby="order-command-title">
-    <header class="order-command__header">
-      <div class="order-command__identity">
-        <div class="order-command__mark" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none">
-            <path d="M11 13.5h26M11 24h26M11 34.5h26" />
-            <circle cx="16" cy="13.5" r="3" />
-            <circle cx="31" cy="24" r="3" />
-            <circle cx="21" cy="34.5" r="3" />
-          </svg>
-        </div>
-        <div class="order-command__copy">
-          <span class="order-command__eyebrow">PRODUCTION LEDGER · 订单运营</span>
-          <h1 id="order-command-title">订单工作台</h1>
-          <p>检索、筛选并批量处理当前生产订单</p>
-        </div>
-      </div>
-
-      <nav class="order-command__primary-nav" aria-label="订单快捷入口">
-        <n-button secondary @click="emit('open-dashboard')">经营看板</n-button>
-      </nav>
-    </header>
-
+  <section class="order-command" aria-label="订单操作">
     <div class="order-command__search-row">
       <n-input
         class="order-command__search"
@@ -40,6 +18,8 @@
       </n-input>
 
       <div class="order-command__search-actions">
+        <n-button type="primary" @click="emit('new-order')">新建订单</n-button>
+        <n-button secondary @click="emit('open-dashboard')">经营看板</n-button>
         <n-button secondary @click="emit('open-query')">查询更多</n-button>
         <n-button :loading="loading" @click="emit('refresh')">刷新</n-button>
       </div>
@@ -170,6 +150,7 @@ const emit = defineEmits<{
   'clear-accounts': []
   'combine-selected': []
   'open-dashboard': []
+  'new-order': []
   logout: []
 }>()
 </script>
@@ -197,85 +178,6 @@ const emit = defineEmits<{
   pointer-events: none;
 }
 
-.order-command__header,
-.order-command__search-row,
-.order-command__batch-row {
-  display: flex;
-  align-items: center;
-}
-
-.order-command__header {
-  justify-content: space-between;
-  gap: var(--sd-space-6);
-  padding: var(--sd-space-4) var(--sd-space-5);
-}
-
-.order-command__identity {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: var(--sd-space-4);
-}
-
-.order-command__mark {
-  display: grid;
-  place-items: center;
-  flex: 0 0 54px;
-  width: 54px;
-  height: 54px;
-  border: var(--sd-border-width) solid var(--sd-border-action-subtle);
-  border-radius: var(--sd-radius-control);
-  color: var(--sd-color-action);
-  background: var(--sd-material-brand-chip);
-  box-shadow: var(--sd-shadow-brand-mark);
-}
-
-.order-command__mark svg {
-  width: 32px;
-  height: 32px;
-  stroke: currentColor;
-  stroke-width: 2.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.order-command__mark circle {
-  fill: var(--sd-color-bg-surface);
-}
-
-.order-command__copy {
-  min-width: 0;
-}
-
-.order-command__eyebrow {
-  display: block;
-  overflow: hidden;
-  color: var(--sd-color-action);
-  font-family: var(--sd-font-data);
-  font-size: var(--sd-font-size-2xs);
-  font-weight: var(--sd-font-weight-bold);
-  letter-spacing: var(--sd-letter-spacing-eyebrow);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.order-command__copy h1 {
-  margin: 3px 0 1px;
-  color: var(--sd-color-text-strong);
-  font-size: var(--sd-font-size-xl);
-  font-weight: var(--sd-font-weight-bold);
-  line-height: var(--sd-line-height-tight);
-  letter-spacing: -0.02em;
-}
-
-.order-command__copy p {
-  margin: 0;
-  color: var(--sd-color-text-muted);
-  font-size: var(--sd-font-size-xs);
-  line-height: var(--sd-line-height-base);
-}
-
-.order-command__primary-nav,
 .order-command__search-actions,
 .order-command__utility-nav,
 .order-command__batch-actions {
@@ -515,10 +417,6 @@ const emit = defineEmits<{
 }
 
 @media (max-width: 900px) {
-  .order-command__header {
-    align-items: flex-start;
-  }
-
   .order-command__summary {
     grid-template-columns: 150px minmax(0, 1fr);
   }
@@ -544,22 +442,6 @@ const emit = defineEmits<{
 @media (max-width: 640px) {
   .order-command {
     border-radius: var(--sd-radius-card);
-  }
-
-  .order-command__header {
-    flex-direction: column;
-    gap: var(--sd-space-3);
-    padding: var(--sd-space-4);
-  }
-
-  .order-command__primary-nav {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    width: 100%;
-  }
-
-  .order-command__primary-nav :deep(.n-button) {
-    width: 100%;
   }
 
   .order-command__search-row,
@@ -613,25 +495,6 @@ const emit = defineEmits<{
 }
 
 @media (max-width: 420px) {
-  .order-command__mark {
-    flex-basis: 48px;
-    width: 48px;
-    height: 48px;
-  }
-
-  .order-command__mark svg {
-    width: 28px;
-    height: 28px;
-  }
-
-  .order-command__copy h1 {
-    font-size: var(--sd-font-size-lg);
-  }
-
-  .order-command__copy p {
-    font-size: var(--sd-font-size-2xs);
-  }
-
   .order-command__summary {
     grid-template-columns: 118px minmax(0, 1fr);
   }

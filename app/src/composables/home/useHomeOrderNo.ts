@@ -89,6 +89,8 @@ export interface HomeOrderNoDeps {
   details: Record<number, OrderDto>
   /** B6。 */
   loadDetail: (id: number) => void
+  /** 打开整张回执单编辑器；一个回执单下包含全部门明细。 */
+  openOrderEditor: (row: OrderSummaryDto) => void
   /** 页面级组件上下文。 */
   message: MessageApi
 }
@@ -166,14 +168,13 @@ export function useHomeOrderNo(deps: HomeOrderNoDeps) {
     deps.page.value = 1
     orderNoPopShow.value = false
     if (!hit) return
-    // ④ 展开第一条（旧版 :7719-7728）
+    // ④ 打开第一条回执单编辑器。
+    // 订单列表以回执单为粒度，一个回执单下可能有多条平开门/移门明细，
+    // 因此查到门明细单号后，进入整张回执单编辑器，而不是展开一条局部子表。
     await nextTick()
     const first = deps.filtered.value[0]
     if (!first) return
-    if (!deps.expandedRowKeys.value.some((k) => Number(k) === first.id)) {
-      deps.expandedRowKeys.value = [...deps.expandedRowKeys.value, first.id]
-      if (!deps.details[first.id]) deps.loadDetail(first.id)
-    }
+    deps.openOrderEditor(first)
     // ⚠️ 旧版这里还有一段 800ms 后「滚到居中」：它找的是 `.highlight-matched-order`，
     //    而那个类由 **Hui 子表**按 `row.单号.startsWith(po)` 加（`Hui.formatted.js:1352-1356`
     //    / `:3788-3792`，靠 Home 往下传 `highlightOrderQuery`）。
